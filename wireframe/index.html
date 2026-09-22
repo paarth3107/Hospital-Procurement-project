@@ -35,6 +35,16 @@
 .scr-Main .status-open { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
 .scr-Main .status-review { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
 
+/* TenderList.dc.html */
+.scr-TenderList .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-TenderList .field-hint { font-size: 12px; color: #888; }
+.scr-TenderList .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-TenderList .status-draft { background: #f0eee6; border-color: #999; color: #555; }
+.scr-TenderList .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-TenderList .status-open { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.scr-TenderList .status-review { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-TenderList .status-won { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+
 /* CreateTender.dc.html */
 .scr-CreateTender .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
 .scr-CreateTender .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
@@ -172,6 +182,7 @@
     </div>
     <div class="nav-section-label">Hospital — Tender Lifecycle</div>
 <button class="nav-btn" data-target="page-scr-Main" onclick="showScreen(this)">Dashboard</button>
+<button class="nav-btn" data-target="page-scr-TenderList" onclick="showScreen(this)">Tenders</button>
 <button class="nav-btn" data-target="page-scr-CreateTender" onclick="showScreen(this)">Create Tender</button>
 <button class="nav-btn" data-target="page-scr-TenderApproval" onclick="showScreen(this)">E-Tender Approval</button>
 <button class="nav-btn" data-target="page-scr-TenderDetail" onclick="showScreen(this)">Evaluation & L1 Recommendation</button>
@@ -206,7 +217,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -312,11 +323,85 @@
 
 </div>
 </div>
+<div class="screen-page scr-TenderList" id="page-scr-TenderList" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Officer</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">RS</div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 24px 32px 0;">
+    <div>
+      <div class="label" style="font-size: 26px; font-weight: 700;">Tenders</div>
+      <div class="field-hint" style="margin-top: 6px;">Every tender this facility has drafted, published, or closed. Open one to review, or start a new one.</div>
+    </div>
+    <button data-nav="scr-CreateTender" style="background: #b8560c; color: #fff; border: none; padding: 10px 18px; font-size: 14px; cursor: pointer;" class="hdr-nav" onclick="go('scr-CreateTender')">+ New Tender</button>
+  </div>
+
+  <div style="padding: 20px 32px 32px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ITEM</span><span>CATEGORY</span><span>STAGE</span><span>STATUS</span><span>UPDATED</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Portable Ventilator Units (x4)</span><span style="color:#555;">Equipment</span><span style="color:#555;">E-Tender Approval</span>
+        <div class="status-pill status-pending">Pending Approval — Round 2</div><span style="color:#666;">today</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>MRI Machine — 1.5T (Siemens spec)</span><span style="color:#555;">Equipment</span><span style="color:#555;">L1 Evaluation</span>
+        <div class="status-pill status-review">Closed — Under Review</div><span style="color:#666;">2 days ago</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Nitrile Examination Gloves — Box/100</span><span style="color:#555;">Consumables</span><span style="color:#555;">Published</span>
+        <div class="status-pill status-open">Open — 2 days left</div><span style="color:#666;">1 week ago</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Surgical Sutures — Assorted</span><span style="color:#555;">Consumables</span><span style="color:#555;">Published</span>
+        <div class="status-pill status-open">Open — 5 days left</div><span style="color:#666;">4 days ago</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>ICU Beds (x10)</span><span style="color:#555;">Equipment</span><span style="color:#555;">PO Exported</span>
+        <div class="status-pill status-won">Awarded</div><span style="color:#666;">3 weeks ago</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Digital X-Ray Panel</span><span style="color:#555;">Equipment</span><span style="color:#555;">PO Exported</span>
+        <div class="status-pill status-won">Awarded — other vendor</div><span style="color:#666;">1 week ago</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr 1fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Hospital Linen &amp; Laundry Services</span><span style="color:#555;">Services</span><span style="color:#555;">Draft</span>
+        <div class="status-pill status-draft">Draft — not submitted</div><span style="color:#666;">just now</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
 <div class="screen-page scr-CreateTender" id="page-scr-CreateTender" style="background:#f6f5f2;" hidden>
 <div style="width: 900px; min-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column;">
 
-  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
     <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+    <span data-nav="scr-TenderList" style="font-size: 13px; color: #b8560c; cursor: default;" class="hdr-nav" onclick="go('scr-TenderList')">← Back to Tenders</span>
   </div>
 
   <div style="padding: 24px 32px 8px;">
@@ -475,7 +560,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -569,8 +654,9 @@
 <div class="screen-page scr-TenderDetail" id="page-scr-TenderDetail" style="background:#f6f5f2;" hidden>
 <div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
 
-  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
     <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+    <span data-nav="scr-TenderList" style="font-size: 13px; color: #b8560c; cursor: default;" class="hdr-nav" onclick="go('scr-TenderList')">← Back to Tenders</span>
   </div>
 
   <div style="padding: 24px 32px 0;">
@@ -667,6 +753,7 @@
   <div style="width: 100%; background: #fff; border: 1px solid #bbb; box-shadow: 0 2px 0 #ccc;">
 
     <div style="padding: 20px 28px; border-bottom: 1px solid #eee;">
+      <span data-nav="scr-TenderList" style="font-size: 13px; color: #b8560c; cursor: default; display: block; margin-bottom: 8px;" class="hdr-nav" onclick="go('scr-TenderList')">← Back to Tenders</span>
       <span style="font-size: 12px; color: #888;">L1 Approval — separate gate from the Procurement Officer's recommendation</span>
       <div class="label" style="font-size: 20px; font-weight: 700; margin-top: 2px;">MRI Machine — 1.5T: recommended Apex Medical Systems</div>
       <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
@@ -761,7 +848,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -841,7 +928,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -959,7 +1046,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -1075,7 +1162,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -1153,7 +1240,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -1252,8 +1339,9 @@
 <div class="screen-page scr-VendorRegister" id="page-scr-VendorRegister" style="background:#f6f5f2;" hidden>
 <div style="width: 900px; min-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column;">
 
-  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
     <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+    <span data-nav="scr-VendorDashboard" style="font-size: 13px; color: #b8560c; cursor: default;" class="hdr-nav" onclick="go('scr-VendorDashboard')">← Back to Vendor Dashboard</span>
   </div>
 
   <div style="padding: 28px 32px 4px;">
@@ -1388,8 +1476,9 @@
 <div class="screen-page scr-SubmitBid" id="page-scr-SubmitBid" style="background:#f6f5f2;" hidden>
 <div style="width: 900px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
 
-  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
     <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+    <span data-nav="scr-VendorDashboard" style="font-size: 13px; color: #b8560c; cursor: default;" class="hdr-nav" onclick="go('scr-VendorDashboard')">← Back to Open Tenders</span>
   </div>
 
   <div style="padding: 24px 32px 0;">
@@ -1578,7 +1667,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
@@ -1651,7 +1740,7 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px; color: #555;">
-        <span class="hdr-nav" onclick="go('scr-Main')">Dashboard</span><span class="hdr-nav" onclick="go('scr-CreateTender')">Tenders</span><span class="hdr-nav" onclick="go('scr-VendorApproval')">Vendors</span><span class="hdr-nav" onclick="go('scr-TenderApproval')">Approvals</span><span class="hdr-nav" onclick="go('scr-OverrideQueue')">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')">Dashboard</span><span class="hdr-nav" onclick="go('scr-TenderList')">Tenders</span><span class="hdr-nav" onclick="go('scr-VendorApproval')">Vendors</span><span class="hdr-nav" onclick="go('scr-TenderApproval')">Approvals</span><span class="hdr-nav" onclick="go('scr-OverrideQueue')">Overrides</span>
         <span class="hdr-nav" onclick="go('scr-AuditLog')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px; color: #1a1a1a;">Audit Log</span>
       </div>
     </div>
@@ -1707,7 +1796,7 @@
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
         <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
-        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-TenderList')" style="color: #555;">Tenders</span>
         <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
         <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
         <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Overrides</span>
