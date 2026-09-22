@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MedSource — Hospital E-Procurement</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">MedSource</span>
+  <nav id="topnav">
+    <button class="tab-btn active" data-view="register">Vendor Registration</button>
+    <button class="tab-btn" data-view="login">Staff Login</button>
+    <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
+    <span id="whoami"></span>
+    <button id="logout-btn" hidden>Log out</button>
+  </nav>
+</header>
+
+<main id="app">
+
+  <section id="view-register" class="view">
+    <h1>Register as a Vendor</h1>
+    <p class="hint">Submissions are reviewed by Procurement Admin before you can bid on anything.</p>
+    <form id="register-form">
+      <label>Legal Name <input name="legal_name" required></label>
+      <label>GSTIN (15 characters) <input name="gstin" required maxlength="15" minlength="15"></label>
+      <label>PAN (optional) <input name="pan"></label>
+      <label>Contact Person <input name="contact_person" required></label>
+      <label>Email <input name="email" type="email" required></label>
+      <label>Phone <input name="phone"></label>
+      <label>Category Declaration <input name="category_declaration" placeholder="e.g. Equipment, Consumables"></label>
+      <button type="submit">Submit for Verification</button>
+    </form>
+    <div id="register-result" class="result"></div>
+  </section>
+
+  <section id="view-login" class="view" hidden>
+    <h1>Staff Login</h1>
+    <form id="login-form">
+      <label>Email <input name="email" type="email" required value="admin@medsource.local"></label>
+      <label>Password <input name="password" type="password" required value="changeme123"></label>
+      <button type="submit">Log in</button>
+    </form>
+    <div id="login-result" class="result"></div>
+  </section>
+
+  <section id="view-queue" class="view" hidden>
+    <h1>Vendor Approval Queue</h1>
+    <div class="toolbar">
+      <label>Filter by status
+        <select id="status-filter">
+          <option value="pending_verification" selected>Pending Verification</option>
+          <option value="info_requested">Info Requested</option>
+          <option value="active">Active</option>
+          <option value="rejected">Rejected</option>
+          <option value="">All</option>
+        </select>
+      </label>
+      <button id="refresh-btn">Refresh</button>
+    </div>
+    <table id="vendor-table">
+      <thead>
+        <tr><th>Company</th><th>GSTIN</th><th>Contact</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="queue-result" class="result"></div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

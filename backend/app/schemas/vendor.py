@@ -1,0 +1,57 @@
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, field_validator
+
+from app.models.vendor import VendorStatus
+
+# Spec §3.5: "Duplicate registration by GSTIN/PAN is blocked at submission."
+# A real GSTIN is 15 chars (2-digit state code + 10-char PAN + entity/checksum);
+# this is a format sanity check, not a statutory verification (that's the
+# GST/PAN Verification API adapter, out of scope for this pass).
+GSTIN_LENGTH = 15
+
+
+class VendorCreate(BaseModel):
+    legal_name: str
+    gstin: str
+    pan: str | None = None
+    contact_person: str
+    email: EmailStr
+    phone: str | None = None
+    category_declaration: str | None = None
+
+    @field_validator("gstin")
+    @classmethod
+    def gstin_format(cls, v: str) -> str:
+        v = v.strip().upper()
+        if len(v) != GSTIN_LENGTH:
+            raise ValueError(f"GSTIN must be {GSTIN_LENGTH} characters")
+        return v
+
+
+class VendorOut(BaseModel):
+    id: int
+    status: VendorStatus
+    legal_name: str
+    gstin: str
+    pan: str | None
+    contact_person: str
+    email: str
+    phone: str | None
+    category_declaration: str | None
+    rejection_reason: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VendorRejection(BaseModel):
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_required(cls, v: str) -> str:
+        # Spec §3.3 point 5 / §3.5: rejection always carries a reason.
+        if not v or not v.strip():
+            raise ValueError("A reason is required")
+        return v.strip()

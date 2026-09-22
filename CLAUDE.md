@@ -6,12 +6,16 @@ older, much less detailed task-instructions document; where the two disagree,
 `E-Procurement-Spec-v2.md` wins. This file is a condensed working reference to
 that spec.
 
-**Current stage: wireframe + Phase 0 analysis, no application code written.**
-`wireframe/*.dc.html` (published as a Design canvas Artifact, plus a standalone
-click-through `wireframe/index.html`) is the UI; **`IMPLEMENTATION-SPEC.md`**
-(project root) is the Phase 0 architecture/module/API/data-model plan — read
-that before writing any backend or frontend code. Do not start actual
-implementation (Phase 1+) until the user explicitly says to.
+**Current stage: Phase 1 (Foundation) implementation has started.**
+`wireframe/*.dc.html` (+ `wireframe/index.html`) remains the UI reference/click-through
+prototype; `IMPLEMENTATION-SPEC.md` is the architecture/module/API/data-model plan.
+Real code now lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
+`backend/README.md` for setup/run instructions and exactly what's built vs. not)
+and `frontend/` (plain JS — no framework chosen yet, see IMPLEMENTATION-SPEC.md
+§12 open question 1). The vendor registration → approval vertical slice (spec §3)
+is built, tested, and working end-to-end; everything else in the spec is still
+wireframe-only. Continue phase by phase per IMPLEMENTATION-SPEC.md §11 — don't
+jump ahead to later phases without saying so first.
 
 ## Core lifecycle (7 stages, two are split into A/B approval gates)
 
