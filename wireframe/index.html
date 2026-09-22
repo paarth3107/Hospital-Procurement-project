@@ -44,7 +44,7 @@
 .scr-TenderApproval .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
 .scr-TenderApproval .badge { font-size: 11px; border: 1px solid; padding: 2px 8px; width: fit-content; }
 .scr-TenderApproval .badge-manual { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
-.scr-TenderApproval .badge-guest { background: #fbeee6; border-color: #d69a6a; color: #8a4b1f; }
+.scr-TenderApproval .field-hint { font-size: 12px; color: #888; }
 
 /* TenderDetail.dc.html */
 .scr-TenderDetail .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -288,7 +288,7 @@
             <div style="font-weight: 600; font-size: 15px;">Portable Ventilator Units (x4)</div>
             <span style="font-size: 11px; border: 1px solid #999; color: #555; background: #f0eee6; padding: 2px 8px;">E-Tender Approval</span>
           </div>
-          <div style="font-size: 13px; color: #666; margin-top: 4px;">Draft ready — includes 1 manual vendor addition and 1 guest invite</div>
+          <div style="font-size: 13px; color: #666; margin-top: 4px;">Draft ready — includes 1 manually added vendor (existing, Active)</div>
         </div>
         <button style="border: 1px solid #333; background: #fff; padding: 8px 16px; font-size: 14px; cursor: pointer;">Review →</button>
       </div>
@@ -445,9 +445,15 @@
     </div>
 
     <div>
-      <span class="field-label">Manual Vendor Addition / Guest Invite (optional)</span>
-      <div class="input-box">Search registered vendors, or invite a guest vendor by email...</div>
-      <div class="field-hint">Requires a reason code — reviewed at E-Tender Approval, not published automatically.</div>
+      <span class="field-label">Manual Vendor Addition (optional)</span>
+      <div class="input-box">Search registered, Active vendors only...</div>
+      <div class="field-hint">Requires a reason code — reviewed at E-Tender Approval, not published automatically. Only Active, approved vendors can be searched or added here.</div>
+    </div>
+
+    <div>
+      <span class="field-label">Invite a Prospective Vendor Not Yet on MedSource (optional)</span>
+      <div class="input-box">Send a registration invite by email — they must complete registration and be Approved before they can bid</div>
+      <div class="field-hint">This sends a registration link, not a tender invite — the prospective vendor only gets added to this tender's eligible-vendor list once Procurement Admin approves their registration. There is no path to bid before that approval.</div>
     </div>
 
     <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
@@ -536,13 +542,11 @@
       <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
         <span>Horizon Healthcare Supplies</span><span>4.1</span><span style="color:#555;">Mapping + Rating</span><span></span>
       </div>
-      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
         <span>SteriTech India</span><span>4.2</span><span style="color:#555;">Manually added</span><span class="badge badge-manual">Reason: existing ICU vendor</span>
       </div>
-      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
-        <span>MedFlow Global (not yet registered)</span><span>—</span><span style="color:#555;">Guest invite</span><span class="badge badge-guest">Reason: sole distributor for spec</span>
-      </div>
     </div>
+    <div class="field-hint" style="margin-top: 8px;">Every row here is an Active, approved vendor — registration/approval status is checked before a vendor can appear on this list at all (Vendor Approval, screen 6), regardless of how they were added.</div>
   </div>
 
   <div style="padding: 20px 32px 0;">
@@ -1736,8 +1740,8 @@
       </div>
 
       <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
-        <span>Guest Vendor Invite</span><span style="color:#555;">R. Sharma (self-attested)</span>
-        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">NEW MARKET ENTRANT</div><div style="color:#555; margin-top:2px;">Sole distributor for spec, not yet registered</div></span>
+        <span>Expedited Registration Review</span><span style="color:#555;">R. Sharma (self-attested)</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">NEW MARKET ENTRANT</div><div style="color:#555; margin-top:2px;">Sole distributor for spec — asked Procurement Admin to prioritize their pending registration ahead of this tender's deadline. Not yet Active; not yet on any invite list.</div></span>
         <span style="color:#555;">Procurement Officer</span>
         <div class="status-pill status-approved">Approved</div>
         <span></span>
@@ -1795,7 +1799,7 @@
 </div>
 </div>
 <div class="screen-page scr-OpenTenderLanding" id="page-scr-OpenTenderLanding" style="background:#f6f5f2;" hidden>
-<div style="width: 900px; min-height: 1050px; box-sizing: border-box; display: flex; flex-direction: column;">
+<div style="width: 900px; min-height: 1250px; box-sizing: border-box; display: flex; flex-direction: column;">
 
   <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
     <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
@@ -1805,11 +1809,11 @@
   <div style="padding: 24px 32px 0;">
     <span style="font-size: 13px; color: #888;">Open Tender</span>
     <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Hospital Linen & Laundry Services — Annual Contract</div>
-    <div style="font-size: 13px; color: #666; margin-top: 6px;">Facility: City Central Hospital · Bid closes in 9 days · Any vendor may self-register and bid — no prior mapping or invitation required</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Facility: City Central Hospital · Bid closes in 9 days · Open to any vendor — but bidding still requires the standard registration and approval gate below.</div>
   </div>
 
-  <div style="margin: 16px 32px 0; border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
-    This link is scoped only to this tender — you cannot browse or discover any other tender from here. Vendor Mapping and Vendor Rating do not gate participation, but technical evaluation still applies before any commercial ranking.
+  <div style="margin: 16px 32px 0; border: 1px solid #c98a3f; background: #fff8f0; padding: 12px 16px; font-size: 12px; color: #6b4415;">
+    Open Tender bypasses vendor <b>mapping and rating</b> eligibility filtering — it does not bypass vendor <b>registration and approval</b>. Only Active, approved vendors can submit a bid; this link cannot be used to bid as an unregistered or "guest" vendor.
   </div>
 
   <div style="padding: 20px 32px 0;">
@@ -1829,40 +1833,59 @@
   </div>
 
   <div style="padding: 24px 32px 0;">
-    <span class="label" style="font-size: 16px; font-weight: 700;">Self-Registration</span>
-    <div class="field-hint" style="margin-top: 2px; margin-bottom: 14px;">Same minimum fields as an officer-initiated guest invite. If your GSTIN/PAN matches an existing registration, you'll be matched to that profile instead of creating a duplicate.</div>
+    <span class="label" style="font-size: 16px; font-weight: 700;">Vendor Registration</span>
+    <div class="field-hint" style="margin-top: 2px; margin-bottom: 14px;">Same form, and the same Procurement Admin review, as standard vendor registration (spec §3). If your GSTIN/PAN matches an existing registration, you'll be matched to that profile instead of creating a duplicate — no need to re-register.</div>
 
-    <div style="display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; flex-direction: column; gap: 22px;">
+
       <div style="display: flex; gap: 16px;">
         <div style="flex: 1;">
           <span class="field-label">Company Name</span>
           <div class="input-box">e.g. Sunrise Linen Services</div>
         </div>
         <div style="flex: 1;">
-          <span class="field-label">GSTIN / PAN (if available)</span>
-          <div class="input-box">—</div>
+          <span class="field-label">Registration / Tax ID</span>
+          <div class="input-box">e.g. GSTIN</div>
         </div>
       </div>
+
+      <div>
+        <span class="field-label">Category of Supplies</span>
+        <div class="input-box">Select one or more ▾</div>
+        <div class="field-hint">Equipment / Consumables / Pharmaceuticals / Services</div>
+      </div>
+
       <div style="display: flex; gap: 16px;">
         <div style="flex: 1;">
           <span class="field-label">Contact Person</span>
           <div class="input-box">Full name</div>
         </div>
         <div style="flex: 1;">
-          <span class="field-label">Phone / Email</span>
-          <div class="input-box">—</div>
+          <span class="field-label">Email</span>
+          <div class="input-box">name@company.com</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Phone</span>
+          <div class="input-box">+91 —</div>
         </div>
       </div>
+
       <div>
         <span class="field-label">Bank Details</span>
         <div class="input-box">Bank name, account number, IFSC</div>
       </div>
+
+      <div>
+        <span class="field-label">Certifications</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 24px; text-align: center; color: #999; font-size: 13px;">Upload ISO / CDSCO / BIS certificates</div>
+      </div>
+
       <div style="border: 1px dashed #999; background: #fff; padding: 18px; text-align: center; color: #999; font-size: 13px;">I'm not a robot — CAPTCHA challenge</div>
     </div>
 
     <div style="border-top: 1px solid #ddd; margin-top: 22px; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-      <span class="field-hint">Full KYC and formal approval aren't required to bid, but are required before you can be confirmed as the awarded vendor.</span>
-      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Register & Continue to Bid →</button>
+      <span class="field-hint">You'll be notified once Procurement Admin reviews and approves your registration — only then can you view and submit a bid on this tender, same as any other vendor.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Submit for Verification</button>
     </div>
   </div>
 

@@ -20,7 +20,7 @@
     { "file": "POExport.dc.html", "x": 0, "y": 4250, "w": 1100, "h": 950, "title": "15. PO Data Export & ERP Handoff (split → multiple files) — Procurement Admin" },
     { "file": "AuditLog.dc.html", "x": 1250, "y": 4250, "w": 1100, "h": 750, "title": "16. Audit Log — System Admin" },
 
-    { "file": "OpenTenderLanding.dc.html", "x": 0, "y": 5500, "w": 900, "h": 1050, "title": "17. Open Tender — Public Self-Registration (no login)" },
+    { "file": "OpenTenderLanding.dc.html", "x": 0, "y": 5500, "w": 900, "h": 1250, "title": "17. Open Tender — Registration Required Before Bidding" },
     { "file": "OverrideQueue.dc.html", "x": 1050, "y": 5500, "w": 1180, "h": 950, "title": "18. Override & Exception Approval Queue — the shared engine" }
   ],
   "annotations": [
@@ -42,7 +42,7 @@
     { "id": "flow-export-detail", "x": 0, "y": 4110, "w": 1100, "text": "PO data export (CSV/XML, traceable, not itself the ERP PO) · full audit trail across every stage above, immutable from normal workflows" },
 
     { "id": "flow-extras", "kind": "title1", "x": 0, "y": 5270, "w": 2500, "text": "PUBLIC PARTICIPATION & GOVERNANCE" },
-    { "id": "flow-extras-detail", "x": 0, "y": 5360, "w": 1300, "text": "Open Tender bypasses eligibility filtering entirely (spec §6.8); the Override Queue is the single engine behind every governed override referenced across every screen above (spec §12)" }
+    { "id": "flow-extras-detail", "x": 0, "y": 5360, "w": 1300, "text": "Open Tender bypasses vendor mapping/rating filtering (spec §6.8) — it does NOT bypass registration/approval (project override, see CLAUDE.md); the Override Queue is the single engine behind every governed override referenced across every screen above (spec §12)" }
   ],
   "launch": { "view": "canvas" }
 }
