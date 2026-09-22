@@ -24,6 +24,8 @@
   #stage { padding: 32px; display: flex; justify-content: center; }
   .screen-page { background: #f6f5f2; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
   .screen-page[hidden] { display: none !important; }
+  .hdr-nav { cursor: pointer; }
+  .hdr-nav:hover { opacity: 0.65; }
 
 /* Main.dc.html */
 .scr-Main .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -193,7 +195,7 @@
 <button class="nav-btn" data-target="page-scr-OpenTenderLanding" onclick="showScreen(this)">Open Tender (Public Landing)</button>
   </nav>
   <main id="main">
-    <div id="topbar">Viewing: <b id="topbar-label">Dashboard</b> -- buttons are inert in this pass, navigation only</div>
+    <div id="topbar">Viewing: <b id="topbar-label">Dashboard</b> -- header nav tabs now navigate too; other action buttons are still inert</div>
     <div id="stage">
       <div class="screen-page scr-Main" id="page-scr-Main" style="background:#f6f5f2;" hidden>
 <div style="width: 1180px; min-height: 980px; box-sizing: border-box; display: flex; flex-direction: column;">
@@ -203,11 +205,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="color: #555;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -472,11 +474,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="color: #555;">Vendors</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -758,11 +760,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -838,11 +840,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -956,11 +958,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1072,11 +1074,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1150,11 +1152,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1318,10 +1320,10 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Open Tenders</span>
-        <span style="color: #555;">My Bids</span>
-        <span style="color: #555;">Awards</span>
-        <span style="color: #555;">Profile</span>
+        <span class="hdr-nav" onclick="go('scr-VendorDashboard')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Open Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-SubmitBid')" style="color: #555;">My Bids</span>
+        <span class="hdr-nav" onclick="go('scr-VendorAwards')" style="color: #555;">Awards</span>
+        <span class="hdr-nav" onclick="go('scr-VendorRegister')" style="color: #555;">Profile</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1472,10 +1474,10 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Open Tenders</span>
-        <span style="color: #555;">My Bids</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Awards</span>
-        <span style="color: #555;">Profile</span>
+        <span class="hdr-nav" onclick="go('scr-VendorDashboard')" style="color: #555;">Open Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-SubmitBid')" style="color: #555;">My Bids</span>
+        <span class="hdr-nav" onclick="go('scr-VendorAwards')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Awards</span>
+        <span class="hdr-nav" onclick="go('scr-VendorRegister')" style="color: #555;">Profile</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1575,12 +1577,12 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="color: #555;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="color: #555;">Overrides</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">PO Export</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="color: #555;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-POExport')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">PO Export</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1649,8 +1651,8 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px; color: #555;">
-        <span>Dashboard</span><span>Tenders</span><span>Vendors</span><span>Approvals</span><span>Overrides</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px; color: #1a1a1a;">Audit Log</span>
+        <span class="hdr-nav" onclick="go('scr-Main')">Dashboard</span><span class="hdr-nav" onclick="go('scr-CreateTender')">Tenders</span><span class="hdr-nav" onclick="go('scr-VendorApproval')">Vendors</span><span class="hdr-nav" onclick="go('scr-TenderApproval')">Approvals</span><span class="hdr-nav" onclick="go('scr-OverrideQueue')">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-AuditLog')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px; color: #1a1a1a;">Audit Log</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1704,11 +1706,11 @@
     <div style="display: flex; align-items: center; gap: 32px;">
       <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
       <div style="display: flex; gap: 24px; font-size: 15px;">
-        <span style="color: #555;">Dashboard</span>
-        <span style="color: #555;">Tenders</span>
-        <span style="color: #555;">Vendors</span>
-        <span style="color: #555;">Approvals</span>
-        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Overrides</span>
+        <span class="hdr-nav" onclick="go('scr-Main')" style="color: #555;">Dashboard</span>
+        <span class="hdr-nav" onclick="go('scr-CreateTender')" style="color: #555;">Tenders</span>
+        <span class="hdr-nav" onclick="go('scr-VendorApproval')" style="color: #555;">Vendors</span>
+        <span class="hdr-nav" onclick="go('scr-TenderApproval')" style="color: #555;">Approvals</span>
+        <span class="hdr-nav" onclick="go('scr-OverrideQueue')" style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1904,6 +1906,10 @@ function showScreen(btn) {
   btn.classList.add('active');
   document.getElementById('topbar-label').textContent = btn.textContent;
   document.getElementById('main').scrollTop = 0;
+}
+function go(scopeId) {
+  var btn = document.querySelector('.nav-btn[data-target="page-' + scopeId + '"]');
+  if (btn) showScreen(btn);
 }
 window.addEventListener('DOMContentLoaded', function() {
   var first = document.querySelector('.nav-btn');
