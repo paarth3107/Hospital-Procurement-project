@@ -1,357 +1,310 @@
-# Hospital E-Procurement — Implementation Specification (Phase 0)
+# Hospital E-Procurement — Technical Implementation Specification
 
-Status: design/analysis only — **no application code has been written**. This is the
-architecture/module/API plan called for in `CLAUDE.md`'s "Working process," produced
-before any implementation begins.
+Status: design/analysis only — **no application code has been written yet**. This
+supersedes the previous version of this file (which organized around Vendor/
+Hospital/System actor modules); this pass uses a conventional layered/resource
+structure instead.
 
-Grounded in three sources:
-- `E-Procurement-Spec-v2.md` — the authoritative business/functional spec (cited as §x.y below).
-- `wireframe/index.html` (18 screens) — what the UI actually looks like and what state each screen needs.
-- `E-Procurement Prototype.dc.html` — a second Claude-built prototype of the same spec; its `state{}` shape and per-screen data (`state.awards`, `state.mapping`, `state.overrides`, `state.split`, `state.bidUnit`, `state.poAck`, `state.vendorStatus`, etc.) is used below as evidence for what the frontend needs from the API, cited as "(prototype state)".
-- `CLAUDE.md`'s **PROJECT OVERRIDE** — no vendor may bid anywhere (selective, manual-add, or Open Tender) without being an Active, approved vendor first. This is enforced in nearly every Module 1/3 function below and is called out explicitly wherever it changes a function's behavior from the base spec.
+Grounded in:
+- `E-Procurement-Spec-v2.md` — the authoritative business/functional spec (cited as §x.y).
+- `wireframe/` (19 screens, `index.html`) — what the UI is and what data each screen needs.
+- `E-Procurement Prototype.dc.html` — a second Claude-built prototype of the same spec; its `state{}` shape is used below as evidence for frontend data needs, cited as "(prototype state)".
+- `CLAUDE.md`'s **PROJECT OVERRIDE** — no vendor may bid anywhere without being an Active, approved vendor first, including Open Tender and manual/guest-sourced invites. This is enforced server-side in every endpoint below that touches eligibility or bid submission.
 
-Module split, as requested — by **actor**, not by lifecycle stage (the spec's own Module 1–7 numbering is cited inline for traceability, but the organizing axis here is who acts):
-1. **Vendor** — everything the vendor does to themselves and their own bids.
-2. **Hospital** — everything hospital staff (5 internal roles) do.
-3. **System** — engines and background processes no human directly drives.
+**Tech stack:** Python (backend), JavaScript (frontend — framework not fixed by this document; see §6), PostgreSQL (database), FastAPI (the API layer connecting the two).
 
 ---
 
-## 0. Architecture & Tech Stack
+## 1. Overview
+
+A seven-stage procurement pipeline (spec §2): vendor onboarding → catalog/mapping →
+rating → tender creation → tender approval → bidding → evaluation → award approval →
+PO export. Two explicit, separate approval gates (E-Tender Approval, L1 Approval) are
+the spec's central design constraint — nothing in this system auto-publishes a tender
+or auto-confirms an award. A second constant is server-side enforcement: eligibility,
+price confidentiality, and approval state are never trusted from the client.
+
+---
+
+## 2. Architecture & Tech Stack
+
+```
+ ┌─────────────┐      HTTPS/JSON      ┌──────────────┐      SQL       ┌────────────┐
+ │  JS Frontend │ ───────────────────▶ │   FastAPI    │ ─────────────▶ │ PostgreSQL │
+ │   (SPA)      │ ◀─────────────────── │  (Python)    │ ◀───────────── │            │
+ └─────────────┘                      └──────┬───────┘                └────────────┘
+                                              │
+                              ┌───────────────┼────────────────┐
+                              ▼               ▼                ▼
+                        DocumentStore   NotificationSender   Scheduler
+                        (DMS adapter)   (Email/SMS adapter)  (jobs, §7)
+```
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Frontend | React (SPA) | Consumes the FastAPI JSON API. Role-aware routing/rendering per §11.1 permissions matrix. |
-| API | FastAPI | Pydantic request/response models double as the API contract; one router module per Module below (`routers/vendor.py`, `routers/hospital.py`); Module 3 has no public router — it's internal services called by 1 and 2. |
-| Backend language | Python | Service layer below FastAPI routers; routers stay thin (validate → call service → return), all business rules live in services, per `CLAUDE.md`'s "don't put business logic exclusively in controllers." |
-| Database | PostgreSQL | Relational fit is strong — hierarchical tender→line-item→bid structure, foreign-keyed approvals, and the audit trail all want referential integrity and transactional guarantees (spec's own NFR: "transactional integrity for workflow transitions"). |
-| Auth | Session or JWT (OPEN QUESTION — not specified) | RBAC middleware resolves the 6 roles (§11.1) + facility scope (§2.3) on every request; every write endpoint re-checks authorization server-side regardless of what the frontend renders (`CLAUDE.md`: "never rely on frontend button visibility alone"). |
-| File storage | Adapter interface, mocked locally | Document/DMS Storage (§13.1) is an external integration boundary — implement `DocumentStore` interface (`upload`, `get`, `scan_for_malware`) with a local-disk mock now, swappable later. |
-| Notifications | Adapter interface, mocked locally | Email/SMS Gateway (§13.1) — `NotificationSender` interface (`send_email`, `send_sms`), mock logs to console/DB now. |
-| Background jobs | APScheduler (assumption — not spec'd) | For SLA/round-escalation checks, rating-refresh reminders, compliance-document-expiry flags, bid-deadline auto-lock. **OPEN QUESTION**: spec doesn't mandate a job runner; APScheduler assumed for a single-instance deployment, revisit if horizontal scaling is required. |
-| GST/PAN verification, CAPTCHA, Digital Signature | Adapter interfaces, mocked locally | Per §13.1 — all optional/external, never faked as production integrations per `CLAUDE.md`. |
+| Frontend | JavaScript SPA | `wireframe/index.html` already demonstrates the page inventory and per-page state needs in plain JS — whether to introduce a framework (React, Vue, or stay vanilla) is an open question (§12), not fixed here. |
+| API | FastAPI | Pydantic models are the request/response contract. Routers organized by **resource** (§5), not by caller role — role/permission checks happen inside each endpoint via dependency injection, not by routing to different paths per role. |
+| Backend logic | Python | Service layer beneath the routers; routers stay thin (validate → call service → serialize response). No business logic in routers or in the ORM models themselves. |
+| Database | PostgreSQL | Strong relational fit — tender → line item → bid → evaluation → award → PO is a deep FK chain, and the audit/approval tables need transactional guarantees. |
+| Auth | Session or JWT (**open question**, §12) | RBAC resolved per-request against the 6 roles in spec §11.1, scoped additionally by facility (§2.3). |
+| File storage | `DocumentStore` adapter, mocked locally | External DMS integration boundary (§13.1); local disk + malware-scan stub for now. |
+| Notifications | `NotificationSender` adapter, mocked locally | Email/SMS gateway boundary (§13.1); logs to a table for now instead of actually sending. |
+| Background jobs | APScheduler (**assumption**, not spec'd) | SLA/escalation checks, rating-staleness flags, document-expiry flags, bid-deadline locking (§7). |
 
-**Cross-cutting rule baked into every module below:** every workflow transition (approve, reject, override, publish, award) is validated and executed **server-side**; the API is the enforcement point, not the UI. This is the single most repeated rule across the spec (§1.2, §7.5, §9.6, §12.2, `CLAUDE.md`) and is not re-stated per function below — assume it everywhere.
+**Cross-cutting rule, assumed everywhere below and not repeated per-endpoint:** every
+state-changing endpoint re-validates authorization and business rules server-side,
+regardless of what the frontend would have allowed the user to click.
 
 ---
 
-## 1. Data Model (entities, not full DDL)
+## 3. Data Model
 
-| Entity | Key fields | Notes |
+| Table | Key columns | Notes |
 |---|---|---|
 | `facility` | id, name, legal_entity_code | §2.3 — every tender/mapping/PO scopes to exactly one. |
-| `user_account` | id, role, facility_scope[] | Roles: Vendor, Procurement Officer, Procurement Admin, Category Manager/Technical Evaluator, Approving Authority, System Admin (§11.1). |
-| `vendor` | id, status, gstin, pan, legal_name, ... | Status enum in §2 below. `status='Active'` is the single gate checked before any bid-related action, per PROJECT OVERRIDE. |
-| `vendor_document` | id, vendor_id, doc_type, ref_no, valid_till, verification_state | KYC/statutory docs (§3.2); expiry-tracked (§3.5). |
-| `product_master` | id, code, procurement_type (Item/Asset/Service), category, type_specific_attrs (JSONB) | §4.2; JSONB for the type-specific attribute set (§4.2.1/4.2.2) rather than one wide table. |
-| `vendor_mapping` | id, vendor_id, product_master_id (or category_id for category-level), state, approved_by, approved_at, version | Many-to-many (§4.3); versioned, not overwritten. |
-| `vendor_rating` | id, vendor_id, facility_id (nullable if group-wide), overall_score, price_competitiveness, on_time_pct, quality_pct, compliance_pct, responsiveness, is_stale, is_provisional | §5; weights are config, not hardcoded (25/25/20/15/15 are seed defaults per §5.2). |
-| `rating_history` | id, vendor_rating_id, sub_score_name, old_value, new_value, entered_by, reason, entered_at | §5.3.1 point 3 — "prior values are retained in history rather than overwritten." |
-| `tender` | id, facility_id, type (RFQ/RFP/RateContract/OpenTender), status, round_number, min_rating_threshold, min_invites, max_invites | §6.2; status enum below. |
-| `tender_line_item` | id, tender_id, procurement_type, product_master_id, qty, split_award_allowed, min_rating_threshold_override, technical_eval_method (qualify_disqualify / scored / qcbs), technical_weight, price_weight | §6.3/6.3.4/9.4 — eval method + QCBS weights fixed here at creation, per §9.4's "cannot be changed after publish without a governed override." |
-| `tender_attachment` | id, tender_id, line_item_id (nullable = header-level), file_ref, version, uploaded_by | §6.4. |
-| `tender_invite` | id, tender_line_item_id, vendor_id, source (system_resolved / manual / registration_invite), reason_code, approved | §6.5–6.7 — every row here is, by PROJECT OVERRIDE, an Active vendor by the time it's `approved=true`. |
-| `tender_approval_round` | id, tender_id, round_number, decision, reviewer_id, comments, decided_at | §7.3 — one row per round, never overwritten. |
-| `bid` | id, tender_line_item_id, vendor_id, status (draft/submitted/locked), submitted_at | §8. |
-| `bid_commercial` | id, bid_id, unit_price, tax, delivery_lead_time, payment_terms, quote_validity_days | Kept in a **separate table/column-set from technical fields** deliberately, to make the price-masking query boundary explicit (§9.6). |
-| `bid_technical` | id, bid_id, compliance_statement, declared_shelf_life (nullable) | §8.2, §6.3.5. |
+| `user_account` | id, role, facility_scope[] | Roles per §11.1. |
+| `vendor` | id, status, gstin, pan, legal_name | `status='Active'` is the single, non-negotiable gate for any bid-related action (PROJECT OVERRIDE). |
+| `vendor_document` | id, vendor_id, doc_type, ref_no, valid_till, verification_state | §3.2; expiry-tracked (§3.5). |
+| `product_master` | id, code, procurement_type, category, type_specific_attrs (JSONB) | §4.2; JSONB holds the Item/Asset/Service-specific attribute set (§4.2.1/4.2.2). |
+| `vendor_mapping` | id, vendor_id, product_master_id, state, approved_by, version | §4.3 — many-to-many, versioned, never overwritten. |
+| `vendor_rating` | id, vendor_id, facility_id (nullable), overall_score, price_competitiveness, on_time_pct, quality_pct, compliance_pct, responsiveness, is_stale, is_provisional | §5; seed weights 25/25/20/15/15 (§5.2), config not hardcoded. |
+| `rating_history` | id, vendor_rating_id, field, old_value, new_value, entered_by, reason | §5.3.1 — prior values retained, not overwritten. |
+| `tender` | id, facility_id, type, status, round_number, min_rating_threshold, min_invites, max_invites | §6.2. |
+| `tender_line_item` | id, tender_id, procurement_type, product_master_id, qty, split_award_allowed, min_rating_threshold_override, technical_eval_method, technical_weight, price_weight | §6.3/6.3.4/9.4 — eval method + QCBS weights fixed here at creation. |
+| `tender_attachment` | id, tender_id, line_item_id (nullable = header), file_ref, version | §6.4. |
+| `tender_invite` | id, tender_line_item_id, vendor_id, source, reason_code, approved | §6.5–6.7 — every `approved=true` row is, by construction, an Active vendor. |
+| `tender_approval_round` | id, tender_id, round_number, decision, reviewer_id, comments, decided_at | §7.3. |
+| `bid` | id, tender_line_item_id, vendor_id, status | §8. |
+| `bid_commercial` | id, bid_id, unit_price, tax, delivery_lead_time, payment_terms, quote_validity_days | Deliberately separated from technical fields to make the price-masking boundary explicit (§9.6). |
+| `bid_technical` | id, bid_id, compliance_statement, declared_shelf_life | §8.2, §6.3.5. |
 | `bid_attachment` | id, bid_id, file_ref, version | §8.3. |
-| `technical_evaluation` | id, bid_id, evaluator_id, score (nullable for qualify/disqualify), qualified (bool), disqualify_reason | §9.2.3 — one row per evaluator when committee-based; consolidated separately. |
-| `evaluation_result` | id, tender_line_item_id, bid_id, t_rank, l_rank, c_rank, consolidated_tech_score | Computed/cached result of the evaluation engine (Module 3). |
-| `award_recommendation` | id, tender_line_item_id, recommended_bid_id, is_override, override_reason, split JSONB (`[{vendor_id, pct}]`), confirmed_by, confirmed_at | §9.5 — split proposal lives here (prototype state: `state.split`, `state.awards`). |
-| `award_decision` | id, tender_line_item_id, approving_authority_id, decision, split JSONB (final), round_number | §10.2 — the Approving Authority's confirm/adjust of the proposed split lands here, distinct from the recommendation row above. |
-| `po_data_file` | id, tender_id, vendor_id, batch_id, format (CSV/XML), status, generated_at, superseded_by | §10.3; one row per **vendor** per tender — a split line item produces one row per vendor sharing it. |
+| `technical_evaluation` | id, bid_id, evaluator_id, score, qualified, disqualify_reason | §9.2.3 — one row per evaluator when committee-based. |
+| `evaluation_result` | id, tender_line_item_id, bid_id, t_rank, l_rank, c_rank, consolidated_tech_score | Cached output of the ranking engine (§5.3 of this document). |
+| `award_recommendation` | id, tender_line_item_id, recommended_bid_id, is_override, override_reason, split (JSONB), confirmed_by | §9.5 — split proposal (prototype state: `state.split`, `state.awards`). |
+| `award_decision` | id, tender_line_item_id, approving_authority_id, decision, split (JSONB, final), round_number | §10.2 — the Approving Authority's confirm/adjust of the split lands here. |
+| `po_data_file` | id, tender_id, vendor_id, batch_id, format, status, generated_at, superseded_by | §10.3 — one row per **vendor** per tender; a split line item produces one row per vendor sharing it. |
 | `po_data_line` | id, po_data_file_id, tender_line_item_id, qty, unit_price, tax, line_total | §10.4 field set. |
-| `override` | id, type, target_ref, initiator_id, reason_code, justification, state, approver_role, approver_id, decided_at, escalated_from | §12 — the one generic table backing every override type in §12.3. |
-| `audit_log` | id, actor_id, role, action, entity_type, entity_id, before_state JSONB, after_state JSONB, reason, timestamp | §14 — immutable (DB-level: insert-only, no UPDATE/DELETE grants for the app role). |
+| `override` | id, type, target_ref, initiator_id, reason_code, justification, state, approver_role, approver_id, decided_at, escalated_from | §12 — one generic table backing every override type in §12.3. |
+| `audit_log` | id, actor_id, role, action, entity_type, entity_id, before_state (JSONB), after_state (JSONB), reason, timestamp | §14 — insert-only at the DB grant level. |
 
 ---
 
-## 2. State Machines
+## 4. State Machines
 
 ```
-Vendor.status:      Draft → Pending Verification → Active
-                                  ↓                    ↓
-                            Info Requested        Suspended
-                                  ↓                    ↑
-                              Rejected / Blacklisted ──┘
-  (§3.4 — Active is the sole gate for any bid-related action, PROJECT OVERRIDE)
+vendor.status:        Draft -> Pending Verification -> Active
+                                     |                    |
+                               Info Requested         Suspended
+                                     |                    ^
+                                 Rejected/Blacklisted -----'
+  (§3.4 -- Active is the sole gate for any bid-related action, PROJECT OVERRIDE)
 
-Tender.status:       Draft → Pending E-Tender Approval → Published → Bid Window Closed
-                              ↓ (reject)                              ↓
-                            Draft (new round)              Pending L1 Approval
-                                                                       ↓ (reject per line)
-                                                            [per-line re-evaluation, new round]
-                                                                       ↓ (all lines decided)
-                                                            Awarded — Approved for Export
-  (§7.3 — round_number increments per (re)submission; no cap by default, only escalation trigger)
+tender.status:         Draft -> Pending E-Tender Approval -> Published -> Bid Window Closed
+                                  ^ (reject)                                |
+                                  '------------------ new round             v
+                                                                  Pending L1 Approval
+                                                                            | (reject per line)
+                                                          [re-evaluate that line, new round]
+                                                                            | (all lines decided)
+                                                              Awarded -- Approved for Export
+  (§7.3 -- round_number increments per (re)submission; no cap by default, escalation only)
 
-Bid.status:          Draft → Submitted (locked at deadline)
-  (§8.4 — no edits after submit; late submission requires an Override to unlock)
+bid.status:             Draft -> Submitted (locked at deadline)
+  (§8.4 -- no post-submit edits; late submission needs an Override to unlock, never a direct path)
 
-Override.state:      Requested → Pending Approval → Approved
-                                       ↓                ↓
-                                  Escalated          Rejected
-                                       ↓
-                                  Expired (SLA breach, auto-rejected)
-  (§12.4 — generic to all 8 override types in §12.3)
+override.state:         Requested -> Pending Approval -> Approved
+                                            |                |
+                                       Escalated          Rejected
+                                            |
+                                        Expired (SLA breach, auto-rejected)
+  (§12.4 -- generic to all 8 override types in §12.3)
 
-PODataFile.status:    Pending Upload → Imported — PO Created in ERP
-                                   ↓
-                              Import Failed → (re-export override) → Pending Upload (new version)
+po_data_file.status:    Pending Upload -> Imported -- PO Created in ERP
+                                    |
+                               Import Failed -> (re-export override) -> Pending Upload (new version)
   (§10.5)
 ```
 
 ---
 
-## Module 1 — VENDOR
+## 5. API Design
 
-Router: `routers/vendor.py`, prefix `/api/vendor`, auth: vendor session, all writes scoped to `current_vendor.id`.
+FastAPI routers organized by **resource**, mounted under `/api/v1/`. Every endpoint's
+role/facility check is a dependency, not a separate route — e.g. `GET /tenders/{id}`
+returns different levels of detail to a Vendor vs. a Procurement Officer, rather than
+living at two different paths.
 
-### 1.1 Registration
+### 5.1 Auth
+- `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
 
-**Screens:** `VendorRegister.dc.html`, `OpenTenderLanding.dc.html` (identical form, per PROJECT OVERRIDE — no lightweight variant).
+### 5.2 Vendors
+- `POST /vendors` — register (also used by the Open Tender registration form, §6.8 — same code path per PROJECT OVERRIDE, no lightweight variant).
+- `GET /vendors/{id}`, `GET /vendors?status=Pending Verification` (staff queue).
+- `POST /vendors/{id}/documents` — through the `DocumentStore` malware-scan path.
+- `POST /vendors/{id}/approve` / `/reject` / `/request-info` — Procurement Admin; `approve` triggers auto-open of category mapping (§3.3 point 6).
+- `POST /vendors/{id}/rating/manual-entry` — **not** an override (§5.3.1 point 3), still logged to `rating_history`.
+- `POST /vendors/{id}/rating/override-price-competitiveness` — **is** an override (§5.3.1 point 4), routes through §5.10.
+- `GET /vendors/{id}/rating`
 
-**Functions:**
-- `POST /api/vendor/register` → `vendor_service.register(payload) -> Vendor` — creates `vendor` row, status=`Pending Verification`; runs GSTIN/PAN format + duplicate check (§3.5) before insert.
-- `vendor_service.check_duplicate_gstin(gstin) -> Vendor | None` — used by both standard registration and Open Tender self-registration, so a returning vendor is matched instead of duplicated (§6.8.2 point 3).
-- `POST /api/vendor/{id}/documents` → `vendor_service.upload_document(vendor_id, doc_type, file) -> VendorDocument` — routes through the `DocumentStore` adapter's malware scan (§6.4.2 pattern, reused).
+### 5.3 Product Master
+- `GET/POST/PUT /products` — `procurement_type` drives a discriminated Pydantic schema (§4.2.1/4.2.2).
 
-**Flow:**
-1. Vendor (or Open Tender visitor — same form) submits registration + KYC docs.
-2. `register()` validates format, checks duplicate by GSTIN, inserts `vendor` + `vendor_document` rows.
-3. Row enters Procurement Admin's queue (Module 2.2) as `Pending Verification`.
-4. Vendor polls/receives notification on status change; **cannot bid on anything until `status='Active'`** (PROJECT OVERRIDE — this is the same code path whether they arrived via direct registration or an Open Tender link).
+### 5.4 Vendor Mapping
+- `POST /mappings` — vendor requests (§4.3 point 1).
+- `GET /mappings/matrix?facility_id=`
+- `GET /mappings/{vendor_id}/{product_id}` — detail + history.
+- `POST /mappings/{id}/approve` / `/reject` / `/suspend` — Category Manager; approve takes an explicit scope (category-only vs. specific SKUs, §4.3 point 2).
 
-### 1.2 Profile & Category Requests
+### 5.5 Tenders
+- `POST /tenders` (Draft) → `POST /tenders/{id}/line-items` → `POST /tenders/{id}/line-items/{lid}/attachments`.
+- `GET /tenders` — the list backing the wireframe's `TenderList` screen; filterable by status/facility.
+- `GET /tenders/{id}/eligibility-preview` — calls §5.9's resolver per line item.
+- `POST /tenders/{id}/manual-vendor` — **existing Active vendors only**; creates an override (type=`vendor_add`).
+- `POST /tenders/{id}/invite-registration` — sends a registration invite; **creates no `tender_invite` row** — that only happens later, once the invitee is separately Approved and then explicitly added (PROJECT OVERRIDE — there is no function anywhere that adds an unapproved vendor to `tender_invite`).
+- `POST /tenders/{id}/submit-for-approval` — validates §6.9's two blocks (mandatory attachments; zero-eligible lines without a covering override or Open Tender exemption).
+- `POST /tenders/{id}/approve` — hard-gated on no `Pending`/`Escalated` overrides for this tender (§7.2 point 2); on success, `Published`, and for Open Tender activates the public link instead of an invite list (§6.8.1).
+- `POST /tenders/{id}/reject` — mandatory comments; writes `tender_approval_round`, resets to `Draft`.
 
-**Screens:** `VendorRegister.dc.html` (post-approval, viewed as profile — the prototype's `vProfile`/`regFields`/`regDocs`/`regCats` pattern is the reference for what a "view my profile" screen needs, since our own wireframe didn't build a separate read-only profile view).
+### 5.6 Bids
+- `POST /bids/draft`, `POST /bids/{id}/submit` — the submit endpoint is the most heavily gated function in the system:
+  1. `vendor.status == 'Active'` (PROJECT OVERRIDE, checked here regardless of frontend state).
+  2. Vendor still on the approved invite list for this exact line item (§6.5).
+  3. Mandatory attachments present (§8.3.1, by procurement type).
+  4. `now() <= bid_due_date` — a late bid has no success path; it can only be unlocked afterward via an override (§5.10), never accepted directly.
+- `POST /bids/{id}/attachments`
+- `GET /tenders/{id}/line-items/{lid}/comparative-statement` — calls §5.3's ranking engine.
 
-**Functions:**
-- `GET /api/vendor/{id}/profile` → company facts + document vault + category declarations.
-- `POST /api/vendor/{id}/mapping-requests` → `mapping_service.request_mapping(vendor_id, product_master_id | category_id, credentials) -> VendorMapping` (state=`Pending`) — §4.3 point 1.
+### 5.7 Evaluation & Awards
+- `POST /evaluations/{bid_id}/technical` — branches on `technical_eval_method`; gated on `now() > bid_due_date` (§9.2.3 point 1).
+- `POST /tenders/{id}/line-items/{lid}/recommend` — writes `award_recommendation`; non-top-rank requires `override_reason`, routes through §5.10 (§9.5 point 3).
+- `POST /l1-approvals/{lid}/approve` — writes `award_decision`; a `split_adjustment` differing from the proposal is the Approving Authority's final say (§10.2 point 3), not a separate override.
+- `POST /l1-approvals/{lid}/reject` — mandatory comments, sends the line back to re-evaluation with its own round history (§10.2 point 5).
+- `POST /l1-approvals/{lid}/override-award` — non-L1/C1 award, routes through §5.10.
 
-**Flow:** vendor requests a mapping (at registration or later) → lands in Category Manager's queue (Module 2.4) → vendor sees `Pending`/`Mapped` per category on their profile.
+### 5.8 PO Export
+- `GET /po-exports`, `POST /po-exports/{id}/download` or `/push-to-erp` (integration pattern is §12 open question), `POST /po-exports/{id}/confirm-import`, `POST /po-exports/{id}/reexport` (override, §5.10; supersedes, never deletes the prior file, §10.7).
 
-### 1.3 Browsing Eligible Tenders
+### 5.9 Eligibility Resolver (internal service, no direct route)
+`resolve(tender_line_item_id) -> list[vendor_id]` — the exact filter chain from §6.5:
+Active status → active mapping → rating ≥ threshold → not suspended/no expired docs →
+if `max_invites` set, rank by rating desc and cap. Called from §5.5's preview endpoint,
+from the approval-time re-check, and from the vendor-facing tender list (only returning
+the line items a given vendor individually qualifies for — §6.5's explicit requirement
+that a vendor never sees the whole tender, only their own eligible lines).
 
-**Screen:** `VendorDashboard.dc.html`.
+### 5.10 Overrides
+- `POST /overrides` — the single entry point every override-creating call above goes through; resolves `approver_role` from type + value/count band (§12.3/§12.5); never touches the target record.
+- `GET /overrides?state=Pending`
+- `POST /overrides/{id}/approve` — the **only** place any override's target record is mutated (§12.2); dispatches per type to the matching apply-function.
+- `POST /overrides/{id}/reject`
 
-**Functions:**
-- `GET /api/vendor/{id}/tenders` → `tender_service.list_eligible_for_vendor(vendor_id)` — **critical function**: must call the same eligibility resolution used by Module 3.1, filtered to `vendor_id`, and must return **only the line items that vendor individually qualified for**, never the full tender (§6.5 — "a vendor will see only the line items for which it individually qualified, not the full tender").
-- `GET /api/vendor/{id}/bid-history` → past bids + outcome status.
-
-### 1.4 Bid Submission
-
-**Screen:** `SubmitBid.dc.html`.
-
-**Functions:**
-- `POST /api/vendor/bids/draft` → `bid_service.save_draft(vendor_id, line_item_id, payload) -> Bid` — allowed pre-deadline, partial line-item bidding allowed unless tender mandates all-or-nothing (§8.4).
-- `POST /api/vendor/bids/{id}/submit` → `bid_service.submit(bid_id)`:
-  - Server-side gate #1 (PROJECT OVERRIDE): re-check `vendor.status == 'Active'` — **not just "invited"** — reject with 403 otherwise, regardless of what the frontend shows.
-  - Server-side gate #2 (§6.5): re-check the vendor is still on the resolved/approved invite list for this exact line item.
-  - Server-side gate #3 (§8.3): mandatory attachment checklist satisfied (per procurement type, §8.3.1) or reject.
-  - Server-side gate #4 (§8.4): reject if `now() > tender_line_item.bid_due_date` — **late submission has no code path to succeed**; it can only be unlocked afterward via an Override (Module 3.4), never accepted directly.
-  - Locks the bid: no further edits to `bid`, `bid_commercial`, `bid_technical`, or `bid_attachment` rows for this `bid_id`.
-- `POST /api/vendor/bids/{id}/attachments` → same malware-scan path as registration docs.
-
-### 1.5 Awards & POs
-
-**Screen:** `VendorAwards.dc.html`.
-
-**Functions:**
-- `GET /api/vendor/{id}/awards` → per-line outcome (`Awarded` / `Not Selected` / `Under Review` / `Technically Disqualified`) — §10.6 distinguishes regret from technical-disqualification notices; the API must carry that distinction through, not collapse it to one status string.
-- `GET /api/vendor/{id}/purchase-orders` → PO list + line items + approval trail.
-- `POST /api/vendor/purchase-orders/{id}/acknowledge` → `po_service.vendor_acknowledge(po_id)`.
-- `POST /api/vendor/purchase-orders/{id}/request-amendment` → creates an `override` row, type=`po_reexport` (§10.5 point 5 — "a previously-approved award cannot be silently altered").
-
----
-
-## Module 2 — HOSPITAL
-
-Router: `routers/hospital.py`, prefix `/api/hospital`, auth: staff session; every endpoint additionally checks `role in allowed_roles_for_this_action` per the §11.1 matrix, and for approval actions, resolves the acting role against §11.2's value-based matrix rather than trusting the caller's claimed role/tier.
-
-### 2.1 Vendor Approval
-
-**Screen:** `VendorApproval.dc.html`. Role: Procurement Admin.
-
-**Functions:**
-- `GET /api/hospital/vendors/pending` → queue.
-- `POST /api/hospital/vendors/{id}/approve` → `vendor_service.approve(vendor_id, admin_id)` — sets `status='Active'`, **triggers Module 3.1's auto-open of category mapping** (§3.3 point 6).
-- `POST /api/hospital/vendors/{id}/reject` → requires `reason` (mandatory, §3.3 point 5).
-- `POST /api/hospital/vendors/{id}/request-info` → `status='Info Requested'`.
-
-### 2.2 Product Master
-
-**Screen:** `ProductMaster.dc.html`. Role: Procurement Admin.
-
-**Functions:** standard CRUD (`GET/POST/PUT` `/api/hospital/products`), with `procurement_type` driving which `type_specific_attrs` schema is validated (Pydantic discriminated union on `procurement_type`, matching §4.2.1/4.2.2).
-
-### 2.3 Vendor Mapping
-
-**Screens:** `VendorMappingMatrix.dc.html` (overview), `VendorMapping.dc.html` (approve one request). Role: Category Manager.
-
-**Functions:**
-- `GET /api/hospital/mappings/matrix?facility_id=` → vendor × category grid.
-- `GET /api/hospital/mappings/{vendor_id}/{product_id}` → detail + history (matches prototype's `mapDetail.history`/`mapDetail.skus` shape).
-- `POST /api/hospital/mappings/{id}/approve` / `/reject` — §4.3 point 2: "category approval does not auto-approve every SKU/service line within it, unless configured for bulk approval" — the approve function takes an explicit scope (category-only vs specific SKUs).
-- `POST /api/hospital/mappings/{id}/suspend` → logged with reason (§4.4).
-
-### 2.4 Vendor Rating
-
-**Screen:** `VendorRating.dc.html`. Role: Procurement Admin.
-
-**Functions:**
-- `GET /api/hospital/vendors/{id}/rating` → composite + sub-scores + history.
-- `POST /api/hospital/vendors/{id}/rating/manual-entry` → `rating_service.enter_manual_scores(vendor_id, scores, comment_if_material_change)` — **not** an override (§5.3.1 point 3: "standard data entry... not a governed override"), but every entry is still logged to `rating_history`.
-- `POST /api/hospital/vendors/{id}/rating/override-price-competitiveness` → **is** a governed override (§5.3.1 point 4) — routes through Module 3.4, does not write to `vendor_rating` directly until Approved.
-
-### 2.5 Tender Creation
-
-**Screen:** `CreateTender.dc.html`. Role: Procurement Officer.
-
-**Functions:**
-- `POST /api/hospital/tenders` → creates `tender` (status=`Draft`).
-- `POST /api/hospital/tenders/{id}/line-items` → validated per `procurement_type` discriminant (§6.3.1/6.3.2/6.3.3), including `split_award_allowed` and `technical_eval_method` (§6.3.4, §9.4 — fixed here, immutable post-publish without an override).
-- `POST /api/hospital/tenders/{id}/line-items/{lid}/attachments` → blocked from completing if the per-type mandatory checklist (§6.4.1) isn't satisfied.
-- `GET /api/hospital/tenders/{id}/eligibility-preview` → calls Module 3.1 directly, per line item, so the Officer sees the resolved list before submitting.
-- `POST /api/hospital/tenders/{id}/manual-vendor` → adds an **existing Active** vendor only (per our `CreateTender.dc.html` copy) — creates an `override` (type=`vendor_add`), does not touch `tender_invite` until Approved.
-- `POST /api/hospital/tenders/{id}/invite-registration` → **(PROJECT OVERRIDE'S core function)** sends a registration invite email to a not-yet-registered prospect; does **not** create a `tender_invite` row at all yet — only once that person registers and is separately Approved (Module 2.1) does an officer then run `manual-vendor` against their now-Active profile. There is no function anywhere in this module that adds an unapproved vendor to a `tender_invite`.
-- `POST /api/hospital/tenders/{id}/submit-for-approval` → validates §6.9's two submission blocks (mandatory attachments; zero-eligible-vendor lines without a covering override or Open Tender exemption), then creates the next `tender_approval_round` row and sets status=`Pending E-Tender Approval`.
-
-### 2.6 E-Tender Approval
-
-**Screen:** `TenderApproval.dc.html`. Role: Approving Authority (resolved by §11.2).
-
-**Functions:**
-- `GET /api/hospital/approvals/tenders/pending` → queue, resolved to the caller's authority tier.
-- `POST /api/hospital/tenders/{id}/approve` → **hard gate**: refuses if any linked `override` for this tender is still `Pending`/`Escalated` (§7.2 point 2). On success: `status='Published'`; for Open Tender, activates the public link instead of compiling an invite list (§6.8.1); triggers Module 3.5 notifications.
-- `POST /api/hospital/tenders/{id}/reject` → requires comments (mandatory), writes the `tender_approval_round` row, resets to `Draft`.
-- Round/escalation logic lives in Module 3.10, called from both approve/reject paths.
-
-### 2.7 Bid Evaluation & L1 Selection
-
-**Screen:** `TenderDetail.dc.html`. Roles: Category Manager/Technical Evaluator (scoring), Procurement Officer (recommendation).
-
-**Functions:**
-- `POST /api/hospital/evaluations/{bid_id}/technical` → `evaluation_service.score_or_qualify(bid_id, evaluator_id, score|qualify_bool)` — branches on `tender_line_item.technical_eval_method`; **strictly gated on `now() > bid_due_date`** (§9.2.3 point 1 — technical data can't unlock early).
-- `GET /api/hospital/tenders/{id}/line-items/{lid}/comparative-statement` → calls Module 3.3 to return consolidated T-rank/L-rank/C-rank.
-- `POST /api/hospital/tenders/{id}/line-items/{lid}/recommend` → `award_service.propose_recommendation(line_item_id, bid_id, split JSONB | null)` — writes `award_recommendation`; if `bid_id` isn't the top rank, requires `override_reason` and routes through Module 3.4 before the recommendation is forwardable (§9.5 point 3).
-- `POST /api/hospital/tenders/{id}/submit-for-l1-approval` → only once every line item has a confirmed recommendation (§9.5 point 5).
-
-### 2.8 L1 Approval
-
-**Screen:** `RejectFlow.dc.html`. Role: Approving Authority.
-
-**Functions:**
-- `POST /api/hospital/l1-approvals/{line_item_id}/approve` → `award_service.decide(line_item_id, decision='approve', split_adjustment JSONB | null)` — writes `award_decision`; if `split_adjustment` differs from the proposed split, that's the Approving Authority's final say (§10.2 point 3) — **not** a new override, just an adjustment within this same approval action.
-- `POST /api/hospital/l1-approvals/{line_item_id}/reject` → mandatory comments; routes the line item back to Module 2.7 for re-evaluation, with its own round history (§10.2 point 5).
-- `POST /api/hospital/l1-approvals/{line_item_id}/override-award` → non-L1/C1 award; requires reason code + justification, routes through Module 3.4.
-- Once **every** line item in a tender is decided: `award_service.finalize_tender(tender_id)` sets `status='Awarded — Approved for Export'` and triggers Module 3.6.
-
-### 2.9 PO Export Management
-
-**Screen:** `POExport.dc.html`. Role: Procurement Admin.
-
-**Functions:**
-- `GET /api/hospital/po-exports` → list + status.
-- `POST /api/hospital/po-exports/{id}/download` / `push-to-erp` — depends on the integration pattern (OPEN QUESTION §17.7).
-- `POST /api/hospital/po-exports/{id}/confirm-import` (manual reconciliation path) / webhook receiver for automated confirmation.
-- `POST /api/hospital/po-exports/{id}/reexport` → governed override (§10.5 point 5), routes through Module 3.4; new file **supersedes, does not delete** the prior version (§10.7).
-
-### 2.10 Override Approval Queue
-
-**Screen:** `OverrideQueue.dc.html`. Role: whoever the type+value resolves to (§12.3/12.5).
-
-**Functions:**
-- `GET /api/hospital/overrides?state=Pending` → queue, resolved to caller's role/authority.
-- `POST /api/hospital/overrides/{id}/approve` → `override_service.approve(id, approver_id)` — **the only place any override's target record is actually mutated** (§12.2's governing rule — this function is the single choke point every other module's override-creating calls eventually resolve through).
-- `POST /api/hospital/overrides/{id}/reject` → mandatory rejection reason; target record untouched.
-
-### 2.11 Audit Log
-
-**Screen:** `AuditLog.dc.html`. Role: System Admin (and other roles per access scope, §12.6/§14).
-
-**Functions:** `GET /api/hospital/audit-log?filters=` — read-only, paginated, filterable by actor/module/date/action-type; backed by Module 3.7.
+### 5.11 Audit Log
+- `GET /audit-log?filters=` — read-only, paginated.
 
 ---
 
-## Module 3 — SYSTEM
+## 6. Frontend Structure
 
-No public router of its own — these are services other modules call into. Listed here because they're where most of the spec's actual "intelligence" lives.
+The 19 `wireframe/*.dc.html` screens are the page inventory; `wireframe/index.html`
+is already a working (if inert) implementation of the navigation shell in plain JS —
+a real build can either keep that pattern (a shell + page-swap) or introduce a
+framework. That choice is explicitly **not fixed by this document** (open question,
+§12) since the user's own tech-stack note names only "JS," not a specific framework.
 
-### 3.1 Eligibility Resolution Engine
+| Page (source screen) | Route (suggested) | Primary API calls |
+|---|---|---|
+| Dashboard | `/` | `GET /tenders`, `GET /overrides?state=Pending` |
+| Tenders (list) | `/tenders` | `GET /tenders` |
+| Create Tender | `/tenders/new` | `POST /tenders`, `.../line-items`, `.../eligibility-preview` |
+| E-Tender Approval | `/approvals/tenders/:id` | `GET /tenders/:id`, `POST /tenders/:id/approve\|reject` |
+| Evaluation & L1 Recommendation | `/tenders/:id/evaluate` | `GET .../comparative-statement`, `POST .../recommend` |
+| L1 Approval | `/approvals/l1/:lid` | `POST /l1-approvals/:lid/approve\|reject` |
+| Vendor Approval | `/vendors/pending` | `GET /vendors?status=`, `POST /vendors/:id/approve` |
+| Item/Asset/Service Master | `/products` | `GET/POST /products` |
+| Vendor Mapping Matrix | `/mappings` | `GET /mappings/matrix` |
+| Vendor Mapping (approve) | `/mappings/:vid/:pid` | `GET/POST /mappings/:id/approve` |
+| Vendor Rating | `/vendors/:id/rating` | `GET /vendors/:id/rating`, `POST .../manual-entry` |
+| Vendor Registration | `/register` | `POST /vendors` |
+| Vendor Dashboard | `/my/tenders` | `GET /vendors/:id/tenders` (eligibility-filtered, §5.9) |
+| Submit Sealed Bid | `/my/tenders/:lid/bid` | `POST /bids/draft\|submit` |
+| Awards & POs | `/my/awards` | `GET /vendors/:id/awards`, `.../purchase-orders` |
+| PO Export | `/po-exports` | `GET /po-exports`, `POST .../download\|reexport` |
+| Audit Log | `/audit-log` | `GET /audit-log` |
+| Open Tender (public) | `/open/:tender_slug` | `POST /vendors` (same as registration, PROJECT OVERRIDE) |
+| Override Queue | `/overrides` | `GET /overrides`, `POST .../approve\|reject` |
 
-`eligibility_service.resolve(tender_line_item_id) -> list[Vendor]`
-
-**Flow (§6.5's filter chain, in this exact order):**
-1. `vendor.status == 'Active'`.
-2. Active `vendor_mapping` exists for the line's exact product or parent category.
-3. `vendor_rating.overall_score >= line_item.min_rating_threshold_override or tender.min_rating_threshold`.
-4. Not `Suspended`/`Blacklisted`, no expired mandatory `vendor_document`.
-5. If `max_invites` set and more qualify: rank by rating desc, take top N.
-
-Called by: Module 2.5's preview, Module 2.6's approval-time re-check, Module 1.3's per-vendor filtered list. If a line resolves to zero vendors: blocks tender submission (Module 2.5) unless a manual-vendor override covers it, or the line is on an Open Tender (exempt, §6.9 point 3).
-
-### 3.2 Rating Computation Engine
-
-`rating_service.recompute_price_competitiveness(vendor_id) -> float` — the **only** auto-computed sub-score (§5.3), from this system's own historical bid/L1 data, rolling 12-month window (config). Triggered after every tender's L1 Approval finalizes (new bid-history data point) and on a scheduled cadence (Module 3.8).
-
-`rating_service.recompute_composite(vendor_id)` — weighted sum of 5 sub-scores (config-driven weights, seeded 25/25/20/15/15 per §5.2), runs whenever *either* the auto sub-score or a manual sub-score changes.
-
-### 3.3 Evaluation Engine
-
-`evaluation_service.consolidate_technical(line_item_id)` — averages/excludes-outlier across multiple `technical_evaluation` rows per configured method (§9.2.3 point 3); assigns T-rank; applies the minimum-qualifying-score cutoff (§9.2.3 point 5) and tie-break rule (§9.2.3 point 6).
-
-`evaluation_service.rank_commercial(line_item_id)` — L-rank among technically-qualified bids only, by landed price; tie-break by rating → T-rank → timestamp (§9.3).
-
-`evaluation_service.rank_combined(line_item_id)` — QCBS C-rank where configured: `combined = tech_score_pct * technical_weight + price_score_pct * price_weight`, price normalized so the lowest qualified bid scores 100% (§9.4).
-
-**Flagging the gap surfaced earlier in this conversation:** for a *technically-sensitive Item* line using Scored Technical Ranking, §9.2.2's criteria table only assigns weight to 3 of 7 criteria for Item lines (Compliance 35% + Rating 15% + Past performance 15% = 65%) — the remaining 35% has no defined destination for Items. `evaluation_service` needs an explicit policy here before this can be implemented (**OPEN QUESTION**, not resolved by the spec).
-
-### 3.4 Override & Exception Workflow Engine
-
-`override_service.request(type, target_ref, initiator_id, reason_code, justification) -> Override` — the single entry point every override-creating call in Modules 1/2 goes through; resolves `approver_role` from `type` + value/count band (§12.3/12.5), inserts `state='Requested'` → immediately `'Pending Approval'`. Target record is **never** touched here.
-
-`override_service.approve(id, approver_id)` — the only function that mutates the target record, per type (a dispatch table: `rating_override_apply`, `vendor_add_apply`, `technical_score_correction_apply`, etc.) — each "apply" function is otherwise identical in shape to the direct-write functions in Module 2, just gated behind this call.
-
-`override_service.check_escalations()` (Module 3.8 job) — scans `Pending` overrides for value/count/SLA breach, re-routes to next role, or auto-rejects as `Expired` past the SLA window (§12.4 points 5–6).
-
-### 3.5 Notification Engine
-
-`notification_service.send(event_type, recipient, context)` — one dispatch table covering every status transition in §13.2's integration touch-point table (registration status, tender invite/publish, award/regret/technical-disqualification, due-date extension, escalation reminders). Fires through the `NotificationSender` adapter (Module 0).
-
-### 3.6 PO Data File Generation
-
-`po_service.generate(tender_id) -> list[PODataFile]` — one file per awarded vendor (§10.3); for a split line item, each vendor's file carries only their allocated share (this is the inference flagged earlier as *not* verbatim spec text, but structurally required given "one file per vendor"). Fields per §10.4's table exactly. Every value traces back to an `award_decision` row — **no field is computed independently of that row** (§10.7).
-
-`po_service.reexport(po_data_file_id) -> PODataFile` — only reachable via an approved override (Module 3.4); old file marked `superseded_by`, never deleted (§10.7).
-
-### 3.7 Audit Logging Service
-
-`audit_service.record(actor_id, role, action, entity_type, entity_id, before, after, reason=None)` — called from **inside** every service function above that changes state (not bolted on at the router level, so nothing can skip it). Table is insert-only at the DB grant level (§14 "immutable").
-
-### 3.8 Scheduled Jobs
-
-- `job.check_document_expiry()` — flags/auto-suspends vendors with expired mandatory compliance docs (§3.5).
-- `job.check_rating_staleness()` — flags `Stale — Manual Update Due` past the configured overdue window (§5.3.1 point 5).
-- `job.check_round_and_override_escalations()` — SLA breach → escalate/expire, for both `tender_approval_round` and `override` (§7.3 points 5–6, §12.4 points 5–6).
-- `job.lock_expired_bid_windows()` — enforces §9.6's simultaneous unlock timing; this is the actual mechanism behind price-masking, not just a query-time filter (see 3.9).
-
-### 3.9 Price Confidentiality Enforcement
-
-Not a job — a **query-layer rule**: any endpoint or service function that would return `bid_commercial` fields must check `now() > tender_line_item.bid_due_date` **and** (where two-envelope separation is configured) that `technical_evaluation` has been recorded for that bid, before including those fields at all — never mask at the serialization/frontend layer (§9.6, `CLAUDE.md`'s "never expose sensitive bid information through APIs before the appropriate workflow stage"). This applies equally to Procurement Officer, Category Manager, and Approving Authority — no role is exempt pre-deadline.
-
-### 3.10 Round & Escalation Tracking
-
-`round_service.record_submission(tender_id) -> int` (next round number), `round_service.record_decision(round_id, decision, comments)` — shared by both E-Tender Approval (Module 2.6) and L1 Approval (Module 2.8), per §7.3 point 9's explicit statement that round-tracking is identical across both gates.
+**Shared components** implied by the wireframe's own repeated patterns: status pill
+(color-coded by state), a data table with header row + row template, a nav shell
+(sidebar or header tabs, per `index.html`'s existing pattern), a reason-code chip
+picker + justification textarea (used identically on every override-triggering
+action, per §5.10), and a round/tier badge (used on both approval-gate screens).
 
 ---
 
-## Open Questions Carried Into Implementation
+## 7. Background Jobs & Automation
 
-Everything in `CLAUDE.md`'s "Known open questions" still applies unchanged. Additionally, from this pass:
+- `check_document_expiry()` — flags/auto-suspends vendors with expired compliance docs (§3.5).
+- `check_rating_staleness()` — flags `Stale — Manual Update Due` past the overdue window (§5.3.1 point 5).
+- `check_round_and_override_escalations()` — SLA breach → escalate/expire, for both `tender_approval_round` and `override` (§7.3, §12.4).
+- `lock_expired_bid_windows()` — the actual mechanism behind price-masking timing (§9.6), not just a query-time filter.
+- `recompute_price_competitiveness(vendor_id)` — after every tender's L1 Approval finalizes, and on a scheduled cadence (§5.2 of the spec).
 
-10. **Item-line QCBS weight gap** (Module 3.3) — §9.2.2's criteria table doesn't sum to 100% for a technically-sensitive Item line. Needs a policy decision before `evaluation_service` can implement scored Item evaluation.
-11. **Job runner choice** (Module 0) — APScheduler assumed for Module 3.8; not spec'd, revisit if multi-instance deployment is planned.
-12. **Auth mechanism** (Module 0) — session vs JWT not specified; either satisfies the spec's RBAC requirement, but affects React's token-refresh handling and needs a decision before frontend work starts.
+---
+
+## 8. Security & Access Control
+
+- RBAC per spec §11.1's 6 roles, resolved server-side on every request via a FastAPI dependency, never inferred from the frontend route.
+- Facility scoping (§2.3) is a second dimension on top of role — a Department Head at Facility A cannot approve a Facility B tender even with the right role.
+- **Price confidentiality is a query-layer rule, not a serialization-layer one**: any function returning `bid_commercial` fields must itself check `now() > bid_due_date` (and, where two-envelope separation is configured, that technical evaluation is recorded) before including those fields — applies equally to every role, no exceptions (§9.6).
+- Every state-changing endpoint writes to `audit_log` from inside the service function, not bolted on at the router (§14).
+
+---
+
+## 9. External Integrations
+
+Per spec §13.1, all behind adapter interfaces with local mocks for now — never faked
+as production integrations: Hospital ERP/Finance (PO file import, optional budget
+check), Hospital Information System (requisition triggers, inbound only), Email/SMS
+Gateway, Document/DMS Storage, GST/PAN Verification API, CAPTCHA provider, optional
+Digital Signature provider.
+
+---
+
+## 10. Non-Functional Requirements
+
+Per spec §14: role-based access + encrypted KYC/banking storage; immutable audit log;
+99.5%+ bid-portal availability during active windows; eligibility resolution for 500
+vendors × 100 line items within a few seconds; multi-facility support with shared or
+facility-specific vendor pools; notifications on every status transition; 7+ year data
+retention (to be confirmed); INR-only unless cross-border vendors are confirmed in scope.
+
+---
+
+## 11. Suggested Build Phases
+
+1. **Foundation** — auth, RBAC, facility model, migrations, empty routers.
+2. **Vendor lifecycle** — registration, documents, approval, product master, mapping, rating.
+3. **Tender creation & approval** — draft, line items, eligibility resolver, E-Tender Approval gate, round tracking.
+4. **Bidding** — submission, attachments, price-confidentiality enforcement, deadline locking.
+5. **Evaluation & award** — technical/commercial ranking, QCBS, recommendation, L1 Approval gate, split-award.
+6. **Post-award** — PO data file generation, ERP handoff states, vendor notification.
+7. **Cross-cutting** — override engine, audit log, background jobs, notifications end-to-end.
+
+---
+
+## 12. Open Questions
+
+Carried from `CLAUDE.md` (spec §17) plus items surfaced while writing this document:
+
+1. Frontend framework choice — plain JS (as `index.html` already is) vs. introducing React/Vue/etc. Not specified by the user beyond "JS."
+2. Auth mechanism — session vs. JWT.
+3. Job runner — APScheduler assumed; revisit if the deployment needs multiple instances.
+4. Final rating weights/thresholds per category (§5.2 values are illustrative).
+5. Approval value bands per the hospital's real delegation-of-authority policy, including per-override-type bands (§12.3).
+6. Vendor Mapping/Rating: group-wide vs. facility-specific by default (§2.3).
+7. Item-line QCBS weight gap — §9.2.2's criteria table only assigns 65% of weight to Item-applicable criteria when an Item line is scored instead of pass/fail; no defined destination for the remaining 35%.
+8. Upstream requisition source (HIS/ERP/manual).
+9. Hospital ERP's exact PO-import format/fields (§10.4).
+10. PO handoff automated (API/SFTP) vs. manual, and whether a return channel exists.
+11. Digital signature requirement and provider.
+12. Statutory data retention period.
