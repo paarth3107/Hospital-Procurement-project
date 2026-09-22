@@ -1,0 +1,1892 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hospital Procurement Wireframe -- Click-through</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  #app-shell { display: flex; min-height: 100vh; background: #e9e8e4; }
+
+  #sidebar { width: 260px; flex: none; background: #201e1d; color: #f3f2f2; display: flex; flex-direction: column; overflow-y: auto; }
+  #sidebar .brand { padding: 20px 18px 16px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  #sidebar .brand .name { font-size: 18px; font-weight: 800; }
+  #sidebar .brand .sub { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-top: 4px; }
+  .nav-section-label { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.4); font-weight: 700; padding: 16px 18px 6px; }
+  .nav-btn { display: block; width: 100%; text-align: left; background: transparent; border: 0; border-left: 3px solid transparent; color: rgba(255,255,255,.82); padding: 9px 16px 9px 15px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .nav-btn:hover { background: rgba(255,255,255,.07); }
+  .nav-btn.active { border-left-color: #b8560c; background: rgba(184,86,12,.18); color: #fff; }
+
+  #main { flex: 1; min-width: 0; overflow: auto; }
+  #topbar { position: sticky; top: 0; z-index: 5; background: #fff; border-bottom: 1px solid #ddd; padding: 10px 18px; font-size: 12px; color: #888; display: flex; align-items: center; gap: 8px; }
+  #topbar b { color: #333; }
+  #stage { padding: 32px; display: flex; justify-content: center; }
+  .screen-page { background: #f6f5f2; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+  .screen-page[hidden] { display: none !important; }
+
+/* Main.dc.html */
+.scr-Main .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-Main a { color: #b8560c; }
+.scr-Main a:hover { color: #8a4009; }
+.scr-Main .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-Main .status-open { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.scr-Main .status-review { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+
+/* CreateTender.dc.html */
+.scr-CreateTender .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-CreateTender .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-CreateTender .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.scr-CreateTender .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+
+/* TenderApproval.dc.html */
+.scr-TenderApproval .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-TenderApproval .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-TenderApproval .badge { font-size: 11px; border: 1px solid; padding: 2px 8px; width: fit-content; }
+.scr-TenderApproval .badge-manual { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
+.scr-TenderApproval .badge-guest { background: #fbeee6; border-color: #d69a6a; color: #8a4b1f; }
+
+/* TenderDetail.dc.html */
+.scr-TenderDetail .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-TenderDetail .status-pill { border: 1px solid #999; padding: 3px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-TenderDetail .status-review { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-TenderDetail .star { color: #c98a3f; font-size: 13px; }
+.scr-TenderDetail .field-hint { font-size: 12px; color: #888; }
+
+/* RejectFlow.dc.html */
+.scr-RejectFlow .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-RejectFlow .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-RejectFlow .field-hint { font-size: 12px; color: #888; }
+.scr-RejectFlow .step { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.scr-RejectFlow .dot { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 11px; background: #fff; }
+.scr-RejectFlow .dot-done { background: #2f6f3f; border-color: #2f6f3f; color: #fff; }
+.scr-RejectFlow .dot-current { background: #b8560c; border-color: #b8560c; color: #fff; }
+
+/* VendorApproval.dc.html */
+.scr-VendorApproval .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorApproval .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-VendorApproval .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+
+/* ProductMaster.dc.html */
+.scr-ProductMaster .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-ProductMaster .field-hint { font-size: 12px; color: #888; }
+.scr-ProductMaster .badge { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid; padding: 2px 7px; width: fit-content; font-weight: 700; }
+.scr-ProductMaster .badge-item { background: rgba(32,30,29,.08); border-color: #999; color: #333; }
+.scr-ProductMaster .badge-asset { background: #fbeee6; border-color: #d69a6a; color: #8a4b1f; }
+.scr-ProductMaster .badge-service { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
+.scr-ProductMaster .tab { border: 1px solid #999; background: #fff; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+.scr-ProductMaster .tab-on { background: #b8560c; border-color: #b8560c; color: #fff; }
+
+/* VendorMappingMatrix.dc.html */
+.scr-VendorMappingMatrix .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorMappingMatrix .field-hint { font-size: 12px; color: #888; }
+.scr-VendorMappingMatrix .cell { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 8px 4px; }
+.scr-VendorMappingMatrix .cell-mapped { background: #eaf3ea; color: #2f5f2f; }
+.scr-VendorMappingMatrix .cell-pending { background: #fdf1e3; color: #8a5215; }
+.scr-VendorMappingMatrix .cell-none { background: #fafaf9; color: #ccc; }
+
+/* VendorMapping.dc.html */
+.scr-VendorMapping .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorMapping .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-VendorMapping .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.scr-VendorMapping .badge { font-size: 11px; border: 1px solid; padding: 2px 8px; width: fit-content; }
+.scr-VendorMapping .badge-self { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
+.scr-VendorMapping .badge-admin { background: #f0eee6; border-color: #999; color: #555; }
+
+/* VendorRating.dc.html */
+.scr-VendorRating .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorRating .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-VendorRating .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.scr-VendorRating .badge { font-size: 11px; border: 1px solid; padding: 2px 8px; width: fit-content; }
+.scr-VendorRating .badge-auto { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
+.scr-VendorRating .badge-manual { background: #f0eee6; border-color: #999; color: #555; }
+.scr-VendorRating .badge-stale { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+
+/* VendorRegister.dc.html */
+.scr-VendorRegister .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorRegister .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-VendorRegister .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.scr-VendorRegister .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+
+/* VendorDashboard.dc.html */
+.scr-VendorDashboard .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorDashboard .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-VendorDashboard .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-VendorDashboard .status-won { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.scr-VendorDashboard .status-lost { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+
+/* SubmitBid.dc.html */
+.scr-SubmitBid .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-SubmitBid .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-SubmitBid .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.scr-SubmitBid .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+
+/* VendorAwards.dc.html */
+.scr-VendorAwards .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-VendorAwards .field-hint { font-size: 12px; color: #888; }
+.scr-VendorAwards .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-VendorAwards .status-won { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.scr-VendorAwards .status-lost { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+.scr-VendorAwards .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-VendorAwards .step { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.scr-VendorAwards .dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #fff; }
+.scr-VendorAwards .dot-done { background: #2f6f3f; border-color: #2f6f3f; color: #fff; }
+.scr-VendorAwards .dot-current { background: #b8560c; border-color: #b8560c; color: #fff; }
+
+/* POExport.dc.html */
+.scr-POExport .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-POExport .field-hint { font-size: 12px; color: #888; }
+.scr-POExport .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-POExport .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-POExport .status-imported { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.scr-POExport .status-failed { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+
+/* AuditLog.dc.html */
+.scr-AuditLog .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-AuditLog .input-box { border: 1px solid #bbb; background: #fff; padding: 8px 12px; font-size: 13px; color: #999; }
+
+/* OverrideQueue.dc.html */
+.scr-OverrideQueue .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-OverrideQueue .field-hint { font-size: 12px; color: #888; }
+.scr-OverrideQueue .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+.scr-OverrideQueue .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.scr-OverrideQueue .status-escalated { background: #fbeee6; border-color: #d69a6a; color: #8a4b1f; }
+.scr-OverrideQueue .status-approved { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+
+/* OpenTenderLanding.dc.html */
+.scr-OpenTenderLanding .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.scr-OpenTenderLanding .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+.scr-OpenTenderLanding .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.scr-OpenTenderLanding .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+</style>
+</head>
+<body>
+
+<div id="app-shell">
+  <nav id="sidebar">
+    <div class="brand">
+      <div class="name">MedSource</div>
+      <div class="sub">Wireframe click-through</div>
+    </div>
+    <div class="nav-section-label">Hospital — Tender Lifecycle</div>
+<button class="nav-btn" data-target="page-scr-Main" onclick="showScreen(this)">Dashboard</button>
+<button class="nav-btn" data-target="page-scr-CreateTender" onclick="showScreen(this)">Create Tender</button>
+<button class="nav-btn" data-target="page-scr-TenderApproval" onclick="showScreen(this)">E-Tender Approval</button>
+<button class="nav-btn" data-target="page-scr-TenderDetail" onclick="showScreen(this)">Evaluation & L1 Recommendation</button>
+<button class="nav-btn" data-target="page-scr-RejectFlow" onclick="showScreen(this)">L1 Approval</button>
+<div class="nav-section-label">Hospital — Vendor Governance</div>
+<button class="nav-btn" data-target="page-scr-VendorApproval" onclick="showScreen(this)">Vendor Approval</button>
+<button class="nav-btn" data-target="page-scr-ProductMaster" onclick="showScreen(this)">Item/Asset/Service Master</button>
+<button class="nav-btn" data-target="page-scr-VendorMappingMatrix" onclick="showScreen(this)">Vendor Mapping Matrix</button>
+<button class="nav-btn" data-target="page-scr-VendorMapping" onclick="showScreen(this)">Vendor Mapping (Approve Request)</button>
+<button class="nav-btn" data-target="page-scr-VendorRating" onclick="showScreen(this)">Vendor Rating</button>
+<div class="nav-section-label">Vendor Portal</div>
+<button class="nav-btn" data-target="page-scr-VendorRegister" onclick="showScreen(this)">Vendor Registration</button>
+<button class="nav-btn" data-target="page-scr-VendorDashboard" onclick="showScreen(this)">Vendor Dashboard</button>
+<button class="nav-btn" data-target="page-scr-SubmitBid" onclick="showScreen(this)">Submit Sealed Bid</button>
+<button class="nav-btn" data-target="page-scr-VendorAwards" onclick="showScreen(this)">Awards & Purchase Orders</button>
+<div class="nav-section-label">Post-Award & Admin</div>
+<button class="nav-btn" data-target="page-scr-POExport" onclick="showScreen(this)">PO Data Export</button>
+<button class="nav-btn" data-target="page-scr-AuditLog" onclick="showScreen(this)">Audit Log</button>
+<button class="nav-btn" data-target="page-scr-OverrideQueue" onclick="showScreen(this)">Override & Exception Queue</button>
+<div class="nav-section-label">Public</div>
+<button class="nav-btn" data-target="page-scr-OpenTenderLanding" onclick="showScreen(this)">Open Tender (Public Landing)</button>
+  </nav>
+  <main id="main">
+    <div id="topbar">Viewing: <b id="topbar-label">Dashboard</b> -- buttons are inert in this pass, navigation only</div>
+    <div id="stage">
+      <div class="screen-page scr-Main" id="page-scr-Main" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 980px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <!-- Nav -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="color: #555;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Officer</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">RS</div>
+    </div>
+  </div>
+
+  <!-- Page header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 24px 32px 0;">
+    <span class="label" style="font-size: 26px; font-weight: 700;">Dashboard</span>
+    <button style="background: #b8560c; color: #fff; border: none; padding: 10px 18px; font-size: 14px; cursor: pointer;">+ New Tender</button>
+  </div>
+
+  <!-- Stats -->
+  <div style="display: flex; gap: 16px; padding: 20px 32px;">
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Open Tenders</div>
+      <div style="font-size: 28px; font-weight: 700;">6</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Pending Your Approval</div>
+      <div style="font-size: 28px; font-weight: 700; color: #b8560c;">2</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Vendors Pending Approval</div>
+      <div style="font-size: 28px; font-weight: 700; color: #b8560c;">3</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Awarded This Month</div>
+      <div style="font-size: 28px; font-weight: 700;">4</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Registered Vendors</div>
+      <div style="font-size: 28px; font-weight: 700;">38</div>
+    </div>
+  </div>
+
+  <!-- Open tenders table -->
+  <div style="padding: 4px 32px 24px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Open Tenders</span>
+    <div style="margin-top: 12px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ITEM</span><span>CATEGORY</span><span>BIDS RECEIVED</span><span>CLOSES IN</span><span>STATUS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>MRI Machine — 1.5T (Siemens spec)</span><span style="color:#555;">Equipment</span><span>5</span><span>Closed</span><div class="status-pill status-review">Under Review</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Nitrile Examination Gloves — Box/100</span><span style="color:#555;">Consumables</span><span>12</span><span>2 days</span><div class="status-pill status-open">Open</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Surgical Sutures — Assorted</span><span style="color:#555;">Consumables</span><span>8</span><span>5 days</span><div class="status-pill status-open">Open</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units (x4)</span><span style="color:#555;">Equipment</span><span>3</span><span>6 days</span><div class="status-pill status-open">Open</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending approval -->
+  <div style="padding: 0 32px 24px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Pending Your Approval</span>
+    <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="border: 1px solid #ccc; background: #fff8f0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-weight: 600; font-size: 15px;">MRI Machine — 1.5T (Siemens spec)</div>
+            <span style="font-size: 11px; border: 1px solid #8f9bd6; color: #3a4590; background: #eef0fb; padding: 2px 8px;">L1 Approval</span>
+          </div>
+          <div style="font-size: 13px; color: #666; margin-top: 4px;">Recommended: Apex Medical Systems — ₹42,80,000 — Rating 4.6/5</div>
+        </div>
+        <button style="border: 1px solid #333; background: #fff; padding: 8px 16px; font-size: 14px; cursor: pointer;">Review →</button>
+      </div>
+      <div style="border: 1px solid #ccc; background: #fff8f0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-weight: 600; font-size: 15px;">Portable Ventilator Units (x4)</div>
+            <span style="font-size: 11px; border: 1px solid #999; color: #555; background: #f0eee6; padding: 2px 8px;">E-Tender Approval</span>
+          </div>
+          <div style="font-size: 13px; color: #666; margin-top: 4px;">Draft ready — includes 1 manual vendor addition and 1 guest invite</div>
+        </div>
+        <button style="border: 1px solid #333; background: #fff; padding: 8px 16px; font-size: 14px; cursor: pointer;">Review →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent awards -->
+  <div style="padding: 0 32px 32px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Recent Awards</span>
+    <div style="margin-top: 12px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: flex; justify-content: space-between; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee;">
+        <span>Digital X-Ray Panel — awarded to RadVision Corp</span><span style="color: #666;">3 days ago</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 12px 16px; font-size: 14px;">
+        <span>ICU Beds (x10) — awarded to CarePlus Equipment</span><span style="color: #666;">1 week ago</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-CreateTender" id="page-scr-CreateTender" style="background:#f6f5f2;" hidden>
+<div style="width: 900px; min-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 24px 32px 8px;">
+    <span style="font-size: 13px; color: #888;">Tenders / New</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Create New Tender</div>
+    <div class="field-hint" style="margin-top: 6px;">A tender may contain multiple line items. Eligibility is resolved per line item, not once for the whole tender.</div>
+  </div>
+
+  <div style="padding: 16px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <span class="label" style="font-size: 15px; font-weight: 700;">Tender Header</span>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Tender Type</span>
+          <div class="input-box">RFQ / RFP / Rate Contract ▾</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Facility / Legal Entity</span>
+          <div class="input-box">Select facility ▾</div>
+          <div class="field-hint">Scopes vendor mapping, approval matrix, and PO data file to this facility</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Department / Requesting Unit</span>
+          <div class="input-box">e.g. Radiology</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Minimum Vendor Rating Threshold (default)</span>
+          <div class="input-box">e.g. 3.5 / 5</div>
+          <div class="field-hint">Overridable per line item below</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Min / Max Vendors to Invite per Line Item</span>
+          <div class="input-box">e.g. 3 – 8</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="label" style="font-size: 15px; font-weight: 700;">Line Item 1</span>
+        <span style="font-size: 12px; color: #b8560c; text-decoration: underline; cursor: pointer;">Remove</span>
+      </div>
+
+      <div>
+        <span class="field-label">Item / Asset / Service Name</span>
+        <div class="input-box">e.g. MRI Machine — 1.5T</div>
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Type</span>
+          <div class="input-box">Item / Asset / Service ▾</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Category</span>
+          <div class="input-box">Select category ▾</div>
+          <div class="field-hint">Equipment / Consumables / Pharmaceuticals / Services</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Quantity</span>
+          <div class="input-box">e.g. 1</div>
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Specifications</span>
+        <div class="input-box" style="height: 70px; align-items: flex-start;">Describe required specs, standards, compliance certifications...</div>
+      </div>
+
+      <div>
+        <span class="field-label">Required Certifications</span>
+        <div style="display: flex; gap: 20px; font-size: 14px; color: #444;">
+          <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> ISO 13485</label>
+          <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> CDSCO Approved</label>
+          <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> BIS Certified</label>
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Attach Spec Sheet / Drawing (optional)</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop file or click to upload</div>
+      </div>
+
+      <div class="field-hint">Asset/Service lines show additional type-specific fields here (warranty & AMC, installation/training for Assets; SOW, SLA, billing basis for Services) — form adapts to the Type selected above.</div>
+
+      <div style="border-top: 1px dashed #ddd; padding-top: 16px; display: flex; gap: 24px; align-items: flex-start;">
+        <div style="flex: 1;">
+          <span class="field-label">Line-specific Minimum Rating Threshold (optional)</span>
+          <div class="input-box">Overrides tender default ▾</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Split-Award Allowed</span>
+          <div style="display: flex; gap: 20px; font-size: 14px; color: #444;">
+            <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #333; background: #333; display: inline-block;"></span> Yes</label>
+            <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> No</label>
+          </div>
+          <div class="field-hint">Lets this line's quantity be split across more than one vendor at L1 Selection/Approval</div>
+        </div>
+      </div>
+    </div>
+
+    <span style="font-size: 13px; color: #b8560c; text-decoration: underline; cursor: pointer; width: fit-content;">+ Add Another Line Item</span>
+
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1;">
+        <span class="field-label">Budget Ceiling (optional)</span>
+        <div class="input-box">₹ —</div>
+        <div class="field-hint">Not shown to vendors, used internally as a cap</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Bid Deadline</span>
+        <div class="input-box">Select date &amp; time ▾</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Publishing Mode</span>
+      <div style="display: flex; gap: 20px; font-size: 14px; color: #444;">
+        <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block; background: #333;"></span> Selective — resolved eligible vendors only</label>
+        <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block;"></span> Open Tender — public link</label>
+      </div>
+      <div class="field-hint">Eligible vendors are resolved from Vendor Mapping + Vendor Rating + this tender's rules — reviewed on the approval screen before anything is published.</div>
+    </div>
+
+    <div>
+      <span class="field-label">Manual Vendor Addition / Guest Invite (optional)</span>
+      <div class="input-box">Search registered vendors, or invite a guest vendor by email...</div>
+      <div class="field-hint">Requires a reason code — reviewed at E-Tender Approval, not published automatically.</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+      <button style="border: 1px solid #999; background: #fff; padding: 10px 20px; font-size: 14px; cursor: pointer;">Save Draft</button>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 10px 20px; font-size: 14px; cursor: pointer;">Submit for Tender Approval →</button>
+    </div>
+    <div class="field-hint" style="text-align: right;">Stays in draft — publishing only happens after E-Tender Approval succeeds.</div>
+
+  </div>
+</div>
+</div>
+<div class="screen-page scr-TenderApproval" id="page-scr-TenderApproval" style="background:#f6f5f2;" hidden>
+<div style="width: 1000px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="color: #555;">Vendors</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Approving Authority</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">AA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Approvals / E-Tender Approval</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Portable Ventilator Units (x4)</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Equipment · 1 line item · Bid deadline in 6 days · Draft — not yet published</div>
+    <div style="margin-top: 10px; display: flex; gap: 8px;">
+      <span style="font-size: 11px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 2px 8px;">Round 2 — revised after rejection</span>
+      <span style="font-size: 11px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 2px 8px;">Tier: Department Head (value ₹1L–₹10L)</span>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      This gate must succeed before the tender can publish, notify vendors, or open for bidding — it cannot be skipped by a frontend action.
+    </div>
+  </div>
+
+  <div style="padding: 16px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Round History</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 0.6fr 1fr 1fr 2.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ROUND</span><span>DECISION</span><span>REVIEWER</span><span>COMMENTS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 0.6fr 1fr 1fr 2.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>1</span><span style="color:#a33;">Rejected</span><span style="color:#555;">R. Sharma</span><span style="color:#555;">Budget code missing on line item — resubmit with cost center attached.</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 0.6fr 1fr 1fr 2.4fr; padding: 12px 16px; font-size: 13px; align-items: center;">
+        <span>2</span><span style="color:#8a5215;">Pending (this screen)</span><span style="color:#555;">—</span><span style="color:#555;">—</span>
+      </div>
+    </div>
+    <div class="field-hint" style="margin-top: 6px;">A configured max round count or per-round SLA breach auto-escalates to the next Approving Authority tier.</div>
+  </div>
+
+  <div style="padding: 16px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Line Items</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ITEM</span><span>QTY</span><span>CATEGORY</span><span>ATTACHMENTS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units</span><span>4</span><span style="color:#555;">Equipment</span><span style="color: #b8560c; text-decoration: underline;">Spec Sheet.pdf</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Resolved Eligible Vendors</span>
+    <div class="field-hint" style="margin-top: 2px; margin-bottom: 10px;">From Vendor Mapping + Vendor Rating + this tender's eligibility rules</div>
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>VENDOR</span><span>RATING</span><span>SOURCE</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Apex Medical Systems</span><span>4.6</span><span style="color:#555;">Mapping + Rating</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Horizon Healthcare Supplies</span><span>4.1</span><span style="color:#555;">Mapping + Rating</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>SteriTech India</span><span>4.2</span><span style="color:#555;">Manually added</span><span class="badge badge-manual">Reason: existing ICU vendor</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>MedFlow Global (not yet registered)</span><span>—</span><span style="color:#555;">Guest invite</span><span class="badge badge-guest">Reason: sole distributor for spec</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Publishing Mode</span>
+    <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 14px; color: #444;">
+      <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block; background: #333;"></span> Selective — resolved vendor list above only</label>
+      <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block;"></span> Open Tender — public link, any vendor can respond</label>
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid #ddd; margin-top: 24px; padding: 20px 32px 32px; display: flex; gap: 12px; justify-content: flex-end;">
+    <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 12px 20px; font-size: 14px; cursor: pointer;">Reject (reason required) →</button>
+    <button style="background: #2f6f3f; color: #fff; border: none; padding: 12px 20px; font-size: 14px; cursor: pointer;">Approve — Publish Tender</button>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-TenderDetail" id="page-scr-TenderDetail" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Tenders / MRI Machine — 1.5T / Evaluation</span>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 6px;">
+      <div>
+        <div class="label" style="font-size: 26px; font-weight: 700;">MRI Machine — 1.5T (Siemens spec)</div>
+        <div style="font-size: 13px; color: #666; margin-top: 6px;">Equipment · Qty 1 · Closed 2 days ago · 5 bids received</div>
+      </div>
+      <div class="status-pill status-review" style="font-size: 13px; padding: 6px 14px;">Closed — Under Review</div>
+    </div>
+    <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
+      <span style="font-size: 13px; border: 1px solid #ccc; background: #fff; padding: 6px 12px;">Line Item 1 of 1 ▾</span>
+      <span style="font-size: 12px; border: 1px solid #8f9bd6; background: #eef0fb; color: #3a4590; padding: 4px 10px;">Recommendation Round 1</span>
+      <span style="font-size: 12px; border: 1px solid #7fae7f; background: #eaf3ea; color: #2f5f2f; padding: 4px 10px;">Split-Award Allowed on this line</span>
+    </div>
+  </div>
+
+  <!-- comparative statement -->
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 10px 16px; font-size: 12px; color: #776; margin-bottom: 14px;">
+      Bids were sealed until close. Technical qualification is recorded first — commercial prices are only shown for qualified bids.
+    </div>
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>VENDOR</span><span>TECHNICAL</span><span>PRICE QUOTED</span><span>T-RANK</span><span>L-RANK</span><span>C-RANK</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center; background: #fdf6ec;">
+        <span style="font-weight: 700;">Apex Medical Systems</span><span style="color:#2f6f3f;">Qualified</span><span>₹42,80,000</span><span>T1</span><span>L2</span><span>C1</span>
+        <span style="font-size: 12px; font-weight: 700; color: #8a5215; border: 1px solid #c98a3f; padding: 3px 8px; width: fit-content;">RECOMMENDED</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>RadCore Diagnostics</span><span style="color:#2f6f3f;">Qualified</span><span>₹41,20,000</span><span>T3</span><span>L1</span><span>C2</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Siemens Direct Supply</span><span style="color:#2f6f3f;">Qualified</span><span>₹46,50,000</span><span>T2</span><span>L4</span><span>C3</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center; color: #999;">
+        <span>MediEquip Traders</span><span style="color:#a33;">Not Qualified</span><span>—</span><span>—</span><span>—</span><span>—</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Horizon Healthcare Supplies</span><span style="color:#2f6f3f;">Qualified</span><span>₹44,10,000</span><span>T4</span><span>L3</span><span>C4</span><span></span>
+      </div>
+    </div>
+    <div class="field-hint" style="margin-top: 8px;">C-Rank = combined QCBS ranking, shown only where configured. Not-qualified bids are excluded from commercial ranking.</div>
+  </div>
+
+  <!-- recommendation box -->
+  <div style="padding: 20px 32px 0;">
+    <div style="border: 1px solid #c98a3f; background: #fff8f0; padding: 20px 24px;">
+      <div style="font-weight: 700; font-size: 15px; margin-bottom: 6px;">L1 Recommendation: Apex Medical Systems</div>
+      <div style="font-size: 13px; color: #555; line-height: 1.5;">
+        Top-ranked qualified bid on the configured combined score (C1). Not the lowest price (RadCore is lower, L1) — ranked highest once rating/QCBS weighting is applied. This is a recommendation only; it does not itself award the tender.
+      </div>
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e0c9a6; font-size: 12px; color: #6b4415;">
+        Combined Score = (Technical Score % × 70% Technical Weight) + (Price Score % × 30% Price Weight) — weights fixed for this line at tender creation.
+      </div>
+    </div>
+  </div>
+
+  <!-- split-award proposal -->
+  <div style="padding: 20px 32px 0;">
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="label" style="font-size: 15px; font-weight: 700;">Propose Split Award (optional)</span>
+        <span class="field-hint">This line allows splitting quantity across more than one vendor</span>
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 16px; align-items: center;">
+        <div style="flex: 1; border: 1px solid #ddd; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 14px;">Apex Medical Systems (C1)</span>
+          <div class="input-box" style="width: 70px; text-align: center; padding: 6px 8px;">70%</div>
+        </div>
+        <span style="color: #999;">+</span>
+        <div style="flex: 1; border: 1px solid #ddd; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 14px;">RadCore Diagnostics (C2)</span>
+          <div class="input-box" style="width: 70px; text-align: center; padding: 6px 8px;">30%</div>
+        </div>
+      </div>
+      <div class="field-hint" style="margin-top: 8px;">Subject to the hospital's configured minimum split threshold. The Approving Authority confirms or adjusts this split at L1 Approval — this is a proposal, not the final allocation.</div>
+    </div>
+  </div>
+
+  <!-- actions -->
+  <div style="padding: 24px 32px 40px; display: flex; gap: 12px; justify-content: flex-end;">
+    <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 12px 20px; font-size: 14px; cursor: pointer;">Override — Recommend Different Vendor →</button>
+    <button style="background: #2f6f3f; color: #fff; border: none; padding: 12px 20px; font-size: 14px; cursor: pointer;">Confirm Recommendation → Send for L1 Approval</button>
+  </div>
+  <div class="field-hint" style="padding: 0 32px 32px; text-align: right;">Confirming does not award the tender — the Approving Authority still has to approve it (next screen). Recommending a non-top-ranked vendor requires the override reason above.</div>
+
+</div>
+</div>
+<div class="screen-page scr-RejectFlow" id="page-scr-RejectFlow" style="background:#ddd;" hidden>
+<div style="width: 800px; min-height: 900px; box-sizing: border-box; display: flex; align-items: flex-start; justify-content: center; padding: 40px;">
+  <div style="width: 100%; background: #fff; border: 1px solid #bbb; box-shadow: 0 2px 0 #ccc;">
+
+    <div style="padding: 20px 28px; border-bottom: 1px solid #eee;">
+      <span style="font-size: 12px; color: #888;">L1 Approval — separate gate from the Procurement Officer's recommendation</span>
+      <div class="label" style="font-size: 20px; font-weight: 700; margin-top: 2px;">MRI Machine — 1.5T: recommended Apex Medical Systems</div>
+      <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: 12px; color: #888;">Reviewed by: Approving Authority · Only approval here may trigger PO data generation</span>
+        <span style="font-size: 11px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 2px 8px;">Round 1</span>
+        <span style="font-size: 11px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 2px 8px;">Tier: Finance/Mgmt. Committee (value &gt; ₹10L)</span>
+      </div>
+    </div>
+
+    <div style="padding: 20px 28px 0;">
+      <div style="border: 1px solid #ccc; background: #fbfaf7; padding: 16px 18px;">
+        <span class="field-label" style="margin: 0;">Confirm or Adjust Proposed Split Award</span>
+        <div style="margin-top: 10px; display: flex; gap: 16px; align-items: center;">
+          <div style="flex: 1; border: 1px solid #ddd; background: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 14px;">Apex Medical Systems (C1)</span>
+            <div style="border: 1px solid #bbb; background: #fff; width: 70px; text-align: center; padding: 6px 8px; font-size: 14px;">70%</div>
+          </div>
+          <span style="color: #999;">+</span>
+          <div style="flex: 1; border: 1px solid #ddd; background: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 14px;">RadCore Diagnostics (C2)</span>
+            <div style="border: 1px solid #bbb; background: #fff; width: 70px; text-align: center; padding: 6px 8px; font-size: 14px;">30%</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #888; margin-top: 8px;">As proposed by the Procurement Officer at L1 Selection. Adjust the percentages here if needed — this is the final allocation once approved, subject to the configured minimum split threshold.</div>
+      </div>
+    </div>
+
+    <div style="padding: 20px 28px 0; display: flex; flex-direction: column; gap: 10px;">
+      <button style="background: #2f6f3f; color: #fff; border: none; padding: 12px 20px; font-size: 14px; cursor: pointer; width: 100%;">Approve L1 Recommendation (with split as shown)</button>
+      <div style="text-align: center; font-size: 12px; color: #999; margin: 4px 0;">— or reject / apply a governed override —</div>
+    </div>
+
+    <div style="padding: 0 28px 24px; display: flex; flex-direction: column; gap: 20px;">
+
+      <div>
+        <span class="field-label">Choose Alternate Vendor (override only)</span>
+        <div style="border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; display: flex; justify-content: space-between;">
+          <span>Siemens Direct Supply — ₹46,50,000 — ★★★★★ 4.9</span><span style="color: #888;">▾</span>
+        </div>
+        <div style="font-size: 12px; color: #888; margin-top: 4px;">Other bids from this tender's pool. Leave blank to simply reject without an alternate.</div>
+      </div>
+
+      <div>
+        <span class="field-label">Reason Code (required for reject or override) *</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span style="border: 1px solid #b8560c; background: #fff8f0; color: #8a5215; padding: 6px 12px; font-size: 13px; font-weight: 600;">DELIVERY URGENCY</span>
+          <span style="border: 1px solid #bbb; background: #fff; color: #555; padding: 6px 12px; font-size: 13px;">TECHNICAL SUPERIORITY</span>
+          <span style="border: 1px solid #bbb; background: #fff; color: #555; padding: 6px 12px; font-size: 13px;">L1 CAPACITY CONSTRAINT</span>
+          <span style="border: 1px solid #bbb; background: #fff; color: #555; padding: 6px 12px; font-size: 13px;">CLINICAL PREFERENCE</span>
+        </div>
+        <div class="field-hint" style="margin-top: 4px; font-size: 12px; color: #888;">A short, selectable code — distinct from the justification below (spec §12.4: every override needs both).</div>
+      </div>
+
+      <div>
+        <span class="field-label">Justification (mandatory free text) *</span>
+        <div style="border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; height: 90px; color: #999;">
+          e.g. Department requested faster delivery timeline over marginal cost savings; Apex's 6-week lead time does not meet ICU expansion deadline...
+        </div>
+      </div>
+
+      <div style="border: 1px solid #c98a3f; background: #fff8f0; padding: 14px 16px; font-size: 13px; color: #6b4415;">
+        The override does not change the award until this approval reaches Approved — it stays Pending until then and can also Escalate or Expire per SLA.
+      </div>
+
+      <div>
+        <span class="field-label">Approval Status</span>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0;">
+          <div class="step"><div class="dot dot-done">✓</div> Submitted</div>
+          <div style="width: 32px; height: 1px; background: #ccc;"></div>
+          <div class="step"><div class="dot dot-current">2</div> Pending L1 Approval</div>
+          <div style="width: 32px; height: 1px; background: #ccc;"></div>
+          <div class="step" style="color: #aaa;"><div class="dot">3</div> Approved / Rejected / Escalated</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="padding: 20px 28px; border-top: 1px solid #eee; display: flex; gap: 12px; justify-content: flex-end;">
+      <button style="border: 1px solid #999; background: #fff; padding: 10px 20px; font-size: 14px; cursor: pointer;">Cancel</button>
+      <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 10px 20px; font-size: 14px; cursor: pointer;">Reject</button>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 10px 20px; font-size: 14px; cursor: pointer;">Submit Override for Escalation</button>
+    </div>
+
+  </div>
+</div>
+</div>
+<div class="screen-page scr-VendorApproval" id="page-scr-VendorApproval" style="background:#f6f5f2;" hidden>
+<div style="width: 1000px; min-height: 800px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">PA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Vendors / Pending Approval</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Vendor Registration Review</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Stage 1 — new registrations must be approved here before a vendor can be mapped to items/services or bid.</div>
+  </div>
+
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>COMPANY</span><span>CATEGORY</span><span>SUBMITTED</span><span>DOCUMENTS</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 1.4fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-weight: 600;">NovaMed Instruments</span><span style="color:#555;">Equipment</span><span>2 days ago</span>
+        <span style="color: #b8560c; text-decoration: underline;">View (3)</span>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 6px 12px; font-size: 13px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 6px 12px; font-size: 13px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 1.4fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-weight: 600;">Carewell Pharma Distributors</span><span style="color:#555;">Pharmaceuticals</span><span>5 days ago</span>
+        <span style="color: #b8560c; text-decoration: underline;">View (5)</span>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 6px 12px; font-size: 13px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 6px 12px; font-size: 13px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 1.4fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span style="font-weight: 600;">Bright Software Solutions</span><span style="color:#555;">Services — Software Dev.</span><span>1 week ago</span>
+        <span style="color: #b8560c; text-decoration: underline;">View (2)</span>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 6px 12px; font-size: 13px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 6px 12px; font-size: 13px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 8px 32px 0;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      Rejection requires a reason (recorded to the audit log and shown to the vendor). Approval moves the vendor to <b>Approved, Active</b> — eligible for item/service mapping next.
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 32px;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Recently Decided</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Apex Medical Systems</span><span style="color:#555;">Consumables</span><span style="color:#666;">3 weeks ago</span>
+        <div class="status-pill" style="background:#eaf3ea; border-color:#7fae7f; color:#2f5f2f;">Approved</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>QuickSupply Traders</span><span style="color:#555;">Equipment</span><span style="color:#666;">1 month ago</span>
+        <div class="status-pill" style="background:#f4e6e6; border-color:#c98a8a; color:#8a3f3f;">Rejected — incomplete KYC</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-ProductMaster" id="page-scr-ProductMaster" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">PA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Vendors / Item, Asset &amp; Service Master</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Product Master</div>
+    <div class="field-hint" style="margin-top: 6px;">The procurable catalog. Procurement Type drives the line-item form and mandatory attachment checklist used in Create Tender — this is what Vendor Mapping (next screen) maps vendors against.</div>
+  </div>
+
+  <div style="padding: 16px 32px 0; display: flex; align-items: center; gap: 10px;">
+    <span class="tab tab-on">All Types</span>
+    <span class="tab">Item</span>
+    <span class="tab">Asset</span>
+    <span class="tab">Service</span>
+    <span class="field-hint" style="margin-left: 8px;">9 entries</span>
+  </div>
+
+  <div style="padding: 16px 32px 32px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>CODE</span><span>NAME &amp; SPECIFICATION</span><span>TYPE</span><span>CATEGORY</span><span>TYPE-SPECIFIC ATTRIBUTES</span><span>PRICE BAND</span><span>VENDORS</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">ITM-CNS-0088</span>
+        <span><div style="font-weight: 600;">Nitrile Examination Gloves — Box/100</div><div class="field-hint">Powder-free, textured, box of 100</div></span>
+        <span class="badge badge-item">Item</span><span style="color:#555;">Consumables › PPE</span>
+        <span class="field-hint">UOM Box · batch/shelf-life tracked · reorder level 500</span>
+        <span style="white-space:nowrap;">₹180 – ₹220</span><span style="font-weight:700;">6</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">ITM-CNS-0311</span>
+        <span><div style="font-weight: 600;">Surgical Sutures — Assorted</div><div class="field-hint">Absorbable &amp; non-absorbable, mixed pack</div></span>
+        <span class="badge badge-item">Item</span><span style="color:#555;">Consumables › Surgical</span>
+        <span class="field-hint">UOM Box · shelf-life tracked · reorder level 200</span>
+        <span style="white-space:nowrap;">₹850 – ₹1,100</span><span style="font-weight:700;">5</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">AST-EQP-2201</span>
+        <span><div style="font-weight: 600;">MRI Machine — 1.5T</div><div class="field-hint">Siemens-spec, whole-body</div></span>
+        <span class="badge badge-asset">Asset</span><span style="color:#555;">Equipment › Diagnostic Imaging</span>
+        <span class="field-hint">Useful life 10yrs · warranty 24mo · CE/FDA required · site power &amp; civil work</span>
+        <span style="white-space:nowrap;">₹40L – ₹48L</span><span style="font-weight:700;">5</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">AST-EQP-2260</span>
+        <span><div style="font-weight: 600;">Portable Ventilator Units</div><div class="field-hint">ICU-grade, invasive + NIV</div></span>
+        <span class="badge badge-asset">Asset</span><span style="color:#555;">Equipment › ICU / Life Support</span>
+        <span class="field-hint">Useful life 8yrs · warranty 24mo · BIS/CE required · training included</span>
+        <span style="white-space:nowrap;">₹9L – ₹12L</span><span style="font-weight:700;">4</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">AST-EQP-2310</span>
+        <span><div style="font-weight: 600;">Digital X-Ray Panel</div><div class="field-hint">Flat panel detector, wireless</div></span>
+        <span class="badge badge-asset">Asset</span><span style="color:#555;">Equipment › Diagnostic Imaging</span>
+        <span class="field-hint">Useful life 10yrs · warranty 36mo · FDA required</span>
+        <span style="white-space:nowrap;">₹15L – ₹20L</span><span style="font-weight:700;">3</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">AST-EQP-2401</span>
+        <span><div style="font-weight: 600;">ICU Beds (x10)</div><div class="field-hint">Electric, 5-function</div></span>
+        <span class="badge badge-asset">Asset</span><span style="color:#555;">Equipment › ICU / Life Support</span>
+        <span class="field-hint">Useful life 7yrs · warranty 24mo · BIS required</span>
+        <span style="white-space:nowrap;">₹85,000 – ₹1,10,000</span><span style="font-weight:700;">6</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">SRV-CMC-4102</span>
+        <span><div style="font-weight: 600;">Autoclave Sterilizer — AMC</div><div class="field-hint">Table-top, annual maintenance contract</div></span>
+        <span class="badge badge-service">Service</span><span style="color:#555;">AMC / CMC</span>
+        <span class="field-hint">Tenure 12mo · SLA 24h response · fixed periodic billing</span>
+        <span style="white-space:nowrap;">₹40,000 – ₹60,000/yr</span><span style="font-weight:700;">3</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="font-family: monospace; color: #666;">SRV-SWD-4501</span>
+        <span><div style="font-weight: 600;">Software Development — Custom Build</div><div class="field-hint">Deliverable-based, milestone billing</div></span>
+        <span class="badge badge-service">Service</span><span style="color:#555;">Services › Software Development</span>
+        <span class="field-hint">Milestone SOW · IP assignment · source code escrow (spec §4.2.2)</span>
+        <span style="white-space:nowrap;">Quoted per project</span><span style="font-weight:700;">2</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2.2fr 0.8fr 1.3fr 2.2fr 1.1fr 0.7fr; padding: 12px 16px; font-size: 13px; align-items: center;">
+        <span style="font-family: monospace; color: #666;">SRV-SWL-4502</span>
+        <span><div style="font-weight: 600;">Software Licensing — Pharmacy Module (SaaS)</div><div class="field-hint">Subscription, cloud-hosted</div></span>
+        <span class="badge badge-service">Service</span><span style="color:#555;">Services › Software Licensing</span>
+        <span class="field-hint">Annual subscription · per-user tier · DPDP compliance required (spec §4.2.2)</span>
+        <span style="white-space:nowrap;">₹800 – ₹1,200/user/yr</span><span style="font-weight:700;">3</span>
+      </div>
+    </div>
+
+    <div class="field-hint" style="margin-top: 8px;">Software Development and Software Licensing are Service sub-categories (spec §4.2.2) — procuring a deliverable/right-to-use rather than a physical good, so they carry distinct attributes from AMC/manpower-style services.</div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-VendorMappingMatrix" id="page-scr-VendorMappingMatrix" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Category Manager</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">CM</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Vendors / Mapping Matrix</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Vendor–Product Eligibility Matrix</div>
+    <div class="field-hint" style="margin-top: 6px; max-width: 900px;">Many-to-many, per spec §4.3 — the single source of truth for who can be invited at tender time. A vendor may hold different mappings, and different ratings, across each procurement type. Click a cell to open its approval detail (the Vendor Mapping screen next in this flow).</div>
+  </div>
+
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #ccc;">
+        <div style="padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em;">VENDOR</div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">CONSUMABLES<div style="font-weight:400; text-transform:none; color:#999;">Item</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">PHARMACEUTICALS<div style="font-weight:400; text-transform:none; color:#999;">Item</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">EQUIPMENT<div style="font-weight:400; text-transform:none; color:#999;">Asset</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">AMC / CMC<div style="font-weight:400; text-transform:none; color:#999;">Service</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">SOFTWARE DEV/LIC<div style="font-weight:400; text-transform:none; color:#999;">Service</div></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Apex Medical Systems</div><div class="field-hint">rating 4.6</div></div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Horizon Healthcare Supplies</div><div class="field-hint">rating 4.1</div></div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">SteriTech India</div><div class="field-hint">rating 4.2</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">RadCore Diagnostics</div><div class="field-hint">rating 3.4</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Carewell Pharma Distributors</div><div class="field-hint">rating — pending approval</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-pending" style="border-left: 1px solid #eee;">PENDING</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">NovaMed Instruments</div><div class="field-hint">rating — pending approval</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-pending" style="border-left: 1px solid #eee;">PENDING</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Bright Software Solutions</div><div class="field-hint">rating — pending approval</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-pending" style="border-left: 1px solid #eee;">PENDING</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 22px; margin-top: 10px; font-size: 11.5px; color: #666;">
+      <span><b style="color:#2f5f2f;">MAPPED</b> — active, approved mapping</span>
+      <span><b style="color:#8a5215;">PENDING</b> — vendor requested, category manager review open</span>
+      <span>— not mapped</span>
+    </div>
+  </div>
+
+  <div style="padding: 16px 32px 32px;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      A vendor appears as a candidate for a tender line item only if an Active mapping exists for that exact item/asset/service or its parent category. Mapping changes take effect immediately for future tenders; already-published tenders are unaffected.
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-VendorMapping" id="page-scr-VendorMapping" style="background:#f6f5f2;" hidden>
+<div style="width: 900px; min-height: 800px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Category Manager</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">CM</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Vendors / Apex Medical Systems / Mapping</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Item / Asset / Service Mapping</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Stage 2 — determines what this vendor is eligible to supply. Drives tender eligibility resolution.</div>
+  </div>
+
+  <div style="padding: 20px 32px 8px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="field-label" style="margin: 0;">Equipment</span>
+        <span class="badge badge-admin">Admin-assigned</span>
+      </div>
+      <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap;">
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #333;background:#333;display:inline-block;"></span> Diagnostic Imaging</label>
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #999;background:#fff;display:inline-block;"></span> ICU / Life Support</label>
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #999;background:#fff;display:inline-block;"></span> Surgical Equipment</label>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="field-label" style="margin: 0;">Consumables</span>
+        <span class="badge badge-self">Vendor self-declared — pending approval</span>
+      </div>
+      <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap;">
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #333;background:#333;display:inline-block;"></span> Examination Gloves</label>
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #333;background:#333;display:inline-block;"></span> Sutures &amp; Dressings</label>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="field-label" style="margin: 0;">Services</span>
+        <span class="badge badge-admin">Not mapped</span>
+      </div>
+      <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap; color: #999;">
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #999;background:#fff;display:inline-block;"></span> Software Development</label>
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #999;background:#fff;display:inline-block;"></span> Software Licensing</label>
+        <label style="display:flex; align-items:center; gap:6px;"><span style="width:16px;height:16px;border:1px solid #999;background:#fff;display:inline-block;"></span> AMC / Maintenance</label>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="padding: 4px 32px 0;">
+    <div style="border: 1px solid #c98a3f; background: #fff8f0; padding: 12px 16px; font-size: 13px; color: #6b4415;">
+      The self-declared Consumables mapping needs Category Manager approval before it takes effect on tender eligibility.
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid #ddd; margin-top: 20px; padding: 20px 32px 32px; display: flex; gap: 12px; justify-content: flex-end;">
+    <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 10px 20px; font-size: 14px; cursor: pointer;">Reject Self-Declaration</button>
+    <button style="background: #b8560c; color: #fff; border: none; padding: 10px 20px; font-size: 14px; cursor: pointer;">Approve Mapping</button>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-VendorRating" id="page-scr-VendorRating" style="background:#f6f5f2;" hidden>
+<div style="width: 1000px; min-height: 850px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">PA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0; display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+      <span style="font-size: 13px; color: #888;">Vendors / Apex Medical Systems / Rating</span>
+      <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Vendor Rating</div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 12px; color: #777;">Overall Weighted Score</div>
+      <div style="font-size: 28px; font-weight: 700; color: #b8560c;">4.6 / 5</div>
+      <div class="field-hint">Illustrative weights per spec §5.2 — to be finalized with hospital policy</div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 8px; display: flex; gap: 16px;">
+
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="field-label" style="margin: 0;">Price Competitiveness — 20% weight</span>
+        <span class="badge badge-auto">Auto-calculated</span>
+      </div>
+      <div style="font-size: 24px; font-weight: 700; margin: 10px 0 4px;">4.4 / 5</div>
+      <div class="field-hint">Derived from this vendor's historical bid data · rolling history, 6 tenders</div>
+      <div style="margin-top: 12px; display: flex; gap: 6px; align-items: flex-end; height: 40px;">
+        <div style="width: 14px; height: 60%; background: #ddd;"></div>
+        <div style="width: 14px; height: 75%; background: #ddd;"></div>
+        <div style="width: 14px; height: 55%; background: #ddd;"></div>
+        <div style="width: 14px; height: 85%; background: #ddd;"></div>
+        <div style="width: 14px; height: 90%; background: #b8560c;"></div>
+        <span class="field-hint" style="margin-left: 6px;">last 5 tenders</span>
+      </div>
+      <div style="margin-top: 14px; border-top: 1px dashed #ddd; padding-top: 10px;">
+        <span style="font-size: 12px; color: #b8560c; text-decoration: underline; cursor: pointer;">Override auto-calculated score →</span>
+      </div>
+    </div>
+
+    <div style="flex: 1.4; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="field-label" style="margin: 0;">Manually Entered Parameters</span>
+        <span class="badge badge-manual">Manual</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
+          <span>On-time Delivery % — 25% weight</span><span style="font-weight: 600;">92%</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
+          <span>Quality Acceptance Rate — 25% weight</span><span style="font-weight: 600;">96%</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
+          <span>Compliance / Documentation Currency — 15% weight</span>
+          <span class="badge badge-stale">Update due</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
+          <span>Responsiveness — 15% weight</span><span style="font-weight: 600;">4.5 / 5</span>
+        </div>
+      </div>
+      <div style="margin-top: 14px; border-top: 1px dashed #ddd; padding-top: 10px;">
+        <button style="border: 1px solid #999; background: #fff; padding: 8px 16px; font-size: 13px; cursor: pointer;">Update Manual Parameters</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Rating History</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>DATE</span><span>OVERALL SCORE</span><span>SOURCE</span><span>NOTE</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>This month</span><span style="font-weight: 600;">4.6</span><span style="color:#555;">Recalculated</span><span style="color:#666;">After ICU Beds tender close</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>2 months ago</span><span style="font-weight: 600;">4.3</span><span style="color:#555;">Manual update</span><span style="color:#666;">Quarterly compliance review</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 32px;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      Ratings affect tender eligibility, equal-price tie-breaking, and suspension review flagging. New vendors show a <b>Provisional / Unrated</b> status until enough history exists — not shown here since this vendor has history.
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-VendorRegister" id="page-scr-VendorRegister" style="background:#f6f5f2;" hidden>
+<div style="width: 900px; min-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 28px 32px 4px;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Vendor Registration</div>
+    <div style="font-size: 13px; color: #888; margin-top: 6px;">Register your company to bid on hospital supply tenders. Submissions are reviewed before approval.</div>
+  </div>
+
+  <div style="padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1;">
+        <span class="field-label">Company Name</span>
+        <div class="input-box">e.g. Apex Medical Systems</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Registration / Tax ID</span>
+        <div class="input-box">e.g. GSTIN</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Category of Supplies</span>
+      <div class="input-box">Select one or more ▾</div>
+      <div class="field-hint">Equipment / Consumables / Pharmaceuticals / Services</div>
+    </div>
+
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1;">
+        <span class="field-label">Contact Person</span>
+        <div class="input-box">Full name</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Email</span>
+        <div class="input-box">name@company.com</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Phone</span>
+        <div class="input-box">+91 —</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Certifications</span>
+      <div style="border: 1px dashed #999; background: #fff; padding: 24px; text-align: center; color: #999; font-size: 13px;">Upload ISO / CDSCO / BIS certificates</div>
+    </div>
+
+    <div>
+      <span class="field-label">Past Experience / References (optional)</span>
+      <div class="input-box" style="height: 80px; align-items: flex-start;">Prior institutional clients, notable projects...</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+      <span class="field-hint">Your account will be reviewed by hospital procurement staff before you can bid.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Submit for Verification</button>
+    </div>
+
+  </div>
+</div>
+</div>
+<div class="screen-page scr-VendorDashboard" id="page-scr-VendorDashboard" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 880px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Open Tenders</span>
+        <span style="color: #555;">My Bids</span>
+        <span style="color: #555;">Awards</span>
+        <span style="color: #555;">Profile</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Apex Medical Systems</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">AM</div>
+    </div>
+  </div>
+
+  <!-- vendor profile summary -->
+  <div style="margin: 24px 32px 0; border: 1px solid #ccc; background: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; gap: 24px; align-items: center;">
+      <div style="font-weight: 700; font-size: 16px;">Apex Medical Systems</div>
+      <div style="font-size: 13px; color: #c98a3f;">★★★★☆ 4.6 rating</div>
+      <div style="font-size: 12px; border: 1px solid #7fae7f; color: #2f5f2f; background: #eaf3ea; padding: 2px 8px;">Verified Vendor</div>
+    </div>
+    <span style="font-size: 13px; color: #b8560c;">View Profile →</span>
+  </div>
+
+  <!-- open tenders -->
+  <div style="padding: 20px 32px 24px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Open Tenders You Can Bid On</span>
+    <div style="margin-top: 12px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ITEM</span><span>CATEGORY</span><span>CLOSES IN</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Nitrile Examination Gloves — Box/100</span><span style="color:#555;">Consumables</span><span>2 days</span>
+        <button style="border: 1px solid #333; background: #fff; padding: 6px 14px; font-size: 13px; cursor: pointer; width: fit-content;">Submit Bid</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Surgical Sutures — Assorted</span><span style="color:#555;">Consumables</span><span>5 days</span>
+        <button style="border: 1px solid #333; background: #fff; padding: 6px 14px; font-size: 13px; cursor: pointer; width: fit-content;">Submit Bid</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units (x4)</span><span style="color:#555;">Equipment</span><span>6 days</span>
+        <button style="border: 1px solid #333; background: #fff; padding: 6px 14px; font-size: 13px; cursor: pointer; width: fit-content;">Submit Bid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- bid history -->
+  <div style="padding: 0 32px 32px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">My Bid History</span>
+    <div style="margin-top: 12px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1.2fr 1fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>TENDER</span><span>YOUR BID</span><span>STATUS</span><span>DATE</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>MRI Machine — 1.5T</span><span>₹42,80,000</span><div class="status-pill status-pending">Under Review</div><span style="color:#666;">2 days ago</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Digital X-Ray Panel</span><span>₹18,20,000</span><div class="status-pill status-lost">Not Selected</div><span style="color:#666;">1 week ago</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>ICU Beds (x10)</span><span>₹9,40,000</span><div class="status-pill status-won">Awarded</div><span style="color:#666;">3 weeks ago</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-SubmitBid" id="page-scr-SubmitBid" style="background:#f6f5f2;" hidden>
+<div style="width: 900px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Open Tenders / Submit Bid</span>
+    <div class="label" style="font-size: 24px; font-weight: 700; margin-top: 4px;">Nitrile Examination Gloves — Box/100</div>
+  </div>
+
+  <!-- spec recap -->
+  <div style="margin: 16px 32px 0; border: 1px solid #ddd; background: #fbfaf7; padding: 16px 20px;">
+    <div style="font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em;">Tender Specification</div>
+    <div style="font-size: 14px; color: #444; line-height: 1.6;">
+      Category: Consumables &nbsp;·&nbsp; Quantity: 500 boxes &nbsp;·&nbsp; Required: ISO 13485, CDSCO Approved<br>
+      Closes: in 2 days, 4:00 PM
+    </div>
+  </div>
+
+  <div style="margin: 16px 32px 0; border: 1px solid #c98a3f; background: #fff8f0; padding: 12px 16px; font-size: 13px; color: #6b4415;">
+    Bidding is per line item. Commercial figures stay sealed and are not exposed — even via the API — until after the deadline and technical qualification.
+  </div>
+
+  <div style="padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <span class="label" style="font-size: 15px; font-weight: 700;">Technical Submission</span>
+
+      <div>
+        <span class="field-label">Technical Specifications</span>
+        <div class="input-box" style="height: 70px; align-items: flex-start;">Describe how the offered item/service meets the tender's required specs...</div>
+      </div>
+
+      <div>
+        <span class="field-label">Compliance Certifications</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop ISO / CDSCO / BIS certificates or spec documents</div>
+      </div>
+
+      <div>
+        <span class="field-label">Warranty / Support Terms</span>
+        <div class="input-box">e.g. 12 months replacement warranty</div>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="label" style="font-size: 15px; font-weight: 700;">Commercial Submission</span>
+        <span style="font-size: 11px; border: 1px solid #c98a3f; color: #8a5215; background: #fdf1e3; padding: 2px 8px;">Sealed</span>
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Price Quote (total)</span>
+          <div class="input-box">₹ —</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Delivery Timeline</span>
+          <div class="input-box">e.g. 3 weeks</div>
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Attach Priced Quote Document</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop file or click to upload</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Additional Notes (optional)</span>
+      <div class="input-box" style="height: 60px; align-items: flex-start;">Anything else the reviewing officer should know...</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+      <span class="field-hint">Bids cannot be edited or withdrawn after submission.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Submit Sealed Bid</button>
+    </div>
+
+  </div>
+</div>
+</div>
+<div class="screen-page scr-VendorAwards" id="page-scr-VendorAwards" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Open Tenders</span>
+        <span style="color: #555;">My Bids</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Awards</span>
+        <span style="color: #555;">Profile</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Apex Medical Systems</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">AM</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Awards &amp; Purchase Orders</div>
+    <div class="field-hint" style="margin-top: 6px;">You're notified of award, regret, or technical-disqualification outcomes here, independent of and ahead of the hospital ERP's own PO issuance (spec §10.6).</div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Purchase Order — PO/SMH/2026/4412</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 2px solid #eee;">
+        <div>
+          <div class="field-hint">Issued 3 weeks ago</div>
+          <div style="font-size: 18px; font-weight: 700; margin-top: 2px;">ICU Beds (x10)</div>
+        </div>
+        <div style="text-align: right;">
+          <div class="field-hint">PO value</div>
+          <div style="font-size: 20px; font-weight: 700;">₹9,40,000</div>
+        </div>
+        <div class="status-pill status-won" style="font-size: 12px; padding: 4px 12px;">Awarded — PO Issued</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr; padding: 14px 18px;">
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-size: 13px;">
+          <span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">LINE</span><span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">QTY</span><span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">UNIT PRICE</span><span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">TOTAL</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-size: 14px; padding-top: 10px;">
+          <span>ICU Beds, Electric 5-function</span><span>10 NOS</span><span>₹94,000</span><span style="font-weight:700;">₹9,40,000</span>
+        </div>
+      </div>
+      <div style="padding: 12px 18px; display: flex; gap: 12px; align-items: center; border-top: 1px solid #eee;">
+        <div style="flex: 1; font-size: 12px; color: #666;">Acknowledge to close the procurement cycle for this line. Requesting an amendment routes a governed PO re-export override to Procurement Admin — the current PO stays valid meanwhile.</div>
+        <button style="border: 1px solid #999; background: #fff; padding: 8px 16px; font-size: 13px; cursor: pointer;">Request Amendment</button>
+        <button style="background: #b8560c; color: #fff; border: none; padding: 8px 16px; font-size: 13px; cursor: pointer;">Acknowledge PO</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Line Outcomes</span>
+    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+
+      <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">ICU Beds (x10)</div>
+          <div class="field-hint" style="margin-top: 3px;">L1 on landed price — awarded, PO issued above</div>
+        </div>
+        <div class="status-pill status-won">Awarded</div>
+      </div>
+
+      <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">Digital X-Ray Panel</div>
+          <div class="field-hint" style="margin-top: 3px;">Technically qualified but not L1 (L2 on landed price) — regret notice, separate from technical disqualification</div>
+        </div>
+        <div class="status-pill status-lost">Not Selected</div>
+      </div>
+
+      <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">MRI Machine — 1.5T</div>
+          <div class="field-hint" style="margin-top: 3px;">Recommended for L1 Approval — outcome not yet finalized</div>
+        </div>
+        <div class="status-pill status-pending">Under Review</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 32px;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Approval Trail — PO/SMH/2026/4412</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff; padding: 16px 18px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="step"><div class="dot dot-done">✓</div> L1 Approved</div>
+        <div style="width: 32px; height: 1px; background: #ccc;"></div>
+        <div class="step"><div class="dot dot-done">✓</div> PO Data Generated</div>
+        <div style="width: 32px; height: 1px; background: #ccc;"></div>
+        <div class="step"><div class="dot dot-done">✓</div> ERP Ingested</div>
+        <div style="width: 32px; height: 1px; background: #ccc;"></div>
+        <div class="step" style="color:#aaa;"><div class="dot">4</div> Vendor Acknowledgment</div>
+      </div>
+      <div class="field-hint" style="margin-top: 10px;">PO document creation, numbering, and dispatch happen inside the hospital ERP once it ingests this system's export file — this system's role ends at a successfully generated PO data file.</div>
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-POExport" id="page-scr-POExport" style="background:#f6f5f2;" hidden>
+<div style="width: 1100px; min-height: 750px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="color: #555;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">PO Export</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">PA</div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 24px 32px 0;">
+    <div>
+      <div class="label" style="font-size: 26px; font-weight: 700;">PO Data Export</div>
+      <div style="font-size: 13px; color: #666; margin-top: 6px;">This system does not create the ERP PO itself — it generates validated data for handoff.</div>
+    </div>
+    <button style="background: #b8560c; color: #fff; border: none; padding: 10px 18px; font-size: 14px; cursor: pointer;">+ Generate Export</button>
+  </div>
+
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>TENDER</span><span>AWARDED VENDOR(S)</span><span>APPROVAL REF</span><span>FORMAT</span><span>GENERATED</span><span>STATUS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>ICU Beds (x10)</span><span>CarePlus Equipment</span><span style="color:#555;">L1-APR-0231</span><span>CSV</span><span style="color:#666;">3 weeks ago</span>
+        <div class="status-pill status-imported">Imported — PO Created</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Digital X-Ray Panel</span><span>RadVision Corp</span><span style="color:#555;">L1-APR-0229</span><span>XML</span><span style="color:#666;">3 days ago</span>
+        <div class="status-pill status-pending">Pending Upload</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Autoclave Sterilizer (x6)</span><span>SteriTech India</span><span style="color:#555;">L1-APR-0225</span><span>CSV</span><span style="color:#666;">1 month ago</span>
+        <div class="status-pill status-failed">Reconciliation Failed</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Portable Ventilator Units (x4) <span style="font-size:11px; border:1px solid #8f9bd6; background:#eef0fb; color:#3a4590; padding:1px 6px; margin-left:4px;">Split 70%</span></span><span>Apex Medical Systems</span><span style="color:#555;">L1-APR-0233</span><span>CSV</span><span style="color:#666;">1 day ago</span>
+        <div class="status-pill status-pending">Pending Upload</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units (x4) <span style="font-size:11px; border:1px solid #8f9bd6; background:#eef0fb; color:#3a4590; padding:1px 6px; margin-left:4px;">Split 30%</span></span><span>RadCore Diagnostics</span><span style="color:#555;">L1-APR-0234</span><span>CSV</span><span style="color:#666;">1 day ago</span>
+        <div class="status-pill status-pending">Pending Upload</div>
+      </div>
+    </div>
+    <div class="field-hint" style="margin-top: 6px;">A split-award line item generates one file per vendor, each carrying only that vendor's allocated share (here, two files with the same tender reference, different batch IDs).</div>
+  </div>
+
+  <div style="padding: 16px 32px 0;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      Each export is traceable to tender, vendor, awarded line items, the approval record, and its timestamp. An approved export cannot be edited — changes go through a governed re-export (Override Engine), not a direct edit.
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 32px;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Field Structure (spec §10.4 — minimum data set)</span>
+    <div class="field-hint" style="margin-top: 4px; margin-bottom: 10px;">Exact column/element names to be finalized against the hospital ERP's import template (open question)</div>
+    <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; font-size: 13px; color: #555; font-family: monospace; line-height: 1.7;">
+      Tender Reference / PO Data Batch ID, Vendor Code / GSTIN, Line Item Code, Description, Quantity, UOM, Unit Price, Tax, Line Total, Delivery / Service Terms, Payment Terms, Approving Authority ID, Approval Timestamp, Department / Budget Code, Facility / Legal Entity Code
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-AuditLog" id="page-scr-AuditLog" style="background:#f6f5f2;" hidden>
+<div style="width: 1100px; min-height: 750px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px; color: #555;">
+        <span>Dashboard</span><span>Tenders</span><span>Vendors</span><span>Approvals</span><span>Overrides</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px; color: #1a1a1a;">Audit Log</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">System Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">SA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Audit Log</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Immutable from normal application workflows — first-class system capability, not scattered logging.</div>
+  </div>
+
+  <div style="padding: 16px 32px 0; display: flex; gap: 12px;">
+    <div class="input-box" style="flex: 1;">Date range ▾</div>
+    <div class="input-box" style="flex: 1;">Actor / role ▾</div>
+    <div class="input-box" style="flex: 1;">Module ▾</div>
+    <div class="input-box" style="flex: 1;">Action type ▾</div>
+  </div>
+
+  <div style="padding: 16px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>TIMESTAMP</span><span>ACTOR</span><span>ROLE</span><span>ACTION</span><span>BEFORE → AFTER</span><span>REASON / APPROVAL</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="color:#666;">Today 10:42</span><span>R. Sharma</span><span style="color:#555;">Approving Authority</span><span>L1 Approval</span>
+        <span style="color:#555;">Recommended → Approved</span><span style="color:#555;">Ref L1-APR-0231</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="color:#666;">Today 09:15</span><span>N. Iyer</span><span style="color:#555;">Procurement Officer</span><span>Recommendation Override</span>
+        <span style="color:#555;">Apex Medical → Siemens Direct</span><span style="color:#555;">Faster delivery required</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="color:#666;">Yesterday</span><span>P. Admin</span><span style="color:#555;">Procurement Admin</span><span>Vendor Approved</span>
+        <span style="color:#555;">Pending → Approved, Active</span><span style="color:#555;">—</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; align-items: center;">
+        <span style="color:#666;">2 days ago</span><span>System</span><span style="color:#555;">System</span><span>PO Export Generated</span>
+        <span style="color:#555;">— → Pending Upload</span><span style="color:#555;">Ref L1-APR-0229</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-OverrideQueue" id="page-scr-OverrideQueue" style="background:#f6f5f2;" hidden>
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="color: #555;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">PA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Override & Exception Approval Queue</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">One reusable workflow engine for every governed override in the system — no override anywhere takes effect until it reaches Approved here.</div>
+  </div>
+
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>OVERRIDE TYPE</span><span>INITIATOR</span><span>REASON CODE &amp; JUSTIFICATION</span><span>RESOLVED APPROVER</span><span>STATUS</span><span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Non-L1/C1 Award Override</span><span style="color:#555;">N. Iyer</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">DELIVERY URGENCY</div><div style="color:#555; margin-top:2px;">Faster delivery required than L1 bid offers</div></span>
+        <span style="color:#555;">Procurement Admin</span>
+        <div class="status-pill status-pending">Pending</div>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 5px 10px; font-size: 12px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 5px 10px; font-size: 12px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Guest Vendor Invite</span><span style="color:#555;">R. Sharma (self-attested)</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">NEW MARKET ENTRANT</div><div style="color:#555; margin-top:2px;">Sole distributor for spec, not yet registered</div></span>
+        <span style="color:#555;">Procurement Officer</span>
+        <div class="status-pill status-approved">Approved</div>
+        <span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Price Competitiveness Override</span><span style="color:#555;">P. Admin</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">DATA CORRECTION</div><div style="color:#555; margin-top:2px;">Historical bid data skewed by one-off emergency order</div></span>
+        <span style="color:#555;">Department Head</span>
+        <div class="status-pill status-escalated">Escalated — outside score-point range</div>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 5px 10px; font-size: 12px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 5px 10px; font-size: 12px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Bid Due-Date Extension</span><span style="color:#555;">N. Iyer (self-attested)</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">CLARIFICATION ROUND</div><div style="color:#555; margin-top:2px;">Two vendors requested clarification on spec</div></span>
+        <span style="color:#555;">Procurement Officer</span>
+        <div class="status-pill status-approved">Approved</div>
+        <span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Technical Score Correction</span><span style="color:#555;">Category Mgr — K. Patel</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">DATA CORRECTION</div><div style="color:#555; margin-top:2px;">Compliance document was misread during scoring</div></span>
+        <span style="color:#555;">Procurement Admin</span>
+        <div class="status-pill status-pending">Pending</div>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 5px 10px; font-size: 12px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 5px 10px; font-size: 12px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1.1fr 1.9fr 1fr 1.2fr 1fr; padding: 12px 16px; font-size: 13px; align-items: center;">
+        <span>PO Data Re-export</span><span style="color:#555;">P. Admin</span>
+        <span><div style="font-size:11px; font-weight:700; letter-spacing:0.03em; color:#8a5215;">SYSTEM CORRECTION</div><div style="color:#555; margin-top:2px;">ERP rejected vendor code — corrected after mapping fix</div></span>
+        <span style="color:#555;">Procurement Admin</span>
+        <div class="status-pill status-pending">Pending</div>
+        <div style="display: flex; gap: 8px;">
+          <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 5px 10px; font-size: 12px; cursor: pointer;">Reject</button>
+          <button style="background: #2f6f3f; color: #fff; border: none; padding: 5px 10px; font-size: 12px; cursor: pointer;">Approve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 16px 32px 32px;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      Every instance moves through the same state machine — Requested → Pending Approval → Approved / Rejected / Escalated / Expired — and retains initiator, reason code, justification, approver, decision, and full escalation path for audit (feeds the Audit Log).
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="screen-page scr-OpenTenderLanding" id="page-scr-OpenTenderLanding" style="background:#f6f5f2;" hidden>
+<div style="width: 900px; min-height: 1050px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+    <span style="font-size: 12px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 3px 10px;">Public Tender — No Login Required</span>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Open Tender</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Hospital Linen & Laundry Services — Annual Contract</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Facility: City Central Hospital · Bid closes in 9 days · Any vendor may self-register and bid — no prior mapping or invitation required</div>
+  </div>
+
+  <div style="margin: 16px 32px 0; border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+    This link is scoped only to this tender — you cannot browse or discover any other tender from here. Vendor Mapping and Vendor Rating do not gate participation, but technical evaluation still applies before any commercial ranking.
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Line Items</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>SERVICE</span><span>TENURE</span><span>LOCATION</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>Linen & Laundry — full hospital coverage</span><span style="color:#555;">12 months</span><span style="color:#555;">Main campus</span>
+      </div>
+    </div>
+    <div style="margin-top: 10px;">
+      <span style="font-size: 13px; color: #b8560c; text-decoration: underline;">Scope of Work.pdf</span>
+      <span style="font-size: 13px; color: #b8560c; text-decoration: underline; margin-left: 16px;">Site Photos.zip</span>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Self-Registration</span>
+    <div class="field-hint" style="margin-top: 2px; margin-bottom: 14px;">Same minimum fields as an officer-initiated guest invite. If your GSTIN/PAN matches an existing registration, you'll be matched to that profile instead of creating a duplicate.</div>
+
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Company Name</span>
+          <div class="input-box">e.g. Sunrise Linen Services</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">GSTIN / PAN (if available)</span>
+          <div class="input-box">—</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Contact Person</span>
+          <div class="input-box">Full name</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Phone / Email</span>
+          <div class="input-box">—</div>
+        </div>
+      </div>
+      <div>
+        <span class="field-label">Bank Details</span>
+        <div class="input-box">Bank name, account number, IFSC</div>
+      </div>
+      <div style="border: 1px dashed #999; background: #fff; padding: 18px; text-align: center; color: #999; font-size: 13px;">I'm not a robot — CAPTCHA challenge</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; margin-top: 22px; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+      <span class="field-hint">Full KYC and formal approval aren't required to bid, but are required before you can be confirmed as the awarded vendor.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Register & Continue to Bid →</button>
+    </div>
+  </div>
+
+</div>
+</div>
+    </div>
+  </main>
+</div>
+
+<script>
+function showScreen(btn) {
+  document.querySelectorAll('.screen-page').forEach(function(el) { el.hidden = true; });
+  document.querySelectorAll('.nav-btn').forEach(function(el) { el.classList.remove('active'); });
+  var target = document.getElementById(btn.getAttribute('data-target'));
+  if (target) target.hidden = false;
+  btn.classList.add('active');
+  document.getElementById('topbar-label').textContent = btn.textContent;
+  document.getElementById('main').scrollTop = 0;
+}
+window.addEventListener('DOMContentLoaded', function() {
+  var first = document.querySelector('.nav-btn');
+  if (first) showScreen(first);
+});
+</script>
+
+</body>
+</html>
