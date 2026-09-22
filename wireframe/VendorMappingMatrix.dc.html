@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-hint { font-size: 12px; color: #888; }
+    .cell { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 8px 4px; }
+    .cell-mapped { background: #eaf3ea; color: #2f5f2f; }
+    .cell-pending { background: #fdf1e3; color: #8a5215; }
+    .cell-none { background: #fafaf9; color: #ccc; }
+  </style>
+</helmet>
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Category Manager</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">CM</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Vendors / Mapping Matrix</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Vendor–Product Eligibility Matrix</div>
+    <div class="field-hint" style="margin-top: 6px; max-width: 900px;">Many-to-many, per spec §4.3 — the single source of truth for who can be invited at tender time. A vendor may hold different mappings, and different ratings, across each procurement type. Click a cell to open its approval detail (the Vendor Mapping screen next in this flow).</div>
+  </div>
+
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #ccc;">
+        <div style="padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em;">VENDOR</div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">CONSUMABLES<div style="font-weight:400; text-transform:none; color:#999;">Item</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">PHARMACEUTICALS<div style="font-weight:400; text-transform:none; color:#999;">Item</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">EQUIPMENT<div style="font-weight:400; text-transform:none; color:#999;">Asset</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">AMC / CMC<div style="font-weight:400; text-transform:none; color:#999;">Service</div></div>
+        <div style="padding: 10px 6px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.03em; text-align: center; border-left: 1px solid #ddd;">SOFTWARE DEV/LIC<div style="font-weight:400; text-transform:none; color:#999;">Service</div></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Apex Medical Systems</div><div class="field-hint">rating 4.6</div></div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Horizon Healthcare Supplies</div><div class="field-hint">rating 4.1</div></div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">SteriTech India</div><div class="field-hint">rating 4.2</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">RadCore Diagnostics</div><div class="field-hint">rating 3.4</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-mapped" style="border-left: 1px solid #eee;">MAPPED</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Carewell Pharma Distributors</div><div class="field-hint">rating — pending approval</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-pending" style="border-left: 1px solid #eee;">PENDING</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); border-bottom: 1px solid #eee; align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">NovaMed Instruments</div><div class="field-hint">rating — pending approval</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-pending" style="border-left: 1px solid #eee;">PENDING</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); align-items: center;">
+        <div style="padding: 10px 16px;"><div style="font-weight:600; font-size:13px;">Bright Software Solutions</div><div class="field-hint">rating — pending approval</div></div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-none" style="border-left: 1px solid #eee;">—</div>
+        <div class="cell cell-pending" style="border-left: 1px solid #eee;">PENDING</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 22px; margin-top: 10px; font-size: 11.5px; color: #666;">
+      <span><b style="color:#2f5f2f;">MAPPED</b> — active, approved mapping</span>
+      <span><b style="color:#8a5215;">PENDING</b> — vendor requested, category manager review open</span>
+      <span>— not mapped</span>
+    </div>
+  </div>
+
+  <div style="padding: 16px 32px 32px;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      A vendor appears as a candidate for a tender line item only if an Active mapping exists for that exact item/asset/service or its parent category. Mapping changes take effect immediately for future tenders; already-published tenders are unaffected.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

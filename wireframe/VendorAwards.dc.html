@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-hint { font-size: 12px; color: #888; }
+    .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+    .status-won { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+    .status-lost { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+    .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+    .step { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #fff; }
+    .dot-done { background: #2f6f3f; border-color: #2f6f3f; color: #fff; }
+    .dot-current { background: #b8560c; border-color: #b8560c; color: #fff; }
+  </style>
+</helmet>
+<div style="width: 1180px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Open Tenders</span>
+        <span style="color: #555;">My Bids</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Awards</span>
+        <span style="color: #555;">Profile</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Apex Medical Systems</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">AM</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Awards &amp; Purchase Orders</div>
+    <div class="field-hint" style="margin-top: 6px;">You're notified of award, regret, or technical-disqualification outcomes here, independent of and ahead of the hospital ERP's own PO issuance (spec §10.6).</div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Purchase Order — PO/SMH/2026/4412</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 2px solid #eee;">
+        <div>
+          <div class="field-hint">Issued 3 weeks ago</div>
+          <div style="font-size: 18px; font-weight: 700; margin-top: 2px;">ICU Beds (x10)</div>
+        </div>
+        <div style="text-align: right;">
+          <div class="field-hint">PO value</div>
+          <div style="font-size: 20px; font-weight: 700;">₹9,40,000</div>
+        </div>
+        <div class="status-pill status-won" style="font-size: 12px; padding: 4px 12px;">Awarded — PO Issued</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr; padding: 14px 18px;">
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-size: 13px;">
+          <span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">LINE</span><span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">QTY</span><span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">UNIT PRICE</span><span style="color:#777; font-weight:700; font-size:11px; letter-spacing:0.04em;">TOTAL</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-size: 14px; padding-top: 10px;">
+          <span>ICU Beds, Electric 5-function</span><span>10 NOS</span><span>₹94,000</span><span style="font-weight:700;">₹9,40,000</span>
+        </div>
+      </div>
+      <div style="padding: 12px 18px; display: flex; gap: 12px; align-items: center; border-top: 1px solid #eee;">
+        <div style="flex: 1; font-size: 12px; color: #666;">Acknowledge to close the procurement cycle for this line. Requesting an amendment routes a governed PO re-export override to Procurement Admin — the current PO stays valid meanwhile.</div>
+        <button style="border: 1px solid #999; background: #fff; padding: 8px 16px; font-size: 13px; cursor: pointer;">Request Amendment</button>
+        <button style="background: #b8560c; color: #fff; border: none; padding: 8px 16px; font-size: 13px; cursor: pointer;">Acknowledge PO</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Line Outcomes</span>
+    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+
+      <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">ICU Beds (x10)</div>
+          <div class="field-hint" style="margin-top: 3px;">L1 on landed price — awarded, PO issued above</div>
+        </div>
+        <div class="status-pill status-won">Awarded</div>
+      </div>
+
+      <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">Digital X-Ray Panel</div>
+          <div class="field-hint" style="margin-top: 3px;">Technically qualified but not L1 (L2 on landed price) — regret notice, separate from technical disqualification</div>
+        </div>
+        <div class="status-pill status-lost">Not Selected</div>
+      </div>
+
+      <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">MRI Machine — 1.5T</div>
+          <div class="field-hint" style="margin-top: 3px;">Recommended for L1 Approval — outcome not yet finalized</div>
+        </div>
+        <div class="status-pill status-pending">Under Review</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 32px;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Approval Trail — PO/SMH/2026/4412</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff; padding: 16px 18px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="step"><div class="dot dot-done">✓</div> L1 Approved</div>
+        <div style="width: 32px; height: 1px; background: #ccc;"></div>
+        <div class="step"><div class="dot dot-done">✓</div> PO Data Generated</div>
+        <div style="width: 32px; height: 1px; background: #ccc;"></div>
+        <div class="step"><div class="dot dot-done">✓</div> ERP Ingested</div>
+        <div style="width: 32px; height: 1px; background: #ccc;"></div>
+        <div class="step" style="color:#aaa;"><div class="dot">4</div> Vendor Acknowledgment</div>
+      </div>
+      <div class="field-hint" style="margin-top: 10px;">PO document creation, numbering, and dispatch happen inside the hospital ERP once it ingests this system's export file — this system's role ends at a successfully generated PO data file.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

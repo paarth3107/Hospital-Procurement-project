@@ -11,6 +11,7 @@
     body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #ddd; color: #1a1a1a; }
     .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
     .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+    .field-hint { font-size: 12px; color: #888; }
     .step { display: flex; align-items: center; gap: 8px; font-size: 12px; }
     .dot { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 11px; background: #fff; }
     .dot-done { background: #2f6f3f; border-color: #2f6f3f; color: #fff; }
@@ -64,7 +65,18 @@
       </div>
 
       <div>
-        <span class="field-label">Reason (required for reject or override) *</span>
+        <span class="field-label">Reason Code (required for reject or override) *</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span style="border: 1px solid #b8560c; background: #fff8f0; color: #8a5215; padding: 6px 12px; font-size: 13px; font-weight: 600;">DELIVERY URGENCY</span>
+          <span style="border: 1px solid #bbb; background: #fff; color: #555; padding: 6px 12px; font-size: 13px;">TECHNICAL SUPERIORITY</span>
+          <span style="border: 1px solid #bbb; background: #fff; color: #555; padding: 6px 12px; font-size: 13px;">L1 CAPACITY CONSTRAINT</span>
+          <span style="border: 1px solid #bbb; background: #fff; color: #555; padding: 6px 12px; font-size: 13px;">CLINICAL PREFERENCE</span>
+        </div>
+        <div class="field-hint" style="margin-top: 4px; font-size: 12px; color: #888;">A short, selectable code — distinct from the justification below (spec §12.4: every override needs both).</div>
+      </div>
+
+      <div>
+        <span class="field-label">Justification (mandatory free text) *</span>
         <div style="border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; height: 90px; color: #999;">
           e.g. Department requested faster delivery timeline over marginal cost savings; Apex's 6-week lead time does not meet ICU expansion deadline...
         </div>

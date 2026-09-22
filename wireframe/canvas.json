@@ -4,43 +4,45 @@
     { "file": "CreateTender.dc.html", "x": 1330, "y": 0, "w": 900, "h": 1300, "title": "2. Create Tender (line items, split-award) — Procurement Officer" },
     { "file": "TenderApproval.dc.html", "x": 2380, "y": 0, "w": 1000, "h": 1150, "title": "3. E-Tender Approval (round history) — Approving Authority" },
     { "file": "TenderDetail.dc.html", "x": 3530, "y": 0, "w": 1180, "h": 1200, "title": "4. Evaluation & L1 Recommendation (propose split) — Procurement Officer" },
-    { "file": "RejectFlow.dc.html", "x": 4860, "y": 0, "w": 800, "h": 1000, "title": "5. L1 Approval (confirm split) — Approving Authority" },
+    { "file": "RejectFlow.dc.html", "x": 4860, "y": 0, "w": 800, "h": 1100, "title": "5. L1 Approval (confirm split, reason code) — Approving Authority" },
 
     { "file": "VendorApproval.dc.html", "x": 0, "y": 1600, "w": 1000, "h": 800, "title": "6. Vendor Approval — Procurement Admin" },
-    { "file": "VendorMapping.dc.html", "x": 1150, "y": 1600, "w": 900, "h": 800, "title": "7. Item/Asset/Service Mapping — Category Manager" },
-    { "file": "VendorRating.dc.html", "x": 2200, "y": 1600, "w": 1000, "h": 850, "title": "8. Vendor Rating (real weights, spec §5.2) — Procurement Admin" },
+    { "file": "ProductMaster.dc.html", "x": 1150, "y": 1600, "w": 1180, "h": 950, "title": "7. Item, Asset & Service Master — Procurement Admin" },
+    { "file": "VendorMappingMatrix.dc.html", "x": 2480, "y": 1600, "w": 1180, "h": 900, "title": "8. Vendor Mapping Matrix (overview) — Category Manager" },
+    { "file": "VendorMapping.dc.html", "x": 3810, "y": 1600, "w": 900, "h": 900, "title": "9. Vendor Mapping (approve a request) — Category Manager" },
+    { "file": "VendorRating.dc.html", "x": 4860, "y": 1600, "w": 1000, "h": 850, "title": "10. Vendor Rating (real weights, spec §5.2) — Procurement Admin" },
 
-    { "file": "VendorRegister.dc.html", "x": 0, "y": 2750, "w": 900, "h": 1000, "title": "9. Vendor Registration — Vendor" },
-    { "file": "VendorDashboard.dc.html", "x": 1050, "y": 2750, "w": 1180, "h": 880, "title": "10. Vendor Dashboard — Vendor" },
-    { "file": "SubmitBid.dc.html", "x": 2380, "y": 2750, "w": 900, "h": 1100, "title": "11. Submit Sealed Bid (technical + commercial) — Vendor" },
+    { "file": "VendorRegister.dc.html", "x": 0, "y": 2850, "w": 900, "h": 1000, "title": "11. Vendor Registration — Vendor" },
+    { "file": "VendorDashboard.dc.html", "x": 1050, "y": 2850, "w": 1180, "h": 880, "title": "12. Vendor Dashboard — Vendor" },
+    { "file": "SubmitBid.dc.html", "x": 2380, "y": 2850, "w": 900, "h": 1100, "title": "13. Submit Sealed Bid (technical + commercial) — Vendor" },
+    { "file": "VendorAwards.dc.html", "x": 3430, "y": 2850, "w": 1180, "h": 950, "title": "14. Awards & Purchase Orders — Vendor" },
 
-    { "file": "POExport.dc.html", "x": 0, "y": 4150, "w": 1100, "h": 950, "title": "12. PO Data Export & ERP Handoff (split → multiple files) — Procurement Admin" },
-    { "file": "AuditLog.dc.html", "x": 1250, "y": 4150, "w": 1100, "h": 750, "title": "13. Audit Log — System Admin" },
+    { "file": "POExport.dc.html", "x": 0, "y": 4250, "w": 1100, "h": 950, "title": "15. PO Data Export & ERP Handoff (split → multiple files) — Procurement Admin" },
+    { "file": "AuditLog.dc.html", "x": 1250, "y": 4250, "w": 1100, "h": 750, "title": "16. Audit Log — System Admin" },
 
-    { "file": "OpenTenderLanding.dc.html", "x": 0, "y": 5400, "w": 900, "h": 1050, "title": "14. Open Tender — Public Self-Registration (no login)" },
-    { "file": "OverrideQueue.dc.html", "x": 1050, "y": 5400, "w": 1180, "h": 900, "title": "15. Override & Exception Approval Queue — the shared engine" }
+    { "file": "OpenTenderLanding.dc.html", "x": 0, "y": 5500, "w": 900, "h": 1050, "title": "17. Open Tender — Public Self-Registration (no login)" },
+    { "file": "OverrideQueue.dc.html", "x": 1050, "y": 5500, "w": 1180, "h": 950, "title": "18. Override & Exception Approval Queue — the shared engine" }
   ],
   "annotations": [
     { "id": "flow-hospital", "kind": "title1", "x": 0, "y": -230, "w": 4900, "text": "CORE TENDER LIFECYCLE (hospital side)" },
-    { "id": "flow-hospital-detail", "x": 0, "y": -130, "w": 1400, "text": "dashboard → create tender (draft) → E-Tender Approval gate → publish → bids close → evaluation & L1 recommendation → L1 Approval gate → award" },
+    { "id": "flow-hospital-detail", "x": 0, "y": -140, "w": 1400, "text": "dashboard → create tender (draft) → E-Tender Approval gate → publish → bids close → evaluation & L1 recommendation → L1 Approval gate → award" },
 
-    { "id": "note-split-award", "x": 4200, "y": 1230, "w": 500, "text": "Split-Award (spec §6.3.4, §9.5, §10.2) — Officer proposes an allocation across vendors at L1 Selection (screen 4), Approving Authority confirms/adjusts it at L1 Approval (screen 5); each vendor gets its own PO data file for its share." },
+    { "id": "note-split-award", "x": 5760, "y": 0, "w": 480, "text": "Split-Award (spec §6.3.4, §9.5, §10.2) — Officer proposes an allocation across vendors at L1 Selection (screen 4), Approving Authority confirms/adjusts it at L1 Approval (screen 5); each vendor gets its own PO data file for its share." },
+    { "id": "note-scoring", "x": 3530, "y": 1210, "w": 480, "text": "Weighting between price and rating for L1 recommendation now has a concrete illustrative default (spec §9.4 QCBS: 70/30 technical/price for critical Assets, 60/40 for Services) — still to be finalized per category." },
+    { "id": "note-escalation", "x": 4860, "y": 1110, "w": 420, "text": "\"Senior official\" now resolved by spec §11.2's value-based matrix: ≤₹1L Procurement Admin, ₹1L–10L Department Head, above ₹10L Finance/Management Committee — bands are illustrative, to be finalized with hospital policy." },
 
-    { "id": "flow-vendor-governance", "kind": "title1", "x": 0, "y": 1370, "w": 3300, "text": "VENDOR GOVERNANCE (hospital side)" },
-    { "id": "flow-vendor-governance-detail", "x": 0, "y": 1460, "w": 1300, "text": "vendor approval → item/asset/service mapping → ongoing rating (auto price competitiveness + manual params) — feeds eligibility resolution used by E-Tender Approval" },
-    { "id": "note-override-engine", "x": 3350, "y": 1600, "w": 500, "text": "Per spec §12: one reusable override/approval engine, not separate logic per screen. Shown here at Vendor Rating (score override), and consolidated at screen 15 (Override & Exception Approval Queue) across every override type in the spec." },
+    { "id": "flow-vendor-governance", "kind": "title1", "x": 0, "y": 1370, "w": 5860, "text": "VENDOR GOVERNANCE (hospital side)" },
+    { "id": "flow-vendor-governance-detail", "x": 0, "y": 1460, "w": 1300, "text": "master catalog (Module 2) → vendor approval → item/asset/service mapping (matrix overview + per-request approval) → ongoing rating (auto price competitiveness + manual params) — feeds eligibility resolution used by E-Tender Approval" },
+    { "id": "note-override-engine", "x": 6010, "y": 1600, "w": 500, "text": "Per spec §12: one reusable override/approval engine, not separate logic per screen. Shown here at Vendor Rating (score override), and consolidated at screen 18 (Override & Exception Approval Queue) across every override type in the spec, each with a distinct Reason Code plus free-text Justification." },
 
-    { "id": "flow-vendor", "kind": "title1", "x": 0, "y": 2520, "w": 3400, "text": "VENDOR FLOW" },
-    { "id": "flow-vendor-detail", "x": 0, "y": 2610, "w": 900, "text": "register → (wait for Vendor Approval) → browse open tenders → submit sealed bid (technical + commercial) → track status" },
+    { "id": "flow-vendor", "kind": "title1", "x": 0, "y": 2620, "w": 4610, "text": "VENDOR FLOW" },
+    { "id": "flow-vendor-detail", "x": 0, "y": 2710, "w": 900, "text": "register → (wait for Vendor Approval) → browse open tenders (only lines you qualify for) → submit sealed bid (technical + commercial) → track status → awards & POs" },
 
-    { "id": "flow-export", "kind": "title1", "x": 0, "y": 3920, "w": 2500, "text": "POST-AWARD" },
-    { "id": "flow-export-detail", "x": 0, "y": 4010, "w": 1100, "text": "PO data export (CSV/XML, traceable, not itself the ERP PO) · full audit trail across every stage above, immutable from normal workflows" },
+    { "id": "flow-export", "kind": "title1", "x": 0, "y": 4020, "w": 2500, "text": "POST-AWARD" },
+    { "id": "flow-export-detail", "x": 0, "y": 4110, "w": 1100, "text": "PO data export (CSV/XML, traceable, not itself the ERP PO) · full audit trail across every stage above, immutable from normal workflows" },
 
-    { "id": "flow-extras", "kind": "title1", "x": 0, "y": 5170, "w": 2500, "text": "PUBLIC PARTICIPATION & GOVERNANCE" },
-    { "id": "flow-extras-detail", "x": 0, "y": 5260, "w": 1300, "text": "Open Tender bypasses eligibility filtering entirely (spec §6.8); the Override Queue is the single engine behind every governed override referenced across every screen above (spec §12)" },
-
-    { "id": "note-scoring", "x": 3530, "y": 1220, "w": 420, "text": "Weighting between price and rating for L1 recommendation now has a concrete illustrative default (spec §9.4 QCBS: 70/30 technical/price for critical Assets, 60/40 for Services) — still to be finalized per category." },
-    { "id": "note-escalation", "x": 4860, "y": 1020, "w": 420, "text": "\"Senior official\" now resolved by spec §11.2's value-based matrix: ≤₹1L Procurement Admin, ₹1L–10L Department Head, above ₹10L Finance/Management Committee — bands are illustrative, to be finalized with hospital policy." }
+    { "id": "flow-extras", "kind": "title1", "x": 0, "y": 5270, "w": 2500, "text": "PUBLIC PARTICIPATION & GOVERNANCE" },
+    { "id": "flow-extras-detail", "x": 0, "y": 5360, "w": 1300, "text": "Open Tender bypasses eligibility filtering entirely (spec §6.8); the Override Queue is the single engine behind every governed override referenced across every screen above (spec §12)" }
   ],
   "launch": { "view": "canvas" }
 }
