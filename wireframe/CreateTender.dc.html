@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+    .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+  </style>
+</helmet>
+<div style="width: 900px; min-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 24px 32px 8px;">
+    <span style="font-size: 13px; color: #888;">Tenders / New</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Create New Tender</div>
+    <div class="field-hint" style="margin-top: 6px;">A tender may contain multiple line items. Eligibility is resolved per line item, not once for the whole tender.</div>
+  </div>
+
+  <div style="padding: 16px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="label" style="font-size: 15px; font-weight: 700;">Line Item 1</span>
+        <span style="font-size: 12px; color: #b8560c; text-decoration: underline; cursor: pointer;">Remove</span>
+      </div>
+
+      <div>
+        <span class="field-label">Item / Asset / Service Name</span>
+        <div class="input-box">e.g. MRI Machine — 1.5T</div>
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Type</span>
+          <div class="input-box">Item / Asset / Service ▾</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Category</span>
+          <div class="input-box">Select category ▾</div>
+          <div class="field-hint">Equipment / Consumables / Pharmaceuticals / Services</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Quantity</span>
+          <div class="input-box">e.g. 1</div>
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Specifications</span>
+        <div class="input-box" style="height: 70px; align-items: flex-start;">Describe required specs, standards, compliance certifications...</div>
+      </div>
+
+      <div>
+        <span class="field-label">Required Certifications</span>
+        <div style="display: flex; gap: 20px; font-size: 14px; color: #444;">
+          <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> ISO 13485</label>
+          <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> CDSCO Approved</label>
+          <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> BIS Certified</label>
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Attach Spec Sheet / Drawing (optional)</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop file or click to upload</div>
+      </div>
+    </div>
+
+    <span style="font-size: 13px; color: #b8560c; text-decoration: underline; cursor: pointer; width: fit-content;">+ Add Another Line Item</span>
+
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1;">
+        <span class="field-label">Budget Ceiling (optional)</span>
+        <div class="input-box">₹ —</div>
+        <div class="field-hint">Not shown to vendors, used internally as a cap</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Bid Deadline</span>
+        <div class="input-box">Select date &amp; time ▾</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Publishing Mode</span>
+      <div style="display: flex; gap: 20px; font-size: 14px; color: #444;">
+        <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block; background: #333;"></span> Selective — resolved eligible vendors only</label>
+        <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block;"></span> Open Tender — public link</label>
+      </div>
+      <div class="field-hint">Eligible vendors are resolved from Vendor Mapping + Vendor Rating + this tender's rules — reviewed on the approval screen before anything is published.</div>
+    </div>
+
+    <div>
+      <span class="field-label">Manual Vendor Addition / Guest Invite (optional)</span>
+      <div class="input-box">Search registered vendors, or invite a guest vendor by email...</div>
+      <div class="field-hint">Requires a reason code — reviewed at E-Tender Approval, not published automatically.</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+      <button style="border: 1px solid #999; background: #fff; padding: 10px 20px; font-size: 14px; cursor: pointer;">Save Draft</button>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 10px 20px; font-size: 14px; cursor: pointer;">Submit for Tender Approval →</button>
+    </div>
+    <div class="field-hint" style="text-align: right;">Stays in draft — publishing only happens after E-Tender Approval succeeds.</div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

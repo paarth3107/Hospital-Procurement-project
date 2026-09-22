@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .status-pill { border: 1px solid #999; padding: 3px 10px; font-size: 12px; width: fit-content; background: #eee; }
+    .status-review { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+    .star { color: #c98a3f; font-size: 13px; }
+    .field-hint { font-size: 12px; color: #888; }
+  </style>
+</helmet>
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Tenders / MRI Machine — 1.5T / Evaluation</span>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 6px;">
+      <div>
+        <div class="label" style="font-size: 26px; font-weight: 700;">MRI Machine — 1.5T (Siemens spec)</div>
+        <div style="font-size: 13px; color: #666; margin-top: 6px;">Equipment · Qty 1 · Closed 2 days ago · 5 bids received</div>
+      </div>
+      <div class="status-pill status-review" style="font-size: 13px; padding: 6px 14px;">Closed — Under Review</div>
+    </div>
+    <div style="margin-top: 12px;">
+      <span style="font-size: 13px; border: 1px solid #ccc; background: #fff; padding: 6px 12px;">Line Item 1 of 1 ▾</span>
+    </div>
+  </div>
+
+  <!-- comparative statement -->
+  <div style="padding: 20px 32px 8px;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 10px 16px; font-size: 12px; color: #776; margin-bottom: 14px;">
+      Bids were sealed until close. Technical qualification is recorded first — commercial prices are only shown for qualified bids.
+    </div>
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>VENDOR</span><span>TECHNICAL</span><span>PRICE QUOTED</span><span>T-RANK</span><span>L-RANK</span><span>C-RANK</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center; background: #fdf6ec;">
+        <span style="font-weight: 700;">Apex Medical Systems</span><span style="color:#2f6f3f;">Qualified</span><span>₹42,80,000</span><span>T1</span><span>L2</span><span>C1</span>
+        <span style="font-size: 12px; font-weight: 700; color: #8a5215; border: 1px solid #c98a3f; padding: 3px 8px; width: fit-content;">RECOMMENDED</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>RadCore Diagnostics</span><span style="color:#2f6f3f;">Qualified</span><span>₹41,20,000</span><span>T3</span><span>L1</span><span>C2</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Siemens Direct Supply</span><span style="color:#2f6f3f;">Qualified</span><span>₹46,50,000</span><span>T2</span><span>L4</span><span>C3</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center; color: #999;">
+        <span>MediEquip Traders</span><span style="color:#a33;">Not Qualified</span><span>—</span><span>—</span><span>—</span><span>—</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr 1.1fr 0.9fr 0.9fr 0.9fr 1.3fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Horizon Healthcare Supplies</span><span style="color:#2f6f3f;">Qualified</span><span>₹44,10,000</span><span>T4</span><span>L3</span><span>C4</span><span></span>
+      </div>
+    </div>
+    <div class="field-hint" style="margin-top: 8px;">C-Rank = combined QCBS ranking, shown only where configured. Not-qualified bids are excluded from commercial ranking.</div>
+  </div>
+
+  <!-- recommendation box -->
+  <div style="padding: 20px 32px 0;">
+    <div style="border: 1px solid #c98a3f; background: #fff8f0; padding: 20px 24px;">
+      <div style="font-weight: 700; font-size: 15px; margin-bottom: 6px;">L1 Recommendation: Apex Medical Systems</div>
+      <div style="font-size: 13px; color: #555; line-height: 1.5;">
+        Top-ranked qualified bid on the configured combined score (C1). Not the lowest price (RadCore is lower, L1) — ranked highest once rating/QCBS weighting is applied. This is a recommendation only; it does not itself award the tender.
+      </div>
+    </div>
+  </div>
+
+  <!-- actions -->
+  <div style="padding: 24px 32px 40px; display: flex; gap: 12px; justify-content: flex-end;">
+    <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 12px 20px; font-size: 14px; cursor: pointer;">Override — Recommend Different Vendor →</button>
+    <button style="background: #2f6f3f; color: #fff; border: none; padding: 12px 20px; font-size: 14px; cursor: pointer;">Confirm Recommendation → Send for L1 Approval</button>
+  </div>
+  <div class="field-hint" style="padding: 0 32px 32px; text-align: right;">Confirming does not award the tender — the Approving Authority still has to approve it (next screen). Recommending a non-top-ranked vendor requires the override reason above.</div>
+
+</div>
+</x-dc>
+</body>
+</html>

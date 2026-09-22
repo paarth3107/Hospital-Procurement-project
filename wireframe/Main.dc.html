@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    a { color: #b8560c; } a:hover { color: #8a4009; }
+    .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+    .status-open { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+    .status-review { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+  </style>
+</helmet>
+<div style="width: 1180px; min-height: 980px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <!-- Nav -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="color: #555;">Vendors</span>
+        <span style="color: #555;">Approvals</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Procurement Officer</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">RS</div>
+    </div>
+  </div>
+
+  <!-- Page header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 24px 32px 0;">
+    <span class="label" style="font-size: 26px; font-weight: 700;">Dashboard</span>
+    <button style="background: #b8560c; color: #fff; border: none; padding: 10px 18px; font-size: 14px; cursor: pointer;">+ New Tender</button>
+  </div>
+
+  <!-- Stats -->
+  <div style="display: flex; gap: 16px; padding: 20px 32px;">
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Open Tenders</div>
+      <div style="font-size: 28px; font-weight: 700;">6</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Pending Your Approval</div>
+      <div style="font-size: 28px; font-weight: 700; color: #b8560c;">2</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Vendors Pending Approval</div>
+      <div style="font-size: 28px; font-weight: 700; color: #b8560c;">3</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Awarded This Month</div>
+      <div style="font-size: 28px; font-weight: 700;">4</div>
+    </div>
+    <div style="flex: 1; border: 1px solid #ccc; background: #fff; padding: 16px 20px;">
+      <div style="font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em;">Registered Vendors</div>
+      <div style="font-size: 28px; font-weight: 700;">38</div>
+    </div>
+  </div>
+
+  <!-- Open tenders table -->
+  <div style="padding: 4px 32px 24px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Open Tenders</span>
+    <div style="margin-top: 12px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ITEM</span><span>CATEGORY</span><span>BIDS RECEIVED</span><span>CLOSES IN</span><span>STATUS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>MRI Machine — 1.5T (Siemens spec)</span><span style="color:#555;">Equipment</span><span>5</span><span>Closed</span><div class="status-pill status-review">Under Review</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Nitrile Examination Gloves — Box/100</span><span style="color:#555;">Consumables</span><span>12</span><span>2 days</span><div class="status-pill status-open">Open</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Surgical Sutures — Assorted</span><span style="color:#555;">Consumables</span><span>8</span><span>5 days</span><div class="status-pill status-open">Open</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1.2fr 1fr 1fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units (x4)</span><span style="color:#555;">Equipment</span><span>3</span><span>6 days</span><div class="status-pill status-open">Open</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending approval -->
+  <div style="padding: 0 32px 24px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Pending Your Approval</span>
+    <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="border: 1px solid #ccc; background: #fff8f0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-weight: 600; font-size: 15px;">MRI Machine — 1.5T (Siemens spec)</div>
+            <span style="font-size: 11px; border: 1px solid #8f9bd6; color: #3a4590; background: #eef0fb; padding: 2px 8px;">L1 Approval</span>
+          </div>
+          <div style="font-size: 13px; color: #666; margin-top: 4px;">Recommended: Apex Medical Systems — ₹42,80,000 — Rating 4.6/5</div>
+        </div>
+        <button style="border: 1px solid #333; background: #fff; padding: 8px 16px; font-size: 14px; cursor: pointer;">Review →</button>
+      </div>
+      <div style="border: 1px solid #ccc; background: #fff8f0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-weight: 600; font-size: 15px;">Portable Ventilator Units (x4)</div>
+            <span style="font-size: 11px; border: 1px solid #999; color: #555; background: #f0eee6; padding: 2px 8px;">E-Tender Approval</span>
+          </div>
+          <div style="font-size: 13px; color: #666; margin-top: 4px;">Draft ready — includes 1 manual vendor addition and 1 guest invite</div>
+        </div>
+        <button style="border: 1px solid #333; background: #fff; padding: 8px 16px; font-size: 14px; cursor: pointer;">Review →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent awards -->
+  <div style="padding: 0 32px 32px;">
+    <span class="label" style="font-size: 18px; font-weight: 700;">Recent Awards</span>
+    <div style="margin-top: 12px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: flex; justify-content: space-between; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee;">
+        <span>Digital X-Ray Panel — awarded to RadVision Corp</span><span style="color: #666;">3 days ago</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 12px 16px; font-size: 14px;">
+        <span>ICU Beds (x10) — awarded to CarePlus Equipment</span><span style="color: #666;">1 week ago</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

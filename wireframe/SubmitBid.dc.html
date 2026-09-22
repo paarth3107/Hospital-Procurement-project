@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+    .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+  </style>
+</helmet>
+<div style="width: 900px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Open Tenders / Submit Bid</span>
+    <div class="label" style="font-size: 24px; font-weight: 700; margin-top: 4px;">Nitrile Examination Gloves — Box/100</div>
+  </div>
+
+  <!-- spec recap -->
+  <div style="margin: 16px 32px 0; border: 1px solid #ddd; background: #fbfaf7; padding: 16px 20px;">
+    <div style="font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em;">Tender Specification</div>
+    <div style="font-size: 14px; color: #444; line-height: 1.6;">
+      Category: Consumables &nbsp;·&nbsp; Quantity: 500 boxes &nbsp;·&nbsp; Required: ISO 13485, CDSCO Approved<br>
+      Closes: in 2 days, 4:00 PM
+    </div>
+  </div>
+
+  <div style="margin: 16px 32px 0; border: 1px solid #c98a3f; background: #fff8f0; padding: 12px 16px; font-size: 13px; color: #6b4415;">
+    Bidding is per line item. Commercial figures stay sealed and are not exposed — even via the API — until after the deadline and technical qualification.
+  </div>
+
+  <div style="padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <span class="label" style="font-size: 15px; font-weight: 700;">Technical Submission</span>
+
+      <div>
+        <span class="field-label">Technical Specifications</span>
+        <div class="input-box" style="height: 70px; align-items: flex-start;">Describe how the offered item/service meets the tender's required specs...</div>
+      </div>
+
+      <div>
+        <span class="field-label">Compliance Certifications</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop ISO / CDSCO / BIS certificates or spec documents</div>
+      </div>
+
+      <div>
+        <span class="field-label">Warranty / Support Terms</span>
+        <div class="input-box">e.g. 12 months replacement warranty</div>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="label" style="font-size: 15px; font-weight: 700;">Commercial Submission</span>
+        <span style="font-size: 11px; border: 1px solid #c98a3f; color: #8a5215; background: #fdf1e3; padding: 2px 8px;">Sealed</span>
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Price Quote (total)</span>
+          <div class="input-box">₹ —</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Delivery Timeline</span>
+          <div class="input-box">e.g. 3 weeks</div>
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Attach Priced Quote Document</span>
+        <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop file or click to upload</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Additional Notes (optional)</span>
+      <div class="input-box" style="height: 60px; align-items: flex-start;">Anything else the reviewing officer should know...</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+      <span class="field-hint">Bids cannot be edited or withdrawn after submission.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Submit Sealed Bid</button>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

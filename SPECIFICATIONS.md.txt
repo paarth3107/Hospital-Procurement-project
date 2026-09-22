@@ -1,0 +1,786 @@
+# Hospital E-Procurement System — Implementation Task
+
+You are working as the primary software engineer on this project.
+
+I have provided a Functional & Technical Specification for an **E-Procurement Module for Hospitals**. Treat that specification as the primary source of truth for the system's functional requirements.
+
+The system covers:
+
+**Vendor Registration → Vendor Approval → Item/Asset/Service Mapping → Vendor Rating → E-Tender Creation → E-Tender Approval → Selective Publishing → Bid Submission → Technical/Commercial Evaluation → L1 Selection → L1 Approval → PO Data Export → ERP Handoff**
+
+Your job is to turn the specification into a working, maintainable application.
+
+---
+
+## 1. FIRST: Understand Before Coding
+
+Do NOT immediately start writing application code.
+
+First:
+
+1. Read the entire specification.
+2. Identify all:
+
+   * user roles
+   * permissions
+   * modules
+   * workflows
+   * entities/data models
+   * state transitions
+   * approval gates
+   * validation rules
+   * exception/override workflows
+   * integrations
+   * audit requirements
+   * notifications
+   * file/document requirements
+3. Identify dependencies between modules.
+4. Identify requirements that are explicitly configurable.
+5. Identify requirements that the specification leaves undecided or marks as illustrative/open questions.
+
+Create a concise implementation analysis before coding.
+
+The analysis should include:
+
+### A. System architecture
+
+Explain the proposed frontend, backend, database, authentication/authorization, file storage, background jobs, notifications, and integration architecture.
+
+### B. Module breakdown
+
+Map every specification module to the application components that will implement it.
+
+### C. Data model
+
+List the major database entities and their relationships.
+
+### D. Workflow/state model
+
+List the important states and legal transitions for:
+
+* vendors
+* tenders
+* bids
+* evaluations
+* approvals
+* overrides
+* PO export batches
+
+### E. API surface
+
+List the major backend API endpoints grouped by module.
+
+### F. Ambiguities/Open Questions
+
+Do not invent requirements where the specification is unclear.
+
+Mark each unresolved item clearly as:
+
+`OPEN QUESTION`
+
+and explain what implementation decision depends on it.
+
+Where the specification gives an illustrative/default value, preserve that distinction rather than presenting it as a mandatory business rule.
+
+---
+
+# 2. Important Implementation Principles
+
+## Specification fidelity
+
+The supplied specification is the source of truth.
+
+Do not silently simplify or remove requirements because they appear complicated.
+
+Do not invent business rules that contradict the specification.
+
+If two requirements appear contradictory:
+
+1. identify the contradiction;
+2. explain it;
+3. choose the least-assumptive implementation temporarily;
+4. clearly mark the decision so it can be changed later.
+
+---
+
+## Workflow integrity
+
+This is a workflow-driven procurement system.
+
+Do NOT implement important workflow rules merely through frontend button visibility.
+
+Critical authorization and state-transition rules must be enforced on the backend.
+
+For example:
+
+* a tender must not become published merely because a frontend user clicks Publish;
+* E-Tender Approval must be completed before publishing;
+* unresolved required overrides must block the relevant workflow;
+* L1 recommendation must not itself constitute an award;
+* L1 Approval must occur before PO data is generated;
+* governed overrides must not modify the underlying record until approved.
+
+All important transitions must be validated server-side.
+
+---
+
+## Auditability
+
+The system requires strong traceability.
+
+Design audit logging as a first-class system capability rather than scattering unrelated logging code throughout the application.
+
+Important actions should record at minimum:
+
+* actor
+* role
+* action
+* affected entity
+* previous state/value where relevant
+* new state/value where relevant
+* timestamp
+* reason/justification where required
+* approval decision
+* escalation path where applicable
+
+The audit history must be immutable from normal application workflows.
+
+---
+
+# 3. Core Business Flow
+
+Implement the following seven-stage lifecycle.
+
+## Stage 1 — Vendor Registration
+
+Vendor:
+
+* registers
+* provides required profile information
+* submits statutory/KYC documentation
+
+Procurement Admin:
+
+* reviews submission
+* approves or rejects it
+
+Output:
+
+`Approved, Active Vendor`
+
+---
+
+## Stage 2 — Item / Asset / Service Mapping
+
+Approved vendors may be associated with:
+
+* Items
+* Assets
+* Services
+* Service sub-categories such as software development and software licensing
+
+Mapping may involve:
+
+* Procurement Admin assignment
+* Category Manager approval
+* vendor self-declaration followed by approval
+
+The resulting data determines what the vendor is eligible to supply.
+
+---
+
+## Stage 3 — Vendor Rating
+
+Maintain a vendor performance score.
+
+The specification distinguishes between:
+
+### Automatically calculated
+
+`Price Competitiveness`
+
+This must be derived from this system's historical bid data.
+
+### Manually entered
+
+* On-time Delivery %
+* Quality Acceptance Rate
+* Compliance/Documentation Currency
+* Responsiveness
+
+Maintain historical rating values rather than simply destroying previous values.
+
+Support:
+
+* rolling history for automatically calculated price competitiveness
+* provisional/unrated status for new vendors
+* stale/manual-update-due status
+* configurable weighting
+* governed override of automatically calculated rating values
+
+Rating can affect:
+
+* tender eligibility
+* equal-price tie-breaking
+* suspension review flagging
+
+---
+
+# 4. Tender Creation
+
+A Procurement Officer creates an e-tender/RFQ/RFP.
+
+A tender may contain multiple line items.
+
+A line item can represent:
+
+* Item
+* Asset
+* Service
+
+Eligibility is resolved **per line item**, not merely once for the whole tender.
+
+For selective publishing:
+
+Eligible vendors are determined from:
+
+`Vendor Mapping + Vendor Rating + Tender Eligibility Rules`
+
+The system should display the resolved vendor list before approval.
+
+Support:
+
+* manual vendor additions
+* guest vendor invitations
+* mandatory reason codes
+* governed approval for applicable overrides
+* Open Tender/public-link mode
+
+Do not publish the tender during creation.
+
+The tender must remain in draft/pre-approval state until the approval workflow succeeds.
+
+---
+
+# 5. E-Tender Approval
+
+E-Tender Approval is a separate approval gate.
+
+The approving authority reviews:
+
+* tender details
+* line items
+* attachments
+* resolved vendor eligibility
+* manual additions
+* guest invitations
+* relevant overrides
+
+Only successful approval may trigger:
+
+* publication
+* vendor notifications
+* bidding availability
+
+Rejection must return the tender to the appropriate workflow state with a mandatory reason.
+
+---
+
+# 6. Bid Submission
+
+Vendors must be able to submit bids at the line-item level.
+
+A bid can contain:
+
+### Technical information
+
+Technical specifications, documents, images, etc.
+
+### Commercial information
+
+Price and other commercial fields.
+
+Respect the specification's price confidentiality requirement.
+
+Before the bid deadline:
+
+* quoted prices must not be exposed to users who should not see them;
+* submission status may be visible according to the specification.
+
+After the relevant deadline:
+
+1. technical evaluation becomes available;
+2. technical qualification is recorded;
+3. commercial prices become available for qualified bids;
+4. commercial evaluation can occur.
+
+Do not expose commercial prices early through APIs simply because the frontend hides them.
+
+---
+
+# 7. Evaluation and L1 Selection
+
+Evaluation occurs per line item.
+
+Support:
+
+* technical ranking: T1, T2, etc.
+* commercial ranking: L1, L2, etc.
+* QCBS / combined ranking: C1, C2, etc., where configured
+
+The system recommends the top-ranked qualified bid.
+
+The Procurement Officer reviews the comparative statement and confirms the recommendation.
+
+Important:
+
+**L1 confirmation is NOT the award.**
+
+It is a recommendation that moves the tender toward L1 Approval.
+
+Support Split Award where configured.
+
+Example:
+
+`70% → Vendor A`
+`30% → Vendor B`
+
+If the Procurement Officer wants to recommend a non-top-ranked vendor, treat that as a governed override requiring the appropriate reason and approval.
+
+---
+
+# 8. L1 Approval
+
+L1 Approval is a separate approval gate.
+
+The approving authority reviews the recommended awards.
+
+The authority may:
+
+* approve
+* reject
+* apply a governed override where permitted
+
+Only after approval should the system generate PO data.
+
+---
+
+# 9. ERP Handoff
+
+The procurement application does NOT itself create the final ERP Purchase Order unless the specification explicitly adds that integration later.
+
+Instead, generate validated PO data.
+
+Support:
+
+* CSV
+* XML
+
+The exact field structure should be configurable according to the hospital ERP import template.
+
+The export must be traceable to:
+
+* tender
+* vendor
+* awarded line items
+* approval record
+* approval timestamp
+
+Support an export lifecycle such as:
+
+`Pending Upload`
+
+→
+
+`Imported — PO Created in ERP`
+
+or an appropriate failure/reconciliation state.
+
+Do not allow arbitrary editing of an approved PO export.
+
+If changes are required after approval, use the governed re-export process.
+
+---
+
+# 10. Approval and Override Engine
+
+Implement one reusable approval/override workflow engine rather than creating completely separate approval logic for every module.
+
+Overrides may include:
+
+* vendor rating adjustment
+* vendor addition
+* guest vendor invite
+* technical score correction
+* late submission exception
+* bid deadline extension
+* non-L1/non-C1 award override
+* PO data re-export
+
+General rule:
+
+**An override does not modify the underlying record until its approval workflow reaches Approved.**
+
+Support states such as:
+
+* Pending
+* Approved
+* Rejected
+* Escalated
+* Expired
+
+Support:
+
+* reason codes
+* justification
+* approver resolution
+* value/count-based approval bands
+* escalation
+* SLA expiry
+* complete audit trail
+
+Keep the approval rules configurable.
+
+---
+
+# 11. Roles
+
+Implement authorization around the roles defined by the specification, including:
+
+* Vendor
+* Procurement Officer
+* Procurement Admin
+* Category Manager / Technical Evaluator
+* Approving Authority
+* System Admin
+
+Do not rely only on hardcoded frontend role checks.
+
+Use backend authorization and permission checks.
+
+Where approval authority depends on tender value, facility, legal entity, or configured approval bands, model this as configuration rather than hardcoding a single permanent hierarchy.
+
+---
+
+# 12. Multi-Facility / Multi-Entity Consideration
+
+The specification supports hospital environments involving multiple facilities/legal entities.
+
+Do not design the database in a way that makes multi-facility support impossible.
+
+Where relevant, entities should be associated with:
+
+* facility
+* legal entity
+* department/requesting unit
+
+Approval resolution may depend on the tender's facility/legal entity.
+
+---
+
+# 13. Integrations
+
+Account for these integration boundaries:
+
+### Hospital ERP / Finance
+
+Potentially:
+
+* vendor master synchronization
+* budget checks
+* PO data import
+* PO creation result/reconciliation
+
+### Hospital Information System
+
+Potentially:
+
+* consumption/reorder triggers
+* requisition inputs
+
+### Email/SMS Gateway
+
+For:
+
+* registration status
+* tender invitation
+* publishing
+* award
+* due-date extensions
+* other required notifications
+
+### Document/DMS Storage
+
+For:
+
+* vendor KYC documents
+* tender attachments
+* bid attachments
+
+### Digital Signature Provider
+
+Optional integration for:
+
+* E-Tender Approval
+* L1 Approval
+
+Do not fake external integrations as if they were production integrations.
+
+Create clean interfaces/adapters and use mock implementations for local development where necessary.
+
+---
+
+# 14. Technical Quality Requirements
+
+Build this as production-oriented software, not a disposable demo.
+
+Requirements:
+
+* clean separation of concerns
+* modular backend architecture
+* reusable frontend components
+* database migrations
+* environment-based configuration
+* proper validation
+* structured error handling
+* authentication
+* authorization
+* secure file handling
+* API documentation
+* logging
+* audit logging
+* tests for critical business rules
+* sensible database indexes
+* transactional integrity for workflow transitions
+
+Do not put business logic exclusively in controllers or UI components.
+
+---
+
+# 15. Development Process
+
+Work incrementally.
+
+DO NOT generate the entire project blindly in one pass.
+
+Use this sequence:
+
+### Phase 0 — Analysis
+
+Read specification and produce:
+
+* architecture
+* module map
+* ER/data model
+* state machines
+* API plan
+* unresolved questions
+
+### Phase 1 — Project Foundation
+
+Create:
+
+* repository structure
+* backend
+* frontend
+* database
+* configuration
+* authentication foundation
+* migrations
+* basic error handling
+* API documentation
+
+### Phase 2 — Vendor Management
+
+Implement:
+
+* registration
+* document submission
+* admin review
+* approval/rejection
+* vendor profiles
+* item/service mapping
+
+### Phase 3 — Rating
+
+Implement:
+
+* rating model
+* automatic price competitiveness
+* manual rating parameters
+* rating history
+* thresholds
+* governed overrides
+
+### Phase 4 — Tender
+
+Implement:
+
+* tender creation
+* line items
+* attachments
+* eligibility resolution
+* selective publishing
+* Open Tender
+* vendor invitations
+* tender approval
+
+### Phase 5 — Bidding
+
+Implement:
+
+* vendor tender view
+* bid submission
+* technical data
+* commercial data
+* attachments
+* deadline enforcement
+* price confidentiality
+
+### Phase 6 — Evaluation
+
+Implement:
+
+* technical evaluation
+* commercial evaluation
+* ranking
+* comparative statement
+* L1/C1 recommendation
+* split awards
+* recommendation overrides
+
+### Phase 7 — Approval + ERP
+
+Implement:
+
+* L1 approval
+* award finalization
+* CSV/XML generation
+* export validation
+* ERP handoff states
+* reconciliation
+
+### Phase 8 — Cross-Cutting Features
+
+Complete:
+
+* notifications
+* audit logs
+* override engine
+* escalation/SLA handling
+* permissions
+* reporting
+* security hardening
+* testing
+
+---
+
+# 16. How You Should Work With Me
+
+Before each major implementation phase:
+
+1. Explain what you are about to build.
+2. Identify the relevant specification requirements.
+3. Explain the important architectural decisions.
+4. State any assumptions.
+5. Implement the phase.
+6. Run relevant tests/checks.
+7. Summarize what changed.
+8. Explain how I can verify it locally.
+9. Explain any important code or business logic I should understand.
+
+Do not hide major architectural decisions from me.
+
+If you generate code automatically, I still need to understand it well enough to maintain and debug it.
+
+For important code, explain:
+
+* what it does
+* why it exists
+* what depends on it
+* what could break
+* where I would modify it later
+
+---
+
+# 17. Coding Behavior
+
+Prefer simple, explicit implementations over clever abstractions.
+
+Do not prematurely optimize.
+
+Do not introduce unnecessary libraries.
+
+Before adding a dependency, explain why it is needed.
+
+Keep business rules centralized and testable.
+
+Avoid duplicated workflow logic.
+
+Do not hardcode hospital-specific approval values where the specification says they are configurable.
+
+Do not expose sensitive bid information through APIs before the appropriate workflow stage.
+
+Do not trust client-provided authorization, prices, workflow states, approval states, or eligibility decisions.
+
+---
+
+# 18. Definition of Done
+
+A phase is not complete merely because the application starts.
+
+For each implemented feature:
+
+* it works through the UI;
+* its API is functional;
+* backend authorization is enforced;
+* validation exists;
+* relevant database changes are migrated;
+* critical workflow transitions are tested;
+* important audit events are recorded;
+* error cases are handled;
+* the implementation can be explained and maintained.
+
+At the end of each phase, provide:
+
+### Implemented
+
+A list of completed features.
+
+### Files Changed
+
+The important files and what each does.
+
+### Database Changes
+
+Tables/migrations added or changed.
+
+### APIs
+
+Endpoints added/changed.
+
+### Tests
+
+Tests executed and their results.
+
+### How to Verify
+
+Exact local steps to verify the feature.
+
+### Remaining
+
+What is intentionally not implemented yet.
+
+---
+
+## Most Important Instruction
+
+**Do not treat "make it work" as permission to invent missing business rules.**
+
+When the specification is explicit, implement it faithfully.
+
+When the specification is configurable, make it configurable.
+
+When the specification is ambiguous, stop and identify the ambiguity rather than silently choosing a business rule.
+
+When a temporary implementation decision is necessary to continue development, document the assumption clearly so it can be replaced later.

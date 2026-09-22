@@ -1,0 +1,38 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1180, "h": 980, "title": "1. Hospital Dashboard — Procurement Officer" },
+    { "file": "CreateTender.dc.html", "x": 1330, "y": 0, "w": 900, "h": 1100, "title": "2. Create Tender (line items) — Procurement Officer" },
+    { "file": "TenderApproval.dc.html", "x": 2380, "y": 0, "w": 1000, "h": 950, "title": "3. E-Tender Approval — Approving Authority" },
+    { "file": "TenderDetail.dc.html", "x": 3530, "y": 0, "w": 1180, "h": 950, "title": "4. Evaluation & L1 Recommendation — Procurement Officer" },
+    { "file": "RejectFlow.dc.html", "x": 4860, "y": 0, "w": 800, "h": 850, "title": "5. L1 Approval — Approving Authority" },
+
+    { "file": "VendorApproval.dc.html", "x": 0, "y": 1400, "w": 1000, "h": 800, "title": "6. Vendor Approval — Procurement Admin" },
+    { "file": "VendorMapping.dc.html", "x": 1150, "y": 1400, "w": 900, "h": 800, "title": "7. Item/Asset/Service Mapping — Category Manager" },
+    { "file": "VendorRating.dc.html", "x": 2200, "y": 1400, "w": 1000, "h": 850, "title": "8. Vendor Rating — Procurement Admin" },
+
+    { "file": "VendorRegister.dc.html", "x": 0, "y": 2550, "w": 900, "h": 1000, "title": "9. Vendor Registration — Vendor" },
+    { "file": "VendorDashboard.dc.html", "x": 1050, "y": 2550, "w": 1180, "h": 880, "title": "10. Vendor Dashboard — Vendor" },
+    { "file": "SubmitBid.dc.html", "x": 2380, "y": 2550, "w": 900, "h": 1100, "title": "11. Submit Sealed Bid (technical + commercial) — Vendor" },
+
+    { "file": "POExport.dc.html", "x": 0, "y": 3950, "w": 1100, "h": 750, "title": "12. PO Data Export & ERP Handoff — Procurement Admin" },
+    { "file": "AuditLog.dc.html", "x": 1250, "y": 3950, "w": 1100, "h": 750, "title": "13. Audit Log — System Admin" }
+  ],
+  "annotations": [
+    { "id": "flow-hospital", "kind": "title1", "x": 0, "y": -230, "w": 4900, "text": "CORE TENDER LIFECYCLE (hospital side)" },
+    { "id": "flow-hospital-detail", "x": 0, "y": -130, "w": 1400, "text": "dashboard → create tender (draft) → E-Tender Approval gate → publish → bids close → evaluation & L1 recommendation → L1 Approval gate → award" },
+
+    { "id": "flow-vendor-governance", "kind": "title1", "x": 0, "y": 1170, "w": 3300, "text": "VENDOR GOVERNANCE (hospital side)" },
+    { "id": "flow-vendor-governance-detail", "x": 0, "y": 1270, "w": 1300, "text": "vendor approval → item/asset/service mapping → ongoing rating (auto price competitiveness + manual params) — feeds eligibility resolution used by E-Tender Approval" },
+    { "id": "note-override-engine", "x": 3350, "y": 1400, "w": 500, "text": "Per spec: one reusable override/approval engine, not separate logic per screen. Shown here at Vendor Rating (score override) and at L1 Approval (recommendation override) as two uses of the same pattern." },
+
+    { "id": "flow-vendor", "kind": "title1", "x": 0, "y": 2320, "w": 3400, "text": "VENDOR FLOW" },
+    { "id": "flow-vendor-detail", "x": 0, "y": 2420, "w": 900, "text": "register → (wait for Vendor Approval) → browse open tenders → submit sealed bid (technical + commercial) → track status" },
+
+    { "id": "flow-export", "kind": "title1", "x": 0, "y": 3720, "w": 2500, "text": "POST-AWARD" },
+    { "id": "flow-export-detail", "x": 0, "y": 3820, "w": 1100, "text": "PO data export (CSV/XML, traceable, not itself the ERP PO) · full audit trail across every stage above, immutable from normal workflows" },
+
+    { "id": "note-scoring", "x": 3530, "y": 970, "w": 420, "text": "Open question: exact weighting between price/rating (and QCBS combined score where used) isn't defined yet — placeholder logic shown on the Evaluation screen." },
+    { "id": "note-escalation", "x": 4860, "y": 900, "w": 420, "text": "Open question: who counts as \"senior official\"/Approving Authority and how many tiers exist is still undecided — this screen assumes a single reviewer step." }
+  ],
+  "launch": { "view": "canvas" }
+}

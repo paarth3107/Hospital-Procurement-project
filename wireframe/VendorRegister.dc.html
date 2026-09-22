@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+    .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+  </style>
+</helmet>
+<div style="width: 900px; min-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+  </div>
+
+  <div style="padding: 28px 32px 4px;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Vendor Registration</div>
+    <div style="font-size: 13px; color: #888; margin-top: 6px;">Register your company to bid on hospital supply tenders. Submissions are reviewed before approval.</div>
+  </div>
+
+  <div style="padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1;">
+        <span class="field-label">Company Name</span>
+        <div class="input-box">e.g. Apex Medical Systems</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Registration / Tax ID</span>
+        <div class="input-box">e.g. GSTIN</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Category of Supplies</span>
+      <div class="input-box">Select one or more ▾</div>
+      <div class="field-hint">Equipment / Consumables / Pharmaceuticals / Services</div>
+    </div>
+
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1;">
+        <span class="field-label">Contact Person</span>
+        <div class="input-box">Full name</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Email</span>
+        <div class="input-box">name@company.com</div>
+      </div>
+      <div style="flex: 1;">
+        <span class="field-label">Phone</span>
+        <div class="input-box">+91 —</div>
+      </div>
+    </div>
+
+    <div>
+      <span class="field-label">Certifications</span>
+      <div style="border: 1px dashed #999; background: #fff; padding: 24px; text-align: center; color: #999; font-size: 13px;">Upload ISO / CDSCO / BIS certificates</div>
+    </div>
+
+    <div>
+      <span class="field-label">Past Experience / References (optional)</span>
+      <div class="input-box" style="height: 80px; align-items: flex-start;">Prior institutional clients, notable projects...</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+      <span class="field-hint">Your account will be reviewed by hospital procurement staff before you can bid.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Submit for Verification</button>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

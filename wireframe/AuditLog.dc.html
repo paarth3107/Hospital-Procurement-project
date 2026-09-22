@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .input-box { border: 1px solid #bbb; background: #fff; padding: 8px 12px; font-size: 13px; color: #999; }
+  </style>
+</helmet>
+<div style="width: 1100px; min-height: 750px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px; color: #555;">
+        <span>Dashboard</span><span>Tenders</span><span>Vendors</span><span>Approvals</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px; color: #1a1a1a;">Audit Log</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">System Admin</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">SA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <div class="label" style="font-size: 26px; font-weight: 700;">Audit Log</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Immutable from normal application workflows — first-class system capability, not scattered logging.</div>
+  </div>
+
+  <div style="padding: 16px 32px 0; display: flex; gap: 12px;">
+    <div class="input-box" style="flex: 1;">Date range ▾</div>
+    <div class="input-box" style="flex: 1;">Actor / role ▾</div>
+    <div class="input-box" style="flex: 1;">Module ▾</div>
+    <div class="input-box" style="flex: 1;">Action type ▾</div>
+  </div>
+
+  <div style="padding: 16px 32px 8px;">
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>TIMESTAMP</span><span>ACTOR</span><span>ROLE</span><span>ACTION</span><span>BEFORE → AFTER</span><span>REASON / APPROVAL</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="color:#666;">Today 10:42</span><span>R. Sharma</span><span style="color:#555;">Approving Authority</span><span>L1 Approval</span>
+        <span style="color:#555;">Recommended → Approved</span><span style="color:#555;">Ref L1-APR-0231</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="color:#666;">Today 09:15</span><span>N. Iyer</span><span style="color:#555;">Procurement Officer</span><span>Recommendation Override</span>
+        <span style="color:#555;">Apex Medical → Siemens Direct</span><span style="color:#555;">Faster delivery required</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span style="color:#666;">Yesterday</span><span>P. Admin</span><span style="color:#555;">Procurement Admin</span><span>Vendor Approved</span>
+        <span style="color:#555;">Pending → Approved, Active</span><span style="color:#555;">—</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.6fr 1.4fr; padding: 12px 16px; font-size: 13px; align-items: center;">
+        <span style="color:#666;">2 days ago</span><span>System</span><span style="color:#555;">System</span><span>PO Export Generated</span>
+        <span style="color:#555;">— → Pending Upload</span><span style="color:#555;">Ref L1-APR-0229</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

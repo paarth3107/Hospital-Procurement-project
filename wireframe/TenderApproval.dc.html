@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
+    .badge { font-size: 11px; border: 1px solid; padding: 2px 8px; width: fit-content; }
+    .badge-manual { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
+    .badge-guest { background: #fbeee6; border-color: #d69a6a; color: #8a4b1f; }
+  </style>
+</helmet>
+<div style="width: 1000px; min-height: 950px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+      <div style="display: flex; gap: 24px; font-size: 15px;">
+        <span style="color: #555;">Dashboard</span>
+        <span style="color: #555;">Tenders</span>
+        <span style="color: #555;">Vendors</span>
+        <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Approvals</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 13px; color: #666;">Approving Authority</span>
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #ddd; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555;">AA</div>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Approvals / E-Tender Approval</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Portable Ventilator Units (x4)</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Equipment · 1 line item · Bid deadline in 6 days · Draft — not yet published</div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+      This gate must succeed before the tender can publish, notify vendors, or open for bidding — it cannot be skipped by a frontend action.
+    </div>
+  </div>
+
+  <div style="padding: 16px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Line Items</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ITEM</span><span>QTY</span><span>CATEGORY</span><span>ATTACHMENTS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units</span><span>4</span><span style="color:#555;">Equipment</span><span style="color: #b8560c; text-decoration: underline;">Spec Sheet.pdf</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Resolved Eligible Vendors</span>
+    <div class="field-hint" style="margin-top: 2px; margin-bottom: 10px;">From Vendor Mapping + Vendor Rating + this tender's eligibility rules</div>
+    <div style="border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>VENDOR</span><span>RATING</span><span>SOURCE</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Apex Medical Systems</span><span>4.6</span><span style="color:#555;">Mapping + Rating</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Horizon Healthcare Supplies</span><span>4.1</span><span style="color:#555;">Mapping + Rating</span><span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>SteriTech India</span><span>4.2</span><span style="color:#555;">Manually added</span><span class="badge badge-manual">Reason: existing ICU vendor</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>MedFlow Global (not yet registered)</span><span>—</span><span style="color:#555;">Guest invite</span><span class="badge badge-guest">Reason: sole distributor for spec</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Publishing Mode</span>
+    <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 14px; color: #444;">
+      <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block; background: #333;"></span> Selective — resolved vendor list above only</label>
+      <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; display: inline-block;"></span> Open Tender — public link, any vendor can respond</label>
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid #ddd; margin-top: 24px; padding: 20px 32px 32px; display: flex; gap: 12px; justify-content: flex-end;">
+    <button style="border: 1px solid #a33; background: #fff; color: #a33; padding: 12px 20px; font-size: 14px; cursor: pointer;">Reject (reason required) →</button>
+    <button style="background: #2f6f3f; color: #fff; border: none; padding: 12px 20px; font-size: 14px; cursor: pointer;">Approve — Publish Tender</button>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
