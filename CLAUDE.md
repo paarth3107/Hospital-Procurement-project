@@ -6,10 +6,12 @@ older, much less detailed task-instructions document; where the two disagree,
 `E-Procurement-Spec-v2.md` wins. This file is a condensed working reference to
 that spec.
 
-**Current stage: wireframe only** (`wireframe/*.dc.html`, published as a Design
-canvas Artifact). No application code has been written. Do not start
-implementation until the user explicitly says to move into Phase 0/1 — see
-"Working process" below.
+**Current stage: wireframe + Phase 0 analysis, no application code written.**
+`wireframe/*.dc.html` (published as a Design canvas Artifact, plus a standalone
+click-through `wireframe/index.html`) is the UI; **`IMPLEMENTATION-SPEC.md`**
+(project root) is the Phase 0 architecture/module/API/data-model plan — read
+that before writing any backend or frontend code. Do not start actual
+implementation (Phase 1+) until the user explicitly says to.
 
 ## Core lifecycle (7 stages, two are split into A/B approval gates)
 
