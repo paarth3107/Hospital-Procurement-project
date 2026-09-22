@@ -6,18 +6,21 @@ older, much less detailed task-instructions document; where the two disagree,
 `E-Procurement-Spec-v2.md` wins. This file is a condensed working reference to
 that spec.
 
-**Current stage: Phase 2 (vendor lifecycle continuation) implementation is in progress.**
+**Current stage: Phase 3 (Tender Creation & E-Tender Approval) implementation is in progress.**
 `wireframe/*.dc.html` (+ `wireframe/index.html`) remains the UI reference/click-through
 prototype; `IMPLEMENTATION-SPEC.md` is the architecture/module/API/data-model plan.
 Real code lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
 `backend/README.md` for setup/run instructions and exactly what's built vs. not)
 and `frontend/` (plain JS — no framework chosen yet, see IMPLEMENTATION-SPEC.md
-§12 open question 1). Phase 1 (vendor registration → approval, spec §3) and Phase 2's
-Product Master / Vendor Mapping / Vendor Rating (spec §4–5) are built, tested, and
-working end-to-end; everything from Tender Creation onward is still wireframe-only.
-Per the user's explicit instruction, phases are being built back-to-back without
-pausing to fix/polish until the full build is done — continue straight to Phase 3
-(Tender Creation & Approval) next per IMPLEMENTATION-SPEC.md §11.
+§12 open question 1). Phase 1 (vendor registration → approval, spec §3), Phase 2
+(Product Master / Vendor Mapping / Vendor Rating, spec §4–5), and Phase 3's tender
+draft/line-items/eligibility-resolver/E-Tender-Approval-gate/round-tracking
+(spec §6–7) are built, tested, and working end-to-end. Deliberately deferred within
+Phase 3 (see backend/README.md for the full list): attachments/mandatory-attachment
+checklist, manual vendor-add override, Guest Invite, Open Tender. Everything from
+Bidding onward is still wireframe-only. Per the user's explicit instruction, phases
+are being built back-to-back without pausing to fix/polish until the full build is
+done — continue straight to Phase 4 (Bidding) next per IMPLEMENTATION-SPEC.md §11.
 
 ## Core lifecycle (7 stages, two are split into A/B approval gates)
 

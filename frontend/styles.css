@@ -44,3 +44,6 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 #rating-summary th { text-align: left; width: 260px; background: #f0efeb; }
 #rating-summary td { font-weight: 600; }
 #rating-card h2 { font-size: 16px; margin: 24px 0 8px; }
+#tender-detail { margin-top: 24px; border-top: 1px solid #ccc; padding-top: 16px; }
+#tender-detail h2, #tender-detail h3 { font-size: 16px; margin: 16px 0 8px; }
+#eligibility-preview p { font-size: 13px; background: #fff; border: 1px solid #ddd; padding: 8px 12px; margin: 6px 0; }

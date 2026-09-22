@@ -3,12 +3,23 @@ Run with: venv/Scripts/python.exe -m app.seed
 """
 
 from app.database import SessionLocal
+from app.models.approval_band import ApprovalBand
 from app.models.facility import Facility
 from app.models.user_account import Role, UserAccount
 from app.security import hash_password
 
 ADMIN_EMAIL = "admin@medsource.local"
 ADMIN_PASSWORD = "changeme123"
+
+# Spec §11.2's illustrative value bands (CLAUDE.md open question 2 — bands
+# and roles still to be finalized against actual hospital delegation-of-
+# authority policy). Seeded as data, not hardcoded in application logic, so
+# a hospital can reconfigure these without a code change.
+DEFAULT_APPROVAL_BANDS = [
+    {"min_value": 0.0, "max_value": 100_000.0, "tier": 1, "label": "Procurement Admin (self-attested)"},
+    {"min_value": 100_000.0, "max_value": 1_000_000.0, "tier": 2, "label": "Department Head"},
+    {"min_value": 1_000_000.0, "max_value": None, "tier": 3, "label": "Department Head + Finance/Management Committee"},
+]
 
 
 def run():
@@ -38,6 +49,14 @@ def run():
             print(f"Created Procurement Admin login: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
         else:
             print("Admin user already exists")
+
+        if db.query(ApprovalBand).count() == 0:
+            for band in DEFAULT_APPROVAL_BANDS:
+                db.add(ApprovalBand(facility_id=None, **band))
+            db.commit()
+            print(f"Seeded {len(DEFAULT_APPROVAL_BANDS)} group-wide approval bands")
+        else:
+            print("Approval bands already exist")
     finally:
         db.close()
 

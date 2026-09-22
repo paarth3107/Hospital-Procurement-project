@@ -33,6 +33,14 @@ class UserAccount(Base):
     # facility but not all of them.
     facility_id = Column(Integer, ForeignKey("facilities.id"), nullable=True)
 
+    # Spec §11.2 value-based approval matrix — only meaningful when
+    # role == APPROVING_AUTHORITY. There's no separate "Department Head" /
+    # "Finance Committee" role in this system's Role enum (CLAUDE.md's role
+    # list has just one Approving Authority role), so the matrix's tiers are
+    # modeled as a numeric level on that role rather than inventing roles the
+    # spec doesn't otherwise define. See app/services/approval_matrix.py.
+    approval_tier = Column(Integer, nullable=True)
+
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

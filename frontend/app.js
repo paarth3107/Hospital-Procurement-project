@@ -41,6 +41,8 @@ function switchView(view) {
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();
   if (view === "mappings") loadMappings();
+  if (view === "tenders") loadTenders();
+  if (view === "approvals") loadApprovals();
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -101,6 +103,8 @@ function showStaffTabs() {
   document.getElementById("catalog-tab").hidden = false;
   document.getElementById("mappings-tab").hidden = false;
   document.getElementById("ratings-tab").hidden = false;
+  document.getElementById("tenders-tab").hidden = false;
+  document.getElementById("approvals-tab").hidden = false;
 }
 
 function hideStaffTabs() {
@@ -109,6 +113,8 @@ function hideStaffTabs() {
   document.getElementById("catalog-tab").hidden = true;
   document.getElementById("mappings-tab").hidden = true;
   document.getElementById("ratings-tab").hidden = true;
+  document.getElementById("tenders-tab").hidden = true;
+  document.getElementById("approvals-tab").hidden = true;
 }
 
 document.getElementById("logout-btn").addEventListener("click", () => {
@@ -383,6 +389,211 @@ document.getElementById("rating-update-form").addEventListener("submit", async (
     loadRating();
   } catch (err) {
     showResult(resultEl, "Could not save ratings: " + err.message, false);
+  }
+});
+
+// ---- Tenders ----
+let currentTenderId = null;
+
+document.getElementById("tender-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const payload = {
+    facility_id: Number(data.facility_id),
+    title: data.title,
+    description: data.description || null,
+    tender_type: data.tender_type,
+    department: data.department || null,
+    min_rating_threshold: data.min_rating_threshold ? Number(data.min_rating_threshold) : 0,
+    max_invites: data.max_invites ? Number(data.max_invites) : null,
+    bid_due_date: data.bid_due_date ? new Date(data.bid_due_date).toISOString() : null,
+  };
+  const resultEl = document.getElementById("tender-result");
+  try {
+    const tender = await api("/tenders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    showResult(resultEl, `Created draft tender #${tender.id}: ${tender.title}`, true);
+    form.reset();
+    loadTenders();
+  } catch (err) {
+    showResult(resultEl, "Could not create tender: " + err.message, false);
+  }
+});
+
+async function loadTenders() {
+  const tbody = document.querySelector("#tender-table tbody");
+  const resultEl = document.getElementById("tender-result");
+  try {
+    const tenders = await api("/tenders");
+    tbody.innerHTML = "";
+    if (tenders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#888;">No tenders yet.</td></tr>';
+    }
+    for (const t of tenders) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${t.id}</td>
+        <td>${t.title}</td>
+        <td>${t.tender_type}</td>
+        <td><span class="status-pill status-${t.status === "published" ? "active" : t.status === "withdrawn" ? "rejected" : "pending_verification"}">${t.status}</span></td>
+        <td>${t.round_number}</td>
+        <td class="row-actions"><button data-id="${t.id}" data-action="select">Manage</button></td>`;
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    showResult(resultEl, "Could not load tenders: " + err.message, false);
+  }
+}
+
+document.querySelector("#tender-table tbody").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-action='select']");
+  if (!btn) return;
+  currentTenderId = Number(btn.dataset.id);
+  document.getElementById("tender-detail").hidden = false;
+  document.getElementById("tender-detail-title").textContent = `Tender #${currentTenderId}`;
+  loadLineItems();
+  loadRounds();
+  document.getElementById("eligibility-preview").innerHTML = "";
+});
+
+document.getElementById("line-item-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const payload = {
+    product_master_id: Number(data.product_master_id),
+    procurement_type: data.procurement_type,
+    qty: Number(data.qty),
+    estimated_price: data.estimated_price ? Number(data.estimated_price) : null,
+  };
+  const resultEl = document.getElementById("tender-result");
+  try {
+    await api(`/tenders/${currentTenderId}/line-items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    form.reset();
+    loadLineItems();
+  } catch (err) {
+    showResult(resultEl, "Could not add line item: " + err.message, false);
+  }
+});
+
+async function loadLineItems() {
+  const tbody = document.querySelector("#line-item-table tbody");
+  const items = await api(`/tenders/${currentTenderId}/line-items`);
+  tbody.innerHTML = items.length
+    ? ""
+    : '<tr><td colspan="4" style="color:#888;">No line items yet.</td></tr>';
+  for (const li of items) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${li.product_master_id}</td><td>${li.procurement_type}</td><td>${li.qty}</td><td>${li.estimated_price ?? "—"}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadRounds() {
+  const tbody = document.querySelector("#round-table tbody");
+  const rounds = await api(`/tenders/${currentTenderId}/approval-rounds`);
+  tbody.innerHTML = rounds.length
+    ? ""
+    : '<tr><td colspan="4" style="color:#888;">Not submitted yet.</td></tr>';
+  for (const r of rounds.slice().reverse()) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.round_number}</td><td>${r.decision}</td><td>${r.required_tier}</td><td>${r.comments || ""}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+document.getElementById("preview-eligibility-btn").addEventListener("click", async () => {
+  const el = document.getElementById("eligibility-preview");
+  try {
+    const preview = await api(`/tenders/${currentTenderId}/eligibility-preview`);
+    el.innerHTML = preview
+      .map(
+        (p) =>
+          `<p><strong>Line item #${p.line_item_id}</strong> (threshold ${p.threshold_applied}): ${
+            p.eligible_vendors.length
+              ? p.eligible_vendors.map((v) => `${v.legal_name} (score ${v.rating_score})`).join(", ")
+              : '<span style="color:#a33;">zero eligible vendors — submission will be blocked</span>'
+          }</p>`
+      )
+      .join("");
+  } catch (err) {
+    el.textContent = "Could not load eligibility preview: " + err.message;
+  }
+});
+
+document.getElementById("submit-tender-btn").addEventListener("click", async () => {
+  const resultEl = document.getElementById("tender-result");
+  try {
+    await api(`/tenders/${currentTenderId}/submit-for-approval`, { method: "POST" });
+    showResult(resultEl, `Tender #${currentTenderId} submitted for E-Tender Approval.`, true);
+    loadTenders();
+    loadRounds();
+  } catch (err) {
+    showResult(resultEl, "Could not submit for approval: " + err.message, false);
+  }
+});
+
+// ---- E-Tender Approval ----
+async function loadApprovals() {
+  const tbody = document.querySelector("#approval-table tbody");
+  const resultEl = document.getElementById("approval-result");
+  try {
+    const tenders = await api("/tenders?status_filter=pending_approval");
+    tbody.innerHTML = "";
+    if (tenders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888;">Nothing pending approval.</td></tr>';
+    }
+    for (const t of tenders) {
+      const rounds = await api(`/tenders/${t.id}/approval-rounds`);
+      const current = rounds.find((r) => r.round_number === t.round_number);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${t.id}</td>
+        <td>${t.title}</td>
+        <td>${t.round_number}</td>
+        <td>${current ? current.required_tier : "—"}</td>
+        <td class="row-actions">
+          <button class="approve" data-id="${t.id}" data-action="approve">Approve &amp; Publish</button>
+          <button class="reject" data-id="${t.id}" data-action="reject">Reject</button>
+        </td>`;
+      tbody.appendChild(tr);
+    }
+    resultEl.textContent = "";
+  } catch (err) {
+    showResult(resultEl, "Could not load approval queue: " + err.message, false);
+  }
+}
+
+document.getElementById("approvals-refresh-btn").addEventListener("click", loadApprovals);
+
+document.querySelector("#approval-table tbody").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  const { id, action } = btn.dataset;
+  const resultEl = document.getElementById("approval-result");
+  try {
+    if (action === "reject") {
+      const comments = prompt("Comments for rejection (required):");
+      if (!comments || !comments.trim()) return;
+      await api(`/tenders/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comments }),
+      });
+    } else {
+      await api(`/tenders/${id}/approve`, { method: "POST" });
+    }
+    loadApprovals();
+  } catch (err) {
+    showResult(resultEl, `Could not ${action} tender ${id}: ` + err.message, false);
   }
 });
 
