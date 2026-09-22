@@ -30,6 +30,38 @@
   <div style="padding: 16px 32px 40px; display: flex; flex-direction: column; gap: 22px;">
 
     <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <span class="label" style="font-size: 15px; font-weight: 700;">Tender Header</span>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Tender Type</span>
+          <div class="input-box">RFQ / RFP / Rate Contract ▾</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Facility / Legal Entity</span>
+          <div class="input-box">Select facility ▾</div>
+          <div class="field-hint">Scopes vendor mapping, approval matrix, and PO data file to this facility</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Department / Requesting Unit</span>
+          <div class="input-box">e.g. Radiology</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Minimum Vendor Rating Threshold (default)</span>
+          <div class="input-box">e.g. 3.5 / 5</div>
+          <div class="field-hint">Overridable per line item below</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Min / Max Vendors to Invite per Line Item</span>
+          <div class="input-box">e.g. 3 – 8</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #ccc; background: #fff; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span class="label" style="font-size: 15px; font-weight: 700;">Line Item 1</span>
         <span style="font-size: 12px; color: #b8560c; text-decoration: underline; cursor: pointer;">Remove</span>
@@ -73,6 +105,23 @@
       <div>
         <span class="field-label">Attach Spec Sheet / Drawing (optional)</span>
         <div style="border: 1px dashed #999; background: #fff; padding: 20px; text-align: center; color: #999; font-size: 13px;">Drop file or click to upload</div>
+      </div>
+
+      <div class="field-hint">Asset/Service lines show additional type-specific fields here (warranty & AMC, installation/training for Assets; SOW, SLA, billing basis for Services) — form adapts to the Type selected above.</div>
+
+      <div style="border-top: 1px dashed #ddd; padding-top: 16px; display: flex; gap: 24px; align-items: flex-start;">
+        <div style="flex: 1;">
+          <span class="field-label">Line-specific Minimum Rating Threshold (optional)</span>
+          <div class="input-box">Overrides tender default ▾</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Split-Award Allowed</span>
+          <div style="display: flex; gap: 20px; font-size: 14px; color: #444;">
+            <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #333; background: #333; display: inline-block;"></span> Yes</label>
+            <label style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 16px; border: 1px solid #999; display: inline-block; background: #fff;"></span> No</label>
+          </div>
+          <div class="field-hint">Lets this line's quantity be split across more than one vendor at L1 Selection/Approval</div>
+        </div>
       </div>
     </div>
 

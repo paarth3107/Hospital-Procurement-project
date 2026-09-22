@@ -26,6 +26,7 @@
         <span style="color: #555;">Tenders</span>
         <span style="color: #555;">Vendors</span>
         <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -38,12 +39,32 @@
     <span style="font-size: 13px; color: #888;">Approvals / E-Tender Approval</span>
     <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Portable Ventilator Units (x4)</div>
     <div style="font-size: 13px; color: #666; margin-top: 6px;">Equipment · 1 line item · Bid deadline in 6 days · Draft — not yet published</div>
+    <div style="margin-top: 10px; display: flex; gap: 8px;">
+      <span style="font-size: 11px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 2px 8px;">Round 2 — revised after rejection</span>
+      <span style="font-size: 11px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 2px 8px;">Tier: Department Head (value ₹1L–₹10L)</span>
+    </div>
   </div>
 
   <div style="padding: 20px 32px 0;">
     <div style="border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
       This gate must succeed before the tender can publish, notify vendors, or open for bidding — it cannot be skipped by a frontend action.
     </div>
+  </div>
+
+  <div style="padding: 16px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Round History</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 0.6fr 1fr 1fr 2.4fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>ROUND</span><span>DECISION</span><span>REVIEWER</span><span>COMMENTS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 0.6fr 1fr 1fr 2.4fr; padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>1</span><span style="color:#a33;">Rejected</span><span style="color:#555;">R. Sharma</span><span style="color:#555;">Budget code missing on line item — resubmit with cost center attached.</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 0.6fr 1fr 1fr 2.4fr; padding: 12px 16px; font-size: 13px; align-items: center;">
+        <span>2</span><span style="color:#8a5215;">Pending (this screen)</span><span style="color:#555;">—</span><span style="color:#555;">—</span>
+      </div>
+    </div>
+    <div class="field-hint" style="margin-top: 6px;">A configured max round count or per-round SLA breach auto-escalates to the next Approving Authority tier.</div>
   </div>
 
   <div style="padding: 16px 32px 0;">

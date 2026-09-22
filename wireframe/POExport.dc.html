@@ -10,6 +10,7 @@
   <style>
     body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
     .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-hint { font-size: 12px; color: #888; }
     .status-pill { border: 1px solid #999; padding: 2px 10px; font-size: 12px; width: fit-content; background: #eee; }
     .status-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
     .status-imported { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
@@ -26,6 +27,7 @@
         <span style="color: #555;">Tenders</span>
         <span style="color: #555;">Vendors</span>
         <span style="color: #555;">Approvals</span>
+        <span style="color: #555;">Overrides</span>
         <span style="font-weight: 600; border-bottom: 2px solid #b8560c; padding-bottom: 4px;">PO Export</span>
       </div>
     </div>
@@ -56,11 +58,20 @@
         <span>Digital X-Ray Panel</span><span>RadVision Corp</span><span style="color:#555;">L1-APR-0229</span><span>XML</span><span style="color:#666;">3 days ago</span>
         <div class="status-pill status-pending">Pending Upload</div>
       </div>
-      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
         <span>Autoclave Sterilizer (x6)</span><span>SteriTech India</span><span style="color:#555;">L1-APR-0225</span><span>CSV</span><span style="color:#666;">1 month ago</span>
         <div class="status-pill status-failed">Reconciliation Failed</div>
       </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #eee; align-items: center;">
+        <span>Portable Ventilator Units (x4) <span style="font-size:11px; border:1px solid #8f9bd6; background:#eef0fb; color:#3a4590; padding:1px 6px; margin-left:4px;">Split 70%</span></span><span>Apex Medical Systems</span><span style="color:#555;">L1-APR-0233</span><span>CSV</span><span style="color:#666;">1 day ago</span>
+        <div class="status-pill status-pending">Pending Upload</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.6fr 1.4fr 1fr 1fr 1fr 1.3fr; padding: 14px 16px; font-size: 14px; align-items: center;">
+        <span>Portable Ventilator Units (x4) <span style="font-size:11px; border:1px solid #8f9bd6; background:#eef0fb; color:#3a4590; padding:1px 6px; margin-left:4px;">Split 30%</span></span><span>RadCore Diagnostics</span><span style="color:#555;">L1-APR-0234</span><span>CSV</span><span style="color:#666;">1 day ago</span>
+        <div class="status-pill status-pending">Pending Upload</div>
+      </div>
     </div>
+    <div class="field-hint" style="margin-top: 6px;">A split-award line item generates one file per vendor, each carrying only that vendor's allocated share (here, two files with the same tender reference, different batch IDs).</div>
   </div>
 
   <div style="padding: 16px 32px 0;">
@@ -70,10 +81,10 @@
   </div>
 
   <div style="padding: 20px 32px 32px;">
-    <span class="label" style="font-size: 16px; font-weight: 700;">Field Structure</span>
-    <div class="field-hint" style="margin-top: 4px; margin-bottom: 10px;">Configurable per hospital ERP import template — placeholder mapping shown</div>
-    <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; font-size: 13px; color: #555; font-family: monospace;">
-      tender_id, po_line_no, vendor_code, item_code, qty, unit_price, currency, approval_ref, approved_at, facility_code
+    <span class="label" style="font-size: 16px; font-weight: 700;">Field Structure (spec §10.4 — minimum data set)</span>
+    <div class="field-hint" style="margin-top: 4px; margin-bottom: 10px;">Exact column/element names to be finalized against the hospital ERP's import template (open question)</div>
+    <div style="border: 1px solid #ccc; background: #fff; padding: 14px 18px; font-size: 13px; color: #555; font-family: monospace; line-height: 1.7;">
+      Tender Reference / PO Data Batch ID, Vendor Code / GSTIN, Line Item Code, Description, Quantity, UOM, Unit Price, Tax, Line Total, Delivery / Service Terms, Payment Terms, Approving Authority ID, Approval Timestamp, Department / Budget Code, Facility / Legal Entity Code
     </div>
   </div>
 

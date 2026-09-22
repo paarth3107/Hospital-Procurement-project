@@ -1,30 +1,42 @@
 # Hospital E-Procurement System
 
-Source of truth: `SPECIFICATIONS.md.txt` (project root). This file is a condensed
-working reference to that spec — if the two ever disagree, the spec wins.
+Source of truth: **`E-Procurement-Spec-v2.md`** (project root) — the full functional
+& technical specification from Mind IT Systems. `SPECIFICATIONS.md.txt` is an
+older, much less detailed task-instructions document; where the two disagree,
+`E-Procurement-Spec-v2.md` wins. This file is a condensed working reference to
+that spec.
 
 **Current stage: wireframe only** (`wireframe/*.dc.html`, published as a Design
 canvas Artifact). No application code has been written. Do not start
 implementation until the user explicitly says to move into Phase 0/1 — see
 "Working process" below.
 
-## Core lifecycle (12 stages)
+## Core lifecycle (7 stages, two are split into A/B approval gates)
 
-Vendor Registration → Vendor Approval → Item/Asset/Service Mapping → Vendor
-Rating → E-Tender Creation → E-Tender Approval → Selective Publishing → Bid
-Submission → Technical/Commercial Evaluation → L1 Selection → L1 Approval →
-PO Data Export → ERP Handoff
+1. Vendor Registration & Approval
+2. Item/Asset/Service Master & Vendor Mapping
+3. Vendor Rating & Scorecard
+4A. E-Tender Creation & Selective Publishing (preparation, draft)
+4B. E-Tender Approval (the gate that actually publishes + notifies vendors)
+5. Bid Submission (vendor, line-item-wise, technical + commercial)
+6. L1 Selection (technical T-rank, commercial L-rank, optional QCBS C-rank; Procurement Officer recommends)
+7. L1 Approval & PO Data Handoff to ERP
 
 Key distinctions the spec is strict about:
-- **L1 confirmation is a recommendation, not an award.** Award happens only after L1 Approval (separate gate).
-- **E-Tender Approval gates publishing.** A tender must stay in draft/pre-approval state until this succeeds; publish/vendor-notify/bidding-open only fire after approval.
-- **Price confidentiality**: commercial prices must not be exposed via the API (not just hidden in the frontend) before the bid deadline / before technical qualification is recorded, whichever the spec's sequencing requires.
-- **ERP handoff is data export only** (CSV/XML, configurable field structure) — this app does not create the ERP PO itself unless that integration is explicitly added later.
-- **Overrides don't touch the underlying record until Approved.** One reusable override/approval engine, not bespoke logic per module (states: Pending/Approved/Rejected/Escalated/Expired; reason codes, approval bands, escalation, SLA expiry, full audit trail).
-- **Everything workflow/authorization/price/eligibility-related must be backend-enforced.** Never trust client-provided state, and never rely on frontend button visibility alone to gate a transition.
-- **Audit logging is first-class**, not scattered ad hoc logging: actor, role, action, affected entity, before/after state, timestamp, reason, approval decision, escalation path. Audit history is immutable from normal app workflows.
-- **Multi-facility/multi-entity from the start**: entities carry facility/legal entity/department, and approval resolution can depend on those — don't design the schema in a way that forecloses this later.
-- **Vendor rating** has both automatic (price competitiveness, derived from this system's historical bid data) and manual components (on-time delivery %, quality acceptance rate, compliance currency, responsiveness), with history retained, provisional/stale states, configurable weighting, and governed override of the automatic value.
+- **L1 confirmation is a recommendation, not an award.** Award happens only after L1 Approval (separate gate, Approving Authority).
+- **E-Tender Approval gates publishing.** A tender must stay in Draft/pre-approval state until this succeeds; publish/vendor-notify/bidding-open only fire after approval. No direct-publish path exists from tender creation.
+- **Split-Award (Spec §6.3.4, §9.5, §10.2) — in scope for Phase 1, was missing from the wireframe until this pass.** A line item flagged `Split-Award Allowed` at creation can have its quantity/value divided across more than one vendor (e.g. 70% to L1/C1, 30% to L2/C2), subject to a configured minimum split threshold. The Procurement Officer *proposes* the split at L1 Selection (§9.5); the Approving Authority *confirms or adjusts* it at L1 Approval (§10.2) — the Approving Authority has final say on the exact allocation, not just a yes/no. A split line item produces a separate PO data file entry per vendor, each carrying only that vendor's allocated share.
+- **Multi-round approval with escalation (§7.3)**: every tender-approval and L1-approval submission is a numbered Round, not a single submit/approve cycle. Rejection returns it to Draft/re-evaluation with mandatory comments pinned to that round; resubmission creates the next round rather than overwriting history. A configurable max round count (or per-round SLA breach) auto-escalates to the next Approving Authority tier — this applies identically to both approval gates.
+- **Open Tender (§6.8)**: a tender type that bypasses eligibility filtering entirely and publishes as a public self-registration link/QR code (no scoped vendor list). Still requires the same E-Tender Approval gate — only the meaning of "publish" changes.
+- **Guest Invite (§6.7)**: officer can invite an unregistered vendor by name/email; itself a governed override; creates a placeholder "Guest — Registration Incomplete" profile. A guest confirmed as awardee triggers a second override before PO export, and must complete full KYC/Active status before any PO data is generated.
+- **Price confidentiality (§9.6)**: commercial prices are masked from *everyone* (including Procurement Officer and Approving Authority) until the bid deadline passes — not just hidden in the frontend. Per-line-item due dates unlock independently. Technical submissions unlock first; prices unlock only after technical qualification is recorded.
+- **ERP handoff is data export only** (CSV/XML, field structure in Spec §10.4) — this app does not create the ERP PO itself. One file per awarded vendor per tender.
+- **Overrides don't touch the underlying record until Approved.** One reusable override/approval engine (Spec §12), not bespoke logic per module — states: Requested/Pending Approval/Approved/Rejected/Escalated/Expired. Spec §12.3 has the full table of override types (rating override, vendor add, guest invite, technical score correction, late-submission exception, due-date extension, non-L1/C1 award override, PO re-export) with their default approver and escalation trigger.
+- **Everything workflow/authorization/price/eligibility-related must be backend-enforced.** Never trust client-provided state, never rely on frontend button visibility alone to gate a transition.
+- **Audit logging is first-class**, not scattered ad hoc logging: actor, role, action, affected entity, before/after state, timestamp, reason, approval decision, escalation path. Immutable from normal app workflows.
+- **Multi-facility/multi-entity from the start (Spec §2.3)**: every tender carries a Facility/Legal Entity field; vendor mapping can be Group-wide or Facility-specific (hospital policy, not per-tender); the approval matrix can be defined per facility; PO data file carries a Facility/Entity Code.
+- **Vendor rating (Spec §5.2, now with concrete illustrative weights, not just "configurable"):** On-time Delivery % 25% (manual), Quality Acceptance Rate 25% (manual), Price Competitiveness 20% (system-computed from this system's own bid history, rolling 12-month window), Compliance/Documentation Currency 15% (manual), Responsiveness 15% (manual). Only Price Competitiveness is automatic; overriding it is a governed override — routine manual entry of the other four is not. New vendors are "Unrated" until enough history exists; stale manual entries flag "Stale — Manual Update Due".
+- **Technical evaluation precedes commercial (Spec §9.2–9.4)**: Qualify/Disqualify (default, Item lines) or Scored Technical Ranking (Asset/Service lines, T1/T2/T3…) happens first; commercial L-ranking runs only among technically-qualified bids; QCBS combined C-ranking (Combined Score = Technical%×Weight + Price%×Weight, common defaults 70/30 for critical Assets or 60/40 for Services) is an optional per-line-item alternative to plain L1, fixed at tender creation.
 
 ## Roles
 
@@ -41,9 +53,22 @@ Approval and L1 Approval).
 
 ## Known open questions (do not silently resolve — flag and ask)
 
-- Exact weighting between price and vendor rating for the recommendation score (spec explicitly leaves rating weighting configurable; the wireframe's `canvas.json` `note-scoring` annotation flags this as still placeholder).
-- Who counts as a "senior official" for reject/escalation approval, and how many tiers exist (wireframe `canvas.json` `note-escalation` annotation).
-- Any other spec ambiguity encountered during implementation — mark as `OPEN QUESTION` per the spec's own instruction rather than inventing a rule.
+Resolved by `E-Procurement-Spec-v2.md` (illustrative values, still to be finalized with actual hospital policy per Spec §17, but no longer "undefined placeholder"):
+- ~~Vendor rating weighting~~ → Spec §5.2, weights above.
+- ~~Who approves what~~ → Spec §11.2 value-based matrix: ≤₹1,00,000 Procurement Admin; ₹1,00,001–₹10,00,000 Department Head; above ₹10,00,000 Department Head + Finance/Management Committee (same bands for both E-Tender Approval and L1 Approval, resolved per facility).
+
+Still genuinely open (Spec §17 — do not silently resolve, flag and ask):
+1. Final rating weights/thresholds per category/criticality (§5.2 values are illustrative starting points).
+2. Approval value bands per the hospital's actual delegation-of-authority policy, including per-override-type bands (§12.3).
+3. Vendor Mapping/Rating Group-wide vs Facility-specific by default, and whether the approval matrix is shared group-wide or per facility (§2.3).
+4. Split-Award: spec's own open question was Phase 1 vs Phase 2 — **resolved for this project: Phase 1, in scope now.**
+5. Which upstream system (HIS/ERP/manual) originates the requisition seeding tender creation.
+6. Hospital ERP's exact PO-import file format/field mapping (§10.4) — CSV or XML, column/element names, mandatory reference/budget codes.
+7. PO data handoff automated (API/SFTP) or manual, and whether a return channel exists for the ERP to confirm the PO number back.
+8. Whether digital signature/e-signing is mandatory for E-Tender Approval or L1 Approval records, and which provider.
+9. Statutory data retention period (typically 7+ years, to be confirmed).
+
+Any other spec ambiguity encountered during implementation — mark as `OPEN QUESTION` per the spec's own instruction rather than inventing a rule.
 
 ## Working process (per the spec, section 15–16)
 

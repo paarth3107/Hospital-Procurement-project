@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
+    .label { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .field-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+    .field-hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .input-box { border: 1px solid #bbb; background: #fff; padding: 10px 12px; font-size: 14px; color: #999; }
+  </style>
+</helmet>
+<div style="width: 900px; min-height: 1050px; box-sizing: border-box; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; border-bottom: 1px solid #ccc; background: #fff;">
+    <span class="label" style="font-size: 22px; font-weight: 700;">MedSource</span>
+    <span style="font-size: 12px; border: 1px solid #999; background: #f0eee6; color: #555; padding: 3px 10px;">Public Tender — No Login Required</span>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span style="font-size: 13px; color: #888;">Open Tender</span>
+    <div class="label" style="font-size: 26px; font-weight: 700; margin-top: 4px;">Hospital Linen & Laundry Services — Annual Contract</div>
+    <div style="font-size: 13px; color: #666; margin-top: 6px;">Facility: City Central Hospital · Bid closes in 9 days · Any vendor may self-register and bid — no prior mapping or invitation required</div>
+  </div>
+
+  <div style="margin: 16px 32px 0; border: 1px solid #ddd; background: #fbfaf7; padding: 12px 16px; font-size: 12px; color: #776;">
+    This link is scoped only to this tender — you cannot browse or discover any other tender from here. Vendor Mapping and Vendor Rating do not gate participation, but technical evaluation still applies before any commercial ranking.
+  </div>
+
+  <div style="padding: 20px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Line Items</span>
+    <div style="margin-top: 10px; border: 1px solid #ccc; background: #fff;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr; padding: 10px 16px; background: #f0efeb; font-size: 11px; color: #777; font-weight: 700; letter-spacing: 0.04em; border-bottom: 1px solid #ccc;">
+        <span>SERVICE</span><span>TENURE</span><span>LOCATION</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr; padding: 12px 16px; font-size: 14px; align-items: center;">
+        <span>Linen & Laundry — full hospital coverage</span><span style="color:#555;">12 months</span><span style="color:#555;">Main campus</span>
+      </div>
+    </div>
+    <div style="margin-top: 10px;">
+      <span style="font-size: 13px; color: #b8560c; text-decoration: underline;">Scope of Work.pdf</span>
+      <span style="font-size: 13px; color: #b8560c; text-decoration: underline; margin-left: 16px;">Site Photos.zip</span>
+    </div>
+  </div>
+
+  <div style="padding: 24px 32px 0;">
+    <span class="label" style="font-size: 16px; font-weight: 700;">Self-Registration</span>
+    <div class="field-hint" style="margin-top: 2px; margin-bottom: 14px;">Same minimum fields as an officer-initiated guest invite. If your GSTIN/PAN matches an existing registration, you'll be matched to that profile instead of creating a duplicate.</div>
+
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Company Name</span>
+          <div class="input-box">e.g. Sunrise Linen Services</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">GSTIN / PAN (if available)</span>
+          <div class="input-box">—</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span class="field-label">Contact Person</span>
+          <div class="input-box">Full name</div>
+        </div>
+        <div style="flex: 1;">
+          <span class="field-label">Phone / Email</span>
+          <div class="input-box">—</div>
+        </div>
+      </div>
+      <div>
+        <span class="field-label">Bank Details</span>
+        <div class="input-box">Bank name, account number, IFSC</div>
+      </div>
+      <div style="border: 1px dashed #999; background: #fff; padding: 18px; text-align: center; color: #999; font-size: 13px;">I'm not a robot — CAPTCHA challenge</div>
+    </div>
+
+    <div style="border-top: 1px solid #ddd; margin-top: 22px; padding-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+      <span class="field-hint">Full KYC and formal approval aren't required to bid, but are required before you can be confirmed as the awarded vendor.</span>
+      <button style="background: #b8560c; color: #fff; border: none; padding: 12px 22px; font-size: 14px; cursor: pointer;">Register & Continue to Bid →</button>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
