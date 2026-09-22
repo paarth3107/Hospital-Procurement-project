@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import auth, health, vendors
+from app.routers import auth, health, mappings, products, ratings, vendors
 
 app = FastAPI(title="Hospital E-Procurement API")
 
@@ -21,6 +21,9 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(vendors.router)
+app.include_router(products.router)
+app.include_router(mappings.router)
+app.include_router(ratings.router)
 
 frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
 if frontend_dir.exists():

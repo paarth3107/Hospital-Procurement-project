@@ -6,16 +6,18 @@ older, much less detailed task-instructions document; where the two disagree,
 `E-Procurement-Spec-v2.md` wins. This file is a condensed working reference to
 that spec.
 
-**Current stage: Phase 1 (Foundation) implementation has started.**
+**Current stage: Phase 2 (vendor lifecycle continuation) implementation is in progress.**
 `wireframe/*.dc.html` (+ `wireframe/index.html`) remains the UI reference/click-through
 prototype; `IMPLEMENTATION-SPEC.md` is the architecture/module/API/data-model plan.
-Real code now lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
+Real code lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
 `backend/README.md` for setup/run instructions and exactly what's built vs. not)
 and `frontend/` (plain JS — no framework chosen yet, see IMPLEMENTATION-SPEC.md
-§12 open question 1). The vendor registration → approval vertical slice (spec §3)
-is built, tested, and working end-to-end; everything else in the spec is still
-wireframe-only. Continue phase by phase per IMPLEMENTATION-SPEC.md §11 — don't
-jump ahead to later phases without saying so first.
+§12 open question 1). Phase 1 (vendor registration → approval, spec §3) and Phase 2's
+Product Master / Vendor Mapping / Vendor Rating (spec §4–5) are built, tested, and
+working end-to-end; everything from Tender Creation onward is still wireframe-only.
+Per the user's explicit instruction, phases are being built back-to-back without
+pausing to fix/polish until the full build is done — continue straight to Phase 3
+(Tender Creation & Approval) next per IMPLEMENTATION-SPEC.md §11.
 
 ## Core lifecycle (7 stages, two are split into A/B approval gates)
 

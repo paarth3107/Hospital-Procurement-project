@@ -39,3 +39,8 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 .row-actions button { border: 1px solid #999; background: #fff; padding: 4px 10px; font-size: 12px; cursor: pointer; margin-right: 6px; }
 .row-actions button.approve { border-color: #2f6f3f; color: #2f6f3f; }
 .row-actions button.reject { border-color: #a33; color: #a33; }
+
+#rating-summary { margin: 16px 0; }
+#rating-summary th { text-align: left; width: 260px; background: #f0efeb; }
+#rating-summary td { font-weight: 600; }
+#rating-card h2 { font-size: 16px; margin: 24px 0 8px; }
