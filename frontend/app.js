@@ -123,8 +123,8 @@ function switchView(view) {
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();
+  if (view === "request-mapping") populateVendorMappingRequestPicker();
   if (view === "mappings") {
-    populateMappingPickers();
     renderMappingMatrix();
     loadMappings();
   }
@@ -207,6 +207,7 @@ const ALL_STAFF_TAB_VIEWS = ["queue", "catalog", "mappings", "ratings", "tenders
 
 function showStaffTabsForRole(role) {
   document.getElementById("register-tab").hidden = true;
+  document.getElementById("request-mapping-tab").hidden = true;
   document.getElementById("login-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
   const allowed = new Set(ROLE_TABS[role] || []);
@@ -221,6 +222,7 @@ function showStaffTabsForRole(role) {
 
 function hideStaffTabs() {
   document.getElementById("register-tab").hidden = false;
+  document.getElementById("request-mapping-tab").hidden = false;
   document.getElementById("login-tab").hidden = false;
   document.getElementById("logout-btn").hidden = true;
   for (const view of ALL_STAFF_TAB_VIEWS) {
@@ -367,54 +369,43 @@ document.querySelector("#product-table tbody").addEventListener("click", async (
   }
 });
 
-// ---- Vendor mapping ----
-
-document.getElementById("add-mapping-btn").addEventListener("click", () => {
-  const form = document.getElementById("mapping-form");
-  form.hidden = !form.hidden;
-  document.getElementById("add-mapping-btn").textContent = form.hidden ? "+ Request Mapping" : "Cancel";
-});
-
-// Populates the Vendor/Catalog Entry <select> pickers so nobody has to
-// memorize or type a raw ID. Vendor picker is Active-only, matching CLAUDE.md
-// PROJECT OVERRIDE (only Active vendors can ever be mapped).
-async function populateMappingPickers() {
-  const vendorSelect = document.querySelector('#mapping-form select[name="vendor_id"]');
-  const productSelect = document.querySelector('#mapping-form select[name="product_master_id"]');
+// ---- Vendor-facing: request a mapping (public, no login -- same as
+// registration, mirrors the fact that POST /mappings has never required
+// staff auth: it's the vendor's own request, on their own behalf). Staff no
+// longer create these on a vendor's behalf from the matrix screen -- that
+// screen now maps+approves directly, since staff already have the authority
+// to do that without a review step. ----
+async function populateVendorMappingRequestPicker() {
+  const productSelect = document.querySelector('#vendor-mapping-request-form select[name="product_master_id"]');
   try {
-    const [vendors, products] = await Promise.all([api("/vendors/lookup?status_filter=active"), api("/products?active=true")]);
-    vendorSelect.innerHTML =
-      '<option value="">— select a vendor —</option>' +
-      vendors.map((v) => `<option value="${v.id}">${v.legal_name} (#${v.id})</option>`).join("");
+    const products = await api("/products?active=true");
     productSelect.innerHTML =
       '<option value="">— select a catalog entry —</option>' +
-      products.map((p) => `<option value="${p.id}">${p.code} — ${p.name} (#${p.id})</option>`).join("");
+      products.map((p) => `<option value="${p.id}">${p.code} — ${p.name}</option>`).join("");
   } catch (err) {
-    showResult(document.getElementById("mapping-result"), "Could not load vendor/catalog pickers: " + err.message, false);
+    showResult(document.getElementById("vendor-mapping-request-result"), "Could not load the catalog: " + err.message, false);
   }
 }
 
-document.getElementById("mapping-form").addEventListener("submit", async (e) => {
+document.getElementById("vendor-mapping-request-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
   const data = Object.fromEntries(new FormData(form).entries());
-  const resultEl = document.getElementById("mapping-result");
+  const resultEl = document.getElementById("vendor-mapping-request-result");
   try {
     const mapping = await api("/mappings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vendor_id: Number(data.vendor_id), product_master_id: Number(data.product_master_id) }),
     });
-    showResult(resultEl, `Mapping #${mapping.id} requested (state: ${mapping.state}).`, true);
+    showResult(resultEl, `Mapping requested (state: ${mapping.state}). A Category Manager will review it.`, true);
     form.reset();
-    form.hidden = true;
-    document.getElementById("add-mapping-btn").textContent = "+ Request Mapping";
-    renderMappingMatrix();
-    loadMappings();
   } catch (err) {
     showResult(resultEl, "Could not request mapping: " + err.message, false);
   }
 });
+
+// ---- Vendor mapping (staff) ----
 
 function renderMappingRows(mappings, vendorName, productName) {
   const tbody = document.querySelector("#mapping-table tbody");

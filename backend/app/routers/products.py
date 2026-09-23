@@ -36,8 +36,11 @@ def list_products(
     procurement_type: ProcurementType | None = None,
     active: bool | None = None,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(get_current_user),
 ):
+    """Public/unauthenticated on purpose -- ProductOut carries nothing
+    sensitive (no vendor data, no pricing), and the vendor-facing mapping
+    request page (no vendor login exists yet, same as registration) needs
+    to browse the active catalog without a staff token."""
     query = db.query(ProductMaster)
     if procurement_type is not None:
         query = query.filter(ProductMaster.procurement_type == procurement_type)

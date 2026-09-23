@@ -12,6 +12,7 @@
   <span class="brand">MedSource</span>
   <nav id="topnav">
     <button class="tab-btn active" id="register-tab" data-view="register">Vendor Registration</button>
+    <button class="tab-btn" id="request-mapping-tab" data-view="request-mapping">Request a Mapping</button>
     <button class="tab-btn" id="login-tab" data-view="login">Staff Login</button>
     <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
     <button class="tab-btn" id="catalog-tab" data-view="catalog" hidden>Product Catalog</button>
@@ -40,6 +41,21 @@
       <button type="submit">Submit for Verification</button>
     </form>
     <div id="register-result" class="result"></div>
+  </section>
+
+  <section id="view-request-mapping" class="view" hidden>
+    <h1>Request a Catalog Mapping</h1>
+    <p class="hint">For vendors already Active (approved) -- request eligibility for a catalog entry you can supply. A Category Manager reviews this before it takes effect. No vendor login exists yet, so identify yourself by the Vendor ID shown when your registration was approved.</p>
+    <form id="vendor-mapping-request-form">
+      <label>Your Vendor ID <input name="vendor_id" type="number" required></label>
+      <label>Catalog Entry
+        <select name="product_master_id" required>
+          <option value="">— select a catalog entry —</option>
+        </select>
+      </label>
+      <button type="submit">Request Mapping</button>
+    </form>
+    <div id="vendor-mapping-request-result" class="result"></div>
   </section>
 
   <section id="view-login" class="view" hidden>
@@ -107,23 +123,6 @@
     <h1>Vendor–Product Eligibility Matrix</h1>
     <p class="hint">Spec §4.3 — the source of truth for who can be invited at tender time. Click a cell to filter the detail list below to that vendor/category.</p>
     <div id="mapping-matrix"></div>
-
-    <div class="toolbar">
-      <button id="add-mapping-btn">+ Request Mapping</button>
-    </div>
-    <form id="mapping-form" hidden>
-      <label>Vendor (Active only)
-        <select name="vendor_id" required>
-          <option value="">— select a vendor —</option>
-        </select>
-      </label>
-      <label>Catalog Entry
-        <select name="product_master_id" required>
-          <option value="">— select a catalog entry —</option>
-        </select>
-      </label>
-      <button type="submit">Request Mapping</button>
-    </form>
     <div id="mapping-result" class="result"></div>
 
     <h2>Mapping Detail</h2>
