@@ -90,31 +90,54 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
 
     showResult(resultEl, `Logged in as ${state.user.full_name} (${state.user.role})`, true);
     document.getElementById("whoami").textContent = `${state.user.full_name} — ${state.user.role}`;
-    showStaffTabs();
-    switchView("queue");
+    showStaffTabsForRole(state.user.role);
+    switchView(DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");
   } catch (err) {
     showResult(resultEl, "Login failed: " + err.message, false);
   }
 });
 
-function showStaffTabs() {
+// Which nav tabs are useful to each role, driven by what that role can
+// actually do server-side (see backend/README.md's role tables) — not just
+// "logged in staff sees everything". Kept in one place so a new tab only
+// needs one line here, not a scattered set of if/role checks.
+const ROLE_TABS = {
+  procurement_officer: ["tenders"],
+  category_manager: ["catalog", "mappings", "ratings"],
+  procurement_admin: ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
+  approving_authority: ["approvals"],
+  system_admin: ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
+};
+const DEFAULT_VIEW_BY_ROLE = {
+  procurement_officer: "tenders",
+  category_manager: "catalog",
+  procurement_admin: "queue",
+  approving_authority: "approvals",
+  system_admin: "queue",
+};
+const ALL_STAFF_TAB_VIEWS = ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"];
+
+function showStaffTabsForRole(role) {
+  document.getElementById("register-tab").hidden = true;
+  document.getElementById("login-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
-  document.getElementById("queue-tab").hidden = false;
-  document.getElementById("catalog-tab").hidden = false;
-  document.getElementById("mappings-tab").hidden = false;
-  document.getElementById("ratings-tab").hidden = false;
-  document.getElementById("tenders-tab").hidden = false;
-  document.getElementById("approvals-tab").hidden = false;
+  const allowed = new Set(ROLE_TABS[role] || []);
+  for (const view of ALL_STAFF_TAB_VIEWS) {
+    document.getElementById(`${view}-tab`).hidden = !allowed.has(view);
+  }
+  // Only Procurement Admin can save manual ratings server-side (see
+  // ratings.py's require_role) — everyone else on the Ratings tab gets a
+  // read-only lookup instead of a form that would just 403 on submit.
+  document.getElementById("rating-update-form").hidden = role !== "procurement_admin";
 }
 
 function hideStaffTabs() {
+  document.getElementById("register-tab").hidden = false;
+  document.getElementById("login-tab").hidden = false;
   document.getElementById("logout-btn").hidden = true;
-  document.getElementById("queue-tab").hidden = true;
-  document.getElementById("catalog-tab").hidden = true;
-  document.getElementById("mappings-tab").hidden = true;
-  document.getElementById("ratings-tab").hidden = true;
-  document.getElementById("tenders-tab").hidden = true;
-  document.getElementById("approvals-tab").hidden = true;
+  for (const view of ALL_STAFF_TAB_VIEWS) {
+    document.getElementById(`${view}-tab`).hidden = true;
+  }
 }
 
 document.getElementById("logout-btn").addEventListener("click", () => {
@@ -603,7 +626,8 @@ document.querySelector("#approval-table tbody").addEventListener("click", async 
     try {
       state.user = await api("/auth/me");
       document.getElementById("whoami").textContent = `${state.user.full_name} — ${state.user.role}`;
-      showStaffTabs();
+      showStaffTabsForRole(state.user.role);
+      switchView(DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");
     } catch (e) {
       state.token = null;
       sessionStorage.removeItem("token");

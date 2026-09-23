@@ -13,12 +13,21 @@ pip install -r requirements.txt
 
 ## Database
 
-Defaults to a local SQLite file (`dev.db`) — zero setup, good for development.
-For anything beyond local dev, point `DATABASE_URL` at a real Postgres instance
-(create a `.env` file, or set the environment variable directly):
+Falls back to a local SQLite file (`dev.db`) with zero setup if `DATABASE_URL`
+isn't set — this local checkout instead runs against a real local Postgres
+instance via `backend/.env` (gitignored, not committed):
 
 ```
-DATABASE_URL=postgresql+psycopg2://user:password@host:5432/hospital_procurement
+DATABASE_URL=postgresql+psycopg2://hospital_app:<password>@127.0.0.1:5432/hospital_procurement
+```
+
+`hospital_app` is a dedicated, least-privilege role (owns only the
+`hospital_procurement` database) — the app never connects as the Postgres
+superuser. To recreate this locally from scratch (e.g. a fresh machine):
+
+```sql
+CREATE ROLE hospital_app LOGIN PASSWORD '...';
+CREATE DATABASE hospital_procurement OWNER hospital_app;
 ```
 
 Apply migrations:
@@ -27,11 +36,17 @@ Apply migrations:
 python -m alembic upgrade head
 ```
 
-Seed a facility + a Procurement Admin login for local testing:
+Seed a facility, a Procurement Admin login, and one demo login per other
+staff role (for exercising the role-scoped frontend nav locally):
 
 ```bash
 python -m app.seed
-# creates: admin@medsource.local / changeme123
+# creates: admin@medsource.local / changeme123  (Procurement Admin)
+#          officer@medsource.local / changeme123  (Procurement Officer)
+#          category@medsource.local / changeme123  (Category Manager)
+#          authority1@medsource.local / changeme123  (Approving Authority, tier 1)
+#          authority3@medsource.local / changeme123  (Approving Authority, tier 3)
+#          sysadmin@medsource.local / changeme123  (System Admin)
 ```
 
 ## Run
@@ -42,6 +57,19 @@ python -m uvicorn app.main:app --reload --port 8000
 
 - API docs: http://127.0.0.1:8000/docs
 - Frontend (served from `../frontend/`, no separate server needed): http://127.0.0.1:8000/
+
+## Frontend nav is role-scoped
+
+`frontend/app.js`'s `ROLE_TABS` map shows each staff role only the tabs it can
+actually use, driven directly off each router's `require_role(...)`/
+`get_current_user` gates (not a separate guess at what each role "should"
+see): Procurement Officer -> Tenders; Category Manager -> Product Catalog,
+Vendor Mapping, Vendor Rating (read-only — the "Save Manual Ratings" form is
+hidden since that endpoint is Procurement Admin-only); Procurement Admin /
+System Admin -> everything; Approving Authority -> E-Tender Approval only.
+Vendor Registration / Staff Login tabs hide once logged in as staff. Add a
+new tab by adding it to `ALL_STAFF_TAB_VIEWS` and listing it under whichever
+roles' arrays in `ROLE_TABS` — one line, not a scattered set of role checks.
 
 ## What's implemented so far
 

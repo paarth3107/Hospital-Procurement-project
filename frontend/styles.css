@@ -1,13 +1,14 @@
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
 
-.topbar { display: flex; align-items: center; gap: 24px; padding: 0 24px; height: 60px; background: #fff; border-bottom: 1px solid #ccc; }
+.topbar { display: flex; align-items: center; gap: 24px; padding: 12px 24px; min-height: 60px; background: #fff; border-bottom: 1px solid #ccc; flex-wrap: wrap; }
 .brand { font-size: 20px; font-weight: 700; }
-#topnav { display: flex; align-items: center; gap: 12px; flex: 1; }
-.tab-btn { background: transparent; border: 0; padding: 8px 4px; font-size: 14px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 2px solid transparent; }
+#topnav { display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap; }
+.tab-btn { background: transparent; border: 0; padding: 8px 12px; font-size: 14px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 2px solid transparent; border-radius: 4px; }
+.tab-btn:hover { background: #f0efeb; }
 .tab-btn.active { color: #b8560c; border-bottom-color: #b8560c; }
-#whoami { margin-left: auto; font-size: 13px; color: #666; }
-#logout-btn { border: 1px solid #999; background: #fff; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+#whoami { margin-left: auto; font-size: 13px; color: #666; white-space: nowrap; }
+#logout-btn { border: 1px solid #999; background: #fff; padding: 6px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
 
 main { max-width: 780px; margin: 32px auto; padding: 0 24px; }
 .view h1 { font-size: 24px; margin-bottom: 4px; }

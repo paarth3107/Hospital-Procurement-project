@@ -11,6 +11,17 @@ from app.security import hash_password
 ADMIN_EMAIL = "admin@medsource.local"
 ADMIN_PASSWORD = "changeme123"
 
+# One demo login per staff role beyond Procurement Admin, so the role-scoped
+# nav (frontend/app.js ROLE_TABS) can actually be clicked through locally
+# instead of only ever being tested as the one super-role account.
+DEMO_STAFF = [
+    ("officer@medsource.local", "changeme123", "Priya Sharma (Procurement Officer)", Role.PROCUREMENT_OFFICER, None),
+    ("category@medsource.local", "changeme123", "Ravi Kumar (Category Manager)", Role.CATEGORY_MANAGER, None),
+    ("authority1@medsource.local", "changeme123", "Dr. Anjali Rao (Approving Authority, Tier 1)", Role.APPROVING_AUTHORITY, 1),
+    ("authority3@medsource.local", "changeme123", "Dr. Vikram Singh (Approving Authority, Tier 3)", Role.APPROVING_AUTHORITY, 3),
+    ("sysadmin@medsource.local", "changeme123", "System Admin (seed)", Role.SYSTEM_ADMIN, None),
+]
+
 # Spec §11.2's illustrative value bands (CLAUDE.md open question 2 — bands
 # and roles still to be finalized against actual hospital delegation-of-
 # authority policy). Seeded as data, not hardcoded in application logic, so
@@ -49,6 +60,23 @@ def run():
             print(f"Created Procurement Admin login: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
         else:
             print("Admin user already exists")
+
+        for email, password, full_name, role, approval_tier in DEMO_STAFF:
+            existing = db.query(UserAccount).filter(UserAccount.email == email).first()
+            if existing:
+                continue
+            db.add(
+                UserAccount(
+                    email=email,
+                    hashed_password=hash_password(password),
+                    full_name=full_name,
+                    role=role,
+                    facility_id=facility.id,
+                    approval_tier=approval_tier,
+                )
+            )
+            db.commit()
+            print(f"Created {role.value} login: {email} / {password}")
 
         if db.query(ApprovalBand).count() == 0:
             for band in DEFAULT_APPROVAL_BANDS:
