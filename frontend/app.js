@@ -493,10 +493,13 @@ async function renderMappingMatrix() {
       <span><b style="color:#8a5215;">PENDING</b> — requested, review open</span>
       <span><b style="color:#666;">SUSPENDED</b> — was approved, temporarily paused</span>
       <span><b style="color:#8a3f3f;">REJECTED</b></span>
-      <span>— not mapped</span>
+      <span>— not mapped (click to map &amp; approve directly)</span>
     </div>`;
 
     container.innerHTML = html;
+
+    const vendorById = new Map(vendors.map((v) => [v.id, v]));
+    const productById = new Map(products.map((p) => [p.id, p]));
 
     container.querySelectorAll(".matrix-cell:not(.cell-none)").forEach((cell) => {
       cell.addEventListener("click", () => {
@@ -517,8 +520,59 @@ async function renderMappingMatrix() {
         note.appendChild(clearBtn);
       });
     });
+
+    // Empty cells: this screen is only reachable by Category Manager /
+    // Procurement Admin / System Admin (the same roles that already approve
+    // mappings), so a click here creates AND approves in one step instead of
+    // going through the Pending-review queue -- that queue is for when a
+    // vendor requests eligibility themselves, not for staff mapping vendors
+    // directly on their own authority.
+    container.querySelectorAll(".matrix-cell.cell-none").forEach((cell) => {
+      cell.addEventListener("click", () => directMapVendorToCategory(cell, vendorById, productById));
+    });
   } catch (err) {
     container.innerHTML = `<div class="result err">Could not load eligibility matrix: ${err.message}</div>`;
+  }
+}
+
+async function directMapVendorToCategory(cell, vendorById, productById) {
+  const vendorId = Number(cell.dataset.vendorId);
+  const category = cell.dataset.category;
+  const vendor = vendorById.get(vendorId);
+  const resultEl = document.getElementById("mapping-result");
+
+  if (!vendor || vendor.status !== "active") {
+    alert(`${vendor ? vendor.legal_name : "This vendor"} isn't Active yet -- only an Active, approved vendor can be mapped (CLAUDE.md PROJECT OVERRIDE).`);
+    return;
+  }
+
+  const candidates = [...productById.values()].filter((p) => p.category === category).map((p) => p.id);
+  let productId;
+  if (candidates.length === 1) {
+    productId = candidates[0];
+  } else {
+    const options = candidates.map((id, i) => `${i + 1}. ${productById.get(id).code} — ${productById.get(id).name}`).join("\n");
+    const choice = prompt(`Multiple catalog entries in "${category}" -- which one?\n${options}`);
+    const idx = Number(choice) - 1;
+    if (!choice || idx < 0 || idx >= candidates.length) return;
+    productId = candidates[idx];
+  }
+  const product = productById.get(productId);
+
+  if (!confirm(`Map ${vendor.legal_name} to "${product.name}" and approve immediately?`)) return;
+
+  try {
+    const mapping = await api("/mappings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendor_id: vendorId, product_master_id: productId }),
+    });
+    await api(`/mappings/${mapping.id}/approve`, { method: "POST" });
+    showResult(resultEl, `Mapped ${vendor.legal_name} to ${product.name} and approved.`, true);
+    renderMappingMatrix();
+    loadMappings();
+  } catch (err) {
+    showResult(resultEl, "Could not create mapping: " + err.message, false);
   }
 }
 
