@@ -157,7 +157,7 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    showResult(resultEl, `Registered as Vendor #${vendor.id}. Status: ${vendor.status}. Keep this ID — Procurement staff will reference it for catalog mapping and rating. You'll be notified once Procurement Admin reviews this.`, true);
+    showResult(resultEl, `Registered as Vendor #${vendor.id}. Next: log in with the GSTIN and password you just set, then upload your required documents (GST Certificate, PAN Card, Certificate of Incorporation) — your registration can't be reviewed until those are in.`, true);
     form.reset();
   } catch (err) {
     showResult(resultEl, "Could not register: " + err.message, false);
@@ -359,11 +359,17 @@ document.getElementById("refresh-btn").addEventListener("click", loadVendors);
 
 // ---- Vendor document review (Category Manager / Procurement Admin / System Admin) ----
 let currentReviewVendorId = null;
+// Which document IDs have actually been opened in *this* review session --
+// Verify/Reject stay disabled until the reviewer has opened the file at
+// least once, otherwise it's too easy to rubber-stamp every document
+// without ever looking at it. Resets whenever a different vendor is opened.
+let reviewedDocIds = new Set();
 
 document.querySelector("#vendor-table tbody").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-id]");
   if (!btn) return;
   currentReviewVendorId = Number(btn.dataset.id);
+  reviewedDocIds = new Set();
   document.getElementById("vendor-review-detail").hidden = false;
   loadVendorReview();
 });
@@ -380,8 +386,10 @@ async function downloadVendorDocumentForReview(vendorId, docId) {
     if (!res.ok) throw new Error("Could not open document");
     const blob = await res.blob();
     window.open(URL.createObjectURL(blob), "_blank");
+    return true;
   } catch (err) {
     showResult(resultEl, err.message, false);
+    return false;
   }
 }
 
@@ -411,14 +419,18 @@ async function loadVendorReview() {
         ? `<div class="doc-meta">${doc.original_filename} — ${(doc.size_bytes / 1024).toFixed(0)} KB — <a href="#" class="doc-view-link" data-doc-id="${doc.id}">View</a></div>`
         : "";
       const rejectReason = doc && doc.status === "rejected" && doc.rejection_reason ? `<div class="doc-reject-reason">Reason: ${doc.rejection_reason}</div>` : "";
+      const viewed = doc && reviewedDocIds.has(doc.id);
+      const disabledAttr = doc && !viewed ? "disabled" : "";
+      const viewedHint = doc && !viewed ? '<span class="hint" style="margin-left:8px;">View the document before deciding</span>' : "";
       const actions =
         doc && doc.status !== "verified"
-          ? `<div class="row-actions" style="margin-top:8px;">
-              <button class="approve" data-doc-id="${doc.id}" data-action="verify-doc">Verify</button>
-              <button class="reject" data-doc-id="${doc.id}" data-action="reject-doc">Reject</button>
+          ? `<div class="row-actions review-actions" style="margin-top:8px;">
+              <button class="approve" data-doc-id="${doc.id}" data-action="verify-doc" ${disabledAttr}>Verify</button>
+              <button class="reject" data-doc-id="${doc.id}" data-action="reject-doc" ${disabledAttr}>Reject</button>
+              ${viewedHint}
             </div>`
           : doc
-          ? `<div class="row-actions" style="margin-top:8px;"><button class="reject" data-doc-id="${doc.id}" data-action="reject-doc">Reject</button></div>`
+          ? `<div class="row-actions review-actions" style="margin-top:8px;"><button class="reject" data-doc-id="${doc.id}" data-action="reject-doc" ${disabledAttr}>Reject</button>${viewedHint}</div>`
           : "";
       return `
         <div class="doc-card">
@@ -449,7 +461,11 @@ document.getElementById("vendor-review-documents").addEventListener("click", asy
   const viewLink = e.target.closest(".doc-view-link");
   if (viewLink) {
     e.preventDefault();
-    downloadVendorDocumentForReview(currentReviewVendorId, viewLink.dataset.docId);
+    const opened = await downloadVendorDocumentForReview(currentReviewVendorId, viewLink.dataset.docId);
+    if (opened) {
+      reviewedDocIds.add(Number(viewLink.dataset.docId));
+      loadVendorReview();
+    }
     return;
   }
   const btn = e.target.closest("button[data-action]");
@@ -652,11 +668,37 @@ document.getElementById("vendor-login-form").addEventListener("submit", async (e
     showResult(resultEl, `Logged in as ${state.vendor.legal_name}`, true);
     document.getElementById("whoami").textContent = `${state.vendor.legal_name} — Vendor #${state.vendor.id}`;
     showVendorDashboardTab();
-    switchView("vendor-dashboard");
+    await routeVendorAfterAuth();
   } catch (err) {
     showResult(resultEl, "Login failed: " + err.message, false);
   }
 });
+
+// Explicitly sends a vendor to upload documents (instead of the dashboard)
+// whenever a mandatory one is still missing/unverified -- the tab always
+// stays available either way (e.g. to replace an expiring license later),
+// this only decides where login/session-restore lands them by default.
+async function routeVendorAfterAuth() {
+  const prompt = document.getElementById("vendor-documents-prompt");
+  try {
+    const docs = await api("/vendor-portal/documents");
+    const byType = new Map(docs.map((d) => [d.doc_type, d]));
+    const missing = VENDOR_DOC_TYPES.filter((t) => t.mandatory && (!byType.get(t.value) || byType.get(t.value).status !== "verified"));
+
+    if (state.vendor.status !== "active" && missing.length > 0) {
+      prompt.hidden = false;
+      prompt.innerHTML = `<b>Please upload the following required document(s) before your registration can be approved:</b><ul>${missing
+        .map((m) => `<li>${m.label}</li>`)
+        .join("")}</ul>`;
+      switchView("vendor-documents");
+    } else {
+      prompt.hidden = true;
+      switchView("vendor-dashboard");
+    }
+  } catch (err) {
+    switchView("vendor-dashboard");
+  }
+}
 
 // ---- Vendor documents ----
 // Fixed checklist matching backend/app/models/vendor.py's VendorDocType +
@@ -765,6 +807,66 @@ async function downloadVendorDocument(docId) {
   }
 }
 
+// ---- Post-approval category picker (replaces the old registration-time
+// Category Declaration -- selecting a category here creates real
+// VendorMapping requests via the vendor's own logged-in identity, instead
+// of a label on the vendor's profile). Only shown once Active, per the
+// agreed onboarding order: documents verified -> approved -> THEN pick
+// categories -> THEN the dashboard is fully useful. ----
+async function renderVendorCategoryPicker() {
+  const section = document.getElementById("vendor-category-picker-section");
+  if (state.vendor.status !== "active") {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const container = document.getElementById("vendor-category-picker");
+  const resultEl = document.getElementById("vendor-category-picker-result");
+  try {
+    const products = await api("/products?active=true");
+    const categories = [...new Set(products.map((p) => p.category))].sort();
+    container.innerHTML = categories.length
+      ? categories.map((c) => `<label><input type="checkbox" value="${c}"> ${c}</label>`).join("")
+      : '<span class="hint">No catalog categories exist yet.</span>';
+    container.dataset.productsJson = JSON.stringify(products);
+  } catch (err) {
+    showResult(resultEl, "Could not load categories: " + err.message, false);
+  }
+}
+
+document.getElementById("vendor-category-submit-btn").addEventListener("click", async () => {
+  const resultEl = document.getElementById("vendor-category-picker-result");
+  const container = document.getElementById("vendor-category-picker");
+  const checked = [...container.querySelectorAll("input:checked")].map((el) => el.value);
+  if (checked.length === 0) {
+    showResult(resultEl, "Select at least one category first.", false);
+    return;
+  }
+  const products = JSON.parse(container.dataset.productsJson || "[]");
+  const targets = products.filter((p) => checked.includes(p.category));
+  let created = 0;
+  let alreadyExists = 0;
+  let failed = 0;
+  for (const p of targets) {
+    try {
+      await api("/mappings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendor_id: state.vendor.id, product_master_id: p.id }),
+      });
+      created++;
+    } catch (err) {
+      if (/already exists/i.test(err.message)) alreadyExists++;
+      else failed++;
+    }
+  }
+  const parts = [`${created} new mapping request(s) sent`];
+  if (alreadyExists) parts.push(`${alreadyExists} already requested`);
+  if (failed) parts.push(`${failed} failed`);
+  showResult(resultEl, parts.join(", ") + ".", failed === 0);
+  container.querySelectorAll("input:checked").forEach((el) => (el.checked = false));
+});
+
 async function loadVendorDashboard() {
   const profileEl = document.getElementById("vendor-profile-card");
   const resultEl = document.getElementById("vendor-dashboard-result");
@@ -776,6 +878,8 @@ async function loadVendorDashboard() {
         <span class="status-pill status-${vendor.status}">${vendor.status.replace("_", " ")}</span>
         ${vendor.rejection_reason ? `<br><span style="color:#a33;">Reason: ${vendor.rejection_reason}</span>` : ""}
       </p>`;
+
+    await renderVendorCategoryPicker();
 
     const [openTenders, bids] = await Promise.all([api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
 
@@ -1653,7 +1757,7 @@ document.querySelector("#approval-table tbody").addEventListener("click", async 
       state.vendor = await api("/vendor-auth/me");
       document.getElementById("whoami").textContent = `${state.vendor.legal_name} — Vendor #${state.vendor.id}`;
       showVendorDashboardTab();
-      switchView("vendor-dashboard");
+      await routeVendorAfterAuth();
     } else {
       state.user = await api("/auth/me");
       document.getElementById("whoami").textContent = `${state.user.full_name} — ${state.user.role}`;

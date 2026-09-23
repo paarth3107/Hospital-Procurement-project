@@ -106,7 +106,8 @@
 
   <section id="view-vendor-documents" class="view" hidden>
     <h1>My Documents</h1>
-    <p class="hint">Required documents must be uploaded and verified before your registration can be approved. Optional ones can help speed up review.</p>
+    <p class="hint">Required documents must be uploaded and verified before your registration can be approved. Optional ones can help speed up review. You can come back here any time later too -- for example if a license needs renewing.</p>
+    <div id="vendor-documents-prompt" hidden></div>
     <div id="vendor-documents-list"></div>
     <div id="vendor-documents-result" class="result"></div>
   </section>
@@ -114,6 +115,16 @@
   <section id="view-vendor-dashboard" class="view" hidden>
     <h1>My Dashboard</h1>
     <div id="vendor-profile-card"></div>
+
+    <div id="vendor-category-picker-section" hidden>
+      <h2>Request Catalog Eligibility</h2>
+      <p class="hint">Select every category you can supply. Each becomes a mapping request a Category Manager reviews before you're eligible for tenders in it.</p>
+      <div id="vendor-category-picker" class="checkbox-group"></div>
+      <div class="toolbar">
+        <button id="vendor-category-submit-btn">Request Selected Categories</button>
+      </div>
+      <div id="vendor-category-picker-result" class="result"></div>
+    </div>
 
     <h2>Tenders You Can Apply To</h2>
     <p class="hint">Only tenders you've been invited to (via an approved catalog mapping meeting the tender's rating threshold), and only while Published and before the bid deadline.</p>
