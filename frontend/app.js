@@ -220,6 +220,7 @@ const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratin
 // so there's nothing to hide/show for the logged-out state here.
 
 function showStaffTabsForRole(role) {
+  document.getElementById("topbar").hidden = false;
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-documents-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
@@ -234,6 +235,7 @@ function showStaffTabsForRole(role) {
 }
 
 function showVendorDashboardTab() {
+  document.getElementById("topbar").hidden = false;
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;
   }
@@ -243,6 +245,7 @@ function showVendorDashboardTab() {
 }
 
 function resetToLoggedOutNav() {
+  document.getElementById("topbar").hidden = true;
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-documents-tab").hidden = true;
   document.getElementById("logout-btn").hidden = true;
