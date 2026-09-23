@@ -244,7 +244,11 @@
     <div id="tender-result" class="result"></div>
 
     <div id="tender-detail" hidden>
-      <h2 id="tender-detail-title"></h2>
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 id="tender-detail-title" style="margin: 0;"></h2>
+        <button id="close-tender-detail-btn">Close</button>
+      </div>
+      <div id="tender-status-notice" hidden></div>
       <form id="line-item-form">
         <label>Catalog Entry
           <select name="product_master_id" required>

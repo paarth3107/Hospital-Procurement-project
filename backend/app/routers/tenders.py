@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.bid import Bid
 from app.models.product_master import ProductMaster
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
@@ -296,6 +297,40 @@ def reject_tender(
     round_.decided_at = datetime.now(timezone.utc)
     tender.status = TenderStatus.DRAFT
     tender.consecutive_rejections += 1
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.post("/{tender_id}/withdraw-to-draft", response_model=TenderOut)
+def withdraw_to_draft(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Lets a Published tender be pulled back to Draft for editing --
+    line items can only be added/changed while Draft (see
+    add_line_item/_require_draft above). Refused once any vendor has
+    already bid on it: reopening line items after real bids exist would
+    silently invalidate what those vendors bid against, with nothing here
+    to notify them. A tender with no bids yet has nothing to protect, so
+    it's a plain revert, not a governed override -- there's no separate
+    approval step for undoing your own not-yet-acted-on publish."""
+
+    tender = _load_tender(tender_id, db)
+    if tender.status != TenderStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Tender is in status '{tender.status.value}', not Published")
+
+    line_item_ids = [li.id for li in tender.line_items]
+    bid_count = db.query(Bid).filter(Bid.tender_line_item_id.in_(line_item_ids)).count() if line_item_ids else 0
+    if bid_count:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot revert to Draft: {bid_count} bid(s) have already been submitted against this tender",
+        )
+
+    tender.status = TenderStatus.DRAFT
+    tender.published_at = None
     db.commit()
     db.refresh(tender)
     return tender

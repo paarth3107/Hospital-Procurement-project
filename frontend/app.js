@@ -1027,7 +1027,7 @@ async function loadTenders() {
   }
 }
 
-document.querySelector("#tender-table tbody").addEventListener("click", (e) => {
+document.querySelector("#tender-table tbody").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action='select']");
   if (!btn) return;
   currentTenderId = Number(btn.dataset.id);
@@ -1037,7 +1037,70 @@ document.querySelector("#tender-table tbody").addEventListener("click", (e) => {
   loadLineItems();
   loadRounds();
   document.getElementById("eligibility-preview").innerHTML = "";
+  await refreshTenderStatusNotice();
 });
+
+document.getElementById("close-tender-detail-btn").addEventListener("click", () => {
+  document.getElementById("tender-detail").hidden = true;
+  currentTenderId = null;
+});
+
+// Line items (and submission) only make sense while Draft -- rather than
+// let staff fill out the whole Add Line Item form and only find out on
+// submit that a Published/Pending tender rejects it, tell them upfront and,
+// for Published, offer a one-click way back to Draft.
+async function refreshTenderStatusNotice() {
+  try {
+    const tender = await api(`/tenders/${currentTenderId}`);
+    renderTenderStatusNotice(tender);
+  } catch (err) {
+    showResult(document.getElementById("tender-result"), "Could not load tender: " + err.message, false);
+  }
+}
+
+function renderTenderStatusNotice(tender) {
+  const notice = document.getElementById("tender-status-notice");
+  const lineItemForm = document.getElementById("line-item-form");
+  const submitBtn = document.getElementById("submit-tender-btn");
+
+  if (tender.status === "draft") {
+    notice.hidden = true;
+    lineItemForm.hidden = false;
+    submitBtn.hidden = false;
+    return;
+  }
+
+  lineItemForm.hidden = true;
+  submitBtn.hidden = true;
+  notice.hidden = false;
+  const statusLabel = tender.status.replace("_", " ");
+  if (tender.status === "published") {
+    notice.innerHTML = `<span>This tender is <b>Published</b> — line items can't be added or changed while it's live.</span>`;
+    const revertBtn = document.createElement("button");
+    revertBtn.textContent = "Revert to Draft to Edit";
+    revertBtn.addEventListener("click", () => revertTenderToDraft(tender.id));
+    notice.appendChild(revertBtn);
+  } else {
+    notice.innerHTML = `<span>This tender is <b>${statusLabel}</b> — line items can only be added while Draft.</span>`;
+  }
+}
+
+async function revertTenderToDraft(tenderId) {
+  const resultEl = document.getElementById("tender-result");
+  const ok = await modalConfirm(
+    "Revert this tender to Draft so you can edit its line items? It will need to go through E-Tender Approval again before it's Published.",
+    { confirmLabel: "Revert to Draft" }
+  );
+  if (!ok) return;
+  try {
+    const tender = await api(`/tenders/${tenderId}/withdraw-to-draft`, { method: "POST" });
+    showResult(resultEl, `Tender #${tender.id} reverted to Draft.`, true);
+    renderTenderStatusNotice(tender);
+    loadTenders();
+  } catch (err) {
+    showResult(resultEl, "Could not revert to Draft: " + err.message, false);
+  }
+}
 
 // Catalog entries carry their own procurement_type (item/asset/service),
 // which the line-item API requires to match exactly -- picking from this
@@ -1134,6 +1197,7 @@ document.getElementById("submit-tender-btn").addEventListener("click", async () 
     showResult(resultEl, `Tender #${currentTenderId} submitted for E-Tender Approval.`, true);
     loadTenders();
     loadRounds();
+    refreshTenderStatusNotice();
   } catch (err) {
     showResult(resultEl, "Could not submit for approval: " + err.message, false);
   }

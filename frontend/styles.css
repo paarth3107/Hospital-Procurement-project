@@ -71,6 +71,8 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 .matrix-legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 16px; font-size: 11.5px; color: #666; border-top: 1px solid #eee; }
 #mapping-filter-note { margin: 10px 0; padding: 8px 14px; background: #fdf6ec; border: 1px solid #e0c088; font-size: 13px; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
 #mapping-filter-note button { border: 1px solid #999; background: #fff; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+#tender-status-notice { margin: 10px 0; padding: 10px 14px; background: #eef4fb; border: 1px solid #a8c3e0; font-size: 13px; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+#tender-status-notice button { border: 1px solid #999; background: #fff; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 
 /* In-page modal, replacing native prompt()/confirm()/alert() */
 .modal-overlay { position: fixed; inset: 0; background: rgba(26, 26, 26, 0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
