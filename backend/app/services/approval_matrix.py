@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.models.approval_band import ApprovalBand
+from app.models.user_account import Role, UserAccount
 
 # Spec §7.3 point 5: a configurable max-round count auto-escalates to the
 # next Approving Authority tier rather than looping indefinitely. The exact
@@ -42,3 +43,16 @@ def resolve_required_tier(total_value: float, facility_id: int, db: Session) -> 
 
 def escalate(tier: int) -> int:
     return min(tier + 1, MAX_TIER)
+
+
+def can_approve_tier(user: UserAccount, required_tier: int) -> bool:
+    """Pure predicate version of tenders.py's _authorize_approver (which
+    raises instead of returning) -- shared so the Dashboard's "Pending Your
+    Approval" count/list uses the exact same rule as the endpoint that
+    actually enforces it, rather than a second guess at the same logic."""
+
+    if user.role == Role.SYSTEM_ADMIN:
+        return True
+    if required_tier <= 1:
+        return user.role in (Role.PROCUREMENT_ADMIN, Role.APPROVING_AUTHORITY)
+    return user.role == Role.APPROVING_AUTHORITY and (user.approval_tier or 0) >= required_tier

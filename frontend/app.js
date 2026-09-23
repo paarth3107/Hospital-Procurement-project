@@ -123,6 +123,7 @@ function switchView(view) {
   document.querySelectorAll(".view").forEach((el) => (el.hidden = true));
   document.getElementById("view-" + view).hidden = false;
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+  if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();
   if (view === "request-mapping") populateVendorMappingRequestPicker();
@@ -198,20 +199,20 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
 // "logged in staff sees everything". Kept in one place so a new tab only
 // needs one line here, not a scattered set of if/role checks.
 const ROLE_TABS = {
-  procurement_officer: ["tenders"],
-  category_manager: ["catalog", "mappings", "ratings"],
-  procurement_admin: ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
-  approving_authority: ["approvals"],
-  system_admin: ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
+  procurement_officer: ["dashboard", "tenders"],
+  category_manager: ["dashboard", "catalog", "mappings", "ratings"],
+  procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
+  approving_authority: ["dashboard", "approvals"],
+  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
 };
 const DEFAULT_VIEW_BY_ROLE = {
-  procurement_officer: "tenders",
-  category_manager: "catalog",
-  procurement_admin: "queue",
-  approving_authority: "approvals",
-  system_admin: "queue",
+  procurement_officer: "dashboard",
+  category_manager: "dashboard",
+  procurement_admin: "dashboard",
+  approving_authority: "dashboard",
+  system_admin: "dashboard",
 };
-const ALL_STAFF_TAB_VIEWS = ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"];
+const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"];
 
 // The three unauthenticated (public) tabs and the one vendor-only tab, kept
 // alongside the staff tab list so every login/logout path can reset the nav
@@ -266,6 +267,58 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   document.getElementById("whoami").textContent = "";
   resetToLoggedOutNav();
   switchView("register");
+});
+
+// ---- Dashboard ----
+async function loadDashboard() {
+  const resultEl = document.getElementById("dashboard-result");
+  try {
+    const stats = await api("/dashboard/stats");
+    document.getElementById("stat-open-tenders").textContent = stats.open_tenders_count;
+    document.getElementById("stat-pending-approval").textContent = stats.pending_approval_count;
+    document.getElementById("stat-vendors-pending").textContent = stats.vendors_pending_count;
+    document.getElementById("stat-bids-submitted").textContent = stats.bids_submitted_count;
+    document.getElementById("stat-registered-vendors").textContent = stats.registered_vendors_count;
+
+    const openBody = document.querySelector("#dashboard-open-tenders-table tbody");
+    openBody.innerHTML = stats.open_tenders.length
+      ? ""
+      : '<tr><td colspan="4" style="color:#888;">No tenders currently open for bidding.</td></tr>';
+    for (const t of stats.open_tenders) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${t.title}</td><td>${t.department || "—"}</td><td>${t.bids_received}</td><td>${t.bid_due_date ? new Date(t.bid_due_date).toLocaleString() : "—"}</td>`;
+      openBody.appendChild(tr);
+    }
+
+    const pendingBody = document.querySelector("#dashboard-pending-approval-table tbody");
+    pendingBody.innerHTML = stats.pending_approval.length
+      ? ""
+      : '<tr><td colspan="4" style="color:#888;">Nothing pending your approval.</td></tr>';
+    for (const t of stats.pending_approval) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${t.title}</td><td>${t.round_number}</td><td>${t.required_tier}</td><td class="row-actions"><button data-id="${t.id}">Review →</button></td>`;
+      pendingBody.appendChild(tr);
+    }
+
+    const recentBody = document.querySelector("#dashboard-recent-published-table tbody");
+    recentBody.innerHTML = stats.recently_published.length
+      ? ""
+      : '<tr><td colspan="2" style="color:#888;">Nothing published yet.</td></tr>';
+    for (const t of stats.recently_published) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${t.title}</td><td>${t.published_at ? new Date(t.published_at).toLocaleString() : "—"}</td>`;
+      recentBody.appendChild(tr);
+    }
+    resultEl.textContent = "";
+  } catch (err) {
+    showResult(resultEl, "Could not load dashboard: " + err.message, false);
+  }
+}
+
+document.querySelector("#dashboard-pending-approval-table tbody").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-id]");
+  if (!btn) return;
+  switchView("approvals");
 });
 
 // ---- Vendor approval queue ----

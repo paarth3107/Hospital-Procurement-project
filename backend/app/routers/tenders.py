@@ -23,7 +23,7 @@ from app.schemas.tender import (
     TenderOut,
 )
 from app.security import get_current_user, require_role
-from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, escalate, resolve_required_tier
+from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, escalate, resolve_required_tier
 from app.services.eligibility import resolve_eligible_vendors
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
@@ -229,19 +229,15 @@ def _authorize_approver(user: UserAccount, required_tier: int) -> None:
     (Department Head, and Department Head + Finance/Management Committee)
     both resolve to the Approving Authority role, disambiguated by
     UserAccount.approval_tier since this system has one Approving Authority
-    role, not three."""
+    role, not three. The actual predicate lives in
+    app/services/approval_matrix.py's can_approve_tier() so the Dashboard's
+    "Pending Your Approval" list can use the exact same rule."""
 
-    if user.role == Role.SYSTEM_ADMIN:
-        return
-    if required_tier <= 1:
-        if user.role in (Role.PROCUREMENT_ADMIN, Role.APPROVING_AUTHORITY):
-            return
-    elif user.role == Role.APPROVING_AUTHORITY and (user.approval_tier or 0) >= required_tier:
-        return
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=f"This tender requires an Approving Authority at tier {required_tier} or above",
-    )
+    if not can_approve_tier(user, required_tier):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"This tender requires an Approving Authority at tier {required_tier} or above",
+        )
 
 
 @router.post("/{tender_id}/approve", response_model=TenderOut)

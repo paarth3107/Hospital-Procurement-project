@@ -16,6 +16,7 @@
     <button class="tab-btn" id="vendor-login-tab" data-view="vendor-login">Vendor Login</button>
     <button class="tab-btn" id="login-tab" data-view="login">Staff Login</button>
     <button class="tab-btn" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden>My Dashboard</button>
+    <button class="tab-btn" id="dashboard-tab" data-view="dashboard" hidden>Dashboard</button>
     <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
     <button class="tab-btn" id="catalog-tab" data-view="catalog" hidden>Product Catalog</button>
     <button class="tab-btn" id="mappings-tab" data-view="mappings" hidden>Vendor Mapping</button>
@@ -28,6 +29,37 @@
 </header>
 
 <main id="app">
+
+  <section id="view-dashboard" class="view" hidden>
+    <h1>Dashboard</h1>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">Open Tenders</div><div class="stat-value" id="stat-open-tenders">—</div></div>
+      <div class="stat-card"><div class="stat-label">Pending Your Approval</div><div class="stat-value accent" id="stat-pending-approval">—</div></div>
+      <div class="stat-card"><div class="stat-label">Vendors Pending Approval</div><div class="stat-value accent" id="stat-vendors-pending">—</div></div>
+      <div class="stat-card"><div class="stat-label">Bids Submitted</div><div class="stat-value" id="stat-bids-submitted">—</div></div>
+      <div class="stat-card"><div class="stat-label">Registered Vendors</div><div class="stat-value" id="stat-registered-vendors">—</div></div>
+    </div>
+
+    <h2>Open Tenders</h2>
+    <table id="dashboard-open-tenders-table">
+      <thead><tr><th>Tender</th><th>Department</th><th>Bids Received</th><th>Closes</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Pending Your Approval</h2>
+    <table id="dashboard-pending-approval-table">
+      <thead><tr><th>Tender</th><th>Round</th><th>Required Tier</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Recently Published</h2>
+    <table id="dashboard-recent-published-table">
+      <thead><tr><th>Tender</th><th>Published</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="dashboard-result" class="result"></div>
+  </section>
 
   <section id="view-register" class="view">
     <h1>Register as a Vendor</h1>
