@@ -270,7 +270,12 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   sessionStorage.removeItem("actorType");
   document.getElementById("whoami").textContent = "";
   resetToLoggedOutNav();
-  switchView("register");
+  switchView("landing");
+});
+
+document.getElementById("brand-home-link").addEventListener("click", () => switchView("landing"));
+document.querySelectorAll(".landing-btn, .back-home-link").forEach((btn) => {
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
 });
 
 // ---- Dashboard ----

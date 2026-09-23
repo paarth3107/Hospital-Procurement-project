@@ -58,6 +58,16 @@ python -m uvicorn app.main:app --reload --port 8000
 - API docs: http://127.0.0.1:8000/docs
 - Frontend (served from `../frontend/`, no separate server needed): http://127.0.0.1:8000/
 
+## Landing page
+
+The unauthenticated default view is now a real split landing page
+(`view-landing`), not whichever public form happened to load first --
+Hospital Staff panel (Staff Login) and Vendor panel (Vendor Login / Register
+as a Vendor). The brand/logo in the top bar and a "← Back to home" link on
+each of those three destination screens both return to it. The individual
+nav tabs (Vendor Registration, Vendor Login, Staff Login, Request a Mapping)
+still exist for direct access; the landing page is just the front door.
+
 ## Frontend nav is role-scoped
 
 `frontend/app.js`'s `ROLE_TABS` map shows each staff role only the tabs it can

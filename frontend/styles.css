@@ -2,7 +2,7 @@
 body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f6f5f2; color: #1a1a1a; }
 
 .topbar { display: flex; align-items: center; gap: 24px; padding: 12px 24px; min-height: 60px; background: #fff; border-bottom: 1px solid #ccc; flex-wrap: wrap; }
-.brand { font-size: 20px; font-weight: 700; }
+.brand { font-size: 20px; font-weight: 700; cursor: pointer; }
 #topnav { display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap; }
 .tab-btn { background: transparent; border: 0; padding: 8px 12px; font-size: 14px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 2px solid transparent; border-radius: 4px; }
 .tab-btn:hover { background: #f0efeb; }
@@ -142,3 +142,20 @@ button.reject { border-color: #a33; color: #a33; }
 #modal-confirm-btn.danger { background: #a33; border-color: #a33; }
 #modal-confirm-btn.danger:hover { background: #822; }
 #modal-cancel-btn:hover { background: #f0efeb; }
+
+/* Landing page */
+.landing-hero { text-align: center; margin-bottom: 32px; }
+.landing-title { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; }
+.landing-subtitle { color: #888; font-size: 15px; margin-top: 4px; }
+.landing-split { display: flex; gap: 20px; flex-wrap: wrap; }
+.landing-panel { flex: 1; min-width: 260px; background: #fff; border: 1px solid #ccc; padding: 32px 28px; text-align: center; }
+.landing-panel h2 { font-size: 19px; margin: 0 0 10px; }
+.landing-panel .hint { min-height: 40px; margin-bottom: 20px; }
+.landing-panel-vendor { background: #fffaf5; border-color: #e0b98a; }
+.landing-btn { display: block; width: 100%; background: #b8560c; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+.landing-btn:first-of-type { margin-top: 0; }
+.landing-btn:hover { background: #8a4009; }
+.landing-btn-secondary { background: #fff; color: #b8560c; border: 1px solid #b8560c; }
+.landing-btn-secondary:hover { background: #fdf1e3; }
+.back-home-link { background: none; border: none; color: #888; font-size: 13px; cursor: pointer; padding: 0; margin-bottom: 16px; }
+.back-home-link:hover { color: #b8560c; }
