@@ -423,7 +423,6 @@ function renderMappingRows(mappings, vendorName, productName) {
       <td>${vendorName.get(m.vendor_id) || "—"} <span style="color:#888;">(#${m.vendor_id})</span></td>
       <td>${productName.get(m.product_master_id) || "—"} <span style="color:#888;">(#${m.product_master_id})</span></td>
       <td><span class="status-pill status-${m.state === "approved" ? "active" : m.state === "rejected" || m.state === "suspended" ? "rejected" : "pending_verification"}">${m.state}</span></td>
-      <td>${m.version}</td>
       <td class="row-actions">
         ${pending ? `<button class="approve" data-id="${m.id}" data-action="approve">Approve</button>
         <button class="reject" data-id="${m.id}" data-action="reject">Reject</button>` : ""}
