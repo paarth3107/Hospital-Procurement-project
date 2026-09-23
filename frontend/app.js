@@ -136,6 +136,10 @@ function switchView(view) {
   }
   if (view === "vendor-dashboard") loadVendorDashboard();
   if (view === "vendor-documents") renderVendorDocuments();
+  if (view === "vendor-categories") {
+    renderVendorCategoryPicker();
+    if (state.vendor) localStorage.setItem(`categoriesSeen_${state.vendor.id}`, "1");
+  }
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
 }
@@ -156,8 +160,19 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    showResult(resultEl, `Registered as Vendor #${vendor.id}. Next: log in with the GSTIN and password you just set, then upload your required documents (GST Certificate, PAN Card, Certificate of Incorporation) — your registration can't be reviewed until those are in.`, true);
     form.reset();
+    let secondsLeft = 5;
+    const baseMessage = `Registered as Vendor #${vendor.id}. Taking you back to the login page in`;
+    showResult(resultEl, `${baseMessage} ${secondsLeft}... please log in with the GSTIN and password you just set, then upload your required documents.`, true);
+    const countdown = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        clearInterval(countdown);
+        switchView("landing");
+        return;
+      }
+      showResult(resultEl, `${baseMessage} ${secondsLeft}... please log in with the GSTIN and password you just set, then upload your required documents.`, true);
+    }, 1000);
   } catch (err) {
     showResult(resultEl, "Could not register: " + err.message, false);
   }
@@ -223,6 +238,7 @@ function showStaffTabsForRole(role) {
   document.getElementById("topbar").hidden = false;
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-documents-tab").hidden = true;
+  document.getElementById("vendor-categories-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
   const allowed = new Set(ROLE_TABS[role] || []);
   for (const view of ALL_STAFF_TAB_VIEWS) {
@@ -241,6 +257,7 @@ function showVendorDashboardTab() {
   }
   document.getElementById("vendor-dashboard-tab").hidden = false;
   document.getElementById("vendor-documents-tab").hidden = false;
+  document.getElementById("vendor-categories-tab").hidden = false;
   document.getElementById("logout-btn").hidden = false;
 }
 
@@ -248,6 +265,7 @@ function resetToLoggedOutNav() {
   document.getElementById("topbar").hidden = true;
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-documents-tab").hidden = true;
+  document.getElementById("vendor-categories-tab").hidden = true;
   document.getElementById("logout-btn").hidden = true;
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;
@@ -653,8 +671,19 @@ async function routeVendorAfterAuth() {
         .map((m) => `<li>${m.label}</li>`)
         .join("")}</ul>`;
       switchView("vendor-documents");
+      return;
+    }
+    prompt.hidden = true;
+
+    // First login/session-restore after becoming Active and not yet having
+    // visited Categories -- send them there instead of the dashboard, per
+    // explicit request ("thrown to categories after documents have been
+    // approved"). Tracked client-side only; once visited it's just another
+    // tab they can revisit whenever they want to change their selection.
+    const seenCategories = localStorage.getItem(`categoriesSeen_${state.vendor.id}`);
+    if (state.vendor.status === "active" && !seenCategories) {
+      switchView("vendor-categories");
     } else {
-      prompt.hidden = true;
       switchView("vendor-dashboard");
     }
   } catch (err) {
@@ -769,21 +798,24 @@ async function downloadVendorDocument(docId) {
   }
 }
 
-// ---- Post-approval category picker (replaces the old registration-time
+// ---- Post-approval Categories tab (replaces the old registration-time
 // Category Declaration -- selecting a category here creates real
 // VendorMapping requests via the vendor's own logged-in identity, instead
-// of a label on the vendor's profile). Only shown once Active, per the
-// agreed onboarding order: documents verified -> approved -> THEN pick
-// categories -> THEN the dashboard is fully useful. ----
+// of a label on the vendor's profile). Its own tab, not buried in the
+// dashboard, so it's a real destination the vendor is routed to right
+// after approval (see routeVendorAfterAuth) and can freely revisit later. ----
 async function renderVendorCategoryPicker() {
-  const section = document.getElementById("vendor-category-picker-section");
+  const container = document.getElementById("vendor-category-picker");
+  const submitBtn = document.getElementById("vendor-category-submit-btn");
+  const resultEl = document.getElementById("vendor-category-picker-result");
+
   if (state.vendor.status !== "active") {
-    section.hidden = true;
+    submitBtn.hidden = true;
+    container.innerHTML = '<span class="hint">Categories can be requested once your registration is Active -- finish document verification first.</span>';
     return;
   }
-  section.hidden = false;
-  const container = document.getElementById("vendor-category-picker");
-  const resultEl = document.getElementById("vendor-category-picker-result");
+  submitBtn.hidden = false;
+
   try {
     const products = await api("/products?active=true");
     const categories = [...new Set(products.map((p) => p.category))].sort();
@@ -841,7 +873,17 @@ async function loadVendorDashboard() {
         ${vendor.rejection_reason ? `<br><span style="color:#a33;">Reason: ${vendor.rejection_reason}</span>` : ""}
       </p>`;
 
-    await renderVendorCategoryPicker();
+    const categoriesNotice = document.getElementById("vendor-categories-notice");
+    if (vendor.status === "active") {
+      categoriesNotice.hidden = false;
+      categoriesNotice.innerHTML = `<span>Pick which catalog categories you can supply to become eligible for tenders in them.</span>`;
+      const goBtn = document.createElement("button");
+      goBtn.textContent = "Go to Categories";
+      goBtn.addEventListener("click", () => switchView("vendor-categories"));
+      categoriesNotice.appendChild(goBtn);
+    } else {
+      categoriesNotice.hidden = true;
+    }
 
     const [openTenders, bids] = await Promise.all([api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
 

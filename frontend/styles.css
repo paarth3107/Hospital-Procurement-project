@@ -119,6 +119,8 @@ button.reject { border-color: #a33; color: #a33; }
 #mapping-filter-note { margin: 10px 0; padding: 8px 14px; background: #fdf6ec; border: 1px solid #e0c088; font-size: 13px; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
 #mapping-filter-note button { border: 1px solid #999; background: #fff; padding: 3px 10px; font-size: 12px; cursor: pointer; }
 #tender-status-notice { margin: 10px 0; padding: 10px 14px; background: #eef4fb; border: 1px solid #a8c3e0; font-size: 13px; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+#vendor-categories-notice { margin: 16px 0; padding: 10px 14px; background: #eef4fb; border: 1px solid #a8c3e0; font-size: 13px; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+#vendor-categories-notice button { border: 1px solid #999; background: #fff; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 #tender-status-notice button { border: 1px solid #999; background: #fff; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 #vendor-review-mandatory-banner { margin: 12px 0; padding: 10px 14px; background: #f4e6e6; border: 1px solid #c98a8a; color: #8a3f3f; font-size: 13px; }
 #vendor-documents-prompt { margin: 12px 0; padding: 12px 16px; background: #fdf1e3; border: 1px solid #c98a3f; color: #8a5215; font-size: 13.5px; }
