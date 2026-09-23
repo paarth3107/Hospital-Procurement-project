@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import relationship
 
@@ -73,6 +75,18 @@ class VendorRating(Base):
             return
         self.overall_score = sum(RATING_WEIGHTS[f] * v for f, v in available.items()) / total_weight
         self.is_provisional = len(available) < len(RATING_WEIGHTS)
+
+    @property
+    def is_stale(self) -> bool:
+        """Spec §5.3.1 point 5: "Stale — Manual Update Due" once the manual
+        parameters haven't been refreshed in STALE_AFTER_DAYS. A vendor that
+        has never been manually rated is Provisional (a different flag,
+        above) rather than Stale — there's nothing to have gone overdue."""
+
+        if self.last_manual_update_at is None:
+            return False
+        age = datetime.now(timezone.utc) - self.last_manual_update_at
+        return age.days > STALE_AFTER_DAYS
 
 
 class RatingHistory(Base):

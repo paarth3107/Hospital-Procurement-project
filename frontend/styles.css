@@ -42,10 +42,36 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 .row-actions button.approve { border-color: #2f6f3f; color: #2f6f3f; }
 .row-actions button.reject { border-color: #a33; color: #a33; }
 
-#rating-summary { margin: 16px 0; }
-#rating-summary th { text-align: left; width: 260px; background: #f0efeb; }
-#rating-summary td { font-weight: 600; }
 #rating-card h2 { font-size: 16px; margin: 24px 0 8px; }
+
+/* Vendor Rating dashboard + per-vendor breakdown (wireframe: VendorRating) */
+.stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0; }
+.stat-card { flex: 1; min-width: 150px; border: 1px solid #ccc; background: #fff; padding: 16px 20px; }
+.stat-card .stat-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 8px; }
+.stat-card .stat-value { font-size: 26px; font-weight: 700; }
+.stat-card .stat-value.accent { color: #b8560c; }
+#rating-leaderboard { margin-top: 8px; }
+#rating-leaderboard tbody tr { cursor: pointer; }
+#rating-leaderboard tbody tr:hover { background: #f6f5f2; }
+
+#rating-header { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px; }
+#rating-header .score-block { text-align: right; }
+#rating-header .score-label { font-size: 12px; color: #777; }
+#rating-header .score-value { font-size: 30px; font-weight: 700; color: #b8560c; }
+
+.badge { font-size: 11px; border: 1px solid; padding: 2px 8px; border-radius: 2px; white-space: nowrap; }
+.badge-auto { background: #eef0fb; border-color: #8f9bd6; color: #3a4590; }
+.badge-manual { background: #f0eee6; border-color: #999; color: #555; }
+.badge-stale { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.badge-provisional { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+
+.rating-cards-row { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.rating-card-box { flex: 1; min-width: 260px; border: 1px solid #ccc; background: #fff; padding: 16px 20px; }
+.rating-card-box .card-title-row { display: flex; justify-content: space-between; align-items: center; }
+.rating-card-box .card-title-row span:first-child { font-size: 13px; font-weight: 600; color: #333; }
+.rating-card-box .card-score { font-size: 24px; font-weight: 700; margin: 10px 0 4px; }
+.rating-param-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #f0efeb; }
+.rating-param-row:last-child { border-bottom: none; }
 #tender-detail { margin-top: 24px; border-top: 1px solid #ccc; padding-top: 16px; }
 #tender-detail h2, #tender-detail h3 { font-size: 16px; margin: 16px 0 8px; }
 #eligibility-preview p { font-size: 13px; background: #fff; border: 1px solid #ddd; padding: 8px 12px; margin: 6px 0; }

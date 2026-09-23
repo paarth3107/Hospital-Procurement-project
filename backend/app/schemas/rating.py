@@ -13,6 +13,7 @@ class RatingOut(BaseModel):
     responsiveness: float | None
     overall_score: float
     is_provisional: bool
+    is_stale: bool
     last_manual_update_at: datetime | None
     created_at: datetime
 
