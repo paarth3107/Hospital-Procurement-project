@@ -72,8 +72,9 @@ button.reject { border-color: #a33; color: #a33; }
 .badge-stale { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
 .badge-provisional { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
 .badge-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
-.badge-verified { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.badge-verified, .badge-approved { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
 .badge-rejected { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+.badge-suspended { background: #eee; border-color: #999; color: #666; }
 .badge-required { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
 .badge-optional { background: #f0eee6; border-color: #999; color: #555; }
 

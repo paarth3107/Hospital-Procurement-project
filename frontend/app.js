@@ -804,6 +804,11 @@ async function downloadVendorDocument(docId) {
 // of a label on the vendor's profile). Its own tab, not buried in the
 // dashboard, so it's a real destination the vendor is routed to right
 // after approval (see routeVendorAfterAuth) and can freely revisit later. ----
+// Once a category has at least one Approved mapping, it's locked -- the
+// vendor can no longer touch it themselves (only a Category Manager can
+// suspend/reinstate it, from the staff side). Aggregation mirrors the
+// staff matrix's own logic (MAPPING_STATE_PRIORITY), just scoped to this
+// vendor's own mappings instead of all vendors.
 async function renderVendorCategoryPicker() {
   const container = document.getElementById("vendor-category-picker");
   const submitBtn = document.getElementById("vendor-category-submit-btn");
@@ -814,15 +819,56 @@ async function renderVendorCategoryPicker() {
     container.innerHTML = '<span class="hint">Categories can be requested once your registration is Active -- finish document verification first.</span>';
     return;
   }
-  submitBtn.hidden = false;
 
   try {
-    const products = await api("/products?active=true");
+    const [products, mappings] = await Promise.all([api("/products?active=true"), api("/vendor-portal/mappings")]);
     const categories = [...new Set(products.map((p) => p.category))].sort();
-    container.innerHTML = categories.length
-      ? categories.map((c) => `<label><input type="checkbox" value="${c}"> ${c}</label>`).join("")
-      : '<span class="hint">No catalog categories exist yet.</span>';
+    if (categories.length === 0) {
+      submitBtn.hidden = true;
+      container.innerHTML = '<span class="hint">No catalog categories exist yet.</span>';
+      return;
+    }
+
+    const productsByCategory = new Map();
+    for (const p of products) {
+      if (!productsByCategory.has(p.category)) productsByCategory.set(p.category, []);
+      productsByCategory.get(p.category).push(p.id);
+    }
+    const mappingByProduct = new Map(mappings.map((m) => [m.product_master_id, m]));
+
+    const approved = [];
+    const other = [];
+    for (const category of categories) {
+      let state_ = null;
+      for (const pid of productsByCategory.get(category)) {
+        const m = mappingByProduct.get(pid);
+        if (!m) continue;
+        if (state_ === null || MAPPING_STATE_PRIORITY.indexOf(m.state) < MAPPING_STATE_PRIORITY.indexOf(state_)) {
+          state_ = m.state;
+        }
+      }
+      if (state_ === "approved") approved.push(category);
+      else other.push({ category, state: state_ });
+    }
+
+    let html = "";
+    if (approved.length > 0) {
+      html += `<h3 style="margin-top:0;">Approved Categories</h3>
+        <p class="hint">Already approved -- these can't be changed here. Contact a Category Manager if something needs to change.</p>
+        <div class="checkbox-group">${approved.map((c) => `<span class="badge badge-approved">${c}</span>`).join("")}</div>`;
+    }
+    html += `<h3>${approved.length > 0 ? "Other Categories" : "Select Categories"}</h3>`;
+    html += `<div class="checkbox-group">${other
+      .map(
+        (o) =>
+          `<label><input type="checkbox" value="${o.category}"> ${o.category}${
+            o.state ? ` <span class="badge badge-${o.state}">${o.state}</span>` : ""
+          }</label>`
+      )
+      .join("")}</div>`;
+    container.innerHTML = html;
     container.dataset.productsJson = JSON.stringify(products);
+    submitBtn.hidden = other.length === 0;
   } catch (err) {
     showResult(resultEl, "Could not load categories: " + err.message, false);
   }
@@ -861,6 +907,69 @@ document.getElementById("vendor-category-submit-btn").addEventListener("click", 
   container.querySelectorAll("input:checked").forEach((el) => (el.checked = false));
 });
 
+// Reflects the actual outcome of the vendor's category requests instead of
+// a generic "go pick some" prompt once there's something to report --
+// disappears back to a plain prompt only when there's truly nothing yet.
+async function renderVendorCategoriesNotice(vendor) {
+  const notice = document.getElementById("vendor-categories-notice");
+  if (vendor.status !== "active") {
+    notice.hidden = true;
+    return;
+  }
+
+  let mappings, products;
+  try {
+    [mappings, products] = await Promise.all([api("/vendor-portal/mappings"), api("/products?active=true")]);
+  } catch (err) {
+    notice.hidden = true;
+    return;
+  }
+
+  // Aggregate by category, same as the Categories tab itself -- counting
+  // raw mapping rows would double-count a category with multiple products.
+  const productsByCategory = new Map();
+  for (const p of products) {
+    if (!productsByCategory.has(p.category)) productsByCategory.set(p.category, []);
+    productsByCategory.get(p.category).push(p.id);
+  }
+  const mappingByProduct = new Map(mappings.map((m) => [m.product_master_id, m]));
+  const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0 };
+  let totalCategoriesWithStatus = 0;
+  for (const [, productIds] of productsByCategory) {
+    let categoryState = null;
+    for (const pid of productIds) {
+      const m = mappingByProduct.get(pid);
+      if (!m) continue;
+      if (categoryState === null || MAPPING_STATE_PRIORITY.indexOf(m.state) < MAPPING_STATE_PRIORITY.indexOf(categoryState)) {
+        categoryState = m.state;
+      }
+    }
+    if (categoryState) {
+      counts[categoryState]++;
+      totalCategoriesWithStatus++;
+    }
+  }
+
+  let message;
+  if (totalCategoriesWithStatus === 0) {
+    message = "Pick which catalog categories you can supply to become eligible for tenders in them.";
+  } else {
+    const parts = [];
+    if (counts.approved) parts.push(`${counts.approved} approved`);
+    if (counts.rejected) parts.push(`${counts.rejected} rejected`);
+    if (counts.pending) parts.push(`${counts.pending} pending review`);
+    if (counts.suspended) parts.push(`${counts.suspended} suspended`);
+    message = `Your category request(s): ${parts.join(", ")}.`;
+  }
+
+  notice.hidden = false;
+  notice.innerHTML = `<span>${message}</span>`;
+  const goBtn = document.createElement("button");
+  goBtn.textContent = "Go to Categories";
+  goBtn.addEventListener("click", () => switchView("vendor-categories"));
+  notice.appendChild(goBtn);
+}
+
 async function loadVendorDashboard() {
   const profileEl = document.getElementById("vendor-profile-card");
   const resultEl = document.getElementById("vendor-dashboard-result");
@@ -873,17 +982,7 @@ async function loadVendorDashboard() {
         ${vendor.rejection_reason ? `<br><span style="color:#a33;">Reason: ${vendor.rejection_reason}</span>` : ""}
       </p>`;
 
-    const categoriesNotice = document.getElementById("vendor-categories-notice");
-    if (vendor.status === "active") {
-      categoriesNotice.hidden = false;
-      categoriesNotice.innerHTML = `<span>Pick which catalog categories you can supply to become eligible for tenders in them.</span>`;
-      const goBtn = document.createElement("button");
-      goBtn.textContent = "Go to Categories";
-      goBtn.addEventListener("click", () => switchView("vendor-categories"));
-      categoriesNotice.appendChild(goBtn);
-    } else {
-      categoriesNotice.hidden = true;
-    }
+await renderVendorCategoriesNotice(vendor);
 
     const [openTenders, bids] = await Promise.all([api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
 

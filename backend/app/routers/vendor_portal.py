@@ -9,6 +9,8 @@ from app.models.tender import Tender, TenderStatus
 from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
+from app.models.vendor_mapping import VendorMapping
+from app.schemas.mapping import MappingOut
 from app.schemas.vendor_portal import BidCreate, BidOut, PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
 
@@ -84,6 +86,21 @@ def list_open_tenders(vendor: Vendor = Depends(get_current_vendor), db: Session 
             )
         )
     return results
+
+
+@router.get("/mappings", response_model=list[MappingOut])
+def list_my_mappings(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """A vendor's own mapping requests -- there was previously no way for
+    a logged-in vendor to see their own request/approval status at all
+    (GET /mappings is staff-only); the Categories tab needs this to tell
+    Approved (locked) apart from everything else (still requestable)."""
+
+    return (
+        db.query(VendorMapping)
+        .filter(VendorMapping.vendor_id == vendor.id)
+        .order_by(VendorMapping.requested_at.desc())
+        .all()
+    )
 
 
 @router.get("/bids", response_model=list[BidOut])
