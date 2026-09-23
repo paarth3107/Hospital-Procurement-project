@@ -70,6 +70,20 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 .badge-manual { background: #f0eee6; border-color: #999; color: #555; }
 .badge-stale { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
 .badge-provisional { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+.badge-pending { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.badge-verified { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
+.badge-rejected { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
+.badge-required { background: #fdf1e3; border-color: #c98a3f; color: #8a5215; }
+.badge-optional { background: #f0eee6; border-color: #999; color: #555; }
+
+.doc-card { border: 1px solid #ccc; background: #fff; padding: 16px 20px; margin-bottom: 14px; }
+.doc-card .doc-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.doc-card .doc-card-head .doc-title { font-size: 14px; font-weight: 600; }
+.doc-card .doc-meta { font-size: 12.5px; color: #666; margin: 4px 0 10px; }
+.doc-card .doc-reject-reason { font-size: 12.5px; color: #8a3f3f; margin: 4px 0 10px; }
+.dropzone { border: 2px dashed #bbb; background: #fafaf9; padding: 20px; text-align: center; font-size: 13px; color: #777; cursor: pointer; transition: background 0.1s, border-color 0.1s; }
+.dropzone:hover, .dropzone.dragover { background: #f0efeb; border-color: #b8560c; color: #555; }
+.dropzone input[type="file"] { display: none; }
 
 .rating-cards-row { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
 .rating-card-box { flex: 1; min-width: 260px; border: 1px solid #ccc; background: #fff; padding: 16px 20px; }

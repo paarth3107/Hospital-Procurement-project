@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -50,17 +50,56 @@ class Vendor(Base):
     documents = relationship("VendorDocument", back_populates="vendor", cascade="all, delete-orphan")
 
 
+class VendorDocType(str, enum.Enum):
+    """Spec §3.2's KYC checklist, fixed rather than freeform (same reasoning
+    as Category Declaration's move to checkboxes — a known set beats
+    free text nobody downstream can rely on matching)."""
+
+    GST_CERTIFICATE = "gst_certificate"
+    PAN_CARD = "pan_card"
+    INCORPORATION_CERTIFICATE = "incorporation_certificate"
+    BANK_PROOF = "bank_proof"
+
+
+MANDATORY_DOC_TYPES = {VendorDocType.GST_CERTIFICATE, VendorDocType.PAN_CARD, VendorDocType.INCORPORATION_CERTIFICATE}
+
+
+class DocumentStatus(str, enum.Enum):
+    """Independent of VendorStatus -- a vendor can be Pending Verification
+    while individual documents are Verified/Rejected one at a time. Vendor
+    approval itself is gated on every mandatory doc being Verified (see
+    routers/vendors.py once that gate is built)."""
+
+    PENDING = "pending"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class VendorDocument(Base):
-    """Spec §3.2 document uploads. File content itself is out of scope for
-    this pass — `file_ref` is a placeholder path/URL, not a real upload
-    pipeline (that's the DocumentStore adapter, IMPLEMENTATION-SPEC.md §9)."""
+    """Spec §3.2 document uploads. Stored directly in Postgres (BYTEA) via
+    `content` rather than a filesystem/object-store path -- CLAUDE.md calls
+    Document/DMS storage an adapter boundary, and app/services/document_store.py
+    is that adapter; swapping the backing store later only touches that file.
+    One row per (vendor, doc_type) -- re-uploading replaces the previous file
+    and resets it to Pending, since a changed file needs a fresh review."""
 
     __tablename__ = "vendor_documents"
+    __table_args__ = (UniqueConstraint("vendor_id", "doc_type", name="uq_vendor_doctype"),)
 
     id = Column(Integer, primary_key=True)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
-    doc_type = Column(String, nullable=False)
-    file_ref = Column(String, nullable=False)
+    doc_type = Column(Enum(VendorDocType), nullable=False)
+
+    original_filename = Column(String, nullable=False)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    content = Column(LargeBinary, nullable=False)
+
+    status = Column(Enum(DocumentStatus), nullable=False, default=DocumentStatus.PENDING)
+    rejection_reason = Column(Text, nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     vendor = relationship("Vendor", back_populates="documents")

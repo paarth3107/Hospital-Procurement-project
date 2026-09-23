@@ -15,6 +15,7 @@
     <button class="tab-btn" id="request-mapping-tab" data-view="request-mapping">Request a Mapping</button>
     <button class="tab-btn" id="vendor-login-tab" data-view="vendor-login">Vendor Login</button>
     <button class="tab-btn" id="login-tab" data-view="login">Staff Login</button>
+    <button class="tab-btn" id="vendor-documents-tab" data-view="vendor-documents" hidden>My Documents</button>
     <button class="tab-btn" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden>My Dashboard</button>
     <button class="tab-btn" id="dashboard-tab" data-view="dashboard" hidden>Dashboard</button>
     <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
@@ -101,6 +102,13 @@
       <button type="submit">Log in</button>
     </form>
     <div id="vendor-login-result" class="result"></div>
+  </section>
+
+  <section id="view-vendor-documents" class="view" hidden>
+    <h1>My Documents</h1>
+    <p class="hint">Required documents must be uploaded and verified before your registration can be approved. Optional ones can help speed up review.</p>
+    <div id="vendor-documents-list"></div>
+    <div id="vendor-documents-result" class="result"></div>
   </section>
 
   <section id="view-vendor-dashboard" class="view" hidden>
