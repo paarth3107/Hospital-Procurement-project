@@ -34,6 +34,89 @@ function showResult(el, message, ok) {
   el.className = "result " + (ok ? "ok" : "err");
 }
 
+// ---- In-page modal (replaces native prompt()/confirm()/alert()) ----
+// openModal() is the primitive; modalPrompt/modalConfirm/modalAlert/modalChoose
+// below mirror the native functions' call shape so every existing call site
+// only needed `await` added in front of it.
+function openModal({ title, message, type = "confirm", placeholder = "", options = [], danger = false, confirmLabel = "Confirm" }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("modal-overlay");
+    const body = document.getElementById("modal-body");
+    const confirmBtn = document.getElementById("modal-confirm-btn");
+    const cancelBtn = document.getElementById("modal-cancel-btn");
+
+    document.getElementById("modal-title").textContent = title;
+    document.getElementById("modal-message").textContent = message || "";
+    body.innerHTML = "";
+    cancelBtn.hidden = type === "alert";
+    confirmBtn.textContent = confirmLabel;
+    confirmBtn.classList.toggle("danger", danger);
+
+    let inputEl = null;
+    if (type === "text") {
+      inputEl = document.createElement("input");
+      inputEl.type = "text";
+      inputEl.placeholder = placeholder;
+      body.appendChild(inputEl);
+    } else if (type === "choice") {
+      inputEl = document.createElement("select");
+      for (const opt of options) {
+        const o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        inputEl.appendChild(o);
+      }
+      body.appendChild(inputEl);
+    }
+
+    function cleanup(result) {
+      overlay.hidden = true;
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("mousedown", onOverlayClick);
+      document.removeEventListener("keydown", onKeydown);
+      resolve(result);
+    }
+    function onConfirm() {
+      if (type === "text") {
+        const val = inputEl.value.trim();
+        if (!val) {
+          inputEl.focus();
+          return;
+        }
+        cleanup(val);
+      } else if (type === "choice") {
+        cleanup(inputEl.value);
+      } else {
+        cleanup(true);
+      }
+    }
+    function onCancel() {
+      cleanup(type === "text" || type === "choice" ? null : false);
+    }
+    function onOverlayClick(e) {
+      if (e.target === overlay) onCancel();
+    }
+    function onKeydown(e) {
+      if (e.key === "Escape") onCancel();
+      else if (e.key === "Enter" && type !== "choice") onConfirm();
+    }
+
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("mousedown", onOverlayClick);
+    document.addEventListener("keydown", onKeydown);
+
+    overlay.hidden = false;
+    (inputEl || confirmBtn).focus();
+  });
+}
+
+const modalPrompt = (message, placeholder = "") => openModal({ title: "Input required", message, type: "text", placeholder });
+const modalConfirm = (message, opts = {}) => openModal({ title: opts.title || "Please confirm", message, type: "confirm", confirmLabel: opts.confirmLabel || "Confirm", danger: opts.danger });
+const modalAlert = (message, title = "Notice") => openModal({ title, message, type: "alert", confirmLabel: "OK" });
+const modalChoose = (message, options, title = "Choose one") => openModal({ title, message, type: "choice", options });
+
 function switchView(view) {
   document.querySelectorAll(".view").forEach((el) => (el.hidden = true));
   document.getElementById("view-" + view).hidden = false;
@@ -200,8 +283,8 @@ document.querySelector("#vendor-table tbody").addEventListener("click", async (e
 
   try {
     if (action === "reject") {
-      const reason = prompt("Reason for rejection (required):");
-      if (!reason || !reason.trim()) return;
+      const reason = await modalPrompt("Reason for rejection (required):");
+      if (!reason) return;
       await api(`/vendors/${id}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -391,8 +474,8 @@ document.querySelector("#mapping-table tbody").addEventListener("click", async (
   const resultEl = document.getElementById("mapping-result");
   try {
     if (action === "reject" || action === "suspend") {
-      const reason = prompt(`Reason for ${action} (required):`);
-      if (!reason || !reason.trim()) return;
+      const reason = await modalPrompt(`Reason for ${action} (required):`);
+      if (!reason) return;
       await api(`/mappings/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -489,11 +572,11 @@ async function renderMappingMatrix() {
     });
 
     html += `<div class="matrix-legend">
-      <span><b style="color:#2f5f2f;">APPROVED</b> — active, eligible mapping</span>
+      <span><b style="color:#2f5f2f;">APPROVED</b> — click to suspend</span>
       <span><b style="color:#8a5215;">PENDING</b> — requested, review open</span>
       <span><b style="color:#666;">SUSPENDED</b> — was approved, temporarily paused</span>
       <span><b style="color:#8a3f3f;">REJECTED</b></span>
-      <span>— not mapped (click to map &amp; approve directly)</span>
+      <span>— not mapped, click to map &amp; approve directly</span>
     </div>`;
 
     container.innerHTML = html;
@@ -501,34 +584,40 @@ async function renderMappingMatrix() {
     const vendorById = new Map(vendors.map((v) => [v.id, v]));
     const productById = new Map(products.map((p) => [p.id, p]));
 
-    container.querySelectorAll(".matrix-cell:not(.cell-none)").forEach((cell) => {
-      cell.addEventListener("click", () => {
-        const vendorId = Number(cell.dataset.vendorId);
-        const category = cell.dataset.category;
-        const ids = new Set(productsInCategory.get(category));
-        const filtered = mappings.filter((m) => m.vendor_id === vendorId && ids.has(m.product_master_id));
-        const vendorNameMap = new Map(vendors.map((vv) => [vv.id, vv.legal_name]));
-        const productNameMap = new Map(products.map((p) => [p.id, `${p.code} — ${p.name}`]));
-        renderMappingRows(filtered, vendorNameMap, productNameMap);
-        const note = document.getElementById("mapping-filter-note");
-        note.hidden = false;
-        const vendorLabel = vendorNameMap.get(vendorId) || `#${vendorId}`;
-        note.innerHTML = `<span>Showing mappings for <b>${vendorLabel}</b> — <b>${category}</b></span>`;
-        const clearBtn = document.createElement("button");
-        clearBtn.textContent = "Clear filter";
-        clearBtn.addEventListener("click", clearMappingFilter);
-        note.appendChild(clearBtn);
-      });
-    });
+    function filterMappingTableToCell(cell) {
+      const vendorId = Number(cell.dataset.vendorId);
+      const category = cell.dataset.category;
+      const ids = new Set(productsInCategory.get(category));
+      const filtered = mappings.filter((m) => m.vendor_id === vendorId && ids.has(m.product_master_id));
+      const vendorNameMap = new Map(vendors.map((vv) => [vv.id, vv.legal_name]));
+      const productNameMap = new Map(products.map((p) => [p.id, `${p.code} — ${p.name}`]));
+      renderMappingRows(filtered, vendorNameMap, productNameMap);
+      const note = document.getElementById("mapping-filter-note");
+      note.hidden = false;
+      const vendorLabel = vendorNameMap.get(vendorId) || `#${vendorId}`;
+      note.innerHTML = `<span>Showing mappings for <b>${vendorLabel}</b> — <b>${category}</b></span>`;
+      const clearBtn = document.createElement("button");
+      clearBtn.textContent = "Clear filter";
+      clearBtn.addEventListener("click", clearMappingFilter);
+      note.appendChild(clearBtn);
+    }
 
-    // Empty cells: this screen is only reachable by Category Manager /
-    // Procurement Admin / System Admin (the same roles that already approve
-    // mappings), so a click here creates AND approves in one step instead of
-    // going through the Pending-review queue -- that queue is for when a
-    // vendor requests eligibility themselves, not for staff mapping vendors
-    // directly on their own authority.
-    container.querySelectorAll(".matrix-cell.cell-none").forEach((cell) => {
-      cell.addEventListener("click", () => directMapVendorToCategory(cell, vendorById, productById));
+    // Behavior depends on the cell's current state: this screen is only
+    // reachable by Category Manager/Procurement Admin/System Admin (the same
+    // roles that already approve/suspend mappings), so an empty cell maps +
+    // approves in one step, and an approved cell suspends directly -- neither
+    // detours through the Pending-review queue, which stays as-is for when a
+    // vendor requests eligibility themselves. Pending/Rejected/Suspended
+    // cells still just filter the detail table below, where the existing
+    // approve/reject actions already live.
+    container.querySelectorAll(".matrix-cell").forEach((cell) => {
+      if (cell.classList.contains("cell-none")) {
+        cell.addEventListener("click", () => directMapVendorToCategory(cell, vendorById, productById));
+      } else if (cell.classList.contains("cell-approved")) {
+        cell.addEventListener("click", () => suspendVendorCategoryMapping(cell, vendorById, productById, mappings, productsInCategory));
+      } else {
+        cell.addEventListener("click", () => filterMappingTableToCell(cell));
+      }
     });
   } catch (err) {
     container.innerHTML = `<div class="result err">Could not load eligibility matrix: ${err.message}</div>`;
@@ -542,7 +631,7 @@ async function directMapVendorToCategory(cell, vendorById, productById) {
   const resultEl = document.getElementById("mapping-result");
 
   if (!vendor || vendor.status !== "active") {
-    alert(`${vendor ? vendor.legal_name : "This vendor"} isn't Active yet -- only an Active, approved vendor can be mapped (CLAUDE.md PROJECT OVERRIDE).`);
+    await modalAlert(`${vendor ? vendor.legal_name : "This vendor"} isn't Active yet — only an Active, approved vendor can be mapped (CLAUDE.md PROJECT OVERRIDE).`);
     return;
   }
 
@@ -551,15 +640,15 @@ async function directMapVendorToCategory(cell, vendorById, productById) {
   if (candidates.length === 1) {
     productId = candidates[0];
   } else {
-    const options = candidates.map((id, i) => `${i + 1}. ${productById.get(id).code} — ${productById.get(id).name}`).join("\n");
-    const choice = prompt(`Multiple catalog entries in "${category}" -- which one?\n${options}`);
-    const idx = Number(choice) - 1;
-    if (!choice || idx < 0 || idx >= candidates.length) return;
-    productId = candidates[idx];
+    const options = candidates.map((id) => ({ value: String(id), label: `${productById.get(id).code} — ${productById.get(id).name}` }));
+    const choice = await modalChoose(`Multiple catalog entries in "${category}" — which one?`, options, "Choose catalog entry");
+    if (!choice) return;
+    productId = Number(choice);
   }
   const product = productById.get(productId);
 
-  if (!confirm(`Map ${vendor.legal_name} to "${product.name}" and approve immediately?`)) return;
+  const ok = await modalConfirm(`Map ${vendor.legal_name} to "${product.name}" and approve immediately?`, { confirmLabel: "Map & Approve" });
+  if (!ok) return;
 
   try {
     const mapping = await api("/mappings", {
@@ -573,6 +662,45 @@ async function directMapVendorToCategory(cell, vendorById, productById) {
     loadMappings();
   } catch (err) {
     showResult(resultEl, "Could not create mapping: " + err.message, false);
+  }
+}
+
+async function suspendVendorCategoryMapping(cell, vendorById, productById, mappings, productsInCategory) {
+  const vendorId = Number(cell.dataset.vendorId);
+  const category = cell.dataset.category;
+  const vendor = vendorById.get(vendorId);
+  const resultEl = document.getElementById("mapping-result");
+  const ids = new Set(productsInCategory.get(category));
+  const approvedMappings = mappings.filter((m) => m.vendor_id === vendorId && ids.has(m.product_master_id) && m.state === "approved");
+  if (approvedMappings.length === 0) return;
+
+  let mapping;
+  if (approvedMappings.length === 1) {
+    mapping = approvedMappings[0];
+  } else {
+    const options = approvedMappings.map((m) => ({
+      value: String(m.id),
+      label: productById.get(m.product_master_id)?.name || `#${m.product_master_id}`,
+    }));
+    const chosenId = await modalChoose(`${vendor.legal_name} has more than one approved mapping in "${category}" — which one to suspend?`, options, "Choose mapping to suspend");
+    if (!chosenId) return;
+    mapping = approvedMappings.find((m) => String(m.id) === chosenId);
+  }
+  const product = productById.get(mapping.product_master_id);
+  const reason = await modalPrompt(`Reason for suspending ${vendor.legal_name} — ${product ? product.name : "#" + mapping.product_master_id} (required):`);
+  if (!reason) return;
+
+  try {
+    await api(`/mappings/${mapping.id}/suspend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    showResult(resultEl, `Suspended ${vendor.legal_name} — ${product ? product.name : ""}.`, true);
+    renderMappingMatrix();
+    loadMappings();
+  } catch (err) {
+    showResult(resultEl, "Could not suspend mapping: " + err.message, false);
   }
 }
 
@@ -855,8 +983,8 @@ document.querySelector("#approval-table tbody").addEventListener("click", async 
   const resultEl = document.getElementById("approval-result");
   try {
     if (action === "reject") {
-      const comments = prompt("Comments for rejection (required):");
-      if (!comments || !comments.trim()) return;
+      const comments = await modalPrompt("Comments for rejection (required):");
+      if (!comments) return;
       await api(`/tenders/${id}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
