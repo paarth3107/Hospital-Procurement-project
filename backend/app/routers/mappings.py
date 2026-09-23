@@ -194,3 +194,29 @@ def suspend_mapping(
     db.commit()
     db.refresh(mapping)
     return mapping
+
+
+@router.post("/{mapping_id}/reinstate", response_model=MappingOut)
+def reinstate_mapping(
+    mapping_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*MAPPING_REVIEWERS)),
+):
+    """Reverses a suspension back to Approved -- the mirror of suspend, and
+    the only way out of Suspended (a Rejected mapping stays terminal; a
+    vendor would need a fresh request for that catalog entry instead)."""
+
+    mapping = db.get(VendorMapping, mapping_id)
+    if not mapping:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mapping not found")
+    if mapping.state != MappingState.SUSPENDED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Mapping is in state '{mapping.state.value}' and cannot be reinstated from here",
+        )
+    _log_transition(db, mapping, MappingState.APPROVED, actor_id=user.id, reason=None)
+    mapping.decided_by_id = user.id
+    mapping.decided_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(mapping)
+    return mapping

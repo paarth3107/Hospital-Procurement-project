@@ -418,6 +418,7 @@ function renderMappingRows(mappings, vendorName, productName) {
     const tr = document.createElement("tr");
     const pending = m.state === "pending";
     const approved = m.state === "approved";
+    const suspended = m.state === "suspended";
     tr.innerHTML = `
       <td>${vendorName.get(m.vendor_id) || "—"} <span style="color:#888;">(#${m.vendor_id})</span></td>
       <td>${productName.get(m.product_master_id) || "—"} <span style="color:#888;">(#${m.product_master_id})</span></td>
@@ -427,6 +428,7 @@ function renderMappingRows(mappings, vendorName, productName) {
         ${pending ? `<button class="approve" data-id="${m.id}" data-action="approve">Approve</button>
         <button class="reject" data-id="${m.id}" data-action="reject">Reject</button>` : ""}
         ${approved ? `<button class="reject" data-id="${m.id}" data-action="suspend">Suspend</button>` : ""}
+        ${suspended ? `<button class="approve" data-id="${m.id}" data-action="reinstate">Reinstate</button>` : ""}
       </td>`;
     tbody.appendChild(tr);
   }
@@ -565,7 +567,7 @@ async function renderMappingMatrix() {
     html += `<div class="matrix-legend">
       <span><b style="color:#2f5f2f;">APPROVED</b> — click to suspend</span>
       <span><b style="color:#8a5215;">PENDING</b> — requested, review open</span>
-      <span><b style="color:#666;">SUSPENDED</b> — was approved, temporarily paused</span>
+      <span><b style="color:#666;">SUSPENDED</b> — click to reinstate</span>
       <span><b style="color:#8a3f3f;">REJECTED</b></span>
       <span>— not mapped, click to map &amp; approve directly</span>
     </div>`;
@@ -595,17 +597,19 @@ async function renderMappingMatrix() {
 
     // Behavior depends on the cell's current state: this screen is only
     // reachable by Category Manager/Procurement Admin/System Admin (the same
-    // roles that already approve/suspend mappings), so an empty cell maps +
-    // approves in one step, and an approved cell suspends directly -- neither
-    // detours through the Pending-review queue, which stays as-is for when a
-    // vendor requests eligibility themselves. Pending/Rejected/Suspended
-    // cells still just filter the detail table below, where the existing
-    // approve/reject actions already live.
+    // roles that already approve/suspend/reinstate mappings), so each cell
+    // acts on itself directly instead of detouring through the Pending-
+    // review queue (that queue is still where a vendor's own request lands).
+    // Empty -> map & approve. Approved -> suspend. Suspended -> reinstate.
+    // Pending/Rejected still just filter the detail table below, where the
+    // existing approve/reject actions live (rejected is terminal by design).
     container.querySelectorAll(".matrix-cell").forEach((cell) => {
       if (cell.classList.contains("cell-none")) {
         cell.addEventListener("click", () => directMapVendorToCategory(cell, vendorById, productById));
       } else if (cell.classList.contains("cell-approved")) {
         cell.addEventListener("click", () => suspendVendorCategoryMapping(cell, vendorById, productById, mappings, productsInCategory));
+      } else if (cell.classList.contains("cell-suspended")) {
+        cell.addEventListener("click", () => reinstateVendorCategoryMapping(cell, vendorById, productById, mappings, productsInCategory));
       } else {
         cell.addEventListener("click", () => filterMappingTableToCell(cell));
       }
@@ -656,27 +660,30 @@ async function directMapVendorToCategory(cell, vendorById, productById) {
   }
 }
 
+// Shared by suspend/reinstate: a category cell can aggregate more than one
+// mapping, so if several share the target state, ask which one via a modal
+// chooser instead of guessing.
+async function resolveMappingInCategory(vendorId, category, state, vendor, mappings, productsInCategory, productById, actionLabel) {
+  const ids = new Set(productsInCategory.get(category));
+  const candidates = mappings.filter((m) => m.vendor_id === vendorId && ids.has(m.product_master_id) && m.state === state);
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+  const options = candidates.map((m) => ({
+    value: String(m.id),
+    label: productById.get(m.product_master_id)?.name || `#${m.product_master_id}`,
+  }));
+  const chosenId = await modalChoose(`${vendor.legal_name} has more than one ${state} mapping in "${category}" — which one to ${actionLabel}?`, options, `Choose mapping to ${actionLabel}`);
+  return chosenId ? candidates.find((m) => String(m.id) === chosenId) : null;
+}
+
 async function suspendVendorCategoryMapping(cell, vendorById, productById, mappings, productsInCategory) {
   const vendorId = Number(cell.dataset.vendorId);
   const category = cell.dataset.category;
   const vendor = vendorById.get(vendorId);
   const resultEl = document.getElementById("mapping-result");
-  const ids = new Set(productsInCategory.get(category));
-  const approvedMappings = mappings.filter((m) => m.vendor_id === vendorId && ids.has(m.product_master_id) && m.state === "approved");
-  if (approvedMappings.length === 0) return;
 
-  let mapping;
-  if (approvedMappings.length === 1) {
-    mapping = approvedMappings[0];
-  } else {
-    const options = approvedMappings.map((m) => ({
-      value: String(m.id),
-      label: productById.get(m.product_master_id)?.name || `#${m.product_master_id}`,
-    }));
-    const chosenId = await modalChoose(`${vendor.legal_name} has more than one approved mapping in "${category}" — which one to suspend?`, options, "Choose mapping to suspend");
-    if (!chosenId) return;
-    mapping = approvedMappings.find((m) => String(m.id) === chosenId);
-  }
+  const mapping = await resolveMappingInCategory(vendorId, category, "approved", vendor, mappings, productsInCategory, productById, "suspend");
+  if (!mapping) return;
   const product = productById.get(mapping.product_master_id);
   const reason = await modalPrompt(`Reason for suspending ${vendor.legal_name} — ${product ? product.name : "#" + mapping.product_master_id} (required):`);
   if (!reason) return;
@@ -692,6 +699,28 @@ async function suspendVendorCategoryMapping(cell, vendorById, productById, mappi
     loadMappings();
   } catch (err) {
     showResult(resultEl, "Could not suspend mapping: " + err.message, false);
+  }
+}
+
+async function reinstateVendorCategoryMapping(cell, vendorById, productById, mappings, productsInCategory) {
+  const vendorId = Number(cell.dataset.vendorId);
+  const category = cell.dataset.category;
+  const vendor = vendorById.get(vendorId);
+  const resultEl = document.getElementById("mapping-result");
+
+  const mapping = await resolveMappingInCategory(vendorId, category, "suspended", vendor, mappings, productsInCategory, productById, "reinstate");
+  if (!mapping) return;
+  const product = productById.get(mapping.product_master_id);
+  const ok = await modalConfirm(`Reinstate ${vendor.legal_name} — ${product ? product.name : "#" + mapping.product_master_id} back to Approved?`, { confirmLabel: "Reinstate" });
+  if (!ok) return;
+
+  try {
+    await api(`/mappings/${mapping.id}/reinstate`, { method: "POST" });
+    showResult(resultEl, `Reinstated ${vendor.legal_name} — ${product ? product.name : ""}.`, true);
+    renderMappingMatrix();
+    loadMappings();
+  } catch (err) {
+    showResult(resultEl, "Could not reinstate mapping: " + err.message, false);
   }
 }
 
