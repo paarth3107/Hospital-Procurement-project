@@ -956,7 +956,20 @@ document.getElementById("add-tender-btn").addEventListener("click", () => {
   const form = document.getElementById("tender-form");
   form.hidden = !form.hidden;
   document.getElementById("add-tender-btn").textContent = form.hidden ? "+ New Tender" : "Cancel";
+  if (!form.hidden) populateFacilityPicker();
 });
+
+async function populateFacilityPicker() {
+  const select = document.querySelector('#tender-form select[name="facility_id"]');
+  try {
+    const facilities = await api("/facilities");
+    select.innerHTML =
+      '<option value="">— select a facility —</option>' +
+      facilities.map((f) => `<option value="${f.id}">${f.name} (${f.legal_entity_code})</option>`).join("");
+  } catch (err) {
+    showResult(document.getElementById("tender-result"), "Could not load facilities: " + err.message, false);
+  }
+}
 
 document.getElementById("tender-form").addEventListener("submit", async (e) => {
   e.preventDefault();

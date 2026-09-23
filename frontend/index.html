@@ -221,7 +221,11 @@
     </div>
 
     <form id="tender-form" hidden>
-      <label>Facility ID <input name="facility_id" type="number" required value="1"></label>
+      <label>Facility
+        <select name="facility_id" required>
+          <option value="">— select a facility —</option>
+        </select>
+      </label>
       <label>Title <input name="title" required></label>
       <label>Description <input name="description"></label>
       <label>Tender Type
