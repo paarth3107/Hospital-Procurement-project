@@ -126,7 +126,6 @@ function switchView(view) {
   if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();
-  if (view === "request-mapping") populateVendorMappingRequestPicker();
   if (view === "mappings") {
     renderMappingMatrix();
     loadMappings();
@@ -215,15 +214,12 @@ const DEFAULT_VIEW_BY_ROLE = {
 };
 const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"];
 
-// The three unauthenticated (public) tabs and the one vendor-only tab, kept
-// alongside the staff tab list so every login/logout path can reset the nav
-// to exactly one of three states: logged out, staff, or vendor.
-const PUBLIC_TAB_VIEWS = ["register", "request-mapping", "vendor-login", "login"];
+// Vendor Registration/Login and Staff Login are reached only through the
+// landing page now (view-landing's two panels, plus a "back to home" link
+// on each destination screen) -- no persistent nav tab for them anymore,
+// so there's nothing to hide/show for the logged-out state here.
 
 function showStaffTabsForRole(role) {
-  for (const view of PUBLIC_TAB_VIEWS) {
-    document.getElementById(`${view}-tab`).hidden = true;
-  }
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-documents-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
@@ -238,9 +234,6 @@ function showStaffTabsForRole(role) {
 }
 
 function showVendorDashboardTab() {
-  for (const view of PUBLIC_TAB_VIEWS) {
-    document.getElementById(`${view}-tab`).hidden = true;
-  }
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;
   }
@@ -250,9 +243,6 @@ function showVendorDashboardTab() {
 }
 
 function resetToLoggedOutNav() {
-  for (const view of PUBLIC_TAB_VIEWS) {
-    document.getElementById(`${view}-tab`).hidden = false;
-  }
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-documents-tab").hidden = true;
   document.getElementById("logout-btn").hidden = true;
@@ -609,42 +599,6 @@ document.querySelector("#product-table tbody").addEventListener("click", async (
     loadProducts();
   } catch (err) {
     showResult(resultEl, `Could not ${btn.dataset.action} catalog entry: ` + err.message, false);
-  }
-});
-
-// ---- Vendor-facing: request a mapping (public, no login -- same as
-// registration, mirrors the fact that POST /mappings has never required
-// staff auth: it's the vendor's own request, on their own behalf). Staff no
-// longer create these on a vendor's behalf from the matrix screen -- that
-// screen now maps+approves directly, since staff already have the authority
-// to do that without a review step. ----
-async function populateVendorMappingRequestPicker() {
-  const productSelect = document.querySelector('#vendor-mapping-request-form select[name="product_master_id"]');
-  try {
-    const products = await api("/products?active=true");
-    productSelect.innerHTML =
-      '<option value="">— select a catalog entry —</option>' +
-      products.map((p) => `<option value="${p.id}">${p.code} — ${p.name}</option>`).join("");
-  } catch (err) {
-    showResult(document.getElementById("vendor-mapping-request-result"), "Could not load the catalog: " + err.message, false);
-  }
-}
-
-document.getElementById("vendor-mapping-request-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const data = Object.fromEntries(new FormData(form).entries());
-  const resultEl = document.getElementById("vendor-mapping-request-result");
-  try {
-    const mapping = await api("/mappings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vendor_id: Number(data.vendor_id), product_master_id: Number(data.product_master_id) }),
-    });
-    showResult(resultEl, `Mapping requested (state: ${mapping.state}). A Category Manager will review it.`, true);
-    form.reset();
-  } catch (err) {
-    showResult(resultEl, "Could not request mapping: " + err.message, false);
   }
 });
 

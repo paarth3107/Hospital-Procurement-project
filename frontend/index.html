@@ -11,10 +11,6 @@
 <header class="topbar">
   <span class="brand" id="brand-home-link" title="Back to home">MedSource</span>
   <nav id="topnav">
-    <button class="tab-btn" id="register-tab" data-view="register">Vendor Registration</button>
-    <button class="tab-btn" id="request-mapping-tab" data-view="request-mapping">Request a Mapping</button>
-    <button class="tab-btn" id="vendor-login-tab" data-view="vendor-login">Vendor Login</button>
-    <button class="tab-btn" id="login-tab" data-view="login">Staff Login</button>
     <button class="tab-btn" id="vendor-documents-tab" data-view="vendor-documents" hidden>My Documents</button>
     <button class="tab-btn" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden>My Dashboard</button>
     <button class="tab-btn" id="dashboard-tab" data-view="dashboard" hidden>Dashboard</button>
@@ -99,20 +95,6 @@
     <div id="register-result" class="result"></div>
   </section>
 
-  <section id="view-request-mapping" class="view" hidden>
-    <h1>Request a Catalog Mapping</h1>
-    <p class="hint">For vendors already Active (approved) -- request eligibility for a catalog entry you can supply. A Category Manager reviews this before it takes effect. Identify yourself by the Vendor ID shown when your registration was approved (or on your Dashboard once logged in).</p>
-    <form id="vendor-mapping-request-form">
-      <label>Your Vendor ID <input name="vendor_id" type="number" required></label>
-      <label>Catalog Entry
-        <select name="product_master_id" required>
-          <option value="">— select a catalog entry —</option>
-        </select>
-      </label>
-      <button type="submit">Request Mapping</button>
-    </form>
-    <div id="vendor-mapping-request-result" class="result"></div>
-  </section>
 
   <section id="view-vendor-login" class="view" hidden>
     <button class="back-home-link" data-view="landing">← Back to home</button>

@@ -64,9 +64,16 @@ The unauthenticated default view is now a real split landing page
 (`view-landing`), not whichever public form happened to load first --
 Hospital Staff panel (Staff Login) and Vendor panel (Vendor Login / Register
 as a Vendor). The brand/logo in the top bar and a "← Back to home" link on
-each of those three destination screens both return to it. The individual
-nav tabs (Vendor Registration, Vendor Login, Staff Login, Request a Mapping)
-still exist for direct access; the landing page is just the front door.
+each of those three destination screens both return to it. Landing is the
+*only* way into those three screens now -- the persistent nav tabs for them
+were retired as pure duplication once landing existed.
+
+The old public, unauthenticated "Request a Mapping" page (type-your-own-
+vendor-ID) was retired outright, not just unlisted -- the vendor dashboard's
+authenticated category picker (Phase 4) does the same job strictly better
+(real identity, no ID to type or typo) via the same, unchanged `POST
+/mappings`. That endpoint itself is untouched; only the public form that
+called it without login is gone.
 
 ## Frontend nav is role-scoped
 
