@@ -104,9 +104,14 @@
   </section>
 
   <section id="view-mappings" class="view" hidden>
-    <h1>Vendor Mapping</h1>
-    <p class="hint">Spec §4.3 — links an Active vendor to a catalog entry they're eligible to supply. No vendor portal exists yet, so mapping requests are submitted here on the vendor's behalf.</p>
-    <form id="mapping-form">
+    <h1>Vendor–Product Eligibility Matrix</h1>
+    <p class="hint">Spec §4.3 — the source of truth for who can be invited at tender time. Click a cell to filter the detail list below to that vendor/category.</p>
+    <div id="mapping-matrix"></div>
+
+    <div class="toolbar">
+      <button id="add-mapping-btn">+ Request Mapping</button>
+    </div>
+    <form id="mapping-form" hidden>
       <label>Vendor (Active only)
         <select name="vendor_id" required>
           <option value="">— select a vendor —</option>
@@ -120,6 +125,9 @@
       <button type="submit">Request Mapping</button>
     </form>
     <div id="mapping-result" class="result"></div>
+
+    <h2>Mapping Detail</h2>
+    <div id="mapping-filter-note" hidden></div>
     <div class="toolbar">
       <label>Filter by state
         <select id="mapping-state-filter">
@@ -170,8 +178,17 @@
 
   <section id="view-tenders" class="view" hidden>
     <h1>Tenders</h1>
-    <p class="hint">Spec §6 — draft a tender, add line items, preview eligibility, then submit for E-Tender Approval.</p>
-    <form id="tender-form">
+    <p class="hint">Spec §6 — every tender this facility has drafted, published, or closed. Open one to manage it, or start a new one.</p>
+    <div class="toolbar">
+      <button id="add-tender-btn">+ New Tender</button>
+    </div>
+
+    <table id="tender-table">
+      <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Status</th><th>Round</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <form id="tender-form" hidden>
       <label>Facility ID <input name="facility_id" type="number" required value="1"></label>
       <label>Title <input name="title" required></label>
       <label>Description <input name="description"></label>
@@ -189,11 +206,6 @@
       <button type="submit">Create Draft Tender</button>
     </form>
     <div id="tender-result" class="result"></div>
-
-    <table id="tender-table">
-      <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Status</th><th>Round</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
 
     <div id="tender-detail" hidden>
       <h2 id="tender-detail-title"></h2>

@@ -42,6 +42,7 @@ function switchView(view) {
   if (view === "catalog") loadProducts();
   if (view === "mappings") {
     populateMappingPickers();
+    renderMappingMatrix();
     loadMappings();
   }
   if (view === "ratings") populateRatingPicker();
@@ -285,6 +286,12 @@ document.querySelector("#product-table tbody").addEventListener("click", async (
 
 // ---- Vendor mapping ----
 
+document.getElementById("add-mapping-btn").addEventListener("click", () => {
+  const form = document.getElementById("mapping-form");
+  form.hidden = !form.hidden;
+  document.getElementById("add-mapping-btn").textContent = form.hidden ? "+ Request Mapping" : "Cancel";
+});
+
 // Populates the Vendor/Catalog Entry <select> pickers so nobody has to
 // memorize or type a raw ID. Vendor picker is Active-only, matching CLAUDE.md
 // PROJECT OVERRIDE (only Active vendors can ever be mapped).
@@ -317,16 +324,48 @@ document.getElementById("mapping-form").addEventListener("submit", async (e) => 
     });
     showResult(resultEl, `Mapping #${mapping.id} requested (state: ${mapping.state}).`, true);
     form.reset();
+    form.hidden = true;
+    document.getElementById("add-mapping-btn").textContent = "+ Request Mapping";
+    renderMappingMatrix();
     loadMappings();
   } catch (err) {
     showResult(resultEl, "Could not request mapping: " + err.message, false);
   }
 });
 
+function renderMappingRows(mappings, vendorName, productName) {
+  const tbody = document.querySelector("#mapping-table tbody");
+  tbody.innerHTML = "";
+  if (mappings.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#888;">No mappings match.</td></tr>';
+    return;
+  }
+  for (const m of mappings) {
+    const tr = document.createElement("tr");
+    const pending = m.state === "pending";
+    const approved = m.state === "approved";
+    tr.innerHTML = `
+      <td>${vendorName.get(m.vendor_id) || "—"} <span style="color:#888;">(#${m.vendor_id})</span></td>
+      <td>${productName.get(m.product_master_id) || "—"} <span style="color:#888;">(#${m.product_master_id})</span></td>
+      <td><span class="status-pill status-${m.state === "approved" ? "active" : m.state === "rejected" || m.state === "suspended" ? "rejected" : "pending_verification"}">${m.state}</span></td>
+      <td>${m.version}</td>
+      <td class="row-actions">
+        ${pending ? `<button class="approve" data-id="${m.id}" data-action="approve">Approve</button>
+        <button class="reject" data-id="${m.id}" data-action="reject">Reject</button>` : ""}
+        ${approved ? `<button class="reject" data-id="${m.id}" data-action="suspend">Suspend</button>` : ""}
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function clearMappingFilter() {
+  document.getElementById("mapping-filter-note").hidden = true;
+  loadMappings();
+}
+
 async function loadMappings() {
   const filter = document.getElementById("mapping-state-filter").value;
   const qs = filter ? `?state=${filter}` : "";
-  const tbody = document.querySelector("#mapping-table tbody");
   const resultEl = document.getElementById("mapping-result");
   try {
     const [mappings, vendors, products] = await Promise.all([
@@ -336,26 +375,7 @@ async function loadMappings() {
     ]);
     const vendorName = new Map(vendors.map((v) => [v.id, v.legal_name]));
     const productName = new Map(products.map((p) => [p.id, `${p.code} — ${p.name}`]));
-    tbody.innerHTML = "";
-    if (mappings.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:#888;">No mappings in this state.</td></tr>';
-    }
-    for (const m of mappings) {
-      const tr = document.createElement("tr");
-      const pending = m.state === "pending";
-      const approved = m.state === "approved";
-      tr.innerHTML = `
-        <td>${vendorName.get(m.vendor_id) || "—"} <span style="color:#888;">(#${m.vendor_id})</span></td>
-        <td>${productName.get(m.product_master_id) || "—"} <span style="color:#888;">(#${m.product_master_id})</span></td>
-        <td><span class="status-pill status-${m.state === "approved" ? "active" : m.state === "rejected" || m.state === "suspended" ? "rejected" : "pending_verification"}">${m.state}</span></td>
-        <td>${m.version}</td>
-        <td class="row-actions">
-          ${pending ? `<button class="approve" data-id="${m.id}" data-action="approve">Approve</button>
-          <button class="reject" data-id="${m.id}" data-action="reject">Reject</button>` : ""}
-          ${approved ? `<button class="reject" data-id="${m.id}" data-action="suspend">Suspend</button>` : ""}
-        </td>`;
-      tbody.appendChild(tr);
-    }
+    renderMappingRows(mappings, vendorName, productName);
   } catch (err) {
     showResult(resultEl, "Could not load mappings: " + err.message, false);
   }
@@ -381,11 +401,126 @@ document.querySelector("#mapping-table tbody").addEventListener("click", async (
     } else {
       await api(`/mappings/${id}/${action}`, { method: "POST" });
     }
+    renderMappingMatrix();
     loadMappings();
   } catch (err) {
     showResult(resultEl, `Could not ${action} mapping ${id}: ` + err.message, false);
   }
 });
+
+// Vendor–Product Eligibility Matrix (wireframe: VendorMappingMatrix). Our
+// data model maps a vendor to one catalog entry at a time, not a whole
+// category, so each cell aggregates every mapping between that vendor and
+// any catalog entry in that category, showing the most decisive state
+// (an approved mapping outranks a merely-pending one, etc). Clicking a cell
+// filters the detail table below to exactly those mapping rows.
+const MAPPING_STATE_PRIORITY = ["approved", "pending", "suspended", "rejected"];
+
+async function renderMappingMatrix() {
+  const container = document.getElementById("mapping-matrix");
+  try {
+    const [vendors, products, mappings] = await Promise.all([api("/vendors/lookup"), api("/products"), api("/mappings")]);
+
+    const categories = [];
+    const categoryType = new Map();
+    const productsInCategory = new Map();
+    for (const p of products) {
+      if (!categoryType.has(p.category)) {
+        categories.push(p.category);
+        categoryType.set(p.category, p.procurement_type);
+        productsInCategory.set(p.category, []);
+      }
+      productsInCategory.get(p.category).push(p.id);
+    }
+
+    if (vendors.length === 0 || categories.length === 0) {
+      container.innerHTML = '<div style="padding:16px; color:#888; font-size:13px;">Add vendors and catalog entries first to see the eligibility matrix.</div>';
+      return;
+    }
+
+    // vendor_id -> product_master_id -> mapping, for cell aggregation below.
+    const mappingsByVendorProduct = new Map();
+    for (const m of mappings) {
+      if (!mappingsByVendorProduct.has(m.vendor_id)) mappingsByVendorProduct.set(m.vendor_id, new Map());
+      mappingsByVendorProduct.get(m.vendor_id).set(m.product_master_id, m);
+    }
+
+    const vendorScores = await Promise.all(
+      vendors.map((v) =>
+        api(`/ratings/${v.id}`)
+          .then((r) => (r.is_provisional ? null : r.overall_score))
+          .catch(() => null)
+      )
+    );
+
+    const gridCols = `2.2fr repeat(${categories.length}, 1fr)`;
+    let html = `<div class="matrix-row matrix-head" style="grid-template-columns: ${gridCols};">
+      <div class="matrix-vendor">VENDOR</div>
+      ${categories
+        .map((c) => `<div class="matrix-col-head">${c}<span class="type">${categoryType.get(c)}</span></div>`)
+        .join("")}
+    </div>`;
+
+    vendors.forEach((v, i) => {
+      const score = vendorScores[i];
+      html += `<div class="matrix-row" style="grid-template-columns: ${gridCols};">
+        <div class="matrix-vendor"><div class="name">${v.legal_name}</div><div class="score">${
+          v.status !== "active" ? v.status.replace("_", " ") : score !== null ? `score ${score.toFixed(1)}` : "unrated"
+        }</div></div>
+        ${categories
+          .map((c) => {
+            const ids = productsInCategory.get(c);
+            const vendorMap = mappingsByVendorProduct.get(v.id);
+            let state = null;
+            if (vendorMap) {
+              for (const pid of ids) {
+                const m = vendorMap.get(pid);
+                if (!m) continue;
+                if (state === null || MAPPING_STATE_PRIORITY.indexOf(m.state) < MAPPING_STATE_PRIORITY.indexOf(state)) {
+                  state = m.state;
+                }
+              }
+            }
+            const label = state ? state.toUpperCase() : "—";
+            return `<div class="matrix-cell cell-${state || "none"}" data-vendor-id="${v.id}" data-category="${c}">${label}</div>`;
+          })
+          .join("")}
+      </div>`;
+    });
+
+    html += `<div class="matrix-legend">
+      <span><b style="color:#2f5f2f;">APPROVED</b> — active, eligible mapping</span>
+      <span><b style="color:#8a5215;">PENDING</b> — requested, review open</span>
+      <span><b style="color:#666;">SUSPENDED</b> — was approved, temporarily paused</span>
+      <span><b style="color:#8a3f3f;">REJECTED</b></span>
+      <span>— not mapped</span>
+    </div>`;
+
+    container.innerHTML = html;
+
+    container.querySelectorAll(".matrix-cell:not(.cell-none)").forEach((cell) => {
+      cell.addEventListener("click", () => {
+        const vendorId = Number(cell.dataset.vendorId);
+        const category = cell.dataset.category;
+        const ids = new Set(productsInCategory.get(category));
+        const filtered = mappings.filter((m) => m.vendor_id === vendorId && ids.has(m.product_master_id));
+        const vendorNameMap = new Map(vendors.map((vv) => [vv.id, vv.legal_name]));
+        const productNameMap = new Map(products.map((p) => [p.id, `${p.code} — ${p.name}`]));
+        renderMappingRows(filtered, vendorNameMap, productNameMap);
+        const note = document.getElementById("mapping-filter-note");
+        note.hidden = false;
+        const vendorLabel = vendorNameMap.get(vendorId) || `#${vendorId}`;
+        note.innerHTML = `<span>Showing mappings for <b>${vendorLabel}</b> — <b>${category}</b></span>`;
+        const clearBtn = document.createElement("button");
+        clearBtn.textContent = "Clear filter";
+        clearBtn.addEventListener("click", clearMappingFilter);
+        note.appendChild(clearBtn);
+      });
+    });
+  } catch (err) {
+    container.innerHTML = `<div class="result err">Could not load eligibility matrix: ${err.message}</div>`;
+  }
+}
 
 // ---- Vendor rating ----
 let currentRatingVendorId = null;
@@ -472,6 +607,12 @@ document.getElementById("rating-update-form").addEventListener("submit", async (
 // ---- Tenders ----
 let currentTenderId = null;
 
+document.getElementById("add-tender-btn").addEventListener("click", () => {
+  const form = document.getElementById("tender-form");
+  form.hidden = !form.hidden;
+  document.getElementById("add-tender-btn").textContent = form.hidden ? "+ New Tender" : "Cancel";
+});
+
 document.getElementById("tender-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -495,6 +636,8 @@ document.getElementById("tender-form").addEventListener("submit", async (e) => {
     });
     showResult(resultEl, `Created draft tender #${tender.id}: ${tender.title}`, true);
     form.reset();
+    form.hidden = true;
+    document.getElementById("add-tender-btn").textContent = "+ New Tender";
     loadTenders();
   } catch (err) {
     showResult(resultEl, "Could not create tender: " + err.message, false);
