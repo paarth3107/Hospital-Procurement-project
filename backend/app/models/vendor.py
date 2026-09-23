@@ -41,6 +41,11 @@ class Vendor(Base):
     hashed_password = Column(String, nullable=True)
 
     category_declaration = Column(String, nullable=True)  # comma-separated for this first pass
+
+    # Reused for both terminal Rejected and Info Requested -- either way
+    # it's "the explanation for the vendor's current non-Active status",
+    # not specifically a rejection; the column name predates Info Requested
+    # gaining its own reason.
     rejection_reason = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

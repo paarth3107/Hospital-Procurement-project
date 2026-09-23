@@ -79,3 +79,18 @@ class VendorRejection(BaseModel):
         if not v or not v.strip():
             raise ValueError("A reason is required")
         return v.strip()
+
+
+class VendorInfoRequest(BaseModel):
+    """Sending a vendor back to Info Requested (e.g. after rejecting a
+    mandatory document) always carries a note explaining what's needed --
+    same reasoning as rejection needing a reason."""
+
+    note: str
+
+    @field_validator("note")
+    @classmethod
+    def note_required(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("A note is required")
+        return v.strip()

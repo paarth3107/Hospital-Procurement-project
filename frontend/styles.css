@@ -45,8 +45,8 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 .status-active { background: #eaf3ea; border-color: #7fae7f; color: #2f5f2f; }
 .status-rejected { background: #f4e6e6; border-color: #c98a8a; color: #8a3f3f; }
 .row-actions button { border: 1px solid #999; background: #fff; padding: 4px 10px; font-size: 12px; cursor: pointer; margin-right: 6px; }
-.row-actions button.approve { border-color: #2f6f3f; color: #2f6f3f; }
-.row-actions button.reject { border-color: #a33; color: #a33; }
+button.approve { border-color: #2f6f3f; color: #2f6f3f; }
+button.reject { border-color: #a33; color: #a33; }
 
 #rating-card h2 { font-size: 16px; margin: 24px 0 8px; }
 
@@ -119,6 +119,9 @@ td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; vertica
 #mapping-filter-note button { border: 1px solid #999; background: #fff; padding: 3px 10px; font-size: 12px; cursor: pointer; }
 #tender-status-notice { margin: 10px 0; padding: 10px 14px; background: #eef4fb; border: 1px solid #a8c3e0; font-size: 13px; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 #tender-status-notice button { border: 1px solid #999; background: #fff; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+#vendor-review-mandatory-banner { margin: 12px 0; padding: 10px 14px; background: #f4e6e6; border: 1px solid #c98a8a; color: #8a3f3f; font-size: 13px; }
+#vendor-review-detail { margin-top: 24px; border-top: 1px solid #ccc; padding-top: 16px; }
+#vendor-review-detail h3 { font-size: 15px; margin: 20px 0 8px; }
 
 /* In-page modal, replacing native prompt()/confirm()/alert() */
 .modal-overlay { position: fixed; inset: 0; background: rgba(26, 26, 26, 0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
