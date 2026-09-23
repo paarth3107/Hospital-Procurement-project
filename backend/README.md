@@ -99,13 +99,16 @@ roles' arrays in `ROLE_TABS` — one line, not a scattered set of role checks.
 - **E-Tender Approval gate + Round Tracking** (spec §7): `submit-for-approval` snapshots the resolved tier onto a new `TenderApprovalRound`; `approve` re-runs the eligibility check (spec §5.9 "approval-time re-check") before publishing; `reject` requires comments and returns the tender to Draft without touching prior rounds. Three consecutive rejections auto-escalate the next round's required tier by one (spec §7.3 point 5; the count is an illustrative default, `MAX_ROUNDS_BEFORE_ESCALATION`, not a spec value). **Not built this phase**: per-round SLA-timeout escalation (needs a background scheduler, Phase 7) and Open Tender / Guest Invite (spec §6.7/§6.8 — both need their own public/self-registration flow, deferred).
 - Frontend gained a Tenders screen (create draft, add line items, eligibility preview, submit) and an E-Tender Approval queue screen (approve/reject with the resolved tier shown), on the same real-API pattern as the rest.
 
+### Phase 4 (started) — Vendor login + basic Bid Submission
+
+- **Vendor authentication** (`app/security.py`): a vendor sets a password at registration (`VendorCreate.password`, min 8 chars) and logs in with GSTIN + password at `POST /api/v1/vendor-auth/login`. Vendor JWTs carry `"typ": "vendor"` (staff tokens have none/`"staff"`), checked by both `get_current_user` and the new `get_current_vendor` dependency, so a vendor's token can never authorize a staff-only endpoint or vice versa. `GET /api/v1/vendor-auth/me` returns the vendor's own profile (including `rejection_reason` if rejected — a vendor should be able to see why). No password-reset flow exists yet (needs the Email/SMS adapter, not built).
+- **Bid model + submission** (`app/models/bid.py`, spec §8): one `Bid` per (vendor, tender line item), gated by every check spec §5.6 calls "the most heavily gated function in the system" — vendor must be Active, the tender must be Published, the vendor must be on that line item's resolved invite list (`TenderInvite`), the bid deadline must not have passed, and a vendor can only bid once per line item (no amend/withdraw yet). `GET /api/v1/vendor-portal/tenders` lists Published tenders the vendor is invited to, tagged with whether they've already bid; `GET /api/v1/vendor-portal/bids` lists the vendor's own bid history; `POST /api/v1/vendor-portal/bids` submits one.
+- **Not built in this pass**: technical bid submissions/attachments, bid amendment or withdrawal, and — importantly — price confidentiality enforcement for anyone *other* than the bidding vendor (spec §9.6). There's no staff-facing bid-read endpoint yet at all, so nothing currently leaks a price prematurely, but that's an absence of a feature, not the real masking-until-deadline rule the spec requires; building any staff/evaluation view of bids (Phase 5) must implement that rule at the query layer before it reads a single `Bid.unit_price`.
+- Frontend gained a Vendor Login tab and a vendor-only "My Dashboard" view (profile/status, tenders they're invited to with a Submit Bid action, and their own bid history) — a separate nav/session state from staff login, sharing the same JWT bearer mechanism but never interchangeable with it.
+
 ## Not yet built
 
-Bidding, evaluation, awards, PO export, the override engine, audit log,
-notifications, background jobs (`IMPLEMENTATION-SPEC.md` phases 4–7); Open
-Tender and Guest Invite within tendering (see Phase 3 notes above). Vendor
-login/auth (as opposed to staff login) also isn't built yet — today, vendor
-registration and mapping requests are unauthenticated by vendor identity
-(matching the spec's own model where a vendor doesn't yet have a session); a
-vendor portal will be needed once vendor-facing endpoints (browsing tenders,
-bidding) exist.
+Full Bidding (technical submissions, attachments, amend/withdraw, real price
+confidentiality), evaluation, awards, PO export, the override engine, audit
+log, notifications, background jobs (`IMPLEMENTATION-SPEC.md` phases 4–7);
+Open Tender and Guest Invite within tendering (see Phase 3 notes above).

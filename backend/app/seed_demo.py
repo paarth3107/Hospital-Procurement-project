@@ -14,10 +14,14 @@ from sqlalchemy import text
 from app.database import SessionLocal
 from app.models.product_master import ProcurementType, ProductMaster
 from app.models.tender import Tender, TenderStatus, TenderType
+from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
+from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
+from app.security import hash_password
+from app.services.eligibility import resolve_eligible_vendors
 from app.models.vendor_rating import RatingHistory, VendorRating
 
 # Business/domain tables only -- children before parents. Facilities,
@@ -144,6 +148,8 @@ RATINGS = {
     4: dict(on_time_pct=None, quality_pct=None, compliance_pct=None, responsiveness=None),
 }
 
+VENDOR_DEMO_PASSWORD = "vendor12345"
+
 # (title, tender_type, department, product index, qty, estimated_price/unit)
 TENDERS = [
     ("Supply of Surgical Gloves - FY26 Q1", TenderType.RFQ, "Surgery", 0, 5000, 8.5),
@@ -168,12 +174,12 @@ def run():
         if not creator:
             raise RuntimeError("No staff login found -- run `python -m app.seed` first")
 
-        vendors = [Vendor(**v) for v in VENDORS]
+        vendors = [Vendor(**v, hashed_password=hash_password(VENDOR_DEMO_PASSWORD)) for v in VENDORS]
         db.add_all(vendors)
         db.commit()
         for v in vendors:
             db.refresh(v)
-        print(f"Created {len(vendors)} vendors")
+        print(f"Created {len(vendors)} vendors (login password for all: {VENDOR_DEMO_PASSWORD})")
 
         products = [ProductMaster(**p) for p in PRODUCTS]
         db.add_all(products)
@@ -210,7 +216,8 @@ def run():
         print(f"Created {len(RATINGS)} vendor ratings")
 
         bid_due = datetime.now(timezone.utc) + timedelta(days=14)
-        for title, tender_type, department, product_idx, qty, unit_price in TENDERS:
+        first_tender, first_line_item = None, None
+        for i, (title, tender_type, department, product_idx, qty, unit_price) in enumerate(TENDERS):
             tender = Tender(
                 facility_id=1,
                 title=title,
@@ -224,17 +231,42 @@ def run():
             )
             db.add(tender)
             db.flush()
-            db.add(
-                TenderLineItem(
-                    tender_id=tender.id,
-                    product_master_id=products[product_idx].id,
-                    procurement_type=products[product_idx].procurement_type,
-                    qty=qty,
-                    estimated_price=unit_price,
-                )
+            line_item = TenderLineItem(
+                tender_id=tender.id,
+                product_master_id=products[product_idx].id,
+                procurement_type=products[product_idx].procurement_type,
+                qty=qty,
+                estimated_price=unit_price,
             )
+            db.add(line_item)
+            db.flush()
+            if i == 0:
+                first_tender, first_line_item = tender, line_item
         db.commit()
         print(f"Created {len(TENDERS)} draft tenders, each with 1 line item")
+
+        # Publish the first tender so the vendor dashboard/bidding flow has
+        # something real to show immediately -- everything else stays Draft
+        # so the E-Tender Approval queue also has something to demonstrate.
+        eligible = resolve_eligible_vendors(first_line_item, db)
+        for e in eligible:
+            db.add(TenderInvite(tender_line_item_id=first_line_item.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
+        first_tender.status = TenderStatus.PUBLISHED
+        first_tender.round_number = 1
+        first_tender.published_at = datetime.now(timezone.utc)
+        db.add(
+            TenderApprovalRound(
+                tender_id=first_tender.id,
+                round_number=1,
+                decision=RoundDecision.APPROVED,
+                required_tier=1,
+                submitted_by_id=creator.id,
+                reviewer_id=creator.id,
+                decided_at=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+        print(f"Published '{first_tender.title}' with {len(eligible)} invited vendor(s)")
 
         print("Done.")
     finally:

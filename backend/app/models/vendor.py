@@ -33,6 +33,13 @@ class Vendor(Base):
     email = Column(String, nullable=False)
     phone = Column(String, nullable=True)
 
+    # Set at registration (schemas/vendor.py's VendorCreate.password) so a
+    # vendor can log in immediately and check status -- there's no email/SMS
+    # adapter built yet to deliver a temp password later, so "set your own at
+    # registration" is the only path that doesn't need one. Nullable only
+    # for rows that predate this column; every new registration sets it.
+    hashed_password = Column(String, nullable=True)
+
     category_declaration = Column(String, nullable=True)  # comma-separated for this first pass
     rejection_reason = Column(Text, nullable=True)
 

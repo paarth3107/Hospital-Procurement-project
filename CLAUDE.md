@@ -6,21 +6,34 @@ older, much less detailed task-instructions document; where the two disagree,
 `E-Procurement-Spec-v2.md` wins. This file is a condensed working reference to
 that spec.
 
-**Current stage: Phase 3 (Tender Creation & E-Tender Approval) implementation is in progress.**
+**Current stage: Phase 4 (Bidding) is in progress — vendor login and basic bid
+submission are built; full Bidding (technical submissions, price
+confidentiality enforcement, amend/withdraw) is not.**
 `wireframe/*.dc.html` (+ `wireframe/index.html`) remains the UI reference/click-through
 prototype; `IMPLEMENTATION-SPEC.md` is the architecture/module/API/data-model plan.
 Real code lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
 `backend/README.md` for setup/run instructions and exactly what's built vs. not)
 and `frontend/` (plain JS — no framework chosen yet, see IMPLEMENTATION-SPEC.md
 §12 open question 1). Phase 1 (vendor registration → approval, spec §3), Phase 2
-(Product Master / Vendor Mapping / Vendor Rating, spec §4–5), and Phase 3's tender
-draft/line-items/eligibility-resolver/E-Tender-Approval-gate/round-tracking
-(spec §6–7) are built, tested, and working end-to-end. Deliberately deferred within
-Phase 3 (see backend/README.md for the full list): attachments/mandatory-attachment
-checklist, manual vendor-add override, Guest Invite, Open Tender. Everything from
-Bidding onward is still wireframe-only. Per the user's explicit instruction, phases
-are being built back-to-back without pausing to fix/polish until the full build is
-done — continue straight to Phase 4 (Bidding) next per IMPLEMENTATION-SPEC.md §11.
+(Product Master / Vendor Mapping / Vendor Rating, spec §4–5), Phase 3 (tender
+draft/line-items/eligibility-resolver/E-Tender-Approval-gate/round-tracking,
+spec §6–7), and Phase 4's vendor login + basic Bid Submission (spec §8) are
+built, tested, and working end-to-end. Deliberately deferred (see
+backend/README.md for the full list): Phase 3's attachments/mandatory-attachment
+checklist, manual vendor-add override, Guest Invite, Open Tender; Phase 4's
+technical bid submissions, attachments, amend/withdraw, and — most
+importantly — real price-confidentiality enforcement (spec §9.6), since no
+staff-facing bid-read endpoint exists yet to enforce it on. Per the user's
+explicit instruction, phases are being built back-to-back without pausing to
+fix/polish until the full build is done — continue building out the rest of
+Phase 4, then Evaluation/Award (Phase 5) next per IMPLEMENTATION-SPEC.md §11.
+
+**Vendor auth is separate from staff auth end-to-end**: a vendor sets a
+password at registration (no email/SMS adapter exists to deliver one later),
+logs in with GSTIN (not email — Vendor.email isn't unique on this model) at
+`/api/v1/vendor-auth/login`, and gets a JWT tagged `"typ": "vendor"` that can
+never authorize a staff-only endpoint (`app/security.py`'s `get_current_user`
+rejects it, and `get_current_vendor` rejects a staff token the same way).
 
 ## Core lifecycle (7 stages, two are split into A/B approval gates)
 

@@ -13,7 +13,9 @@
   <nav id="topnav">
     <button class="tab-btn active" id="register-tab" data-view="register">Vendor Registration</button>
     <button class="tab-btn" id="request-mapping-tab" data-view="request-mapping">Request a Mapping</button>
+    <button class="tab-btn" id="vendor-login-tab" data-view="vendor-login">Vendor Login</button>
     <button class="tab-btn" id="login-tab" data-view="login">Staff Login</button>
+    <button class="tab-btn" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden>My Dashboard</button>
     <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
     <button class="tab-btn" id="catalog-tab" data-view="catalog" hidden>Product Catalog</button>
     <button class="tab-btn" id="mappings-tab" data-view="mappings" hidden>Vendor Mapping</button>
@@ -38,6 +40,7 @@
       <label>Email <input name="email" type="email" required></label>
       <label>Phone <input name="phone"></label>
       <label>Category Declaration <input name="category_declaration" placeholder="e.g. Equipment, Consumables"></label>
+      <label>Password (for logging in later, 8+ characters) <input name="password" type="password" required minlength="8"></label>
       <button type="submit">Submit for Verification</button>
     </form>
     <div id="register-result" class="result"></div>
@@ -45,7 +48,7 @@
 
   <section id="view-request-mapping" class="view" hidden>
     <h1>Request a Catalog Mapping</h1>
-    <p class="hint">For vendors already Active (approved) -- request eligibility for a catalog entry you can supply. A Category Manager reviews this before it takes effect. No vendor login exists yet, so identify yourself by the Vendor ID shown when your registration was approved.</p>
+    <p class="hint">For vendors already Active (approved) -- request eligibility for a catalog entry you can supply. A Category Manager reviews this before it takes effect. Identify yourself by the Vendor ID shown when your registration was approved (or on your Dashboard once logged in).</p>
     <form id="vendor-mapping-request-form">
       <label>Your Vendor ID <input name="vendor_id" type="number" required></label>
       <label>Catalog Entry
@@ -56,6 +59,36 @@
       <button type="submit">Request Mapping</button>
     </form>
     <div id="vendor-mapping-request-result" class="result"></div>
+  </section>
+
+  <section id="view-vendor-login" class="view" hidden>
+    <h1>Vendor Login</h1>
+    <p class="hint">Log in with the GSTIN and password you registered with.</p>
+    <form id="vendor-login-form">
+      <label>GSTIN (15 characters) <input name="gstin" required maxlength="15" minlength="15"></label>
+      <label>Password <input name="password" type="password" required></label>
+      <button type="submit">Log in</button>
+    </form>
+    <div id="vendor-login-result" class="result"></div>
+  </section>
+
+  <section id="view-vendor-dashboard" class="view" hidden>
+    <h1>My Dashboard</h1>
+    <div id="vendor-profile-card"></div>
+
+    <h2>Tenders You Can Apply To</h2>
+    <p class="hint">Only tenders you've been invited to (via an approved catalog mapping meeting the tender's rating threshold), and only while Published and before the bid deadline.</p>
+    <table id="vendor-open-tenders-table">
+      <thead><tr><th>Tender</th><th>Type</th><th>Line Item</th><th>Qty</th><th>Bid Due</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Your Bids</h2>
+    <table id="vendor-bids-table">
+      <thead><tr><th>Tender</th><th>Line Item</th><th>Qty</th><th>Your Unit Price</th><th>Status</th><th>Submitted</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="vendor-dashboard-result" class="result"></div>
   </section>
 
   <section id="view-login" class="view" hidden>

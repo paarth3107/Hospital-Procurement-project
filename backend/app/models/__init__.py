@@ -1,4 +1,5 @@
 from app.models.approval_band import ApprovalBand
+from app.models.bid import Bid, BidStatus
 from app.models.facility import Facility
 from app.models.product_master import ProcurementType, ProductMaster
 from app.models.tender import Tender, TenderStatus, TenderType
@@ -32,4 +33,6 @@ __all__ = [
     "TenderInvite",
     "TenderApprovalRound",
     "RoundDecision",
+    "Bid",
+    "BidStatus",
 ]

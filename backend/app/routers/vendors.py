@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import Vendor, VendorStatus
 from app.schemas.vendor import VendorCreate, VendorLookupOut, VendorOut, VendorRejection
-from app.security import get_current_user, require_role
+from app.security import get_current_user, hash_password, require_role
 
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
@@ -43,6 +43,7 @@ def register_vendor(payload: VendorCreate, db: Session = Depends(get_db)):
         phone=payload.phone,
         category_declaration=payload.category_declaration,
         status=VendorStatus.PENDING_VERIFICATION,
+        hashed_password=hash_password(payload.password),
     )
     db.add(vendor)
     db.commit()

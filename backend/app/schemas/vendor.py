@@ -19,6 +19,10 @@ class VendorCreate(BaseModel):
     email: EmailStr
     phone: str | None = None
     category_declaration: str | None = None
+    # Sets the vendor's own login immediately (no vendor portal existed
+    # before this; no email/SMS adapter exists to deliver a temp password
+    # later, so "choose your own now" is the only path that doesn't need one).
+    password: str
 
     @field_validator("gstin")
     @classmethod
@@ -26,6 +30,13 @@ class VendorCreate(BaseModel):
         v = v.strip().upper()
         if len(v) != GSTIN_LENGTH:
             raise ValueError(f"GSTIN must be {GSTIN_LENGTH} characters")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
         return v
 
 

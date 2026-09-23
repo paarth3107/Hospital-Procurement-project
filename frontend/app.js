@@ -2,7 +2,9 @@ const API_BASE = "/api/v1";
 
 const state = {
   token: sessionStorage.getItem("token") || null,
+  actorType: sessionStorage.getItem("actorType") || null, // "staff" | "vendor"
   user: null,
+  vendor: null,
 };
 
 function apiHeaders(extra = {}) {
@@ -129,6 +131,7 @@ function switchView(view) {
     loadMappings();
   }
   if (view === "ratings") populateRatingPicker();
+  if (view === "vendor-dashboard") loadVendorDashboard();
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
 }
@@ -173,7 +176,9 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     if (!res.ok) throw new Error(json.detail || "Login failed");
 
     state.token = json.access_token;
+    state.actorType = "staff";
     sessionStorage.setItem("token", state.token);
+    sessionStorage.setItem("actorType", "staff");
     state.user = await api("/auth/me");
 
     showResult(resultEl, `Logged in as ${state.user.full_name} (${state.user.role})`, true);
@@ -205,10 +210,16 @@ const DEFAULT_VIEW_BY_ROLE = {
 };
 const ALL_STAFF_TAB_VIEWS = ["queue", "catalog", "mappings", "ratings", "tenders", "approvals"];
 
+// The three unauthenticated (public) tabs and the one vendor-only tab, kept
+// alongside the staff tab list so every login/logout path can reset the nav
+// to exactly one of three states: logged out, staff, or vendor.
+const PUBLIC_TAB_VIEWS = ["register", "request-mapping", "vendor-login", "login"];
+
 function showStaffTabsForRole(role) {
-  document.getElementById("register-tab").hidden = true;
-  document.getElementById("request-mapping-tab").hidden = true;
-  document.getElementById("login-tab").hidden = true;
+  for (const view of PUBLIC_TAB_VIEWS) {
+    document.getElementById(`${view}-tab`).hidden = true;
+  }
+  document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
   const allowed = new Set(ROLE_TABS[role] || []);
   for (const view of ALL_STAFF_TAB_VIEWS) {
@@ -220,10 +231,22 @@ function showStaffTabsForRole(role) {
   document.getElementById("rating-update-form").hidden = role !== "procurement_admin";
 }
 
-function hideStaffTabs() {
-  document.getElementById("register-tab").hidden = false;
-  document.getElementById("request-mapping-tab").hidden = false;
-  document.getElementById("login-tab").hidden = false;
+function showVendorDashboardTab() {
+  for (const view of PUBLIC_TAB_VIEWS) {
+    document.getElementById(`${view}-tab`).hidden = true;
+  }
+  for (const view of ALL_STAFF_TAB_VIEWS) {
+    document.getElementById(`${view}-tab`).hidden = true;
+  }
+  document.getElementById("vendor-dashboard-tab").hidden = false;
+  document.getElementById("logout-btn").hidden = false;
+}
+
+function resetToLoggedOutNav() {
+  for (const view of PUBLIC_TAB_VIEWS) {
+    document.getElementById(`${view}-tab`).hidden = false;
+  }
+  document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("logout-btn").hidden = true;
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;
@@ -232,11 +255,14 @@ function hideStaffTabs() {
 
 document.getElementById("logout-btn").addEventListener("click", () => {
   state.token = null;
+  state.actorType = null;
   state.user = null;
+  state.vendor = null;
   sessionStorage.removeItem("token");
+  sessionStorage.removeItem("actorType");
   document.getElementById("whoami").textContent = "";
-  hideStaffTabs();
-  switchView("login");
+  resetToLoggedOutNav();
+  switchView("register");
 });
 
 // ---- Vendor approval queue ----
@@ -402,6 +428,124 @@ document.getElementById("vendor-mapping-request-form").addEventListener("submit"
     form.reset();
   } catch (err) {
     showResult(resultEl, "Could not request mapping: " + err.message, false);
+  }
+});
+
+// ---- Vendor login + dashboard ----
+document.getElementById("vendor-login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const resultEl = document.getElementById("vendor-login-result");
+  try {
+    const body = new URLSearchParams({ username: data.gstin, password: data.password });
+    const res = await fetch(API_BASE + "/vendor-auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.detail || "Login failed");
+
+    state.token = json.access_token;
+    state.actorType = "vendor";
+    sessionStorage.setItem("token", state.token);
+    sessionStorage.setItem("actorType", "vendor");
+    state.vendor = await api("/vendor-auth/me");
+
+    showResult(resultEl, `Logged in as ${state.vendor.legal_name}`, true);
+    document.getElementById("whoami").textContent = `${state.vendor.legal_name} — Vendor #${state.vendor.id}`;
+    showVendorDashboardTab();
+    switchView("vendor-dashboard");
+  } catch (err) {
+    showResult(resultEl, "Login failed: " + err.message, false);
+  }
+});
+
+async function loadVendorDashboard() {
+  const profileEl = document.getElementById("vendor-profile-card");
+  const resultEl = document.getElementById("vendor-dashboard-result");
+  try {
+    const vendor = await api("/vendor-auth/me");
+    state.vendor = vendor;
+    profileEl.innerHTML = `
+      <p><b>${vendor.legal_name}</b> (#${vendor.id}) —
+        <span class="status-pill status-${vendor.status}">${vendor.status.replace("_", " ")}</span>
+        ${vendor.rejection_reason ? `<br><span style="color:#a33;">Reason: ${vendor.rejection_reason}</span>` : ""}
+      </p>`;
+
+    const [openTenders, bids] = await Promise.all([api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
+
+    const openBody = document.querySelector("#vendor-open-tenders-table tbody");
+    openBody.innerHTML = "";
+    let rowCount = 0;
+    for (const t of openTenders) {
+      for (const li of t.line_items) {
+        rowCount++;
+        const tr = document.createElement("tr");
+        const dueStr = t.bid_due_date ? new Date(t.bid_due_date).toLocaleString() : "—";
+        let actionCell;
+        if (li.already_bid) {
+          actionCell = `<span class="status-pill status-active">Bid ${li.bid_status}</span>`;
+        } else if (t.can_bid) {
+          actionCell = `<button class="approve" data-line-item-id="${li.line_item_id}" data-title="${t.title}" data-product="${li.product_name}">Submit Bid</button>`;
+        } else {
+          actionCell = `<span style="color:#888;">Deadline passed</span>`;
+        }
+        tr.innerHTML = `
+          <td>${t.title}</td>
+          <td>${t.tender_type}</td>
+          <td>${li.product_name}</td>
+          <td>${li.qty}</td>
+          <td>${dueStr}</td>
+          <td class="row-actions">${actionCell}</td>`;
+        openBody.appendChild(tr);
+      }
+    }
+    if (rowCount === 0) {
+      openBody.innerHTML = '<tr><td colspan="6" style="color:#888;">No open tenders you\'re currently invited to.</td></tr>';
+    }
+
+    const bidsBody = document.querySelector("#vendor-bids-table tbody");
+    bidsBody.innerHTML = bids.length ? "" : '<tr><td colspan="6" style="color:#888;">No bids submitted yet.</td></tr>';
+    for (const b of bids) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${b.tender_title}</td>
+        <td>${b.product_name}</td>
+        <td>${b.qty}</td>
+        <td>${b.unit_price}</td>
+        <td><span class="status-pill status-active">${b.status}</span></td>
+        <td>${new Date(b.submitted_at).toLocaleString()}</td>`;
+      bidsBody.appendChild(tr);
+    }
+    resultEl.textContent = "";
+  } catch (err) {
+    showResult(resultEl, "Could not load dashboard: " + err.message, false);
+  }
+}
+
+document.querySelector("#vendor-open-tenders-table tbody").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-line-item-id]");
+  if (!btn) return;
+  const resultEl = document.getElementById("vendor-dashboard-result");
+  const priceStr = await modalPrompt(`Your unit price for "${btn.dataset.product}" (${btn.dataset.title}):`);
+  if (!priceStr) return;
+  const unitPrice = Number(priceStr);
+  if (!(unitPrice > 0)) {
+    showResult(resultEl, "Price must be a positive number.", false);
+    return;
+  }
+  try {
+    await api("/vendor-portal/bids", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tender_line_item_id: Number(btn.dataset.lineItemId), unit_price: unitPrice }),
+    });
+    showResult(resultEl, "Bid submitted.", true);
+    loadVendorDashboard();
+  } catch (err) {
+    showResult(resultEl, "Could not submit bid: " + err.message, false);
   }
 });
 
@@ -1020,15 +1164,23 @@ document.querySelector("#approval-table tbody").addEventListener("click", async 
 
 // ---- Restore session on load ----
 (async function init() {
-  if (state.token) {
-    try {
+  if (!state.token) return;
+  try {
+    if (state.actorType === "vendor") {
+      state.vendor = await api("/vendor-auth/me");
+      document.getElementById("whoami").textContent = `${state.vendor.legal_name} — Vendor #${state.vendor.id}`;
+      showVendorDashboardTab();
+      switchView("vendor-dashboard");
+    } else {
       state.user = await api("/auth/me");
       document.getElementById("whoami").textContent = `${state.user.full_name} — ${state.user.role}`;
       showStaffTabsForRole(state.user.role);
       switchView(DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");
-    } catch (e) {
-      state.token = null;
-      sessionStorage.removeItem("token");
     }
+  } catch (e) {
+    state.token = null;
+    state.actorType = null;
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("actorType");
   }
 })();
