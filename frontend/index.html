@@ -127,13 +127,13 @@
   <section id="view-catalog" class="view" hidden>
     <h1>Product Catalog</h1>
     <p class="hint">Item/Asset/Service master (spec §4.2). New entries are added by Procurement Admin / Category Manager.</p>
-    <div class="toolbar">
-      <button id="add-product-btn">+ Add Item</button>
-    </div>
     <table id="product-table">
       <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Category</th><th>Active</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
+    <div class="toolbar">
+      <button id="add-product-btn">+ Add Item</button>
+    </div>
     <form id="product-form" hidden>
       <label>Code / SKU <input name="code" required></label>
       <label>Name <input name="name" required></label>
@@ -211,14 +211,14 @@
   <section id="view-tenders" class="view" hidden>
     <h1>Tenders</h1>
     <p class="hint">Spec §6 — every tender this facility has drafted, published, or closed. Open one to manage it, or start a new one.</p>
-    <div class="toolbar">
-      <button id="add-tender-btn">+ New Tender</button>
-    </div>
-
     <table id="tender-table">
       <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Status</th><th>Round</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
+
+    <div class="toolbar">
+      <button id="add-tender-btn">+ New Tender</button>
+    </div>
 
     <form id="tender-form" hidden>
       <label>Facility ID <input name="facility_id" type="number" required value="1"></label>
