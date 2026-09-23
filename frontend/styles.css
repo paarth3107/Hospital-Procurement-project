@@ -144,9 +144,13 @@ button.reject { border-color: #a33; color: #a33; }
 #modal-confirm-btn.danger:hover { background: #822; }
 #modal-cancel-btn:hover { background: #f0efeb; }
 
-/* Landing page */
-#view-landing { min-height: calc(100vh - 64px); display: flex; flex-direction: column; justify-content: center; }
-#view-landing[hidden] { display: none; }
+/* Landing page + the auth screens it leads to (register/vendor-login/
+   staff-login) share the same vertical-centering treatment, biased up
+   slightly via padding-bottom, so clicking a landing button lands the
+   next screen's content at roughly the same height instead of jumping
+   the cursor from mid-page up to the very top. */
+#view-landing, .auth-view { min-height: calc(100vh - 64px); display: flex; flex-direction: column; justify-content: center; padding-bottom: 8vh; }
+#view-landing[hidden], .auth-view[hidden] { display: none; }
 .landing-hero { text-align: center; margin-bottom: 32px; }
 .landing-title { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; }
 .landing-subtitle { color: #888; font-size: 15px; margin-top: 4px; }
