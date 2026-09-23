@@ -1020,18 +1020,37 @@ document.querySelector("#tender-table tbody").addEventListener("click", (e) => {
   currentTenderId = Number(btn.dataset.id);
   document.getElementById("tender-detail").hidden = false;
   document.getElementById("tender-detail-title").textContent = `Tender #${currentTenderId}`;
+  populateLineItemProductPicker();
   loadLineItems();
   loadRounds();
   document.getElementById("eligibility-preview").innerHTML = "";
 });
 
+// Catalog entries carry their own procurement_type (item/asset/service),
+// which the line-item API requires to match exactly -- picking from this
+// list (instead of typing a numeric ID and a separately-guessed type) means
+// that can never mismatch, and nobody needs to know the catalog's raw ID.
+async function populateLineItemProductPicker() {
+  const select = document.querySelector('#line-item-form select[name="product_master_id"]');
+  try {
+    const products = await api("/products?active=true");
+    select.innerHTML =
+      '<option value="">— select a catalog entry —</option>' +
+      products.map((p) => `<option value="${p.id}" data-type="${p.procurement_type}">${p.code} — ${p.name} (${p.procurement_type})</option>`).join("");
+  } catch (err) {
+    showResult(document.getElementById("tender-result"), "Could not load the catalog: " + err.message, false);
+  }
+}
+
 document.getElementById("line-item-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
   const data = Object.fromEntries(new FormData(form).entries());
+  const select = form.querySelector('select[name="product_master_id"]');
+  const procurementType = select.selectedOptions[0]?.dataset.type;
   const payload = {
     product_master_id: Number(data.product_master_id),
-    procurement_type: data.procurement_type,
+    procurement_type: procurementType,
     qty: Number(data.qty),
     estimated_price: data.estimated_price ? Number(data.estimated_price) : null,
   };
@@ -1051,13 +1070,14 @@ document.getElementById("line-item-form").addEventListener("submit", async (e) =
 
 async function loadLineItems() {
   const tbody = document.querySelector("#line-item-table tbody");
-  const items = await api(`/tenders/${currentTenderId}/line-items`);
+  const [items, products] = await Promise.all([api(`/tenders/${currentTenderId}/line-items`), api("/products")]);
+  const productLabel = new Map(products.map((p) => [p.id, `${p.code} — ${p.name}`]));
   tbody.innerHTML = items.length
     ? ""
     : '<tr><td colspan="4" style="color:#888;">No line items yet.</td></tr>';
   for (const li of items) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${li.product_master_id}</td><td>${li.procurement_type}</td><td>${li.qty}</td><td>${li.estimated_price ?? "—"}</td>`;
+    tr.innerHTML = `<td>${productLabel.get(li.product_master_id) || "—"} <span style="color:#888;">(#${li.product_master_id})</span></td><td>${li.procurement_type}</td><td>${li.qty}</td><td>${li.estimated_price ?? "—"}</td>`;
     tbody.appendChild(tr);
   }
 }
