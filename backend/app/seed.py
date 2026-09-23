@@ -12,7 +12,7 @@ ADMIN_EMAIL = "admin@medsource.local"
 ADMIN_PASSWORD = "changeme123"
 
 # One demo login per staff role beyond Procurement Admin, so the role-scoped
-# nav (frontend/app.js ROLE_TABS) can actually be clicked through locally
+# nav (frontend/js/nav.js ROLE_TABS) can actually be clicked through locally
 # instead of only ever being tested as the one super-role account.
 DEMO_STAFF = [
     ("officer@medsource.local", "changeme123", "Priya Sharma (Procurement Officer)", Role.PROCUREMENT_OFFICER, None),
