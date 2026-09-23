@@ -145,10 +145,31 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 });
 
 // ---- Vendor registration ----
+
+// Category Declaration is checkboxes over the real catalog's categories
+// (public GET /products -- no login needed here, same as this whole page)
+// instead of free text, so there's no way to misspell or invent a category
+// that doesn't match anything in Product Master.
+async function populateCategoryDeclarationOptions() {
+  const container = document.getElementById("category-declaration-options");
+  try {
+    const products = await api("/products?active=true");
+    const categories = [...new Set(products.map((p) => p.category))].sort();
+    container.innerHTML = categories.length
+      ? categories.map((c) => `<label><input type="checkbox" name="category_declaration" value="${c}"> ${c}</label>`).join("")
+      : '<span class="hint">No catalog categories exist yet — leave blank and Procurement can update this later.</span>';
+  } catch (err) {
+    container.innerHTML = '<span class="hint">Could not load categories — leave blank and Procurement can update this later.</span>';
+  }
+}
+populateCategoryDeclarationOptions();
+
 document.getElementById("register-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
   const payload = Object.fromEntries(new FormData(form).entries());
+  const checkedCategories = [...form.querySelectorAll('input[name="category_declaration"]:checked')].map((el) => el.value);
+  payload.category_declaration = checkedCategories.length ? checkedCategories.join(", ") : null;
   const resultEl = document.getElementById("register-result");
   try {
     const vendor = await api("/vendors", {

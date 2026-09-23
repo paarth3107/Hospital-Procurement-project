@@ -19,6 +19,11 @@ form { display: flex; flex-direction: column; gap: 14px; background: #fff; borde
 form[hidden] { display: none; }
 form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #333; }
 form input, form select { padding: 8px 10px; font-size: 14px; border: 1px solid #bbb; font-family: inherit; }
+.field-group { display: flex; flex-direction: column; gap: 4px; }
+.field-group-label { font-size: 13px; font-weight: 600; color: #333; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.checkbox-group label { flex-direction: row !important; align-items: center; gap: 6px !important; font-weight: 400 !important; }
+.checkbox-group input[type="checkbox"] { width: auto; padding: 0; }
 button[type="submit"] { align-self: flex-end; background: #b8560c; color: #fff; border: none; padding: 10px 20px; font-size: 14px; cursor: pointer; }
 button[type="submit"]:hover { background: #8a4009; }
 

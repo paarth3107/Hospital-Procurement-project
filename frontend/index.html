@@ -71,7 +71,11 @@
       <label>Contact Person <input name="contact_person" required></label>
       <label>Email <input name="email" type="email" required></label>
       <label>Phone <input name="phone"></label>
-      <label>Category Declaration <input name="category_declaration" placeholder="e.g. Equipment, Consumables"></label>
+      <div class="field-group">
+        <span class="field-group-label">Category Declaration</span>
+        <span class="hint" style="margin: 0 0 6px;">Which categories can you supply? Pick all that apply.</span>
+        <div id="category-declaration-options" class="checkbox-group"></div>
+      </div>
       <label>Password (for logging in later, 8+ characters) <input name="password" type="password" required minlength="8"></label>
       <button type="submit">Submit for Verification</button>
     </form>
