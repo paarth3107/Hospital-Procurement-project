@@ -40,7 +40,11 @@ function switchView(view) {
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();
-  if (view === "mappings") loadMappings();
+  if (view === "mappings") {
+    populateMappingPickers();
+    loadMappings();
+  }
+  if (view === "ratings") populateRatingPicker();
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
 }
@@ -61,7 +65,7 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    showResult(resultEl, `Registered. Status: ${vendor.status}. You'll be notified once Procurement Admin reviews this.`, true);
+    showResult(resultEl, `Registered as Vendor #${vendor.id}. Status: ${vendor.status}. Keep this ID — Procurement staff will reference it for catalog mapping and rating. You'll be notified once Procurement Admin reviews this.`, true);
     form.reset();
   } catch (err) {
     showResult(resultEl, "Could not register: " + err.message, false);
@@ -159,12 +163,13 @@ async function loadVendors() {
     const vendors = await api("/vendors" + qs);
     tbody.innerHTML = "";
     if (vendors.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:#888;">No vendors in this status.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#888;">No vendors in this status.</td></tr>';
     }
     for (const v of vendors) {
       const tr = document.createElement("tr");
       const decidable = v.status === "pending_verification" || v.status === "info_requested";
       tr.innerHTML = `
+        <td>#${v.id}</td>
         <td>${v.legal_name}</td>
         <td>${v.gstin}</td>
         <td>${v.contact_person}<br><span style="color:#888;">${v.email}</span></td>
@@ -212,6 +217,12 @@ document.querySelector("#vendor-table tbody").addEventListener("click", async (e
 });
 
 // ---- Product catalog ----
+document.getElementById("add-product-btn").addEventListener("click", () => {
+  const form = document.getElementById("product-form");
+  form.hidden = !form.hidden;
+  document.getElementById("add-product-btn").textContent = form.hidden ? "+ Add Item" : "Cancel";
+});
+
 document.getElementById("product-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -225,6 +236,8 @@ document.getElementById("product-form").addEventListener("submit", async (e) => 
     });
     showResult(resultEl, `Added catalog entry #${product.id}: ${product.name}`, true);
     form.reset();
+    form.hidden = true;
+    document.getElementById("add-product-btn").textContent = "+ Add Item";
     loadProducts();
   } catch (err) {
     showResult(resultEl, "Could not add catalog entry: " + err.message, false);
@@ -271,6 +284,26 @@ document.querySelector("#product-table tbody").addEventListener("click", async (
 });
 
 // ---- Vendor mapping ----
+
+// Populates the Vendor/Catalog Entry <select> pickers so nobody has to
+// memorize or type a raw ID. Vendor picker is Active-only, matching CLAUDE.md
+// PROJECT OVERRIDE (only Active vendors can ever be mapped).
+async function populateMappingPickers() {
+  const vendorSelect = document.querySelector('#mapping-form select[name="vendor_id"]');
+  const productSelect = document.querySelector('#mapping-form select[name="product_master_id"]');
+  try {
+    const [vendors, products] = await Promise.all([api("/vendors/lookup?status_filter=active"), api("/products?active=true")]);
+    vendorSelect.innerHTML =
+      '<option value="">— select a vendor —</option>' +
+      vendors.map((v) => `<option value="${v.id}">${v.legal_name} (#${v.id})</option>`).join("");
+    productSelect.innerHTML =
+      '<option value="">— select a catalog entry —</option>' +
+      products.map((p) => `<option value="${p.id}">${p.code} — ${p.name} (#${p.id})</option>`).join("");
+  } catch (err) {
+    showResult(document.getElementById("mapping-result"), "Could not load vendor/catalog pickers: " + err.message, false);
+  }
+}
+
 document.getElementById("mapping-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -296,7 +329,13 @@ async function loadMappings() {
   const tbody = document.querySelector("#mapping-table tbody");
   const resultEl = document.getElementById("mapping-result");
   try {
-    const mappings = await api("/mappings" + qs);
+    const [mappings, vendors, products] = await Promise.all([
+      api("/mappings" + qs),
+      api("/vendors/lookup"),
+      api("/products"),
+    ]);
+    const vendorName = new Map(vendors.map((v) => [v.id, v.legal_name]));
+    const productName = new Map(products.map((p) => [p.id, `${p.code} — ${p.name}`]));
     tbody.innerHTML = "";
     if (mappings.length === 0) {
       tbody.innerHTML = '<tr><td colspan="5" style="color:#888;">No mappings in this state.</td></tr>';
@@ -306,8 +345,8 @@ async function loadMappings() {
       const pending = m.state === "pending";
       const approved = m.state === "approved";
       tr.innerHTML = `
-        <td>${m.vendor_id}</td>
-        <td>${m.product_master_id}</td>
+        <td>${vendorName.get(m.vendor_id) || "—"} <span style="color:#888;">(#${m.vendor_id})</span></td>
+        <td>${productName.get(m.product_master_id) || "—"} <span style="color:#888;">(#${m.product_master_id})</span></td>
         <td><span class="status-pill status-${m.state === "approved" ? "active" : m.state === "rejected" || m.state === "suspended" ? "rejected" : "pending_verification"}">${m.state}</span></td>
         <td>${m.version}</td>
         <td class="row-actions">
@@ -350,6 +389,21 @@ document.querySelector("#mapping-table tbody").addEventListener("click", async (
 
 // ---- Vendor rating ----
 let currentRatingVendorId = null;
+
+// Every vendor (any status) shows up here — a rating can still be looked up
+// for a vendor that's since been suspended, unlike the Mapping picker which
+// is deliberately Active-only.
+async function populateRatingPicker() {
+  const select = document.querySelector('#rating-lookup-form select[name="vendor_id"]');
+  try {
+    const vendors = await api("/vendors/lookup");
+    select.innerHTML =
+      '<option value="">— select a vendor —</option>' +
+      vendors.map((v) => `<option value="${v.id}">${v.legal_name} (#${v.id})</option>`).join("");
+  } catch (err) {
+    showResult(document.getElementById("rating-result"), "Could not load vendor picker: " + err.message, false);
+  }
+}
 
 document.getElementById("rating-lookup-form").addEventListener("submit", async (e) => {
   e.preventDefault();

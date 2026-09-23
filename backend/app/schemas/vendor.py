@@ -29,6 +29,19 @@ class VendorCreate(BaseModel):
         return v
 
 
+class VendorLookupOut(BaseModel):
+    """Minimal, non-sensitive projection for picking a vendor by name
+    elsewhere in the app (Vendor Mapping, Vendor Rating) — deliberately
+    excludes GSTIN/PAN/contact details, which stay behind the
+    Procurement-Admin-only `GET /vendors` full listing."""
+
+    id: int
+    legal_name: str
+    status: VendorStatus
+
+    model_config = {"from_attributes": True}
+
+
 class VendorOut(BaseModel):
     id: int
     status: VendorStatus

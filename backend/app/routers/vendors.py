@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import Vendor, VendorStatus
-from app.schemas.vendor import VendorCreate, VendorOut, VendorRejection
-from app.security import require_role
+from app.schemas.vendor import VendorCreate, VendorLookupOut, VendorOut, VendorRejection
+from app.security import get_current_user, require_role
 
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
@@ -60,6 +60,26 @@ def list_vendors(
     if status_filter is not None:
         query = query.filter(Vendor.status == status_filter)
     return query.order_by(Vendor.created_at.desc()).all()
+
+
+@router.get("/lookup", response_model=list[VendorLookupOut])
+def lookup_vendors(
+    status_filter: VendorStatus | None = None,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(get_current_user),
+):
+    """Backs the vendor picker on Vendor Mapping / Vendor Rating — any staff
+    member needs to find a vendor by name there, not just Procurement Admin,
+    but the full `GET /vendors` listing (GSTIN/PAN/contact) stays admin-only.
+    No filter by default; callers creating a new mapping pass
+    `status_filter=active` (CLAUDE.md PROJECT OVERRIDE: only Active vendors
+    are ever eligible for mapping/bidding), while callers resolving an
+    existing mapping/rating's vendor name want every status."""
+
+    query = db.query(Vendor)
+    if status_filter is not None:
+        query = query.filter(Vendor.status == status_filter)
+    return query.order_by(Vendor.legal_name).all()
 
 
 @router.get("/{vendor_id}", response_model=VendorOut)
