@@ -11,9 +11,8 @@
 <header class="topbar" id="topbar" hidden>
   <span class="brand" id="brand-home-link" title="Back to home">MedSource</span>
   <nav id="topnav">
-    <button class="tab-btn" id="vendor-documents-tab" data-view="vendor-documents" hidden>My Documents</button>
-    <button class="tab-btn" id="vendor-categories-tab" data-view="vendor-categories" hidden>Categories</button>
     <button class="tab-btn" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden>My Dashboard</button>
+    <button class="tab-btn" id="vendor-profile-tab" data-view="vendor-profile" hidden>My Profile</button>
     <button class="tab-btn" id="dashboard-tab" data-view="dashboard" hidden>Dashboard</button>
     <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
     <button class="tab-btn" id="catalog-tab" data-view="catalog" hidden>Product Catalog</button>
@@ -83,15 +82,17 @@
     <button class="back-home-link" data-view="landing">← Back to home</button>
     <h1>Register as a Vendor</h1>
     <p class="hint">Submissions are reviewed by Procurement Admin before you can bid on anything.</p>
-    <form id="register-form">
+    <form id="register-form" novalidate>
       <label>Legal Name <input name="legal_name" required></label>
       <label>GSTIN (15 characters) <input name="gstin" required maxlength="15" minlength="15"></label>
-      <label>PAN (optional) <input name="pan"></label>
+      <label>PAN <input name="pan" required></label>
       <label>Contact Person <input name="contact_person" required></label>
       <label>Email <input name="email" type="email" required></label>
-      <label>Phone <input name="phone"></label>
+      <label>Phone <input name="phone" required></label>
       <label>Password (for logging in later, 8+ characters) <input name="password" type="password" required minlength="8"></label>
-      <button type="submit">Submit for Verification</button>
+      <div class="field-group-label">Required documents (PDF, JPG, or PNG, max 10MB each)</div>
+      <div id="register-doc-zones"></div>
+      <button type="submit" id="register-submit-btn">Submit for Verification</button>
     </form>
     <div id="register-result" class="result"></div>
   </section>
@@ -109,22 +110,26 @@
     <div id="vendor-login-result" class="result"></div>
   </section>
 
-  <section id="view-vendor-documents" class="view" hidden>
-    <h1>My Documents</h1>
-    <p class="hint">Required documents must be uploaded and verified before your registration can be approved. Optional ones can help speed up review. You can come back here any time later too -- for example if a license needs renewing.</p>
-    <div id="vendor-documents-prompt" hidden></div>
-    <div id="vendor-documents-list"></div>
-    <div id="vendor-documents-result" class="result"></div>
-  </section>
-
-  <section id="view-vendor-categories" class="view" hidden>
-    <h1>Categories</h1>
-    <p class="hint">Select every category you can supply. Each becomes a mapping request a Category Manager reviews before you're eligible for tenders in it. Come back here any time to add more.</p>
-    <div id="vendor-category-picker" class="checkbox-group"></div>
-    <div class="toolbar">
-      <button id="vendor-category-submit-btn">Request Selected Categories</button>
+  <section id="view-vendor-profile" class="view" hidden>
+    <h1>My Profile</h1>
+    <div class="subtabs">
+      <button class="subtab-btn active" data-subtab="details">Company Details</button>
+      <button class="subtab-btn" data-subtab="documents">My Documents</button>
+      <button class="subtab-btn" data-subtab="categories">Categories</button>
     </div>
-    <div id="vendor-category-picker-result" class="result"></div>
+    <div id="profile-subtab-details" class="subtab-panel">
+      <div id="vendor-profile-details"></div>
+    </div>
+    <div id="profile-subtab-documents" class="subtab-panel" hidden>
+      <p class="hint">Required documents must be verified before your registration can be approved. Optional ones can help speed up review. You can come back here any time later too -- for example if a license needs renewing.</p>
+      <div id="vendor-documents-list"></div>
+      <div id="vendor-documents-result" class="result"></div>
+    </div>
+    <div id="profile-subtab-categories" class="subtab-panel" hidden>
+      <p class="hint">Select every category you can supply. Each becomes a mapping request a Category Manager reviews before you're eligible for tenders in it. Come back here any time to add more.</p>
+      <div id="vendor-category-picker"></div>
+      <div id="vendor-category-picker-result" class="result"></div>
+    </div>
   </section>
 
   <section id="view-vendor-dashboard" class="view" hidden>

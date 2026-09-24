@@ -14,10 +14,10 @@ GSTIN_LENGTH = 15
 class VendorCreate(BaseModel):
     legal_name: str
     gstin: str
-    pan: str | None = None
+    pan: str
     contact_person: str
     email: EmailStr
-    phone: str | None = None
+    phone: str
     category_declaration: str | None = None
     # Sets the vendor's own login immediately (no vendor portal existed
     # before this; no email/SMS adapter exists to deliver a temp password

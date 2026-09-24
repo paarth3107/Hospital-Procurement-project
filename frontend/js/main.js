@@ -16,6 +16,7 @@ import "./pages/ratingsPage.js";
 import "./pages/tendersPage.js";
 import "./pages/approvalsPage.js";
 import "./pages/vendorDocumentsPage.js";
+import "./pages/vendorProfilePage.js";
 import "./pages/vendorCategoriesPage.js";
 import "./pages/vendorDashboardPage.js";
 

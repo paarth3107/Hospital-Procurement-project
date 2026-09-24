@@ -17,11 +17,9 @@ import { MAPPING_STATE_PRIORITY } from "../constants.js";
 // vendor's own mappings instead of all vendors.
 export async function renderVendorCategoryPicker() {
   const container = document.getElementById("vendor-category-picker");
-  const submitBtn = document.getElementById("vendor-category-submit-btn");
   const resultEl = document.getElementById("vendor-category-picker-result");
 
   if (state.vendor.status !== "active") {
-    submitBtn.hidden = true;
     container.innerHTML = '<span class="hint">Categories can be requested once your registration is Active -- finish document verification first.</span>';
     return;
   }
@@ -30,8 +28,7 @@ export async function renderVendorCategoryPicker() {
     const [products, mappings] = await Promise.all([api("/products?active=true"), api("/vendor-portal/mappings")]);
     const categories = [...new Set(products.map((p) => p.category))].sort();
     if (categories.length === 0) {
-      submitBtn.hidden = true;
-      container.innerHTML = '<span class="hint">No catalog categories exist yet.</span>';
+        container.innerHTML = '<span class="hint">No catalog categories exist yet.</span>';
       return;
     }
 
@@ -59,11 +56,11 @@ export async function renderVendorCategoryPicker() {
 
     let html = "";
     if (approved.length > 0) {
-      html += `<h3 style="margin-top:0;">Approved Categories</h3>
+      html += `<div class="category-section"><h3>Approved Categories</h3>
         <p class="hint">Already approved -- these can't be changed here. Contact a Category Manager if something needs to change.</p>
-        <div class="checkbox-group">${approved.map((c) => `<span class="badge badge-approved">${c}</span>`).join("")}</div>`;
+        <div class="checkbox-group">${approved.map((c) => `<span class="badge badge-approved">${c}</span>`).join("")}</div></div>`;
     }
-    html += `<h3>${approved.length > 0 ? "Other Categories" : "Select Categories"}</h3>`;
+    html += `<div class="category-section"><h3>${approved.length > 0 ? "Other Categories" : "Select Categories"}</h3>`;
     html += `<div class="checkbox-group">${other
       .map(
         (o) =>
@@ -72,15 +69,18 @@ export async function renderVendorCategoryPicker() {
           }</label>`
       )
       .join("")}</div>`;
+    if (other.length > 0) html += '<div class="toolbar"><button id="vendor-category-submit-btn">Request Selected Categories</button></div>';
+    html += "</div>";
     container.innerHTML = html;
+    const btn = document.getElementById("vendor-category-submit-btn");
+    if (btn) btn.addEventListener("click", submitCategoryRequests);
     container.dataset.productsJson = JSON.stringify(products);
-    submitBtn.hidden = other.length === 0;
   } catch (err) {
     showResult(resultEl, "Could not load categories: " + err.message, false);
   }
 }
 
-document.getElementById("vendor-category-submit-btn").addEventListener("click", async () => {
+async function submitCategoryRequests() {
   const resultEl = document.getElementById("vendor-category-picker-result");
   const container = document.getElementById("vendor-category-picker");
   const checked = [...container.querySelectorAll("input:checked")].map((el) => el.value);
@@ -111,4 +111,4 @@ document.getElementById("vendor-category-submit-btn").addEventListener("click", 
   if (failed) parts.push(`${failed} failed`);
   showResult(resultEl, parts.join(", ") + ".", failed === 0);
   container.querySelectorAll("input:checked").forEach((el) => (el.checked = false));
-});
+}

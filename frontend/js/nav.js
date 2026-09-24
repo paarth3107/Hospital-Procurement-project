@@ -5,8 +5,7 @@ import { loadProducts } from "./pages/catalogPage.js";
 import { renderMappingMatrix, loadMappings } from "./pages/mappingsPage.js";
 import { populateRatingPicker, renderRatingDashboard } from "./pages/ratingsPage.js";
 import { loadVendorDashboard } from "./pages/vendorDashboardPage.js";
-import { renderVendorDocuments } from "./pages/vendorDocumentsPage.js";
-import { renderVendorCategoryPicker } from "./pages/vendorCategoriesPage.js";
+import { loadVendorProfile } from "./pages/vendorProfilePage.js";
 import { loadTenders } from "./pages/tendersPage.js";
 import { loadApprovals } from "./pages/approvalsPage.js";
 
@@ -26,11 +25,7 @@ export function switchView(view) {
     renderRatingDashboard();
   }
   if (view === "vendor-dashboard") loadVendorDashboard();
-  if (view === "vendor-documents") renderVendorDocuments();
-  if (view === "vendor-categories") {
-    renderVendorCategoryPicker();
-    if (state.vendor) localStorage.setItem(`categoriesSeen_${state.vendor.id}`, "1");
-  }
+  if (view === "vendor-profile") loadVendorProfile();
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
 }
@@ -67,8 +62,7 @@ export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings",
 export function showStaffTabsForRole(role) {
   document.getElementById("topbar").hidden = false;
   document.getElementById("vendor-dashboard-tab").hidden = true;
-  document.getElementById("vendor-documents-tab").hidden = true;
-  document.getElementById("vendor-categories-tab").hidden = true;
+  document.getElementById("vendor-profile-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
   const allowed = new Set(ROLE_TABS[role] || []);
   for (const view of ALL_STAFF_TAB_VIEWS) {
@@ -86,16 +80,14 @@ export function showVendorDashboardTab() {
     document.getElementById(`${view}-tab`).hidden = true;
   }
   document.getElementById("vendor-dashboard-tab").hidden = false;
-  document.getElementById("vendor-documents-tab").hidden = false;
-  document.getElementById("vendor-categories-tab").hidden = false;
+  document.getElementById("vendor-profile-tab").hidden = false;
   document.getElementById("logout-btn").hidden = false;
 }
 
 export function resetToLoggedOutNav() {
   document.getElementById("topbar").hidden = true;
   document.getElementById("vendor-dashboard-tab").hidden = true;
-  document.getElementById("vendor-documents-tab").hidden = true;
-  document.getElementById("vendor-categories-tab").hidden = true;
+  document.getElementById("vendor-profile-tab").hidden = true;
   document.getElementById("logout-btn").hidden = true;
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;

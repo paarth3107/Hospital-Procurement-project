@@ -35,40 +35,9 @@ document.getElementById("vendor-login-form").addEventListener("submit", async (e
   }
 });
 
-// Explicitly sends a vendor to upload documents (instead of the dashboard)
-// whenever a mandatory one is still missing/unverified -- the tab always
-// stays available either way (e.g. to replace an expiring license later),
-// this only decides where login/session-restore lands them by default.
-// Exported so main.js's session-restore can reuse the exact same logic.
+// Every vendor lands on the dashboard; its status notice says what to do
+// next (verification pending -> categories -> tenders). Exported so main.js's
+// session-restore reuses the same entry point.
 export async function routeVendorAfterAuth() {
-  const prompt = document.getElementById("vendor-documents-prompt");
-  try {
-    const docs = await api("/vendor-portal/documents");
-    const byType = new Map(docs.map((d) => [d.doc_type, d]));
-    const missing = VENDOR_DOC_TYPES.filter((t) => t.mandatory && (!byType.get(t.value) || byType.get(t.value).status !== "verified"));
-
-    if (state.vendor.status !== "active" && missing.length > 0) {
-      prompt.hidden = false;
-      prompt.innerHTML = `<b>Please upload the following required document(s) before your registration can be approved:</b><ul>${missing
-        .map((m) => `<li>${m.label}</li>`)
-        .join("")}</ul>`;
-      switchView("vendor-documents");
-      return;
-    }
-    prompt.hidden = true;
-
-    // First login/session-restore after becoming Active and not yet having
-    // visited Categories -- send them there instead of the dashboard, per
-    // explicit request ("thrown to categories after documents have been
-    // approved"). Tracked client-side only; once visited it's just another
-    // tab they can revisit whenever they want to change their selection.
-    const seenCategories = localStorage.getItem(`categoriesSeen_${state.vendor.id}`);
-    if (state.vendor.status === "active" && !seenCategories) {
-      switchView("vendor-categories");
-    } else {
-      switchView("vendor-dashboard");
-    }
-  } catch (err) {
-    switchView("vendor-dashboard");
-  }
+  switchView("vendor-dashboard");
 }

@@ -1,14 +1,23 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user_account import Role, UserAccount
-from app.models.vendor import MANDATORY_DOC_TYPES, DocumentStatus, Vendor, VendorDocument, VendorStatus
+from app.models.vendor import (
+    MANDATORY_DOC_TYPES,
+    DocumentStatus,
+    Vendor,
+    VendorDocType,
+    VendorDocument,
+    VendorStatus,
+)
 from app.schemas.vendor import VendorCreate, VendorInfoRequest, VendorLookupOut, VendorOut, VendorRejection
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
+from app.routers.vendor_documents import store_document
 from app.security import get_current_user, hash_password, require_role
 
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
@@ -28,11 +37,38 @@ DECIDABLE_STATUSES = {VendorStatus.PENDING_VERIFICATION, VendorStatus.INFO_REQUE
 
 
 @router.post("", response_model=VendorOut, status_code=status.HTTP_201_CREATED)
-def register_vendor(payload: VendorCreate, db: Session = Depends(get_db)):
+async def register_vendor(
+    legal_name: str = Form(...),
+    gstin: str = Form(...),
+    pan: str = Form(...),
+    contact_person: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    password: str = Form(...),
+    gst_certificate: UploadFile = File(...),
+    pan_card: UploadFile = File(...),
+    incorporation_certificate: UploadFile = File(...),
+    bank_proof: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
     """Spec §3.3 registration workflow. Deliberately the *only* vendor
     creation path in this system — the Open Tender public landing page and
     the "invite a prospective vendor" flow both route here too (CLAUDE.md
-    PROJECT OVERRIDE: no lightweight/guest variant that skips this)."""
+    PROJECT OVERRIDE: no lightweight/guest variant that skips this).
+
+    Multipart: the vendor row and every mandatory document (GST certificate,
+    PAN card, incorporation certificate; bank proof optional) are saved in
+    one transaction, so a registration can never exist without its mandatory
+    documents. Enforced here, not just by the form."""
+
+    try:
+        payload = VendorCreate(
+            legal_name=legal_name, gstin=gstin, pan=pan, contact_person=contact_person,
+            email=email, phone=phone, password=password,
+        )
+    except ValidationError as e:
+        msg = "; ".join(f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors())
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
 
     existing = db.query(Vendor).filter(Vendor.gstin == payload.gstin).first()
     if existing:
@@ -43,6 +79,14 @@ def register_vendor(payload: VendorCreate, db: Session = Depends(get_db)):
             detail=f"A vendor with this GSTIN is already registered (status: {existing.status.value})",
         )
 
+    files = {
+        VendorDocType.GST_CERTIFICATE: gst_certificate,
+        VendorDocType.PAN_CARD: pan_card,
+        VendorDocType.INCORPORATION_CERTIFICATE: incorporation_certificate,
+    }
+    if bank_proof is not None and bank_proof.filename:
+        files[VendorDocType.BANK_PROOF] = bank_proof
+
     vendor = Vendor(
         legal_name=payload.legal_name,
         gstin=payload.gstin,
@@ -50,11 +94,13 @@ def register_vendor(payload: VendorCreate, db: Session = Depends(get_db)):
         contact_person=payload.contact_person,
         email=payload.email,
         phone=payload.phone,
-        category_declaration=payload.category_declaration,
         status=VendorStatus.PENDING_VERIFICATION,
         hashed_password=hash_password(payload.password),
     )
     db.add(vendor)
+    db.flush()
+    for doc_type, upload in files.items():
+        store_document(db, vendor.id, doc_type, upload.filename, upload.content_type, await upload.read())
     db.commit()
     db.refresh(vendor)
     return vendor

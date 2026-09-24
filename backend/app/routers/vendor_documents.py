@@ -29,39 +29,48 @@ async def upload_document(
     status."""
 
     content = await file.read()
+    doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def store_document(
+    db: Session, vendor_id: int, doc_type: VendorDocType, filename: str, content_type: str, content: bytes
+) -> VendorDocument:
+    """Validate + scan + upsert one document row, without committing, so
+    registration can store several files atomically with the vendor row."""
+
     try:
-        document_store.validate(file.content_type, len(content))
+        document_store.validate(content_type, len(content))
     except document_store.DocumentValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{doc_type.value}: {e}")
     document_store.scan(content)
 
     existing = (
         db.query(VendorDocument)
-        .filter(VendorDocument.vendor_id == vendor.id, VendorDocument.doc_type == doc_type)
+        .filter(VendorDocument.vendor_id == vendor_id, VendorDocument.doc_type == doc_type)
         .first()
     )
     if existing:
-        existing.original_filename = file.filename
-        existing.content_type = file.content_type
+        existing.original_filename = filename
+        existing.content_type = content_type
         existing.size_bytes = len(content)
         existing.content = content
         existing.status = DocumentStatus.PENDING
         existing.rejection_reason = None
         existing.reviewed_by_id = None
         existing.reviewed_at = None
-        doc = existing
-    else:
-        doc = VendorDocument(
-            vendor_id=vendor.id,
-            doc_type=doc_type,
-            original_filename=file.filename,
-            content_type=file.content_type,
-            size_bytes=len(content),
-            content=content,
-        )
-        db.add(doc)
-    db.commit()
-    db.refresh(doc)
+        return existing
+    doc = VendorDocument(
+        vendor_id=vendor_id,
+        doc_type=doc_type,
+        original_filename=filename,
+        content_type=content_type,
+        size_bytes=len(content),
+        content=content,
+    )
+    db.add(doc)
     return doc
 
 

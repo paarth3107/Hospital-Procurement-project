@@ -3,6 +3,7 @@ import { state } from "../state.js";
 import { showResult } from "../ui.js";
 import { modalPrompt } from "../modal.js";
 import { switchView } from "../nav.js";
+import { setProfileSubtab } from "./vendorProfilePage.js";
 import { MAPPING_STATE_PRIORITY } from "../constants.js";
 
 // Reflects the actual outcome of the vendor's category requests instead of
@@ -11,7 +12,22 @@ import { MAPPING_STATE_PRIORITY } from "../constants.js";
 async function renderVendorCategoriesNotice(vendor) {
   const notice = document.getElementById("vendor-categories-notice");
   if (vendor.status !== "active") {
-    notice.hidden = true;
+    const msgs = {
+      pending_verification: "Verification pending: your registration and documents are with our team for review. You'll be able to select categories once they're approved.",
+      info_requested: "More information requested: please check the note on your profile and re-upload any rejected documents under My Profile → My Documents.",
+      rejected: "Your registration was not approved. See the reason above.",
+    };
+    notice.hidden = false;
+    notice.innerHTML = `<span>${msgs[vendor.status] || "Your registration is not active yet."}</span>`;
+    if (vendor.status === "info_requested") {
+      const b = document.createElement("button");
+      b.textContent = "Go to My Documents";
+      b.addEventListener("click", () => {
+        switchView("vendor-profile");
+        setProfileSubtab("documents");
+      });
+      notice.appendChild(b);
+    }
     return;
   }
 
@@ -50,7 +66,7 @@ async function renderVendorCategoriesNotice(vendor) {
 
   let message;
   if (totalCategoriesWithStatus === 0) {
-    message = "Pick which catalog categories you can supply to become eligible for tenders in them.";
+    message = "Your documents are approved! Pick which catalog categories you can supply to become eligible for tenders in them.";
   } else {
     const parts = [];
     if (counts.approved) parts.push(`${counts.approved} approved`);
@@ -64,7 +80,10 @@ async function renderVendorCategoriesNotice(vendor) {
   notice.innerHTML = `<span>${message}</span>`;
   const goBtn = document.createElement("button");
   goBtn.textContent = "Go to Categories";
-  goBtn.addEventListener("click", () => switchView("vendor-categories"));
+  goBtn.addEventListener("click", () => {
+    switchView("vendor-profile");
+    setProfileSubtab("categories");
+  });
   notice.appendChild(goBtn);
 }
 
