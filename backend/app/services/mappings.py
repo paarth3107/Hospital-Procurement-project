@@ -97,6 +97,44 @@ def check_rating_gate(mapping: VendorMapping, db: Session) -> None:
         )
 
 
+def meets_rating_gate(mapping: VendorMapping, db: Session) -> bool:
+    minimum, ptype = _rating_requirement(mapping)
+    return minimum is None or rating_score(mapping.vendor_id, ptype, db) >= minimum
+
+
+AUTO_APPROVE_REASON = "Covered by the vendor's approved category mapping"
+
+
+def close_covered_item_requests(db: Session, category_mapping: VendorMapping, actor_id: int | None) -> int:
+    """When a category mapping is approved, the vendor's still-pending item
+    requests under that category are redundant (the category already makes
+    them eligible), so approve them in the same step -- unless the item has
+    its own minimum rating the vendor doesn't meet, in which case it stays
+    Pending for a person to decide. Returns how many were closed."""
+
+    if category_mapping.category_id is None:
+        return 0
+    pending = (
+        db.query(VendorMapping)
+        .join(ProductMaster, VendorMapping.product_master_id == ProductMaster.id)
+        .filter(
+            VendorMapping.vendor_id == category_mapping.vendor_id,
+            VendorMapping.state == MappingState.PENDING,
+            ProductMaster.category_id == category_mapping.category_id,
+        )
+        .all()
+    )
+    closed = 0
+    for m in pending:
+        if not meets_rating_gate(m, db):
+            continue
+        log_transition(db, m, MappingState.APPROVED, actor_id, AUTO_APPROVE_REASON)
+        m.decided_by_id = actor_id
+        m.decided_at = category_mapping.decided_at
+        closed += 1
+    return closed
+
+
 def log_transition(db: Session, mapping: VendorMapping, to_state: MappingState, actor_id: int | None, reason: str | None) -> None:
     """One state change, with its history row. Every transition goes through here."""
 

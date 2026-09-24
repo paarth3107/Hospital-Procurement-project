@@ -17,6 +17,7 @@ class VendorStatus(str, enum.Enum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
     REJECTED = "rejected"
+    BLACKLISTED = "blacklisted"  # spec 3.4 "Rejected / Blacklisted": an approved vendor permanently barred
 
 
 class Vendor(Base):
@@ -110,3 +111,19 @@ class VendorDocument(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     vendor = relationship("Vendor", back_populates="documents")
+
+
+class VendorStatusHistory(Base):
+    """One row per vendor status change (spec 3.4 / 3.5): who moved a vendor
+    between Pending / Info Requested / Active / Suspended / Rejected /
+    Blacklisted, and why. Never edited or deleted."""
+
+    __tablename__ = "vendor_status_history"
+
+    id = Column(Integer, primary_key=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    from_status = Column(Enum(VendorStatus), nullable=True)
+    to_status = Column(Enum(VendorStatus), nullable=False)
+    reason = Column(Text, nullable=True)
+    actor_id = Column(Integer, nullable=True)  # user_accounts.id; null = system / the vendor's own registration
+    at = Column(DateTime(timezone=True), server_default=func.now())

@@ -91,6 +91,7 @@ function vendorBase(s) {
     ["Info requested", v.info_requested || 0, "#7d7979"],
     ["Suspended", v.suspended || 0, "#201e1d"],
     ["Rejected", v.rejected || 0, "rgba(32,30,29,.45)"],
+    ["Blacklisted", v.blacklisted || 0, "#201e1d"],
   ];
   const alerts = [];
   const queued = (v.pending_verification || 0) + (v.info_requested || 0);

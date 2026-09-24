@@ -14,11 +14,21 @@ from app.models.vendor import (
     VendorDocType,
     VendorDocument,
     VendorStatus,
+    VendorStatusHistory,
 )
-from app.schemas.vendor import VendorCreate, VendorInfoRequest, VendorLookupOut, VendorOut, VendorRejection
+from app.schemas.vendor import (
+    VendorCreate,
+    VendorInfoRequest,
+    VendorLookupOut,
+    VendorOut,
+    VendorReinstatement,
+    VendorRejection,
+    VendorStatusHistoryOut,
+)
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
 from app.routers.vendor_documents import store_document
 from app.security import get_current_user, hash_password, require_role
+from app.services.vendor_status import set_status
 
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
@@ -106,6 +116,7 @@ async def register_vendor(
     )
     db.add(vendor)
     db.flush()
+    db.add(VendorStatusHistory(vendor_id=vendor.id, from_status=None, to_status=VendorStatus.PENDING_VERIFICATION, reason="Registered"))
     for doc_type, upload in files.items():
         store_document(db, vendor.id, doc_type, upload.filename, upload.content_type, await upload.read())
     db.commit()
@@ -117,7 +128,7 @@ async def register_vendor(
 def list_vendors(
     status_filter: VendorStatus | None = None,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
 ):
     query = db.query(Vendor)
     if status_filter is not None:
@@ -149,7 +160,7 @@ def lookup_vendors(
 def get_vendor(
     vendor_id: int,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
 ):
     vendor = db.get(Vendor, vendor_id)
     if not vendor:
@@ -199,10 +210,7 @@ def approve_vendor(
             detail=f"Cannot approve: mandatory document(s) not yet verified: {', '.join(missing)}",
         )
 
-    vendor.status = VendorStatus.ACTIVE
-    vendor.decided_at = datetime.now(timezone.utc)
-    vendor.decided_by_id = user.id
-    vendor.rejection_reason = None
+    set_status(db, vendor, VendorStatus.ACTIVE, user.id, "Approved")
     db.commit()
     db.refresh(vendor)
     return vendor
@@ -216,10 +224,7 @@ def reject_vendor(
     user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
     vendor = _load_decidable_vendor(vendor_id, db)
-    vendor.status = VendorStatus.REJECTED
-    vendor.rejection_reason = payload.reason
-    vendor.decided_at = datetime.now(timezone.utc)
-    vendor.decided_by_id = user.id
+    set_status(db, vendor, VendorStatus.REJECTED, user.id, payload.reason)
     db.commit()
     db.refresh(vendor)
     return vendor
@@ -238,13 +243,109 @@ def request_info(
     same requirement as an outright rejection's reason."""
 
     vendor = _load_decidable_vendor(vendor_id, db)
-    vendor.status = VendorStatus.INFO_REQUESTED
-    vendor.rejection_reason = payload.note
-    vendor.decided_at = datetime.now(timezone.utc)
-    vendor.decided_by_id = user.id
+    set_status(db, vendor, VendorStatus.INFO_REQUESTED, user.id, payload.note)
     db.commit()
     db.refresh(vendor)
     return vendor
+
+
+# ---- Post-approval status changes (spec 3.4): suspend / reinstate / blacklist ----
+
+
+def _load_vendor(vendor_id: int, db: Session) -> Vendor:
+    vendor = db.get(Vendor, vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
+    return vendor
+
+
+@router.post("/{vendor_id}/suspend", response_model=VendorOut)
+def suspend_vendor(
+    vendor_id: int,
+    payload: VendorRejection,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
+):
+    """Temporarily blocks an Active vendor (compliance lapse, poor
+    performance). A suspended vendor can't bid, be mapped or be invited;
+    history and existing mappings are kept. Always carries a reason."""
+
+    vendor = _load_vendor(vendor_id, db)
+    if vendor.status != VendorStatus.ACTIVE:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Only an Active vendor can be suspended (this one is '{vendor.status.value}')")
+    set_status(db, vendor, VendorStatus.SUSPENDED, user.id, payload.reason)
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
+
+# The Procurement Officer is in charge of bringing a blacklisted vendor back
+# (System Admin as the usual catch-all); every other decision role handles
+# ordinary suspensions.
+BLACKLIST_REINSTATERS = (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN)
+
+
+@router.post("/{vendor_id}/reinstate", response_model=VendorOut)
+def reinstate_vendor(
+    vendor_id: int,
+    payload: VendorReinstatement,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
+):
+    """Suspended -> Active, or Blacklisted -> Active.
+
+    A blacklisted vendor can only be reinstated by the Procurement Officer
+    (or System Admin), and only with an explicit reason, which is written to
+    the vendor's status history. A suspension can be lifted by the usual
+    decision roles."""
+
+    vendor = _load_vendor(vendor_id, db)
+    if vendor.status == VendorStatus.BLACKLISTED:
+        if user.role not in BLACKLIST_REINSTATERS:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the Procurement Officer can reinstate a blacklisted vendor")
+        if not (payload.reason and payload.reason.strip()):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An explicit reason is required to reinstate a blacklisted vendor")
+        set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {payload.reason.strip()}")
+    elif vendor.status == VendorStatus.SUSPENDED:
+        if user.role == Role.PROCUREMENT_OFFICER:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="A suspension is lifted by Procurement Admin or Category Manager")
+        set_status(db, vendor, VendorStatus.ACTIVE, user.id, (payload.reason or "").strip() or "Reinstated")
+    else:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Only a Suspended or Blacklisted vendor can be reinstated (this one is '{vendor.status.value}')")
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
+
+@router.post("/{vendor_id}/blacklist", response_model=VendorOut)
+def blacklist_vendor(
+    vendor_id: int,
+    payload: VendorRejection,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
+):
+    """Bars an Active or Suspended vendor (spec 3.4 "Rejected / Blacklisted"):
+    they can no longer log in, bid, be mapped or be invited. The way back is
+    reinstate (Procurement Officer, with an explicit reason)."""
+
+    vendor = _load_vendor(vendor_id, db)
+    if vendor.status not in (VendorStatus.ACTIVE, VendorStatus.SUSPENDED):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Only an Active or Suspended vendor can be blacklisted (this one is '{vendor.status.value}')")
+    set_status(db, vendor, VendorStatus.BLACKLISTED, user.id, payload.reason)
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
+
+@router.get("/{vendor_id}/status-history", response_model=list[VendorStatusHistoryOut])
+def vendor_status_history(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
+):
+    _load_vendor(vendor_id, db)
+    rows = db.query(VendorStatusHistory).filter(VendorStatusHistory.vendor_id == vendor_id).order_by(VendorStatusHistory.at).all()
+    return rows
 
 
 # ---- Document review (Category Manager / Procurement Admin / System Admin) ----

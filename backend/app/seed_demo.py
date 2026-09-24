@@ -36,6 +36,7 @@ WIPE_TABLES = [
     "vendor_mapping_history",
     "vendor_mappings",
     "vendor_documents",
+    "vendor_status_history",
     "vendors",
     "product_master",
     "product_categories",

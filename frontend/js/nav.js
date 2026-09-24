@@ -79,7 +79,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // "logged in staff sees everything". Kept in one place so a new tab only
 // needs one line here, not a scattered set of if/role checks.
 export const ROLE_TABS = {
-  procurement_officer: ["dashboard", "tenders"],
+  procurement_officer: ["dashboard", "queue", "tenders"],
   category_manager: ["dashboard", "queue", "catalog", "mappings", "ratings"],
   procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
   approving_authority: ["dashboard", "approvals"],

@@ -174,3 +174,10 @@ Fixes found by re-reading spec §4 against the first build:
 - **Mapping matrix**: clicking a cell opens a detail dialog (facts, scope, versioned history) — the only place approve/reject/suspend/reinstate/map happen.
 - **UI**: restyled to the Modernist design system from the reference prototype (left sidebar shell, Archivo, accent #ec3013, radius 0). See `DESIGN-REFERENCE.md`.
 - **Guest vendors**: the user directed (2026-09-24) that Guest Invite follow the prototype (guest may bid; PO blocked until KYC). Not built yet; see the update at the top of the PROJECT OVERRIDE section in `CLAUDE.md` and its "Active Questions".
+
+## Vendor suspend / reinstate / blacklist (spec 3.4)
+
+- `POST /api/v1/vendors/{id}/suspend` (Active only, reason required), `/reinstate` (Suspended, or Blacklisted by the Procurement Officer with a reason), `/blacklist` (Active or Suspended, reason required), `GET /{id}/status-history`. Roles: Procurement Admin, Category Manager, System Admin.
+- Every status change (registration, approve, reject, request-info, suspend, reinstate, blacklist) goes through `services/vendor_status.set_status` and is written to `vendor_status_history`.
+- Suspended: can log in and view, but can't bid (bid gate and `can_bid`), be mapped or be invited; mappings and history are kept. Blacklisted: can't log in (403). It is reversible only by the **Procurement Officer** (or System Admin) via `POST /{id}/reinstate` with an **explicit, mandatory reason** recorded in `vendor_status_history` (no approval step; other roles get 403). Lifting a suspension stays with Procurement Admin / Category Manager / System Admin. The Procurement Officer sees the Vendor registrations tab read-only (no documents) with that single action.
+- Not built yet: document expiry dates and auto-suspend on expiry (spec 3.5) — the next Module 1 item.

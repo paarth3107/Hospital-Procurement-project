@@ -13,7 +13,7 @@ const STATE_TONE = {
   active: "pos", approved: "pos", verified: "pos", published: "pos", accepted: "pos",
   pending: "", pending_verification: "", draft: "", submitted: "",
   pending_approval: "att", info_requested: "esc", escalated: "esc",
-  rejected: "neg", suspended: "neg", withdrawn: "neg", expired: "neg", disqualified: "neg",
+  rejected: "neg", suspended: "neg", blacklisted: "neg", withdrawn: "neg", expired: "neg", disqualified: "neg",
 };
 export const stateTag = (state) => tag(String(state || "—").replace(/_/g, " "), STATE_TONE[state] ?? "");
 

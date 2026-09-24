@@ -15,6 +15,7 @@ const NOTES = {
   pending_verification: "Verification pending: your registration and documents are with our team for review. You'll be able to request categories once they're approved.",
   info_requested: "More information requested: check the note on your profile and re-upload any rejected documents under Company profile.",
   rejected: "Your registration was not approved. See the note on your profile.",
+  suspended: "Your account is suspended: you can't bid or be invited to new tenders until it's reinstated. See the note on your profile.",
 };
 
 async function statusNote(vendor) {

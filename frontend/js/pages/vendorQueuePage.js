@@ -4,13 +4,17 @@ import { modalPrompt, modalConfirm } from "../modal.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
 import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn } from "../kit.js";
 import { refreshChrome } from "../nav.js";
+import { state } from "../state.js";
 
 // ---- Vendor registrations (Module 1): queue on the left, the selected
 // registration's identity, KYC documents and decision bar on the right. ----
 const root = () => document.getElementById("queue-root");
 const resultEl = () => document.getElementById("queue-result");
 
-let statusFilter = "pending_verification";
+let statusFilter = null; // set on first load, by role
+// The Procurement Officer sees this tab read-only, with one job: reinstating
+// blacklisted vendors (with an explicit reason). Everyone else reviews KYC.
+const isOfficer = () => state.user?.role === "procurement_officer";
 let vendors = [];
 let selectedId = null;
 // Verify/Reject on a document stay disabled until the reviewer has opened
@@ -22,10 +26,13 @@ const FILTERS = [
   ["info_requested", "Info requested"],
   ["active", "Active"],
   ["rejected", "Rejected"],
+  ["suspended", "Suspended"],
+  ["blacklisted", "Blacklisted"],
   ["", "All"],
 ];
 
 export async function loadVendors() {
+  if (statusFilter === null) statusFilter = isOfficer() ? "blacklisted" : "pending_verification";
   try {
     vendors = await api("/vendors" + (statusFilter ? `?status_filter=${statusFilter}` : ""));
     if (!vendors.some((v) => v.id === selectedId)) selectedId = vendors[0]?.id ?? null;
@@ -103,21 +110,65 @@ function docsPane(vendor, docs) {
   </div>`;
 }
 
+const canReinstateBlacklisted = () => ["procurement_officer", "system_admin"].includes(state.user?.role);
+
 function decisionBar(vendor, docs) {
+  // The Procurement Officer's only action here is reinstating a blacklisted vendor.
+  if (isOfficer() && vendor.status !== "blacklisted") {
+    return `<div class="ep-pane ep-pane-pad hint">Read-only for your role. The Procurement Officer's job on this tab is reinstating blacklisted vendors.</div>`;
+  }
   const decidable = ["pending_verification", "info_requested"].includes(vendor.status);
   const byType = new Map(docs.map((d) => [d.doc_type, d]));
   const mandatoryRejected = VENDOR_DOC_TYPES.filter((t) => t.mandatory).some((t) => byType.get(t.value)?.status === "rejected");
-  const banner = mandatoryRejected
+  const banner = decidable && mandatoryRejected
     ? `<div class="ep-note warn">A mandatory document has been rejected. Either reject this registration outright, or request the documents again with a note explaining what's needed.</div>`
     : "";
-  if (!decidable) {
-    return `${banner}<div class="ep-pane ep-pane-pad hint">This registration is ${esc(vendor.status.replace("_", " "))}; no decision is pending.</div>`;
+  const bar = (text, buttons) =>
+    `${banner}<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.68);line-height:1.45">${text}</div>${buttons}</div>`;
+
+  if (decidable) {
+    return bar(
+      "Every mandatory document must be Verified before approval. Approval activates the vendor and opens category mapping.",
+      btn("Request info", { attrs: 'data-decision="info"' }) +
+        btn("Reject", { attrs: 'data-decision="reject"' }) +
+        (mandatoryRejected ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' }))
+    );
   }
-  return `${banner}<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:12px">
-    <div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.68);line-height:1.45">Every mandatory document must be Verified before approval. Approval activates the vendor and opens category mapping.</div>
-    ${btn("Request info", { attrs: 'data-decision="info"' })}
-    ${btn("Reject", { attrs: 'data-decision="reject"' })}
-    ${mandatoryRejected ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' })}
+  if (vendor.status === "active") {
+    return bar(
+      "Suspending blocks bidding, new mappings and new invitations, and keeps history and mappings. Blacklisting also blocks login; only the Procurement Officer can reinstate a blacklisted vendor, with a reason.",
+      btn("Blacklist", { attrs: 'data-decision="blacklist"' }) + btn("Suspend vendor", { primary: true, attrs: 'data-decision="suspend"' })
+    );
+  }
+  if (vendor.status === "suspended") {
+    return bar(
+      "This vendor is suspended and can't bid or be invited. Reinstate once the issue is resolved.",
+      btn("Blacklist", { attrs: 'data-decision="blacklist"' }) + btn("Reinstate", { primary: true, attrs: 'data-decision="reinstate"' })
+    );
+  }
+  if (vendor.status === "blacklisted") {
+    return canReinstateBlacklisted()
+      ? bar(
+          "This vendor is blacklisted and cannot log in or bid. Reinstating needs an explicit reason, which is kept in the status history.",
+          btn("Reinstate vendor", { primary: true, attrs: 'data-decision="reinstate-blacklisted"' })
+        )
+      : `<div class="ep-pane ep-pane-pad hint">This vendor is blacklisted. Only the Procurement Officer can reinstate it, with an explicit reason.</div>`;
+  }
+  return `<div class="ep-pane ep-pane-pad hint">This vendor is ${esc(vendor.status)}; no decision is pending.</div>`;
+}
+
+function historyPane(history) {
+  return `<div class="ep-pane">
+    <div class="ep-pane-head"><span>Status history</span></div>
+    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">${history
+      .slice()
+      .reverse()
+      .map(
+        (h) => `<div class="hist"><div class="hist-when">${fmtDateTime(h.at)}</div>
+          <div style="font-size:12px;line-height:1.4">${h.from_status ? esc(h.from_status.replace("_", " ")) + " → " : ""}<b>${esc(h.to_status.replace("_", " "))}</b>${h.reason ? " — " + esc(h.reason) : ""}</div></div>`
+      )
+      .join("")}</div>
   </div>`;
 }
 
@@ -127,8 +178,13 @@ async function render() {
   let docs = [];
   if (selectedId !== null) {
     try {
-      [current, docs] = await Promise.all([api(`/vendors/${selectedId}`), api(`/vendors/${selectedId}/documents`)]);
-      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${docsPane(current, docs)}${decisionBar(current, docs)}</div>`;
+      let history;
+      [current, docs, history] = await Promise.all([
+        api(`/vendors/${selectedId}`),
+        isOfficer() ? Promise.resolve([]) : api(`/vendors/${selectedId}/documents`),
+        api(`/vendors/${selectedId}/status-history`),
+      ]);
+      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${isOfficer() ? "" : docsPane(current, docs)}${decisionBar(current, docs)}${historyPane(history)}</div>`;
     } catch (err) {
       detail = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
     }
@@ -205,6 +261,25 @@ async function decide(kind, vendor) {
       if (!reason) return;
       await post(`/vendors/${vendor.id}/reject`, { reason });
       showResult(resultEl(), "Registration rejected.", true);
+    } else if (kind === "suspend") {
+      const reason = await modalPrompt(`Reason for suspending ${vendor.legal_name} (required):`);
+      if (!reason) return;
+      await post(`/vendors/${vendor.id}/suspend`, { reason });
+      showResult(resultEl(), "Vendor suspended.", true);
+    } else if (kind === "reinstate") {
+      if (!(await modalConfirm(`Reinstate ${vendor.legal_name} to Active?`, { confirmLabel: "Reinstate" }))) return;
+      await post(`/vendors/${vendor.id}/reinstate`, {});
+      showResult(resultEl(), "Vendor reinstated.", true);
+    } else if (kind === "reinstate-blacklisted") {
+      const reason = await modalPrompt(`Explicit reason for reinstating ${vendor.legal_name} (required — recorded in the status history):`);
+      if (!reason) return;
+      await post(`/vendors/${vendor.id}/reinstate`, { reason });
+      showResult(resultEl(), "Vendor reinstated.", true);
+    } else if (kind === "blacklist") {
+      const reason = await modalPrompt(`Reason for blacklisting ${vendor.legal_name} (required — the Procurement Officer can reinstate later, with a reason):`);
+      if (!reason) return;
+      await post(`/vendors/${vendor.id}/blacklist`, { reason });
+      showResult(resultEl(), "Vendor blacklisted.", true);
     } else {
       const note = await modalPrompt("Note to the vendor explaining what's needed (required):");
       if (!note) return;

@@ -13,6 +13,7 @@ from app.services.mappings import (
     after_item_reinstated,
     after_item_suspended,
     check_rating_gate,
+    close_covered_item_requests,
     create_pending_mapping,
     log_transition,
 )
@@ -120,6 +121,7 @@ def approve_mapping(
     _log_transition(db, mapping, MappingState.APPROVED, actor_id=user.id, reason=None)
     mapping.decided_by_id = user.id
     mapping.decided_at = datetime.now(timezone.utc)
+    close_covered_item_requests(db, mapping, user.id)
     db.commit()
     db.refresh(mapping)
     return mapping

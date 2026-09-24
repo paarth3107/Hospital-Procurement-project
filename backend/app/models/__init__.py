@@ -7,7 +7,15 @@ from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
 from app.models.user_account import Role, UserAccount
-from app.models.vendor import DocumentStatus, MANDATORY_DOC_TYPES, Vendor, VendorDocType, VendorDocument, VendorStatus
+from app.models.vendor import (
+    DocumentStatus,
+    MANDATORY_DOC_TYPES,
+    Vendor,
+    VendorDocType,
+    VendorDocument,
+    VendorStatus,
+    VendorStatusHistory,
+)
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
 from app.models.vendor_rating import RatingHistory, VendorRating
 
@@ -17,6 +25,7 @@ __all__ = [
     "Role",
     "Vendor",
     "VendorStatus",
+    "VendorStatusHistory",
     "ProductMaster",
     "ProductCategory",
     "ProcurementType",

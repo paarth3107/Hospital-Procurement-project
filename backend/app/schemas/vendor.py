@@ -88,6 +88,24 @@ class VendorOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VendorStatusHistoryOut(BaseModel):
+    id: int
+    from_status: VendorStatus | None
+    to_status: VendorStatus
+    reason: str | None
+    actor_id: int | None
+    at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VendorReinstatement(BaseModel):
+    """Optional for lifting a suspension; mandatory (enforced in the router)
+    for reinstating a blacklisted vendor."""
+
+    reason: str | None = None
+
+
 class VendorRejection(BaseModel):
     reason: str
 

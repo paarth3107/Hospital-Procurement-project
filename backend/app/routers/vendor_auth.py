@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.vendor import Vendor
+from app.models.vendor import Vendor, VendorStatus
 from app.schemas.auth import TokenResponse
 from app.schemas.vendor import VendorOut
 from app.security import create_access_token, get_current_vendor, verify_password
@@ -21,6 +21,8 @@ def vendor_login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depe
     vendor = db.query(Vendor).filter(Vendor.email == email).first()
     if not vendor or not vendor.hashed_password or not verify_password(form.password, vendor.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+    if vendor.status == VendorStatus.BLACKLISTED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This vendor account has been barred")
     return TokenResponse(access_token=create_access_token(subject=vendor.email, token_type="vendor"))
 
 

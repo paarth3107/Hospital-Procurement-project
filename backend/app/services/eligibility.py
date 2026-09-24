@@ -33,7 +33,16 @@ def _mapped_vendor_ids(line_item: TenderLineItem, db: Session) -> set[int]:
             .filter(VendorMapping.category_id == product.category_id, VendorMapping.state == MappingState.APPROVED)
             .all()
         )
-        allowed |= {m.vendor_id for m in category_mappings}
+        # A vendor covered only through the category still has to meet the
+        # item's own minimum rating (restricted items), which the category
+        # approval alone doesn't guarantee. An explicit item approval already
+        # went through that gate when it was decided.
+        for m in category_mappings:
+            if m.vendor_id in allowed:
+                continue
+            minimum = product.min_mapping_rating
+            if minimum is None or rating_score(m.vendor_id, product.procurement_type, db) >= minimum:
+                allowed.add(m.vendor_id)
 
     return allowed - blocked
 

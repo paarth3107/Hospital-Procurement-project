@@ -65,7 +65,7 @@ def list_open_tenders(vendor: Vendor = Depends(get_current_vendor), db: Session 
     now = datetime.now(timezone.utc)
     results = []
     for tender_id, tender in tenders.items():
-        can_bid = tender.bid_due_date is not None and now <= tender.bid_due_date
+        can_bid = vendor.status == VendorStatus.ACTIVE and tender.bid_due_date is not None and now <= tender.bid_due_date
         line_items_out = [
             PortalLineItemOut(
                 line_item_id=li.id,
