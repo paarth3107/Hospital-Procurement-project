@@ -13,7 +13,7 @@ from app.models.tender_line_item import TenderLineItem
 from app.models.vendor_mapping import MappingState, VendorMapping
 from app.models.vendor_rating import VendorRating
 from app.models.user_account import UserAccount
-from app.models.vendor import Vendor, VendorStatus
+from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus
 from app.schemas.dashboard import (
     DashboardHeldLineOut,
     DashboardOpenTenderOut,
@@ -25,6 +25,20 @@ from app.security import get_current_user
 from app.services.approval_matrix import can_approve_tier
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+
+
+def _live_expiry_docs(db: Session):
+    """Documents with an expiry date that belong to vendors still in play."""
+    return (
+        db.query(VendorDocument)
+        .join(Vendor, Vendor.id == VendorDocument.vendor_id)
+        .filter(
+            VendorDocument.valid_till.isnot(None),
+            VendorDocument.status != DocumentStatus.REJECTED,
+            Vendor.status.in_([VendorStatus.ACTIVE, VendorStatus.SUSPENDED]),
+        )
+        .all()
+    )
 
 
 @router.get("/stats", response_model=DashboardStatsOut)
@@ -95,6 +109,8 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         lines_published=len(published_lines) - len(held_lines),
         last_rating_update=db.query(func.max(VendorRating.last_manual_update_at)).scalar(),
         next_bid_close=open_tenders[0].bid_due_date if open_tenders else None,
+        docs_expiring_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expiring"),
+        docs_expired_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expired"),
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)
             for li in held_lines[:5]

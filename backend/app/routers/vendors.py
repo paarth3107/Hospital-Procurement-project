@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -28,6 +28,7 @@ from app.schemas.vendor import (
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
 from app.routers.vendor_documents import store_document
 from app.security import get_current_user, hash_password, require_role
+from app.services.expiry import reinstate_if_cleared
 from app.services.vendor_status import set_status
 
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
@@ -46,43 +47,78 @@ VENDOR_DECISION_ROLES = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYS
 DECIDABLE_STATUSES = {VendorStatus.PENDING_VERIFICATION, VendorStatus.INFO_REQUESTED}
 
 
+# Document slots on the registration form: (form field, doc type, mandatory).
+# Optional ones are the statutory "as applicable" licences / certificates.
+REGISTRATION_DOCS = [
+    ("gst_certificate", VendorDocType.GST_CERTIFICATE),
+    ("pan_card", VendorDocType.PAN_CARD),
+    ("incorporation_certificate", VendorDocType.INCORPORATION_CERTIFICATE),
+    ("bank_proof", VendorDocType.BANK_PROOF),
+    ("sample_catalog", VendorDocType.SAMPLE_CATALOG),
+    ("business_license", VendorDocType.BUSINESS_LICENSE),
+    ("drug_license", VendorDocType.DRUG_LICENSE),
+    ("msme_udyam", VendorDocType.MSME_UDYAM),
+    ("iso_certificate", VendorDocType.ISO_CERTIFICATE),
+]
+
+
 @router.post("", response_model=VendorOut, status_code=status.HTTP_201_CREATED)
-async def register_vendor(
-    legal_name: str = Form(...),
-    gstin: str = Form(...),
-    pan: str = Form(...),
-    contact_person: str = Form(...),
-    email: str = Form(...),
-    phone: str = Form(...),
-    password: str = Form(...),
-    gst_certificate: UploadFile = File(...),
-    pan_card: UploadFile = File(...),
-    incorporation_certificate: UploadFile = File(...),
-    bank_proof: UploadFile | None = File(None),
-    db: Session = Depends(get_db),
-):
-    """Spec §3.3 registration workflow. Deliberately the *only* vendor
-    creation path in this system — the Open Tender public landing page and
+async def register_vendor(request: Request, db: Session = Depends(get_db)):
+    """Spec 3.3 registration workflow. Deliberately the *only* vendor
+    creation path in this system -- the Open Tender public landing page and
     the "invite a prospective vendor" flow both route here too (CLAUDE.md
     PROJECT OVERRIDE: no lightweight/guest variant that skips this).
 
-    Multipart: the vendor row and every mandatory document (GST certificate,
-    PAN card, incorporation certificate; bank proof optional) are saved in
-    one transaction, so a registration can never exist without its mandatory
-    documents. Enforced here, not just by the form."""
+    Multipart: every spec 3.2 field group plus the documents. The vendor row
+    and all documents are saved in one transaction, so a registration can
+    never exist without its mandatory documents (enforced here, not just by
+    the form). Optional per-document expiry dates arrive as
+    `valid_till_<doc field>`."""
+
+    form = await request.form()
+    text_fields = {k: (v if isinstance(v, str) else None) for k, v in form.items()}
+
+    def number(name, cast):
+        raw = (text_fields.get(name) or "").strip()
+        if raw == "":
+            return None
+        try:
+            return cast(raw)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{name}: enter a valid number")
 
     try:
         payload = VendorCreate(
-            legal_name=legal_name, gstin=gstin, pan=pan, contact_person=contact_person,
-            email=email, phone=phone, password=password,
+            legal_name=text_fields.get("legal_name") or "",
+            gstin=text_fields.get("gstin") or "",
+            pan=text_fields.get("pan") or "",
+            trade_name=(text_fields.get("trade_name") or "").strip() or None,
+            entity_type=text_fields.get("entity_type") or "",
+            year_of_incorporation=number("year_of_incorporation", int) or 0,
+            registered_address=text_fields.get("registered_address") or "",
+            branch_locations=(text_fields.get("branch_locations") or "").strip() or None,
+            bank_name=text_fields.get("bank_name") or "",
+            bank_account_number=text_fields.get("bank_account_number") or "",
+            bank_ifsc=text_fields.get("bank_ifsc") or "",
+            contact_person=text_fields.get("contact_person") or "",
+            contact_designation=text_fields.get("contact_designation") or "",
+            email=text_fields.get("email") or "",
+            phone=text_fields.get("phone") or "",
+            escalation_contact_name=text_fields.get("escalation_contact_name") or "",
+            escalation_contact_phone=text_fields.get("escalation_contact_phone") or "",
+            escalation_contact_email=(text_fields.get("escalation_contact_email") or "").strip() or None,
+            payment_terms=(text_fields.get("payment_terms") or "").strip() or None,
+            delivery_lead_time_days=number("delivery_lead_time_days", int),
+            min_order_value=number("min_order_value", float),
+            password=text_fields.get("password") or "",
         )
     except ValidationError as e:
         msg = "; ".join(f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors())
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
 
-    # Spec §3.5 duplicate check + §6.8.2 point 3 (Open Tender self-
-    # registration matches an existing profile instead of duplicating).
-    # GSTIN, PAN, email and phone must each be unique to one vendor.
+    # Spec 3.5 duplicate check + 6.8.2 point 3 (Open Tender self-registration
+    # matches an existing profile instead of duplicating). GSTIN, PAN, email
+    # and phone must each be unique to one vendor.
     for column, value, label in (
         (Vendor.gstin, payload.gstin, "GSTIN"),
         (Vendor.pan, payload.pan, "PAN"),
@@ -96,29 +132,30 @@ async def register_vendor(
                 detail=f"A vendor with this {label} is already registered (status: {existing.status.value})",
             )
 
-    files = {
-        VendorDocType.GST_CERTIFICATE: gst_certificate,
-        VendorDocType.PAN_CARD: pan_card,
-        VendorDocType.INCORPORATION_CERTIFICATE: incorporation_certificate,
-    }
-    if bank_proof is not None and bank_proof.filename:
-        files[VendorDocType.BANK_PROOF] = bank_proof
+    uploads = {}
+    for field, doc_type in REGISTRATION_DOCS:
+        upload = form.get(field)
+        if upload is not None and not isinstance(upload, str) and upload.filename:
+            uploads[doc_type] = (field, upload)
+    missing = [dt.value for dt in MANDATORY_DOC_TYPES if dt not in uploads]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Mandatory document(s) missing: {', '.join(sorted(missing))}")
 
     vendor = Vendor(
-        legal_name=payload.legal_name,
-        gstin=payload.gstin,
-        pan=payload.pan,
-        contact_person=payload.contact_person,
-        email=payload.email,
-        phone=payload.phone,
+        **payload.model_dump(exclude={"password", "category_declaration"}),
         status=VendorStatus.PENDING_VERIFICATION,
         hashed_password=hash_password(payload.password),
     )
     db.add(vendor)
     db.flush()
     db.add(VendorStatusHistory(vendor_id=vendor.id, from_status=None, to_status=VendorStatus.PENDING_VERIFICATION, reason="Registered"))
-    for doc_type, upload in files.items():
-        store_document(db, vendor.id, doc_type, upload.filename, upload.content_type, await upload.read())
+    for doc_type, (field, upload) in uploads.items():
+        raw_date = (text_fields.get(f"valid_till_{field}") or "").strip()
+        try:
+            valid_till = date.fromisoformat(raw_date) if raw_date else None
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"valid_till_{field}: enter a valid date")
+        store_document(db, vendor.id, doc_type, upload.filename, upload.content_type, await upload.read(), valid_till)
     db.commit()
     db.refresh(vendor)
     return vendor
@@ -403,6 +440,8 @@ def verify_vendor_document(
     doc.rejection_reason = None
     doc.reviewed_by_id = user.id
     doc.reviewed_at = datetime.now(timezone.utc)
+    db.flush()
+    reinstate_if_cleared(db, doc.vendor, user.id)
     db.commit()
     db.refresh(doc)
     return doc

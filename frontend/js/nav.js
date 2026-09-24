@@ -16,7 +16,7 @@ import { loadApprovals } from "./pages/approvalsPage.js";
 const PAGE_TITLES = {
   dashboard: ["Overview", "Procurement command centre"],
   queue: ["Module 1", "Vendor registration & onboarding"],
-  catalog: ["Module 2", "Item, Asset & Service master"],
+  catalog: ["Module 2", "Items"],
   mappings: ["Module 2", "Vendor–product eligibility matrix"],
   ratings: ["Module 3", "Vendor rating & scorecard"],
   tenders: ["Module 4", "E-tender creation"],

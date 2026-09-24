@@ -1,4 +1,5 @@
-from datetime import datetime
+import re
+from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, field_validator
 
@@ -9,15 +10,35 @@ from app.models.vendor import VendorStatus
 # this is a format sanity check, not a statutory verification (that's the
 # GST/PAN Verification API adapter, out of scope for this pass).
 GSTIN_LENGTH = 15
+# Spec 3.3 step 2: GSTIN/PAN format check (format only, not statutory verification).
+GSTIN_RE = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$")
+PAN_RE = re.compile(r"^[A-Z]{5}\d{4}[A-Z]$")
+IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z\d]{6}$")
+ENTITY_TYPES = ["Private Limited", "Public Limited", "LLP", "Partnership", "Proprietorship", "Other"]
 
 
 class VendorCreate(BaseModel):
     legal_name: str
     gstin: str
     pan: str
+    trade_name: str | None = None
+    entity_type: str
+    year_of_incorporation: int
+    registered_address: str
+    branch_locations: str | None = None
+    bank_name: str
+    bank_account_number: str
+    bank_ifsc: str
     contact_person: str
+    contact_designation: str
     email: EmailStr
     phone: str
+    escalation_contact_name: str
+    escalation_contact_phone: str
+    escalation_contact_email: str | None = None
+    payment_terms: str | None = None
+    delivery_lead_time_days: int | None = None
+    min_order_value: float | None = None
     category_declaration: str | None = None
     # Sets the vendor's own login immediately (no vendor portal existed
     # before this; no email/SMS adapter exists to deliver a temp password
@@ -28,9 +49,55 @@ class VendorCreate(BaseModel):
     @classmethod
     def gstin_format(cls, v: str) -> str:
         v = v.strip().upper()
-        if len(v) != GSTIN_LENGTH:
-            raise ValueError(f"GSTIN must be {GSTIN_LENGTH} characters")
+        if len(v) != GSTIN_LENGTH or not GSTIN_RE.match(v):
+            raise ValueError("GSTIN must be 15 characters in the standard format (e.g. 27AAAPM1234C1Z5)")
         return v
+
+    @field_validator("entity_type")
+    @classmethod
+    def entity_type_known(cls, v: str) -> str:
+        if v not in ENTITY_TYPES:
+            raise ValueError(f"Entity type must be one of: {', '.join(ENTITY_TYPES)}")
+        return v
+
+    @field_validator("year_of_incorporation")
+    @classmethod
+    def year_sane(cls, v: int) -> int:
+        if not 1800 <= v <= date.today().year:
+            raise ValueError("Enter a valid year of incorporation")
+        return v
+
+    @field_validator("bank_ifsc")
+    @classmethod
+    def ifsc_format(cls, v: str) -> str:
+        v = v.strip().upper()
+        if not IFSC_RE.match(v):
+            raise ValueError("IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits)")
+        return v
+
+    @field_validator("bank_account_number")
+    @classmethod
+    def account_number(cls, v: str) -> str:
+        v = v.strip()
+        if not v.isdigit() or not 6 <= len(v) <= 20:
+            raise ValueError("Bank account number must be 6 to 20 digits")
+        return v
+
+    @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("This field is required")
+        return v
+
+    @field_validator("escalation_contact_phone")
+    @classmethod
+    def escalation_phone(cls, v: str) -> str:
+        cleaned = "".join(ch for ch in v if ch.isdigit() or ch == "+")
+        if len(cleaned.lstrip("+")) < 7:
+            raise ValueError("Enter a valid escalation phone number")
+        return cleaned
 
     @field_validator("email")
     @classmethod
@@ -40,7 +107,10 @@ class VendorCreate(BaseModel):
     @field_validator("pan")
     @classmethod
     def pan_uppercase(cls, v: str) -> str:
-        return v.strip().upper()
+        v = v.strip().upper()
+        if not PAN_RE.match(v):
+            raise ValueError("PAN must be 10 characters in the standard format (e.g. AAAPM1234C)")
+        return v
 
     @field_validator("phone")
     @classmethod
@@ -78,9 +148,24 @@ class VendorOut(BaseModel):
     legal_name: str
     gstin: str
     pan: str | None
+    trade_name: str | None
+    entity_type: str | None
+    year_of_incorporation: int | None
+    registered_address: str | None
+    branch_locations: str | None
+    bank_name: str | None
+    bank_account_number: str | None
+    bank_ifsc: str | None
     contact_person: str
+    contact_designation: str | None
     email: str
     phone: str | None
+    escalation_contact_name: str | None
+    escalation_contact_phone: str | None
+    escalation_contact_email: str | None
+    payment_terms: str | None
+    delivery_lead_time_days: int | None
+    min_order_value: float | None
     category_declaration: str | None
     rejection_reason: str | None
     created_at: datetime

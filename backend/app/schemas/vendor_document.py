@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, field_validator
 
@@ -9,12 +9,15 @@ class VendorDocumentOut(BaseModel):
     id: int
     vendor_id: int
     doc_type: VendorDocType
+    custom_label: str
     original_filename: str
     content_type: str
     size_bytes: int
     status: DocumentStatus
     rejection_reason: str | None
     uploaded_at: datetime
+    valid_till: date | None
+    expiry_state: str
 
     model_config = {"from_attributes": True}
 

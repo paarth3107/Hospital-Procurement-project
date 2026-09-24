@@ -1,5 +1,8 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -19,7 +22,9 @@ def list_my_documents(vendor: Vendor = Depends(get_current_vendor), db: Session 
 @router.post("", response_model=VendorDocumentOut, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     doc_type: VendorDocType = Form(...),
+    custom_label: str | None = Form(None),
     file: UploadFile = File(...),
+    valid_till: date | None = Form(None),
     vendor: Vendor = Depends(get_current_vendor),
     db: Session = Depends(get_db),
 ):
@@ -28,28 +33,44 @@ async def upload_document(
     fresh review rather than inheriting the old one's verified/rejected
     status."""
 
+    label = (custom_label or "").strip()
+    if doc_type == VendorDocType.OTHER and not label:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Say what this document is (custom_label)")
+    if doc_type != VendorDocType.OTHER:
+        label = ""
     content = await file.read()
-    doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content)
+    doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label)
     db.commit()
     db.refresh(doc)
     return doc
 
 
 def store_document(
-    db: Session, vendor_id: int, doc_type: VendorDocType, filename: str, content_type: str, content: bytes
+    db: Session,
+    vendor_id: int,
+    doc_type: VendorDocType,
+    filename: str,
+    content_type: str,
+    content: bytes,
+    valid_till: date | None = None,
+    custom_label: str = "",
 ) -> VendorDocument:
     """Validate + scan + upsert one document row, without committing, so
     registration can store several files atomically with the vendor row."""
 
     try:
-        document_store.validate(content_type, len(content))
+        document_store.validate(content_type, len(content), allow_spreadsheets=doc_type == VendorDocType.SAMPLE_CATALOG)
     except document_store.DocumentValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{doc_type.value}: {e}")
     document_store.scan(content)
 
     existing = (
         db.query(VendorDocument)
-        .filter(VendorDocument.vendor_id == vendor_id, VendorDocument.doc_type == doc_type)
+        .filter(
+            VendorDocument.vendor_id == vendor_id,
+            VendorDocument.doc_type == doc_type,
+            func.lower(VendorDocument.custom_label) == custom_label.lower(),
+        )
         .first()
     )
     if existing:
@@ -61,14 +82,17 @@ def store_document(
         existing.rejection_reason = None
         existing.reviewed_by_id = None
         existing.reviewed_at = None
+        existing.valid_till = valid_till
         return existing
     doc = VendorDocument(
         vendor_id=vendor_id,
         doc_type=doc_type,
+        custom_label=custom_label,
         original_filename=filename,
         content_type=content_type,
         size_bytes=len(content),
         content=content,
+        valid_till=valid_till,
     )
     db.add(doc)
     return doc

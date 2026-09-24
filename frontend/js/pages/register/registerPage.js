@@ -11,7 +11,7 @@ const form = document.getElementById("register-form");
 
 function validate() {
   let firstBad = null;
-  form.querySelectorAll("input:not([type=file]), select").forEach((input) => {
+  form.querySelectorAll("input:not([type=file]), select, textarea").forEach((input) => {
     const bad = !input.checkValidity();
     input.classList.toggle("invalid", bad);
     if (bad && !firstBad) firstBad = input;
@@ -46,6 +46,9 @@ form.addEventListener("submit", async (e) => {
   if (!validate()) return;
   const formData = new FormData(form);
   for (const [docType, file] of getChosenFiles()) formData.append(docType, file);
+  form.querySelectorAll("[data-valid-till]").forEach((el) => {
+    if (el.value) formData.append(`valid_till_${el.dataset.validTill}`, el.value);
+  });
   const resultEl = document.getElementById("register-result");
   try {
     // multipart: fetch sets the boundary itself

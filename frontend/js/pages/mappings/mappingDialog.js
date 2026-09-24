@@ -1,5 +1,6 @@
 import { api } from "../../api.js";
-import { esc, kicker, stateTag, typeTag, fmtDateTime } from "../../kit.js";
+import { esc, kicker, stateTag, typeTag, fmtDateTime, tag } from "../../kit.js";
+import { docLabel, entryKey, docKey } from "../../constants.js";
 import { mapAndApprove, approveMapping, rejectMapping, suspendMapping, reinstateMapping } from "./mappingActions.js";
 
 // The detail dialog behind every matrix cell: facts, scope, versioned
@@ -59,6 +60,33 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
     }
   }
 
+  // Documents this item/category asks the vendor for, with the vendor's status for each.
+  const requiredTypes = [
+    ...new Set([
+      ...(isCategory ? [] : target.required_documents || []),
+      ...((isCategory ? target : data.categoryById.get(target.category_id))?.required_documents || []),
+    ]),
+  ];
+  let vendorDocs = [];
+  if (requiredTypes.length) {
+    try {
+      vendorDocs = await api(`/vendors/${vendor.id}/documents`);
+    } catch (err) {
+      vendorDocs = [];
+    }
+  }
+  const docsHtml = requiredTypes.length
+    ? `<div style="height:2px;background:rgba(32,30,29,.35);margin:15px 0 11px"></div>${kicker("Required documents")}
+       <div style="display:flex;flex-direction:column;gap:6px;margin-top:7px">${requiredTypes
+         .map((t) => {
+           const d = vendorDocs.find((x) => docKey(x) === entryKey(t));
+           const status = !d ? tag("Not uploaded", "att") : d.expiry_state === "expired" ? tag("Expired", "neg") : stateTag(d.status);
+           return `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><span>${esc(docLabel(t))}</span>${status}</div>`;
+         })
+         .join("")}
+         <div class="hint">Approving needs each one Verified — review them under Vendor registrations.</div></div>`
+    : "";
+
   const state = mapping ? mapping.state : null;
   const b = (label, act, primary) => `<button class="ep-b"${primary ? ' data-v="p"' : ""} data-act="${act}">${label}</button>`;
   const actions = {
@@ -78,6 +106,7 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
     <div class="dlg-body">
       <div>
         <div class="fact-grid">${facts.map(([k, v]) => `<div>${kicker(k)}<div class="fact-value">${esc(v)}</div></div>`).join("")}</div>
+        ${docsHtml}
         <div style="height:2px;background:rgba(32,30,29,.35);margin:15px 0 11px"></div>
         ${kicker("Mapping history")}
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">${

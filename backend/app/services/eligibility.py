@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping
+from app.services.expiry import expired_documents
+from app.services.mappings import unverified_documents
 from app.services.ratings import rating_score
 
 # Spec 4.4: "an Active mapping exists for that exact item/asset/service or
@@ -41,8 +43,13 @@ def _mapped_vendor_ids(line_item: TenderLineItem, db: Session) -> set[int]:
             if m.vendor_id in allowed:
                 continue
             minimum = product.min_mapping_rating
-            if minimum is None or rating_score(m.vendor_id, product.procurement_type, db) >= minimum:
-                allowed.add(m.vendor_id)
+            if minimum is not None and rating_score(m.vendor_id, product.procurement_type, db) < minimum:
+                continue
+            # ...and the item's own required documents (the category's were
+            # checked when the category was approved).
+            if unverified_documents(db, m.vendor_id, list(product.required_documents or [])):
+                continue
+            allowed.add(m.vendor_id)
 
     return allowed - blocked
 
@@ -67,7 +74,7 @@ def resolve_eligible_vendors(line_item: TenderLineItem, db: Session) -> list[Eli
     candidates: list[EligibleVendor] = []
     for vendor_id in _mapped_vendor_ids(line_item, db):
         vendor = db.get(Vendor, vendor_id)
-        if not vendor or vendor.status != VendorStatus.ACTIVE:
+        if not vendor or vendor.status != VendorStatus.ACTIVE or expired_documents(db, vendor.id):
             continue
         score = rating_score(vendor.id, line_item.procurement_type, db)
         if score >= threshold:

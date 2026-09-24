@@ -41,3 +41,7 @@ export function inr(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
+
+// "Expired" / "Expiring <date>" tag for a document with a valid-till date ("" if none/ok).
+export const expiryTag = (doc) =>
+  doc.expiry_state === "expired" ? tag("Expired", "neg") : doc.expiry_state === "expiring" ? tag(`Expiring ${fmtDate(doc.valid_till)}`, "att") : "";

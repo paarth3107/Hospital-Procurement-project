@@ -19,9 +19,16 @@ export async function loadVendorProfile() {
         <div style="font-size:14px;font-weight:800;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">Company &amp; statutory details ${stateTag(v.status)}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px 16px">
           ${field("Legal name", v.legal_name, 2)}
-          ${field("GSTIN", v.gstin)}${field("PAN", v.pan)}
-          ${field("Primary contact", v.contact_person)}${field("Phone", v.phone)}
+          ${field("Trade name", v.trade_name)}${field("Entity type", v.entity_type)}
+          ${field("Year of incorporation", v.year_of_incorporation)}${field("GSTIN", v.gstin)}
+          ${field("PAN", v.pan)}${field("Registered address", v.registered_address, 2)}
+          ${field("Branch locations", v.branch_locations, 2)}
+          ${field("Bank", [v.bank_name, v.bank_ifsc].filter(Boolean).join(" · "))}${field("Account number", v.bank_account_number)}
+          ${field("Primary contact", [v.contact_person, v.contact_designation].filter(Boolean).join(", "))}${field("Phone", v.phone)}
           ${field("Email (login)", v.email, 2)}
+          ${field("Escalation contact", [v.escalation_contact_name, v.escalation_contact_phone, v.escalation_contact_email].filter(Boolean).join(" · "), 2)}
+          ${field("Payment terms", v.payment_terms)}${field("Delivery lead time", v.delivery_lead_time_days != null ? v.delivery_lead_time_days + " days" : "")}
+          ${field("Minimum order value", v.min_order_value != null ? "₹" + Number(v.min_order_value).toLocaleString("en-IN") : "")}
           ${v.rejection_reason ? field("Note on file", v.rejection_reason, 2) : ""}
         </div>
       </div>
@@ -30,8 +37,10 @@ export async function loadVendorProfile() {
         <div id="vendor-category-picker"></div>
       </div>
     </div>`;
-    renderVendorDocuments(document.getElementById("vendor-documents-list"));
-    renderVendorCategories(document.getElementById("vendor-category-picker"));
+    const categoriesEl = document.getElementById("vendor-category-picker");
+    // Uploading a document can unlock a category/item request, so refresh that pane too.
+    renderVendorDocuments(document.getElementById("vendor-documents-list"), () => renderVendorCategories(categoriesEl));
+    renderVendorCategories(categoriesEl);
   } catch (err) {
     root.innerHTML = `<div class="result err">Could not load profile: ${esc(err.message)}</div>`;
   }

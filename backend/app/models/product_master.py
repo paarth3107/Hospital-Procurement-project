@@ -29,6 +29,9 @@ class ProductCategory(Base):
     name = Column(String, nullable=False)
     procurement_type = Column(Enum(ProcurementType), nullable=False)
     min_mapping_rating = Column(Float, nullable=True)
+    # Vendor documents a vendor must supply to be mapped to this category
+    # (VendorDocType values, e.g. ["iso_certificate"]).
+    required_documents = Column(JSON, nullable=False, default=list)
     active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -58,6 +61,9 @@ class ProductMaster(Base):
     # Spec §4.4 point 2: minimum vendor rating (in this entry's procurement
     # type) required to approve a mapping to it. Overrides the category's.
     min_mapping_rating = Column(Float, nullable=True)
+    # Vendor documents a vendor must supply to be mapped to this entry, chosen
+    # when the entry is created (e.g. a drug licence for pharma items).
+    required_documents = Column(JSON, nullable=False, default=list)
 
     # Spec §4.2.1/§4.2.2 — the additional attribute set is genuinely
     # different per procurement_type (unit of measure + shelf life for

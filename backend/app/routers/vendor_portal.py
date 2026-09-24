@@ -13,6 +13,7 @@ from app.models.vendor_mapping import VendorMapping
 from app.schemas.mapping import MappingOut, VendorMappingRequest
 from app.schemas.vendor_portal import BidCreate, BidOut, PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
+from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
@@ -111,7 +112,7 @@ def request_my_mapping(
     """A vendor requests a category mapping or an item mapping for
     themselves -- the vendor is always the logged-in one."""
 
-    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id)
+    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, require_uploaded_documents=True)
 
 
 @router.get("/bids", response_model=list[BidOut])
@@ -126,6 +127,9 @@ def submit_bid(payload: BidCreate, vendor: Vendor = Depends(get_current_vendor),
     check here is server-side and independent of anything the client
     claims, per CLAUDE.md's PROJECT OVERRIDE and the spec's own emphasis."""
 
+    # An expired statutory document suspends the vendor at the moment it matters.
+    if sweep_vendor(db, vendor):
+        db.commit()
     if vendor.status != VendorStatus.ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only an Active, approved vendor may submit a bid")
 

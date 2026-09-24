@@ -1,4 +1,5 @@
 import { inr } from "../../kit.js";
+import { docLabel } from "../../constants.js";
 
 // One-line, human summary of a catalog entry's type-specific attributes and
 // core details, for the master table's "Type-specific attributes" column.
@@ -36,6 +37,7 @@ export function attrSummary(p) {
     if (text) bits.push(text);
   }
   if (p.min_mapping_rating != null) bits.push(`restricted: min rating ${p.min_mapping_rating}`);
+  if (p.required_documents?.length) bits.push(`vendor must supply: ${p.required_documents.map(docLabel).join(", ")}`);
   return bits.join(" · ") || "—";
 }
 

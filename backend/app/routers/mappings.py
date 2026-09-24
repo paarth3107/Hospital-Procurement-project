@@ -12,6 +12,7 @@ from app.security import require_role
 from app.services.mappings import (
     after_item_reinstated,
     after_item_suspended,
+    check_document_gate,
     check_rating_gate,
     close_covered_item_requests,
     create_pending_mapping,
@@ -118,6 +119,7 @@ def approve_mapping(
 ):
     mapping = _load_pending_mapping(mapping_id, db)
     check_rating_gate(mapping, db)
+    check_document_gate(mapping, db)
     _log_transition(db, mapping, MappingState.APPROVED, actor_id=user.id, reason=None)
     mapping.decided_by_id = user.id
     mapping.decided_at = datetime.now(timezone.utc)

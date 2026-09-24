@@ -6,6 +6,7 @@ import { openAssetForm } from "./assetForm.js";
 import { openServiceForm } from "./serviceForm.js";
 import { openCategoryForm } from "./categoryForm.js";
 import { attrSummary, priceBand } from "./attrSummary.js";
+import { docLabel } from "../../constants.js";
 
 // ---- Item, Asset & Service master (Module 2): the prototype's segment
 // filter + catalogue table, with our create/edit forms opening above it. ----
@@ -97,7 +98,7 @@ function render() {
           ? categories
               .map(
                 (c) => `<tr><td class="ep-cell" style="font-weight:600">${esc(c.name)}</td><td class="ep-cell">${typeTag(c.procurement_type)}</td>
-                  <td class="ep-cell">${c.min_mapping_rating ?? "—"}</td>
+                  <td class="ep-cell">${c.min_mapping_rating ?? "—"}${c.required_documents?.length ? `<div class="ep-sub">needs: ${c.required_documents.map(docLabel).join(", ")}</div>` : ""}</td>
                   <td class="ep-cell" style="text-align:right"><button class="ep-b" data-edit-category="${c.id}">Edit</button></td></tr>`
               )
               .join("")

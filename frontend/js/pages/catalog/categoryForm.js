@@ -1,5 +1,6 @@
 import { api } from "../../api.js";
 import { esc } from "../../kit.js";
+import { requiredDocsHtml, wireRequiredDocs, readRequiredDocs } from "./requiredDocs.js";
 import { showResult } from "../../ui.js";
 
 // Categories are managed entries (not free text), so items and vendor
@@ -21,6 +22,8 @@ export function openCategoryForm(host, category, onSaved, onCancel) {
             <input class="input" name="min_mapping_rating" type="number" step="any" min="0" max="100" value="${category?.min_mapping_rating ?? ""}"></div>
         </div>
         <p class="hint" style="margin-top:10px">Set a minimum only for restricted or critical categories (implants, high-value equipment, critical AMC).</p>
+        <div class="ep-k" style="margin:14px 0 8px">Documents required from a vendor to be mapped to this category</div>
+        ${requiredDocsHtml(category?.required_documents || [])}
       </div>
       <div style="display:flex;gap:8px">
         <button type="submit" class="ep-b" data-v="p">${category ? "Save changes" : "Add category"}</button>
@@ -31,12 +34,14 @@ export function openCategoryForm(host, category, onSaved, onCancel) {
 
   const form = host.querySelector("form");
   form.querySelector(".cancel-btn").addEventListener("click", onCancel);
+  wireRequiredDocs(form);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
       name: form.elements.name.value.trim(),
       procurement_type: category ? category.procurement_type : form.elements.procurement_type.value,
       min_mapping_rating: form.elements.min_mapping_rating.value === "" ? null : Number(form.elements.min_mapping_rating.value),
+      required_documents: readRequiredDocs(form),
     };
     try {
       await api(category ? `/categories/${category.id}` : "/categories", {

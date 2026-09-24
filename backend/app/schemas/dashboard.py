@@ -49,6 +49,8 @@ class DashboardStatsOut(BaseModel):
     last_rating_update: datetime | None
     next_bid_close: datetime | None
     held_lines: list[DashboardHeldLineOut]
+    docs_expiring_count: int
+    docs_expired_count: int
     open_tenders: list[DashboardOpenTenderOut]
     pending_approval: list[DashboardPendingApprovalOut]
     recently_published: list[DashboardRecentPublishedOut]

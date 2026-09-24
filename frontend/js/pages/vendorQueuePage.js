@@ -2,7 +2,7 @@ import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
 import { modalPrompt, modalConfirm } from "../modal.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
-import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn } from "../kit.js";
+import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn, expiryTag } from "../kit.js";
 import { refreshChrome } from "../nav.js";
 import { state } from "../state.js";
 
@@ -58,7 +58,7 @@ function queuePane() {
         .join("")
     : `<div class="ep-pane-pad hint">No vendors in this status.</div>`;
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Registration queue</span></div>
+    <div class="ep-pane-head"><span>Vendors</span></div>
     <div style="padding:10px 12px;border-bottom:1px solid rgba(32,30,29,.18)">
       <select class="input" id="queue-filter">${FILTERS.map(([v, l]) => `<option value="${v}" ${v === statusFilter ? "selected" : ""}>${l}</option>`).join("")}</select>
     </div>
@@ -66,47 +66,63 @@ function queuePane() {
   </div>`;
 }
 
+const money = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN"));
+
 function identityPane(v) {
-  const facts = [
-    ["GSTIN", v.gstin], ["PAN", v.pan || "—"], ["Contact person", v.contact_person], ["Email", v.email],
-    ["Phone", v.phone || "—"], ["Applied", fmtDate(v.created_at)], ["Vendor ID", `V-${v.id}`], ["Note on file", v.rejection_reason || "—"],
+  const groups = [
+    ["Company", [["Trade name", v.trade_name], ["Entity type", v.entity_type], ["Incorporated", v.year_of_incorporation], ["Vendor ID", `V-${v.id}`], ["Registered address", v.registered_address, 2], ["Branch locations", v.branch_locations, 2]]],
+    ["Statutory & banking", [["GSTIN", v.gstin], ["PAN", v.pan], ["Bank", v.bank_name], ["IFSC", v.bank_ifsc], ["Account number", v.bank_account_number, 2]]],
+    ["Contact", [["Primary contact", v.contact_person], ["Designation", v.contact_designation], ["Phone", v.phone], ["Email", v.email], ["Escalation contact", [v.escalation_contact_name, v.escalation_contact_phone, v.escalation_contact_email].filter(Boolean).join(" · "), 2]]],
+    ["Commercial terms", [["Payment terms", v.payment_terms], ["Lead time", v.delivery_lead_time_days != null ? `${v.delivery_lead_time_days} days` : null], ["Min. order value", v.min_order_value != null ? money(v.min_order_value) : null], ["Note on file", v.rejection_reason]]],
   ];
   return `<div class="ep-pane ep-pane-pad">
     <div style="display:flex;align-items:flex-start;gap:16px">
       <div style="flex:1">${kicker(`V-${v.id} · applied ${fmtDate(v.created_at)}`)}<h4 style="margin:4px 0 3px;font-size:22px">${esc(v.legal_name)}</h4></div>
       <div style="text-align:right">${kicker("Current status")}<div style="margin-top:5px">${stateTag(v.status)}</div></div>
     </div>
-    <div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0"></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">${facts
-      .map(([k, val]) => `<div>${kicker(k)}<div style="font-size:13px;font-weight:600;margin-top:3px;word-break:break-word">${esc(val)}</div></div>`)
-      .join("")}</div>
+    ${groups
+      .map(
+        ([title, facts]) => `<div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0 12px"></div>${kicker(title)}
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 16px;margin-top:8px">${facts
+          .map(([k, val, span]) => `<div style="grid-column:span ${span || 1}">${kicker(k)}<div style="font-size:13px;font-weight:600;margin-top:3px;word-break:break-word">${esc(val ?? "—")}</div></div>`)
+          .join("")}</div>`
+      )
+      .join("")}
   </div>`;
 }
 
 function docsPane(vendor, docs) {
-  const byType = new Map(docs.map((d) => [d.doc_type, d]));
-  const rows = VENDOR_DOC_TYPES.map((t) => {
-    const d = byType.get(t.value);
-    if (!d) {
-      return `<tr><td class="ep-cell" style="font-weight:600">${t.label}${t.mandatory ? "" : ' <span class="ep-sub">(optional)</span>'}</td>
-        <td class="ep-cell ep-sub" colspan="2">Not uploaded</td><td class="ep-cell">${tag("Missing", t.mandatory ? "att" : "")}</td><td class="ep-cell"></td></tr>`;
-    }
-    const viewed = reviewedDocIds.has(d.id);
-    const off = viewed ? "" : "disabled";
-    return `<tr>
-      <td class="ep-cell" style="font-weight:600">${t.label}</td>
+  const byType = new Map(docs.filter((d) => d.doc_type !== "other").map((d) => [d.doc_type, d]));
+  // Standard document slots first, then any free-text "other" documents a
+  // catalog entry asked for (the reviewer reads the name and verifies).
+  const slots = [
+    ...VENDOR_DOC_TYPES.map((t) => ({ label: t.label, mandatory: t.mandatory, doc: byType.get(t.value) })),
+    ...docs.filter((d) => d.doc_type === "other").map((d) => ({ label: d.custom_label, mandatory: false, doc: d, other: true })),
+  ];
+  const rows = slots
+    .map(({ label, mandatory, doc: d, other }) => {
+      if (!d) {
+        return `<tr><td class="ep-cell" style="font-weight:600">${esc(label)}${mandatory ? "" : ' <span class="ep-sub">(optional)</span>'}</td>
+        <td class="ep-cell ep-sub" colspan="3">Not uploaded</td><td class="ep-cell">${tag("Missing", mandatory ? "att" : "")}</td><td class="ep-cell"></td></tr>`;
+      }
+      const viewed = reviewedDocIds.has(d.id);
+      const off = viewed ? "" : "disabled";
+      return `<tr>
+      <td class="ep-cell" style="font-weight:600">${esc(label)}${other ? '<div class="ep-sub">Other — asked for by a catalog entry; read the name and verify</div>' : ""}</td>
       <td class="ep-cell ep-mono" style="font-size:12px">${esc(d.original_filename)}<div class="ep-sub">${(d.size_bytes / 1024).toFixed(0)} KB · <a href="#" data-view-doc="${d.id}">View</a></div></td>
       <td class="ep-cell" style="font-size:12.5px">${fmtDate(d.uploaded_at)}</td>
+      <td class="ep-cell" style="font-size:12.5px">${d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
       <td class="ep-cell">${stateTag(d.status)}${d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
       <td class="ep-cell" style="text-align:right;white-space:nowrap">
         ${d.status !== "verified" ? `<button class="ep-b" data-v="p" data-doc="${d.id}" data-act="verify" ${off}>Verify</button> ` : ""}
         <button class="ep-b" data-doc="${d.id}" data-act="reject" ${off}>Reject</button>
         ${viewed ? "" : '<div class="ep-sub">View before deciding</div>'}
       </td></tr>`;
-  }).join("");
+    })
+    .join("");
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>KYC &amp; statutory documents</span></div>
-    <table class="ep-table">${th("Document", "File", "Uploaded", "Verification", "")}<tbody>${rows}</tbody></table>
+    <table class="ep-table">${th("Document", "File", "Uploaded", "Valid till", "Verification", "")}<tbody>${rows}</tbody></table>
   </div>`;
 }
 
@@ -184,7 +200,7 @@ async function render() {
         isOfficer() ? Promise.resolve([]) : api(`/vendors/${selectedId}/documents`),
         api(`/vendors/${selectedId}/status-history`),
       ]);
-      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${isOfficer() ? "" : docsPane(current, docs)}${decisionBar(current, docs)}${historyPane(history)}</div>`;
+      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${isOfficer() ? "" : docsPane(current, docs)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
     } catch (err) {
       detail = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
     }

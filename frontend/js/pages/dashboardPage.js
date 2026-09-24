@@ -86,17 +86,13 @@ function vendorBase(s) {
   const v = s.vendors_by_status;
   const total = Object.values(v).reduce((a, b) => a + b, 0) || 1;
   const rows = [
-    ["Active", v.active || 0, "#ec3013"],
+    ["Active", v.active || 0, "#2f8f4e"],
     ["Pending verification", v.pending_verification || 0, "#ff9783"],
     ["Info requested", v.info_requested || 0, "#7d7979"],
     ["Suspended", v.suspended || 0, "#201e1d"],
     ["Rejected", v.rejected || 0, "rgba(32,30,29,.45)"],
     ["Blacklisted", v.blacklisted || 0, "#201e1d"],
   ];
-  const alerts = [];
-  const queued = (v.pending_verification || 0) + (v.info_requested || 0);
-  if (queued) alerts.push(["#ec3013", `${queued} registration(s) waiting on KYC review or a vendor reply.`]);
-  if (s.held_lines.length) alerts.push(["rgba(32,30,29,.4)", `${s.held_lines.length} published line(s) held back — no eligible vendor yet.`]);
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>Vendor base</span></div>
     <div style="padding:14px">
@@ -108,13 +104,6 @@ function vendorBase(s) {
           </div>`
         )
         .join("")}
-      <div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0 13px"></div>
-      ${kicker("Alerts")}
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">${
-        alerts.length
-          ? alerts.map(([c, t]) => `<div style="border-left:3px solid ${c};padding:2px 0 2px 9px;font-size:12.5px;line-height:1.4">${esc(t)}</div>`).join("")
-          : '<div class="ep-sub">No alerts.</div>'
-      }</div>
     </div>
   </div>`;
 }

@@ -12,15 +12,68 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
-from app.models.vendor import Vendor, VendorStatus
+from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, requirement_key, requirement_label
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
+from app.services.expiry import expired_documents
 from app.services.ratings import rating_score
 
 
+def required_document_types(mapping_target_product: ProductMaster | None, category: ProductCategory | None) -> list[str]:
+    """Documents a vendor must supply for a mapping: an item needs its own
+    plus its category's; a category needs the category's."""
+
+    types: list[str] = []
+    if mapping_target_product is not None:
+        types += list(mapping_target_product.required_documents or [])
+        category = category or mapping_target_product.category_ref
+    if category is not None:
+        types += list(category.required_documents or [])
+    seen: dict[str, str] = {}
+    for t in types:
+        seen.setdefault(requirement_key(t), t)
+    return list(seen.values())  # de-duplicated (free text case-insensitively), order kept
+
+
+def _vendor_docs_by_key(db: Session, vendor_id: int) -> dict[str, VendorDocument]:
+    return {d.requirement_key: d for d in db.query(VendorDocument).filter(VendorDocument.vendor_id == vendor_id).all()}
+
+
+def missing_uploaded_documents(db: Session, vendor_id: int, doc_types: list[str]) -> list[str]:
+    """Required documents the vendor hasn't uploaded (or whose upload was rejected / has expired)."""
+    docs = _vendor_docs_by_key(db, vendor_id)
+    expired = {d.requirement_key for d in expired_documents(db, vendor_id)}
+    out = []
+    for entry in doc_types:
+        k = requirement_key(entry)
+        if k not in docs or docs[k].status == DocumentStatus.REJECTED or k in expired:
+            out.append(requirement_label(entry))
+    return out
+
+
+def unverified_documents(db: Session, vendor_id: int, doc_types: list[str]) -> list[str]:
+    """Required documents that aren't Verified (and unexpired) yet."""
+    docs = _vendor_docs_by_key(db, vendor_id)
+    expired = {d.requirement_key for d in expired_documents(db, vendor_id)}
+    out = []
+    for entry in doc_types:
+        k = requirement_key(entry)
+        if k not in docs or docs[k].status != DocumentStatus.VERIFIED or k in expired:
+            out.append(requirement_label(entry))
+    return out
+
+
 def create_pending_mapping(
-    db: Session, vendor: Vendor, product_master_id: int | None, category_id: int | None
+    db: Session,
+    vendor: Vendor,
+    product_master_id: int | None,
+    category_id: int | None,
+    require_uploaded_documents: bool = False,
 ) -> VendorMapping:
-    """Creates a Pending mapping request for exactly one of item / category."""
+    """Creates a Pending mapping request for exactly one of item / category.
+
+    require_uploaded_documents: a vendor's own request must already have the
+    documents the item/category requires uploaded (staff assigning a mapping
+    don't; the approval step still needs them verified)."""
 
     if (product_master_id is None) == (category_id is None):
         raise HTTPException(
@@ -58,6 +111,15 @@ def create_pending_mapping(
             detail=f"A mapping between this vendor and this {'item' if product_master_id else 'category'} already exists "
             f"(state: {existing.state.value})",
         )
+
+    if require_uploaded_documents:
+        needed = required_document_types(target if product_master_id is not None else None, target if category_id is not None else None)
+        missing = missing_uploaded_documents(db, vendor.id, needed)
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Upload these documents first (Company profile → Document vault): {', '.join(missing)}",
+            )
 
     mapping = VendorMapping(vendor_id=vendor.id, product_master_id=product_master_id, category_id=category_id)
     db.add(mapping)
@@ -97,6 +159,26 @@ def check_rating_gate(mapping: VendorMapping, db: Session) -> None:
         )
 
 
+def _needed_documents(mapping: VendorMapping) -> list[str]:
+    return required_document_types(mapping.product, mapping.category)
+
+
+def check_document_gate(mapping: VendorMapping, db: Session) -> None:
+    """Approving a mapping requires every document the item/category asks for
+    to be uploaded AND verified (and unexpired)."""
+
+    missing = unverified_documents(db, mapping.vendor_id, _needed_documents(mapping))
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Required document(s) not yet verified for this vendor: {', '.join(missing)} — verify them under Vendor registrations first",
+        )
+
+
+def meets_document_gate(mapping: VendorMapping, db: Session) -> bool:
+    return not unverified_documents(db, mapping.vendor_id, _needed_documents(mapping))
+
+
 def meets_rating_gate(mapping: VendorMapping, db: Session) -> bool:
     minimum, ptype = _rating_requirement(mapping)
     return minimum is None or rating_score(mapping.vendor_id, ptype, db) >= minimum
@@ -126,7 +208,7 @@ def close_covered_item_requests(db: Session, category_mapping: VendorMapping, ac
     )
     closed = 0
     for m in pending:
-        if not meets_rating_gate(m, db):
+        if not meets_rating_gate(m, db) or not meets_document_gate(m, db):
             continue
         log_transition(db, m, MappingState.APPROVED, actor_id, AUTO_APPROVE_REASON)
         m.decided_by_id = actor_id

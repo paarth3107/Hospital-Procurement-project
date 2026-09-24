@@ -36,7 +36,7 @@ def create_product(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A catalog entry with this code already exists")
 
     _check_category(payload, db)
-    product = ProductMaster(**payload.model_dump())
+    product = ProductMaster(**payload.model_dump(mode="json"))
     db.add(product)
     db.commit()
     db.refresh(product)
@@ -92,7 +92,7 @@ def update_product(
     if clash:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A catalog entry with this code already exists")
     _check_category(payload, db)
-    for field, value in payload.model_dump().items():
+    for field, value in payload.model_dump(mode="json").items():
         setattr(product, field, value)
     db.commit()
     db.refresh(product)

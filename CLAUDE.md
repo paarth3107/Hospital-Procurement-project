@@ -113,6 +113,7 @@ Raised by comparing the reference prototype (`E-Procurement Prototype.dc.html` +
 - **Approval bands:** prototype has PO ≤₹10,00,000 Procurement Admin / above Finance-Management Committee, tender >₹10,00,000 Department Head; this build uses the 3-band §11.2 matrix (₹1L / ₹10L).
 - **Open Tender vs the guest change:** confirm whether Open Tender also follows the prototype's deferred-KYC model or keeps full-registration-first.
 - **Vendor rating "Unrated" until 3 POs close** (prototype) vs default provisional score 50 in this build's eligibility.
+- **Product-specific vendor documents (user-directed 2026-09-24):** which documents a vendor must supply (e.g. drug licence for pharma) is configured on each catalog entry/category; a vendor can only request a mapping once they are uploaded, and approval needs them Verified. Registration-time mandatory set stays GST, PAN, incorporation, bank proof, sample catalogue.
 - **Prototype design system:** Modernist (Archivo, accent #ec3013, radius 0, left sidebar shell) is the target UI; see `DESIGN-REFERENCE.md`.
 
 Still genuinely open (Spec §17 — do not silently resolve, flag and ask):

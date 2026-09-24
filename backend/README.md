@@ -181,3 +181,26 @@ Fixes found by re-reading spec §4 against the first build:
 - Every status change (registration, approve, reject, request-info, suspend, reinstate, blacklist) goes through `services/vendor_status.set_status` and is written to `vendor_status_history`.
 - Suspended: can log in and view, but can't bid (bid gate and `can_bid`), be mapped or be invited; mappings and history are kept. Blacklisted: can't log in (403). It is reversible only by the **Procurement Officer** (or System Admin) via `POST /{id}/reinstate` with an **explicit, mandatory reason** recorded in `vendor_status_history` (no approval step; other roles get 403). Lifting a suspension stays with Procurement Admin / Category Manager / System Admin. The Procurement Officer sees the Vendor registrations tab read-only (no documents) with that single action.
 - Not built yet: document expiry dates and auto-suspend on expiry (spec 3.5) — the next Module 1 item.
+
+## Document expiry (spec 3.5)
+
+- `vendor_documents.valid_till` (optional per document; set by the vendor at registration or upload). `expiry_state` = none / ok / expiring (within `EXPIRY_WARNING_DAYS`, 30) / expired, returned on every document response.
+- `services/expiry.py`: an Active vendor with an expired (non-rejected) document is **auto-suspended** ("Auto-suspended: <doc> expired on <date>", logged in `vendor_status_history`). Runs at startup and then daily (`main.py`; expiry is a date, so daily is enough), and directly at bid submission; tender eligibility also excludes any vendor with an expired document.
+- When the vendor uploads a renewed document (it goes back to Pending) and staff **verify** it, a vendor suspended *by expiry* is auto-reinstated once no expired document remains. Manual suspensions are never lifted automatically.
+- Dashboard shows expiring/expired document counts as alerts. Which document types actually carry expiry (licences, ISO, MSME) arrives with the missing registration document types.
+
+## Registration fields & document types (spec 3.2)
+
+- Vendors now carry every §3.2 field group: trade name, entity type, year of incorporation, registered address, branch locations; bank name / account number / IFSC; contact designation and escalation contact; optional payment terms, lead time and minimum order value. Columns are nullable only for vendors registered before this change; registration requires the mandatory ones and validates GSTIN, PAN and IFSC formats (spec 3.3 step 2).
+- New document types: business licence, drug licence, MSME/Udyam, ISO/quality certificate (all carry optional expiry dates) and a sample product catalogue / price list (PDF, image, or XLSX/CSV).
+- **Mandatory documents** are now GST certificate, PAN card, certificate of incorporation, cancelled cheque / bank letter, and sample catalogue. The licences and ISO certificate are optional ("Yes (as applicable)" in the spec). Vendors registered earlier are unaffected; the mandatory set only gates approving pending vendors.
+- Bank account numbers are stored as plain text (no encryption/masking yet).
+
+## Required vendor documents per product / category (user-directed)
+
+- `product_master.required_documents` and `product_categories.required_documents` (lists of `VendorDocType` values) are set when a catalog entry / category is created or edited (a "Documents required from a vendor" row in the core details, and checkboxes on the category form).
+- A vendor's own mapping request (`POST /vendor-portal/mappings`) is refused (409) until every required document is uploaded (not rejected, not expired) — an item needs its own plus its category's, a category needs the category's. The vendor's Request panel shows what's required and disables the option until the upload exists.
+- Approving a mapping (`POST /mappings/{id}/approve`) requires each required document to be **Verified** and unexpired; the staff mapping dialog lists them with the vendor's status. Auto-closing pending item requests when a category is approved also respects this, and a vendor covered only through a category is still excluded from an item whose own required documents aren't verified.
+- This also delivers spec §4.3 point 1 (supporting credentials with a mapping request), driven by the catalog configuration.
+
+**"Other" required documents:** besides the standard document types, a catalog entry/category can require a free-text document (stored as `other:<name>` in `required_documents`, e.g. "CE marking certificate"). The vendor uploads a file for it (`doc_type=other` + `custom_label`, matched to the requirement case-insensitively; one row per vendor per label — the unique constraint is now `(vendor, doc_type, custom_label)`), and the human reviewer reads the name and verifies it like any other document. The same upload → verify gates apply to mapping requests and approvals.

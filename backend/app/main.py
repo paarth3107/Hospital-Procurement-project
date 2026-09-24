@@ -1,8 +1,13 @@
+import asyncio
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+from app.database import SessionLocal
+from app.services.expiry import sweep_all
 
 from app.routers import (
     auth,
@@ -21,6 +26,33 @@ from app.routers import (
 )
 
 app = FastAPI(title="Hospital E-Procurement API")
+
+
+async def _expiry_sweep_loop() -> None:
+    """Spec 3.5: suspend vendors whose statutory documents have expired. There
+    is no scheduler in this app, so run the sweep at startup and then daily
+    (expiry is a date, so a daily check is enough). Bid submission and tender
+    eligibility also check expiry directly."""
+
+    while True:
+        try:
+            await asyncio.to_thread(_run_sweep)
+        except Exception:  # never let a sweep failure kill the loop
+            logging.getLogger(__name__).exception("document-expiry sweep failed")
+        await asyncio.sleep(24 * 3600)
+
+
+def _run_sweep() -> None:
+    db = SessionLocal()
+    try:
+        sweep_all(db)
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+async def _start_expiry_sweep() -> None:
+    asyncio.create_task(_expiry_sweep_loop())
 
 # Dev-time convenience: the frontend is served separately in production,
 # but allowing localhost origins means `frontend/` can also be opened via

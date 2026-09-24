@@ -34,7 +34,7 @@ def create_category(
     )
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This category already exists for that type")
-    category = ProductCategory(**payload.model_dump())
+    category = ProductCategory(**payload.model_dump(mode="json"))
     db.add(category)
     db.commit()
     db.refresh(category)
@@ -55,6 +55,7 @@ def update_category(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A category's procurement type can't be changed")
     category.name = payload.name
     category.min_mapping_rating = payload.min_mapping_rating
+    category.required_documents = payload.required_documents
     db.commit()
     db.refresh(category)
     return category

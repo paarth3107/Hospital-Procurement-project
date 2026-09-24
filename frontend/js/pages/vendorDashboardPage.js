@@ -20,8 +20,9 @@ const NOTES = {
 
 async function statusNote(vendor) {
   if (vendor.status !== "active") {
-    return `<div class="ep-note"><span>${esc(NOTES[vendor.status] || "Your registration is not active yet.")}</span>${
-      vendor.status === "info_requested" ? '<button class="ep-b" id="goto-profile">Open profile</button>' : ""
+    const why = ["suspended", "info_requested", "rejected"].includes(vendor.status) && vendor.rejection_reason ? ` Reason: ${vendor.rejection_reason}` : "";
+    return `<div class="ep-note"><span>${esc((NOTES[vendor.status] || "Your registration is not active yet.") + why)}</span>${
+      ["info_requested", "suspended"].includes(vendor.status) ? '<button class="ep-b" id="goto-profile">Open profile</button>' : ""
     }</div>`;
   }
   try {

@@ -95,6 +95,32 @@ VENDORS = [
     ),
 ]
 
+# Spec 3.2 registration fields for the demo vendors (merged into VENDORS).
+VENDOR_EXTRA = [
+    dict(trade_name="MedEquip", entity_type="Private Limited", year_of_incorporation=2004, registered_address="Unit 7, Marol MIDC, Andheri East, Mumbai 400093, Maharashtra",
+         branch_locations="Pune; Ahmedabad", bank_name="HDFC Bank", bank_account_number="50200041123456", bank_ifsc="HDFC0000234",
+         contact_designation="Sales Director", escalation_contact_name="Meera Shah", escalation_contact_phone="9820099887", escalation_contact_email="meera@medequipsolutions.co",
+         payment_terms="45 days from GRN", delivery_lead_time_days=10, min_order_value=25000.0),
+    dict(trade_name="SurgiCare", entity_type="Public Limited", year_of_incorporation=1998, registered_address="14 Residency Road, Bengaluru 560025, Karnataka",
+         branch_locations="Chennai", bank_name="ICICI Bank", bank_account_number="000405012345", bank_ifsc="ICIC0000004",
+         contact_designation="Regional Manager", escalation_contact_name="Ramesh Nair", escalation_contact_phone="9845099001", escalation_contact_email=None,
+         payment_terms="30 days from invoice", delivery_lead_time_days=7, min_order_value=10000.0),
+    dict(trade_name="PharmaLink", entity_type="Partnership", year_of_incorporation=2011, registered_address="8 Park Street, Kolkata 700016, West Bengal",
+         branch_locations=None, bank_name="State Bank of India", bank_account_number="30012345678", bank_ifsc="SBIN0000691",
+         contact_designation="Managing Partner", escalation_contact_name="Anup Iyer", escalation_contact_phone="9051177889", escalation_contact_email=None,
+         payment_terms="60 days from GRN", delivery_lead_time_days=5, min_order_value=15000.0),
+    dict(trade_name="CleanTech", entity_type="LLP", year_of_incorporation=2015, registered_address="Plot 22, Okhla Industrial Area, New Delhi 110020",
+         branch_locations="Noida; Gurugram", bank_name="Axis Bank", bank_account_number="917020012345678", bank_ifsc="UTIB0000123",
+         contact_designation="Operations Head", escalation_contact_name="Rahul Desai", escalation_contact_phone="9911066778", escalation_contact_email="rahul@cleantechhs.co",
+         payment_terms="30 days from invoice", delivery_lead_time_days=3, min_order_value=50000.0),
+    dict(trade_name="NextGen", entity_type="Private Limited", year_of_incorporation=2019, registered_address="Plot 44, IDA Nacharam, Hyderabad 500076, Telangana",
+         branch_locations=None, bank_name="HDFC Bank", bank_account_number="50200099887766", bank_ifsc="HDFC0000345",
+         contact_designation="Director", escalation_contact_name="Sunita Rao", escalation_contact_phone="9789012345", escalation_contact_email=None,
+         payment_terms="45 days from GRN", delivery_lead_time_days=21, min_order_value=100000.0),
+]
+for _vendor, _extra in zip(VENDORS, VENDOR_EXTRA):
+    _vendor.update(_extra)
+
 PRODUCTS = [
     dict(
         code="SURG-GLOVES-001",
