@@ -1,6 +1,6 @@
 import { API_BASE, api } from "../api.js";
 import { state } from "../state.js";
-import { showResult } from "../ui.js";
+import { showResult, setWhoami } from "../ui.js";
 import { switchView, showVendorDashboardTab } from "../nav.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
 
@@ -11,7 +11,7 @@ document.getElementById("vendor-login-form").addEventListener("submit", async (e
   const data = Object.fromEntries(new FormData(form).entries());
   const resultEl = document.getElementById("vendor-login-result");
   try {
-    const body = new URLSearchParams({ username: data.gstin, password: data.password });
+    const body = new URLSearchParams({ username: data.email, password: data.password });
     const res = await fetch(API_BASE + "/vendor-auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -27,7 +27,7 @@ document.getElementById("vendor-login-form").addEventListener("submit", async (e
     state.vendor = await api("/vendor-auth/me");
 
     showResult(resultEl, `Logged in as ${state.vendor.legal_name}`, true);
-    document.getElementById("whoami").textContent = `${state.vendor.legal_name} — Vendor #${state.vendor.id}`;
+    setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`);
     showVendorDashboardTab();
     await routeVendorAfterAuth();
   } catch (err) {

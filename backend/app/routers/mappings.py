@@ -4,12 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.product_master import ProductMaster
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
 from app.schemas.mapping import MappingCreate, MappingDecisionReason, MappingHistoryOut, MappingOut
 from app.security import require_role
+from app.services.mappings import (
+    after_item_reinstated,
+    after_item_suspended,
+    check_rating_gate,
+    create_pending_mapping,
+    log_transition,
+)
 
 router = APIRouter(prefix="/api/v1/mappings", tags=["mappings"])
 
@@ -20,75 +26,33 @@ router = APIRouter(prefix="/api/v1/mappings", tags=["mappings"])
 MAPPING_REVIEWERS = (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN, Role.SYSTEM_ADMIN)
 
 
-def _log_transition(
-    db: Session,
-    mapping: VendorMapping,
-    to_state: MappingState,
-    actor_id: int | None,
-    reason: str | None,
-) -> None:
-    db.add(
-        VendorMappingHistory(
-            mapping_id=mapping.id,
-            from_state=mapping.state,
-            to_state=to_state,
-            reason=reason,
-            actor_id=actor_id,
-        )
-    )
-    mapping.state = to_state
-    mapping.version += 1
+_log_transition = log_transition
 
 
 @router.post("", response_model=MappingOut, status_code=status.HTTP_201_CREATED)
-def request_mapping(payload: MappingCreate, db: Session = Depends(get_db)):
-    """Spec §4.3 point 1: "Vendor requests mapping ... at registration or
-    later." No vendor login exists yet (Phase 1 built staff auth only), so
-    this is unauthenticated like vendor registration itself — but per
-    CLAUDE.md PROJECT OVERRIDE, only a vendor that has already cleared
-    Vendor Approval (Active) may request a mapping at all; there's no path
-    for an unapproved vendor to get onto the review queue."""
+def request_mapping(
+    payload: MappingCreate,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*MAPPING_REVIEWERS)),
+):
+    """Staff-side creation (the Vendor Mapping matrix). Vendors request their
+    own mappings through POST /vendor-portal/mappings instead -- this route
+    used to be unauthenticated and trusted a vendor_id in the body. Item and
+    category mappings are separate rows (spec 4.3); either way only an
+    Active vendor qualifies (CLAUDE.md PROJECT OVERRIDE)."""
 
     vendor = db.get(Vendor, payload.vendor_id)
     if not vendor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
-    if vendor.status != VendorStatus.ACTIVE:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Only an Active, approved vendor may request a catalog mapping",
-        )
-
-    product = db.get(ProductMaster, payload.product_master_id)
-    if not product or not product.active:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
-
-    existing = (
-        db.query(VendorMapping)
-        .filter(
-            VendorMapping.vendor_id == payload.vendor_id,
-            VendorMapping.product_master_id == payload.product_master_id,
-        )
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A mapping between this vendor and catalog entry already exists (state: {existing.state.value})",
-        )
-
-    mapping = VendorMapping(vendor_id=payload.vendor_id, product_master_id=payload.product_master_id)
-    db.add(mapping)
-    db.flush()
-    db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=None, to_state=MappingState.PENDING))
-    db.commit()
-    db.refresh(mapping)
-    return mapping
+    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id)
 
 
 @router.get("", response_model=list[MappingOut])
 def list_mappings(
     vendor_id: int | None = None,
     product_master_id: int | None = None,
+    category_id: int | None = None,
+    scope: str | None = None,
     state: MappingState | None = None,
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(require_role(*MAPPING_REVIEWERS)),
@@ -98,6 +62,12 @@ def list_mappings(
         query = query.filter(VendorMapping.vendor_id == vendor_id)
     if product_master_id is not None:
         query = query.filter(VendorMapping.product_master_id == product_master_id)
+    if category_id is not None:
+        query = query.filter(VendorMapping.category_id == category_id)
+    if scope == "item":
+        query = query.filter(VendorMapping.product_master_id.isnot(None))
+    elif scope == "category":
+        query = query.filter(VendorMapping.category_id.isnot(None))
     if state is not None:
         query = query.filter(VendorMapping.state == state)
     return query.order_by(VendorMapping.requested_at.desc()).all()
@@ -146,6 +116,7 @@ def approve_mapping(
     user: UserAccount = Depends(require_role(*MAPPING_REVIEWERS)),
 ):
     mapping = _load_pending_mapping(mapping_id, db)
+    check_rating_gate(mapping, db)
     _log_transition(db, mapping, MappingState.APPROVED, actor_id=user.id, reason=None)
     mapping.decided_by_id = user.id
     mapping.decided_at = datetime.now(timezone.utc)
@@ -191,6 +162,8 @@ def suspend_mapping(
     _log_transition(db, mapping, MappingState.SUSPENDED, actor_id=user.id, reason=payload.reason)
     mapping.decided_by_id = user.id
     mapping.decided_at = datetime.now(timezone.utc)
+    if mapping.product_master_id is not None:
+        after_item_suspended(db, mapping, user.id)
     db.commit()
     db.refresh(mapping)
     return mapping
@@ -217,6 +190,8 @@ def reinstate_mapping(
     _log_transition(db, mapping, MappingState.APPROVED, actor_id=user.id, reason=None)
     mapping.decided_by_id = user.id
     mapping.decided_at = datetime.now(timezone.utc)
+    if mapping.product_master_id is not None:
+        after_item_reinstated(db, mapping, user.id)
     db.commit()
     db.refresh(mapping)
     return mapping

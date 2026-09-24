@@ -37,6 +37,11 @@ class TenderLineItem(Base):
     estimated_price = Column(Float, nullable=True)
 
     split_award_allowed = Column(Boolean, nullable=False, default=False)
+
+    # Partial publishing: when a tender is approved, only lines that resolved to
+    # at least one eligible vendor are published; a line with none is held back
+    # (published=False) and can be published later once vendors qualify.
+    published = Column(Boolean, nullable=False, default=False)
     min_rating_threshold_override = Column(Float, nullable=True)
 
     technical_eval_method = Column(Enum(TechnicalEvalMethod), nullable=False, default=TechnicalEvalMethod.QUALIFY_DISQUALIFY)

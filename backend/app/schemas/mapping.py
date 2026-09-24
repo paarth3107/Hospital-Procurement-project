@@ -6,14 +6,26 @@ from app.models.vendor_mapping import MappingState
 
 
 class MappingCreate(BaseModel):
+    """Staff-side request (Vendor Mapping matrix): exactly one of
+    product_master_id (item mapping) / category_id (category mapping)."""
+
     vendor_id: int
-    product_master_id: int
+    product_master_id: int | None = None
+    category_id: int | None = None
+
+
+class VendorMappingRequest(BaseModel):
+    """Vendor-side request -- vendor_id comes from the login, never the body."""
+
+    product_master_id: int | None = None
+    category_id: int | None = None
 
 
 class MappingOut(BaseModel):
     id: int
     vendor_id: int
-    product_master_id: int
+    product_master_id: int | None
+    category_id: int | None
     state: MappingState
     requested_at: datetime
     decided_by_id: int | None

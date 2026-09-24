@@ -27,12 +27,28 @@ class DashboardRecentPublishedOut(BaseModel):
     published_at: datetime | None
 
 
+class DashboardHeldLineOut(BaseModel):
+    tender_id: int
+    tender_title: str
+    product_name: str
+
+
 class DashboardStatsOut(BaseModel):
     open_tenders_count: int
     pending_approval_count: int
     vendors_pending_count: int
     registered_vendors_count: int
     bids_submitted_count: int
+    # Pipeline / vendor-base / header numbers (real counts only)
+    vendors_by_status: dict[str, int]
+    catalog_entries_count: int
+    mappings_approved_count: int
+    mappings_pending_count: int
+    lines_total: int
+    lines_published: int
+    last_rating_update: datetime | None
+    next_bid_close: datetime | None
+    held_lines: list[DashboardHeldLineOut]
     open_tenders: list[DashboardOpenTenderOut]
     pending_approval: list[DashboardPendingApprovalOut]
     recently_published: list[DashboardRecentPublishedOut]

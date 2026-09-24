@@ -27,11 +27,13 @@ class Vendor(Base):
 
     legal_name = Column(String, nullable=False)
     gstin = Column(String, nullable=False, unique=True, index=True)
-    pan = Column(String, nullable=True)
+    pan = Column(String, nullable=True, unique=True)
 
     contact_person = Column(String, nullable=False)
-    email = Column(String, nullable=False)
-    phone = Column(String, nullable=True)
+    # Unique like GSTIN: email is the vendor's login, and phone/PAN must
+    # not be shared between two registrations (spec 3.5 duplicate check).
+    email = Column(String, nullable=False, unique=True)
+    phone = Column(String, nullable=True, unique=True)
 
     # Set at registration (schemas/vendor.py's VendorCreate.password) so a
     # vendor can log in immediately and check status -- there's no email/SMS

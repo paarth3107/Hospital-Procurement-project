@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-51058835-32f3-42d2-89f3-574ac705b7ce/styles.css">
+<script src="_ds/modernist-51058835-32f3-42d2-89f3-574ac705b7ce/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#f3f2f2}
+a{color:#ec3013}a:hover{color:#ae1800}
+button{font-family:Archivo,system-ui,sans-serif}
+.ep-nav{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 14px 9px 17px;background:transparent;border:0;border-left:3px solid transparent;cursor:pointer;font-size:13.5px;font-weight:600;color:#201e1d}
+.ep-nav:hover{background:rgba(32,30,29,.07)}
+.ep-nav[data-on="1"]{border-left-color:#ec3013;color:#ae1800;background:rgba(236,48,19,.08)}
+.ep-k{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:rgba(32,30,29,.5);font-weight:600}
+.ep-cell{padding:9px 10px;border-bottom:1px solid rgba(32,30,29,.18);font-size:13.5px;vertical-align:top}
+.ep-th{padding:8px 10px;border-bottom:2px solid rgba(32,30,29,.4);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:rgba(32,30,29,.6);text-align:left;font-weight:600}
+.ep-pane{background:#eae9e9;border:1px solid rgba(32,30,29,.3)}
+.ep-b{border:1px solid rgba(32,30,29,.3);background:transparent;cursor:pointer;font-size:12px;font-weight:600;padding:5px 11px;color:#201e1d}
+.ep-b:hover{background:rgba(32,30,29,.09)}
+.ep-b[data-v="p"]{background:#ec3013;border-color:#ec3013;color:#f3f2f2}
+.ep-b[data-v="p"]:hover{background:#dd2b0f}
+.ep-b[data-v="p"]:disabled{opacity:.4;cursor:not-allowed}
+.ep-b:disabled{opacity:.4;cursor:not-allowed}
+input[type=range]{accent-color:#ec3013}
+</style>
+</helmet>
+
+<div style="display:flex;width:1440px;min-height:980px;background:#f3f2f2;font-family:Archivo,system-ui,sans-serif;color:#201e1d;position:relative;overflow:hidden">
+
+<aside style="width:238px;flex:none;background:#eae9e9;border-right:2px solid rgba(32,30,29,.4);display:flex;flex-direction:column">
+<div style="padding:18px 17px 15px;border-bottom:2px solid rgba(32,30,29,.4)">
+<div style="font-size:17px;font-weight:800;line-height:1.05">MEDIPROC</div>
+<div class="ep-k" style="margin-top:4px">E-Procurement · v1.0</div>
+</div>
+<div style="padding:14px 17px 8px" class="ep-k">{{ navHeading }}</div>
+<nav style="display:flex;flex-direction:column;gap:1px;padding-bottom:14px">
+<sc-for list="{{ nav }}" as="item" hint-placeholder-count="10">
+<button class="ep-nav" data-on="{{ item.on }}" onClick="{{ item.go }}">
+<span style="flex:1">{{ item.label }}</span>
+<span style="font-size:10.5px;font-weight:600;color:#ae1800">{{ item.badge }}</span>
+</button>
+</sc-for>
+</nav>
+<div style="margin-top:auto;border-top:2px solid rgba(32,30,29,.4);padding:15px 17px;display:flex;flex-direction:column;gap:9px">
+<div class="ep-k">Signed in as</div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="font-size:13.5px;font-weight:800">{{ who.name }}</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.6)">{{ who.role }}</div>
+</div>
+<div style="display:flex;gap:0;border:1px solid rgba(32,30,29,.3);margin-top:4px">
+<button class="ep-b" data-v="{{ roleInternalV }}" style="flex:1;border:0" onClick="{{ setInternal }}">Hospital</button>
+<button class="ep-b" data-v="{{ roleVendorV }}" style="flex:1;border:0;border-left:1px solid rgba(32,30,29,.3)" onClick="{{ setVendor }}">Vendor</button>
+</div>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column">
+<header style="display:flex;align-items:flex-end;gap:20px;padding:16px 28px 13px;border-bottom:2px solid rgba(32,30,29,.4);background:#f3f2f2">
+<div style="flex:1;min-width:0">
+<div class="ep-k">{{ crumb }}</div>
+<h3 style="margin:3px 0 0;font-size:24px">{{ title }}</h3>
+</div>
+<div style="display:flex;align-items:center;gap:14px">
+<div style="text-align:right">
+<div class="ep-k">Active tender</div>
+<div style="font-size:12.5px;font-weight:600">TND/2026/CCE/0184</div>
+</div>
+<div style="width:2px;height:34px;background:rgba(32,30,29,.3)"></div>
+<div style="text-align:right">
+<div class="ep-k">Bids close</div>
+<div style="font-size:12.5px;font-weight:600;color:#ae1800">04 Sep 2026 · 17:00 IST</div>
+</div>
+</div>
+</header>
+
+<div style="flex:1;padding:24px 28px 44px;display:flex;flex-direction:column;gap:22px">
+
+<!-- ══ DASHBOARD ══ -->
+<sc-if value="{{ s.dash }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:22px">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(32,30,29,.3);border:1px solid rgba(32,30,29,.3)">
+<sc-for list="{{ stats }}" as="k" hint-placeholder-count="4">
+<div style="background:#eae9e9;padding:15px 16px 14px">
+<div class="ep-k">{{ k.label }}</div>
+<div style="font-size:31px;font-weight:800;line-height:1.1;margin-top:6px">{{ k.value }}</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.6)">{{ k.sub }}</div>
+</div>
+</sc-for>
+</div>
+
+<div>
+<div class="ep-k" style="margin-bottom:9px">Procurement pipeline — TND/2026/CCE/0184</div>
+<div style="display:flex;align-items:stretch;border:1px solid rgba(32,30,29,.3);background:#eae9e9">
+<sc-for list="{{ pipeline }}" as="p" hint-placeholder-count="5">
+<div style="flex:1;padding:14px 16px;border-right:1px solid rgba(32,30,29,.25);display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:7px">
+<span style="width:19px;height:19px;flex:none;display:grid;place-items:center;font-size:10.5px;font-weight:800;background:{{ p.dotBg }};color:{{ p.dotFg }}">{{ p.n }}</span>
+<span style="font-size:12.5px;font-weight:800">{{ p.name }}</span>
+</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.62);line-height:1.4">{{ p.note }}</div>
+<div style="height:3px;background:{{ p.bar }};margin-top:auto"></div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1.45fr 1fr;gap:20px">
+<div class="ep-pane">
+<div style="padding:12px 14px;border-bottom:2px solid rgba(32,30,29,.4);display:flex;align-items:center;justify-content:space-between">
+<span style="font-size:14px;font-weight:800">My action queue</span>
+<span class="ep-k">6 open</span>
+</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Task</th><th class="ep-th">Ref</th><th class="ep-th">Due</th><th class="ep-th"></th></tr></thead>
+<tbody>
+<sc-for list="{{ tasks }}" as="t" hint-placeholder-count="6">
+<tr>
+<td class="ep-cell"><div style="font-weight:600">{{ t.task }}</div><div style="font-size:11.5px;color:rgba(32,30,29,.6)">{{ t.detail }}</div></td>
+<td class="ep-cell" style="font-size:12px">{{ t.ref }}</td>
+<td class="ep-cell" style="font-size:12px;color:{{ t.dueColor }}">{{ t.due }}</td>
+<td class="ep-cell" style="text-align:right"><button class="ep-b" onClick="{{ t.go }}">Open</button></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div class="ep-pane">
+<div style="padding:12px 14px;border-bottom:2px solid rgba(32,30,29,.4);font-size:14px;font-weight:800">Vendor base</div>
+<div style="padding:14px">
+<sc-for list="{{ vendorMix }}" as="m" hint-placeholder-count="5">
+<div style="margin-bottom:13px">
+<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>{{ m.label }}</span><span>{{ m.n }}</span></div>
+<div style="height:8px;background:rgba(32,30,29,.14);margin-top:5px"><div style="height:8px;width:{{ m.w }};background:{{ m.color }}"></div></div>
+</div>
+</sc-for>
+<div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0 13px"></div>
+<div class="ep-k" style="margin-bottom:7px">Compliance alerts</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="border-left:3px solid #ec3013;padding:2px 0 2px 9px;font-size:12.5px;line-height:1.4">Prakash Surgico — drug licence expired 12 Aug 2026. Bidding auto-suspended.</div>
+<div style="border-left:3px solid rgba(32,30,29,.4);padding:2px 0 2px 9px;font-size:12.5px;line-height:1.4">Nirmal Facility Services — PF/ESI challan due in 9 days.</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ VENDOR QUEUE ══ -->
+<sc-if value="{{ s.vendors }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start">
+<div class="ep-pane">
+<div style="padding:11px 13px;border-bottom:2px solid rgba(32,30,29,.4);font-size:13px;font-weight:800">Registration queue</div>
+<sc-for list="{{ vendors }}" as="v" hint-placeholder-count="7">
+<button onClick="{{ v.pick }}" style="display:block;width:100%;text-align:left;background:{{ v.selBg }};border:0;border-bottom:1px solid rgba(32,30,29,.18);border-left:3px solid {{ v.selBar }};padding:10px 12px;cursor:pointer;font-family:Archivo,system-ui,sans-serif">
+<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+<span style="font-size:13px;font-weight:800">{{ v.name }}</span>
+<span style="font-size:10.5px;color:rgba(32,30,29,.55)">{{ v.code }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:7px;margin-top:5px">
+<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 7px;background:{{ v.statusBg }};color:{{ v.statusFg }}">{{ v.status }}</span>
+<span style="font-size:11.5px;color:rgba(32,30,29,.6)">{{ v.kinds }}</span>
+</div>
+</button>
+</sc-for>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:18px 20px">
+<div style="display:flex;align-items:flex-start;gap:16px">
+<div style="flex:1">
+<div class="ep-k">{{ sv.code }} · applied {{ sv.applied }}</div>
+<h4 style="margin:4px 0 3px;font-size:22px">{{ sv.name }}</h4>
+<div style="font-size:13px;color:rgba(32,30,29,.68)">{{ sv.address }}</div>
+</div>
+<div style="text-align:right">
+<div class="ep-k">Current status</div>
+<div style="margin-top:5px;display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:4px 10px;background:{{ sv.statusBg }};color:{{ sv.statusFg }}">{{ sv.status }}</div>
+</div>
+</div>
+<div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0"></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+<sc-for list="{{ sv.facts }}" as="f" hint-placeholder-count="8">
+<div><div class="ep-k">{{ f.k }}</div><div style="font-size:13px;font-weight:600;margin-top:3px">{{ f.v }}</div></div>
+</sc-for>
+</div>
+</div>
+
+<div class="ep-pane">
+<div style="padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4);font-size:13px;font-weight:800">KYC &amp; statutory documents</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Document</th><th class="ep-th">Reference</th><th class="ep-th">Valid till</th><th class="ep-th">Verification</th></tr></thead>
+<tbody>
+<sc-for list="{{ sv.docs }}" as="d" hint-placeholder-count="6">
+<tr>
+<td class="ep-cell" style="font-weight:600">{{ d.name }}</td>
+<td class="ep-cell" style="font-size:12.5px;font-family:ui-monospace,Menlo,monospace">{{ d.ref }}</td>
+<td class="ep-cell" style="font-size:12.5px">{{ d.till }}</td>
+<td class="ep-cell"><span style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ d.bg }};color:{{ d.fg }}">{{ d.state }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+
+<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:12px">
+<div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.68);line-height:1.45">GSTIN &amp; PAN verified against the statutory API. Duplicate check on GSTIN returned no match. Approval activates the vendor and opens category mapping.</div>
+<button class="ep-b" onClick="{{ sv.info }}">Request info</button>
+<button class="ep-b" onClick="{{ sv.reject }}">Reject</button>
+<button class="ep-b" data-v="p" onClick="{{ sv.approve }}">Approve &amp; activate</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ MASTER ══ -->
+<sc-if value="{{ s.master }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:14px">
+<div style="display:flex;border:1px solid rgba(32,30,29,.3)">
+<sc-for list="{{ masterTabs }}" as="t" hint-placeholder-count="4">
+<button class="ep-b" data-v="{{ t.v }}" style="border:0;border-left:1px solid rgba(32,30,29,.2);padding:7px 15px" onClick="{{ t.go }}">{{ t.label }}</button>
+</sc-for>
+</div>
+<div style="font-size:12.5px;color:rgba(32,30,29,.6)">{{ masterCount }} entries · procurement type drives the line-item form and the mandatory attachment checklist</div>
+</div>
+<div class="ep-pane">
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Code</th><th class="ep-th">Name &amp; specification</th><th class="ep-th">Type</th><th class="ep-th">Category</th><th class="ep-th">Type-specific attributes</th><th class="ep-th">Price band</th><th class="ep-th">Vendors</th></tr></thead>
+<tbody>
+<sc-for list="{{ masterRows }}" as="r" hint-placeholder-count="8">
+<tr>
+<td class="ep-cell" style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ r.code }}</td>
+<td class="ep-cell"><div style="font-weight:600">{{ r.name }}</div><div style="font-size:11.5px;color:rgba(32,30,29,.6)">{{ r.spec }}</div></td>
+<td class="ep-cell"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 7px;background:{{ r.tBg }};color:{{ r.tFg }}">{{ r.type }}</span></td>
+<td class="ep-cell" style="font-size:12.5px">{{ r.cat }}</td>
+<td class="ep-cell" style="font-size:11.5px;color:rgba(32,30,29,.68);max-width:290px;line-height:1.45">{{ r.attrs }}</td>
+<td class="ep-cell" style="font-size:12.5px;white-space:nowrap">{{ r.band }}</td>
+<td class="ep-cell" style="font-weight:800">{{ r.vendors }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ MAPPING ══ -->
+<sc-if value="{{ s.mapping }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="font-size:13px;color:rgba(32,30,29,.7);max-width:900px;line-height:1.5">Many-to-many eligibility matrix — the single source of truth for who can be invited at tender time. A vendor may hold different mappings and different ratings across each procurement type. Click a cell to open the mapping's details — scope, credentials and version history; approval and suspension happen there and are versioned and logged with reason.</div>
+<div class="ep-pane" style="overflow:hidden">
+<table style="width:100%;border-collapse:collapse">
+<thead>
+<tr>
+<th class="ep-th" style="min-width:230px">Vendor</th>
+<sc-for list="{{ matrixCols }}" as="c" hint-placeholder-count="6">
+<th class="ep-th" style="text-align:center"><div>{{ c.label }}</div><div style="font-weight:400;letter-spacing:0;text-transform:none;font-size:10.5px;color:rgba(32,30,29,.5)">{{ c.type }}</div></th>
+</sc-for>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{ matrixRows }}" as="r" hint-placeholder-count="7">
+<tr>
+<td class="ep-cell"><div style="font-weight:600">{{ r.name }}</div><div style="font-size:11px;color:rgba(32,30,29,.55)">{{ r.meta }}</div></td>
+<sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="6">
+<td class="ep-cell" style="text-align:center;padding:4px">
+<button onClick="{{ c.toggle }}" style="width:100%;height:34px;border:0;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }};font-size:12px;font-weight:700;font-family:Archivo,system-ui,sans-serif">{{ c.mark }}</button>
+</td>
+</sc-for>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="display:flex;gap:22px;font-size:11.5px;color:rgba(32,30,29,.62)">
+<span><b style="color:#ae1800">MAPPED</b> — active, approved mapping</span>
+<span><b>PENDING</b> — vendor requested, category manager review open</span>
+<span>— not mapped</span>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ RATINGS ══ -->
+<sc-if value="{{ s.rating }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:16px 18px;display:flex;gap:26px;align-items:center">
+<div style="flex:none"><div class="ep-k">Weighted model</div><div style="font-size:13px;font-weight:800;margin-top:3px">Rolling 12 months · refreshed on PO closure</div></div>
+<div style="flex:1;display:flex;gap:1px;background:rgba(32,30,29,.3)">
+<sc-for list="{{ weights }}" as="w" hint-placeholder-count="5">
+<div style="flex:{{ w.flex }};background:#f3f2f2;padding:8px 10px">
+<div style="font-size:15px;font-weight:800">{{ w.pct }}</div>
+<div style="font-size:10.5px;line-height:1.3;color:rgba(32,30,29,.65)">{{ w.label }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+<sc-for list="{{ scorecards }}" as="v" hint-placeholder-count="6">
+<div class="ep-pane" style="padding:15px 16px;display:flex;flex-direction:column;gap:11px">
+<div style="display:flex;align-items:flex-start;gap:10px">
+<div style="flex:1"><div style="font-size:14.5px;font-weight:800;line-height:1.2">{{ v.name }}</div><div class="ep-k" style="margin-top:3px">{{ v.code }} · {{ v.kind }}</div></div>
+<div style="text-align:right"><div style="font-size:30px;font-weight:800;line-height:1;color:{{ v.scoreColor }}">{{ v.score }}</div><div class="ep-k">{{ v.tier }}</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<sc-for list="{{ v.params }}" as="p" hint-placeholder-count="5">
+<div>
+<div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:rgba(32,30,29,.68)">{{ p.label }}</span><span style="font-weight:600">{{ p.v }}</span></div>
+<div style="height:5px;background:rgba(32,30,29,.14);margin-top:3px"><div style="height:5px;width:{{ p.w }};background:{{ p.color }}"></div></div>
+</div>
+</sc-for>
+</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.6);line-height:1.4">{{ v.note }}</div>
+<button class="ep-b" style="align-self:flex-start" onClick="{{ v.adjust }}">Manual adjustment</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ TENDER CREATE ══ -->
+<sc-if value="{{ s.create }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:18px 20px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+<span style="font-size:14px;font-weight:800">Tender header</span>
+<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:3px 9px;background:rgba(32,30,29,.12)">Draft</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 18px">
+<sc-for list="{{ headerFields }}" as="f" hint-placeholder-count="12">
+<div style="grid-column:span {{ f.span }}">
+<div class="ep-k" style="margin-bottom:4px">{{ f.k }}</div>
+<div style="min-height:34px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px;font-weight:600">{{ f.v }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;gap:12px">
+<span style="font-size:14px;font-weight:800">Line items</span>
+<span style="font-size:12.5px;color:rgba(32,30,29,.6)">5 lines · mixed procurement types · each evaluated and awarded independently</span>
+<div style="flex:1"></div>
+<button class="ep-b">+ Add line item</button>
+</div>
+
+<sc-for list="{{ createLines }}" as="l" hint-placeholder-count="5">
+<div class="ep-pane">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4)">
+<span style="font-size:12px;font-weight:800;font-family:ui-monospace,Menlo,monospace">L{{ l.no }}</span>
+<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ l.tBg }};color:{{ l.tFg }}">{{ l.type }}</span>
+<span style="font-size:14px;font-weight:800">{{ l.name }}</span>
+<div style="flex:1"></div>
+<span style="font-size:12px;color:rgba(32,30,29,.62)">{{ l.qty }} · budget {{ l.budget }}</span>
+</div>
+<div style="display:grid;grid-template-columns:1.35fr 1fr;gap:0">
+<div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;border-right:1px solid rgba(32,30,29,.25)">
+<sc-for list="{{ l.fields }}" as="f" hint-placeholder-count="6">
+<div><div class="ep-k">{{ f.k }}</div><div style="font-size:12.5px;margin-top:3px;line-height:1.45">{{ f.v }}</div></div>
+</sc-for>
+</div>
+<div style="padding:14px">
+<div class="ep-k" style="margin-bottom:8px">Mandatory attachment checklist · {{ l.type }}</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ l.attach }}" as="a" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:9px;padding:7px 9px;background:{{ a.bg }};border-left:3px solid {{ a.bar }}">
+<span style="font-size:12px;font-weight:800;color:{{ a.bar }};width:14px">{{ a.mark }}</span>
+<div style="flex:1"><div style="font-size:12.5px;font-weight:600">{{ a.name }}</div><div style="font-size:11px;color:rgba(32,30,29,.6)">{{ a.meta }}</div></div>
+<button class="ep-b" style="padding:3px 9px">{{ a.action }}</button>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:8px;margin-top:11px">
+<sc-for list="{{ l.thumbs }}" as="t" hint-placeholder-count="3">
+<div style="width:52px;height:52px;background:rgba(32,30,29,.12);border:1px solid rgba(32,30,29,.25);display:grid;place-items:center;font-size:9px;text-align:center;color:rgba(32,30,29,.6);line-height:1.2;padding:3px">{{ t }}</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</sc-for>
+
+<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:14px;border-left:3px solid #ec3013">
+<div style="flex:1">
+<div style="font-size:13px;font-weight:800;color:#ae1800">{{ createBlock.title }}</div>
+<div style="font-size:12px;color:rgba(32,30,29,.68);margin-top:2px">{{ createBlock.body }}</div>
+</div>
+<button class="ep-b" onClick="{{ createBlock.fix }}">Upload missing SOW</button>
+<button class="ep-b" data-v="p" disabled="{{ createBlock.blocked }}" onClick="{{ createBlock.send }}">Send for approval</button>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ PUBLISH ══ -->
+<sc-if value="{{ s.publish }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:15px 18px;display:flex;gap:24px;align-items:center">
+<div style="flex:1"><div style="font-size:14px;font-weight:800">Eligibility resolved per line item</div><div style="font-size:12.5px;color:rgba(32,30,29,.65);margin-top:3px">Active status ∩ active mapping ∩ rating ≥ threshold ∩ compliance clear — then capped at max invites by rating rank. Notifications go only to the resolved set, scoped to the lines each vendor qualified for.</div></div>
+<div style="text-align:right;flex:none"><div class="ep-k">Total invites</div><div style="font-size:28px;font-weight:800;line-height:1.1">{{ publishTotal }}</div><div style="font-size:11.5px;color:rgba(32,30,29,.6)">of 7 registered vendors</div></div>
+</div>
+
+<sc-for list="{{ publishLines }}" as="l" hint-placeholder-count="5">
+<div class="ep-pane" style="border-left:3px solid {{ l.bar }}">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4)">
+<span style="font-size:12px;font-weight:800;font-family:ui-monospace,Menlo,monospace">L{{ l.no }}</span>
+<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ l.tBg }};color:{{ l.tFg }}">{{ l.type }}</span>
+<span style="font-size:13.5px;font-weight:800">{{ l.name }}</span>
+<div style="flex:1"></div>
+<span style="font-size:12px;color:rgba(32,30,29,.62)">threshold {{ l.threshold }} · max invites {{ l.cap }}</span>
+</div>
+<div style="display:grid;grid-template-columns:1.15fr 1fr;gap:0">
+<div style="padding:14px;border-right:1px solid rgba(32,30,29,.25)">
+<div class="ep-k" style="margin-bottom:9px">Filter chain</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<sc-for list="{{ l.steps }}" as="st" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:172px;font-size:11.5px;color:rgba(32,30,29,.7)">{{ st.label }}</div>
+<div style="flex:1;height:19px;background:rgba(32,30,29,.1)"><div style="height:19px;width:{{ st.w }};background:{{ st.color }}"></div></div>
+<div style="width:26px;text-align:right;font-size:13px;font-weight:800">{{ st.n }}</div>
+</div>
+</sc-for>
+</div>
+<div style="margin-top:12px">
+<div class="ep-k" style="margin-bottom:6px">Excluded</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ l.excluded }}" as="e" hint-placeholder-count="3">
+<span style="font-size:11px;padding:3px 8px;background:rgba(32,30,29,.1);border-left:2px solid rgba(32,30,29,.45)">{{ e }}</span>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="padding:14px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
+<span class="ep-k">Invite list</span>
+<div style="flex:1"></div>
+<button class="ep-b" style="padding:3px 9px" onClick="{{ l.addVendor }}">+ Add vendor</button>
+<button class="ep-b" style="padding:3px 9px" onClick="{{ l.guest }}">Guest invite</button>
+</div>
+<sc-if value="{{ l.blocked }}" hint-placeholder-val="{{ false }}">
+<div style="padding:11px 12px;background:rgba(236,48,19,.1);border-left:3px solid #ec3013">
+<div style="font-size:12.5px;font-weight:800;color:#ae1800">Zero vendors qualified — publishing blocked for this line</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.7);margin-top:3px;line-height:1.45">Relax the rating threshold, widen the mapping to the parent category, or route a manual sourcing exception through the override engine.</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;gap:6px">
+<sc-for list="{{ l.invites }}" as="v" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:10px;padding:7px 9px;background:{{ v.bg }};border-left:3px solid {{ v.bar }}">
+<div style="flex:1"><div style="font-size:12.5px;font-weight:600">{{ v.name }}</div><div style="font-size:11px;color:rgba(32,30,29,.6)">{{ v.meta }}</div></div>
+<span style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 7px;background:{{ v.tagBg }};color:{{ v.tagFg }}">{{ v.tag }}</span>
+<button class="ep-b" style="padding:3px 8px" onClick="{{ v.remove }}">Remove</button>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</sc-for>
+
+<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:14px">
+<div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.7);line-height:1.45">{{ publishNote }}</div>
+<button class="ep-b">Save preview</button>
+<button class="ep-b" data-v="p" onClick="{{ publishNow }}">Publish to resolved list</button>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ EVALUATE — HERO ══ -->
+<sc-if value="{{ s.evaluate }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:1fr 316px;gap:20px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+<div class="ep-pane" style="padding:15px 18px;display:flex;gap:26px;align-items:center">
+<div style="flex:1"><div style="font-size:14px;font-weight:800">Comparative statement — line-item L1 ranking</div><div style="font-size:12.5px;color:rgba(32,30,29,.65);margin-top:3px">Prices unlocked at 04 Sep 2026 17:00 IST, simultaneously for all bids. Technical qualification runs before price ranking; ranking is on landed price.</div></div>
+<div style="flex:none;text-align:right"><div class="ep-k">Bids received</div><div style="font-size:26px;font-weight:800;line-height:1.1">11</div><div style="font-size:11.5px;color:rgba(32,30,29,.6)">across 4 live lines</div></div>
+<div style="flex:none;padding-left:20px;border-left:2px solid rgba(32,30,29,.3)">
+<button class="ep-b" data-v="{{ techToggleV }}" onClick="{{ toggleTech }}">{{ techToggleLabel }}</button>
+</div>
+</div>
+
+<sc-for list="{{ evalLines }}" as="l" hint-placeholder-count="4">
+<div class="ep-pane">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4)">
+<span style="font-size:12px;font-weight:800;font-family:ui-monospace,Menlo,monospace">L{{ l.no }}</span>
+<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ l.tBg }};color:{{ l.tFg }}">{{ l.type }}</span>
+<span style="font-size:13.5px;font-weight:800">{{ l.name }}</span>
+<div style="flex:1"></div>
+<span style="font-size:12px;color:rgba(32,30,29,.62)">{{ l.qty }} · budget {{ l.budget }} · split-award {{ l.splitLabel }}</span>
+</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th" style="width:38px">L-rank</th>
+<sc-if value="{{ l.showTech }}" hint-placeholder-val="{{ false }}"><th class="ep-th" style="width:38px">T-rank</th><th class="ep-th" style="width:56px;white-space:nowrap">Tech<br>score</th></sc-if>
+<th class="ep-th" style="min-width:150px">Vendor</th><th class="ep-th">Rating</th><th class="ep-th" style="white-space:nowrap">Unit price</th><th class="ep-th" style="white-space:nowrap">Tax</th><th class="ep-th" style="white-space:nowrap">Landed unit</th><th class="ep-th" style="white-space:nowrap">Line total</th><th class="ep-th" style="white-space:nowrap">Tech. qualification</th><th class="ep-th" style="text-align:right">Award</th></tr></thead>
+<tbody>
+<sc-for list="{{ l.rows }}" as="r" hint-placeholder-count="3">
+<tr style="background:{{ r.rowBg }}">
+<td class="ep-cell"><span style="display:inline-block;min-width:26px;text-align:center;font-size:11px;font-weight:800;padding:2px 5px;background:{{ r.rankBg }};color:{{ r.rankFg }}">{{ r.rank }}</span></td>
+<sc-if value="{{ r.showTech }}" hint-placeholder-val="{{ false }}">
+<td class="ep-cell"><span style="display:inline-block;min-width:26px;text-align:center;font-size:11px;font-weight:800;padding:2px 5px;background:{{ r.tRankBg }};color:{{ r.tRankFg }}">{{ r.tRank }}</span></td>
+<td class="ep-cell" style="white-space:nowrap">
+<div style="font-size:12.5px;font-weight:800">{{ r.tech }}</div>
+<div style="width:40px;height:5px;background:rgba(32,30,29,.14);margin-top:3px"><div style="height:5px;width:{{ r.techW }};background:{{ r.techColor }}"></div></div>
+</td>
+</sc-if>
+<td class="ep-cell"><div style="font-weight:600;text-decoration:{{ r.strike }}">{{ r.vendor }}</div><div style="font-size:11px;color:rgba(32,30,29,.6)">{{ r.meta }}</div></td>
+<td class="ep-cell" style="font-weight:600">{{ r.rating }}</td>
+<td class="ep-cell">{{ r.unit }}</td>
+<td class="ep-cell" style="font-size:12.5px;color:rgba(32,30,29,.65);white-space:nowrap">{{ r.tax }}</td>
+<td class="ep-cell" style="font-weight:800;white-space:nowrap">{{ r.landed }}</td>
+<td class="ep-cell" style="font-weight:600;white-space:nowrap">{{ r.total }}</td>
+<td class="ep-cell"><span style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 7px;background:{{ r.qBg }};color:{{ r.qFg }}">{{ r.qual }}</span></td>
+<td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="{{ r.btnV }}" disabled="{{ r.btnOff }}" onClick="{{ r.award }}">{{ r.btnLabel }}</button></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<sc-if value="{{ l.showTech }}" hint-placeholder-val="{{ false }}">
+<div style="padding:11px 14px;border-top:1px solid rgba(32,30,29,.25);display:flex;align-items:center;gap:18px;background:rgba(32,30,29,.04)">
+<div style="flex:none"><div class="ep-k">Technical criteria &amp; weights</div><div style="font-size:11px;color:rgba(32,30,29,.6);margin-top:2px;max-width:220px;line-height:1.4">{{ l.techNote }}</div></div>
+<div style="flex:1;display:flex;gap:1px;background:rgba(32,30,29,.25)">
+<sc-for list="{{ l.techParams }}" as="tp" hint-placeholder-count="4">
+<div style="flex:1;background:#eae9e9;padding:7px 10px">
+<div style="font-size:14px;font-weight:800">{{ tp.weight }}</div>
+<div style="font-size:10.5px;line-height:1.3;color:rgba(32,30,29,.65)">{{ tp.label }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div style="padding:11px 14px;display:flex;align-items:center;gap:14px;border-top:1px solid rgba(32,30,29,.25)">
+<div style="flex:1;font-size:11.5px;color:rgba(32,30,29,.68);line-height:1.45">{{ l.note }}</div>
+<sc-if value="{{ l.showSplit }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;width:330px;padding-left:14px;border-left:2px solid rgba(32,30,29,.3)">
+<div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600"><span>Split allocation</span><span>{{ l.splitText }}</span></div>
+<input type="range" min="50" max="100" step="5" value="{{ l.splitPct }}" onChange="{{ l.setSplit }}" style="width:100%;margin-top:6px">
+<div style="display:flex;justify-content:space-between;font-size:10.5px;color:rgba(32,30,29,.6)"><span>{{ l.splitL1 }}</span><span>{{ l.splitL2 }}</span></div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+
+<div class="ep-pane" style="position:sticky;top:0;display:flex;flex-direction:column">
+<div style="padding:13px 15px;border-bottom:2px solid rgba(32,30,29,.4);font-size:14px;font-weight:800">Award summary</div>
+<div style="padding:14px 15px;display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ awardRows }}" as="a" hint-placeholder-count="4">
+<div style="border-left:3px solid {{ a.bar }};padding:2px 0 2px 10px">
+<div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:12px;font-weight:800">L{{ a.no }} · {{ a.short }}</span><span style="font-size:12px;font-weight:800">{{ a.value }}</span></div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.65);margin-top:2px;line-height:1.4">{{ a.vendor }}</div>
+</div>
+</sc-for>
+<div style="height:2px;background:rgba(32,30,29,.4)"></div>
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="ep-k">Awarded value</span><span style="font-size:22px;font-weight:800">{{ awardTotal }}</span></div>
+<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:rgba(32,30,29,.65)">Against budget</span><span style="font-weight:600;color:{{ varianceColor }}">{{ variance }}</span></div>
+<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:rgba(32,30,29,.65)">Vendors awarded</span><span style="font-weight:600">{{ awardVendors }}</span></div>
+<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:rgba(32,30,29,.65)">POs to be raised</span><span style="font-weight:600">{{ poCount }}</span></div>
+<div style="height:2px;background:rgba(32,30,29,.4)"></div>
+<sc-if value="{{ awardWarn }}" hint-placeholder-val="{{ false }}">
+<div style="padding:10px 11px;background:rgba(236,48,19,.1);border-left:3px solid #ec3013;font-size:11.5px;line-height:1.45">{{ awardWarnText }}</div>
+</sc-if>
+<button class="ep-b" data-v="p" style="justify-content:flex-start;padding:9px 12px" disabled="{{ confirmOff }}" onClick="{{ confirmAwards }}">{{ confirmLabel }}</button>
+<div style="font-size:11px;color:rgba(32,30,29,.6);line-height:1.4">Awards above ₹10,00,000 route to the Finance / Management Committee for final sign-off.</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ PURCHASE ORDERS ══ -->
+<sc-if value="{{ s.po }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ noPos }}" hint-placeholder-val="{{ false }}">
+<div class="ep-pane" style="padding:30px;text-align:left;border-left:3px solid rgba(32,30,29,.4)">
+<div style="font-size:15px;font-weight:800">No purchase orders yet</div>
+<div style="font-size:12.5px;color:rgba(32,30,29,.68);margin-top:5px;max-width:560px;line-height:1.5">POs are generated from confirmed line-item awards, one per awarded vendor per tender. Confirm the awards on the evaluation screen to populate this queue.</div>
+<button class="ep-b" data-v="p" style="margin-top:14px" onClick="{{ goEval }}">Go to evaluation</button>
+</div>
+</sc-if>
+<sc-for list="{{ pos }}" as="p" hint-placeholder-count="2">
+<div class="ep-pane">
+<div style="display:flex;align-items:center;gap:14px;padding:12px 15px;border-bottom:2px solid rgba(32,30,29,.4)">
+<div><div class="ep-k">{{ p.no }}</div><div style="font-size:15px;font-weight:800;margin-top:2px">{{ p.vendor }}</div></div>
+<div style="flex:1"></div>
+<div style="text-align:right"><div class="ep-k">PO value</div><div style="font-size:17px;font-weight:800">{{ p.value }}</div></div>
+<span style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:3px 9px;background:{{ p.stBg }};color:{{ p.stFg }}">{{ p.status }}</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 300px">
+<div style="border-right:1px solid rgba(32,30,29,.25)">
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Line</th><th class="ep-th">Description</th><th class="ep-th">Qty</th><th class="ep-th">Unit</th><th class="ep-th">Tax</th><th class="ep-th">Total</th></tr></thead>
+<tbody>
+<sc-for list="{{ p.lines }}" as="li" hint-placeholder-count="2">
+<tr>
+<td class="ep-cell" style="font-family:ui-monospace,Menlo,monospace;font-size:12px">L{{ li.no }}</td>
+<td class="ep-cell"><div style="font-weight:600">{{ li.name }}</div><div style="font-size:11px;color:rgba(32,30,29,.6)">{{ li.spec }}</div></td>
+<td class="ep-cell">{{ li.qty }}</td>
+<td class="ep-cell">{{ li.unit }}</td>
+<td class="ep-cell" style="font-size:12.5px;color:rgba(32,30,29,.65)">{{ li.tax }}</td>
+<td class="ep-cell" style="font-weight:700">{{ li.total }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="padding:12px 14px;display:flex;gap:26px;border-top:1px solid rgba(32,30,29,.25)">
+<div><div class="ep-k">Payment terms</div><div style="font-size:12.5px;font-weight:600;margin-top:3px">{{ p.payment }}</div></div>
+<div><div class="ep-k">Delivery</div><div style="font-size:12.5px;font-weight:600;margin-top:3px">{{ p.delivery }}</div></div>
+<div><div class="ep-k">Penalty clause</div><div style="font-size:12.5px;font-weight:600;margin-top:3px">{{ p.penalty }}</div></div>
+</div>
+</div>
+<div style="padding:13px 15px">
+<div class="ep-k" style="margin-bottom:9px">Approval trail</div>
+<div style="display:flex;flex-direction:column;gap:0">
+<sc-for list="{{ p.trail }}" as="t" hint-placeholder-count="3">
+<div style="display:flex;gap:10px">
+<div style="display:flex;flex-direction:column;align-items:center;flex:none">
+<span style="width:11px;height:11px;background:{{ t.dot }};margin-top:4px"></span>
+<span style="width:2px;flex:1;background:rgba(32,30,29,.25)"></span>
+</div>
+<div style="padding-bottom:13px">
+<div style="font-size:12.5px;font-weight:700">{{ t.role }}</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.65);line-height:1.4">{{ t.detail }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ p.blocked }}" hint-placeholder-val="{{ false }}">
+<div style="padding:10px 11px;background:rgba(236,48,19,.1);border-left:3px solid #ec3013;font-size:11.5px;line-height:1.45;margin-bottom:11px">Guest vendor — PO issuance blocked until KYC is completed and status upgraded from Guest to Active. A second override approval is required.</div>
+</sc-if>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="ep-b">Preview PDF</button>
+<button class="ep-b" data-v="{{ p.actV }}" disabled="{{ p.blocked }}" onClick="{{ p.act }}">{{ p.actLabel }}</button>
+</div>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- ══ OVERRIDES ══ -->
+<sc-if value="{{ s.overrides }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:15px 18px">
+<div style="font-size:14px;font-weight:800">One override engine, seven override types</div>
+<div style="font-size:12.5px;color:rgba(32,30,29,.65);margin-top:3px;line-height:1.5;max-width:960px">No override anywhere in the module changes system state until its workflow instance reaches Approved. Requested → Pending approval → Approved / Rejected, with automatic escalation on value, count, or SLA breach, and auto-rejection on expiry.</div>
+<div style="display:flex;gap:1px;background:rgba(32,30,29,.3);margin-top:14px">
+<sc-for list="{{ overrideStates }}" as="o" hint-placeholder-count="6">
+<div style="flex:1;background:#f3f2f2;padding:9px 11px">
+<div style="font-size:11.5px;font-weight:800">{{ o.name }}</div>
+<div style="font-size:10.5px;color:rgba(32,30,29,.62);line-height:1.35;margin-top:2px">{{ o.desc }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div class="ep-pane">
+<div style="padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4);display:flex;align-items:center;gap:12px">
+<span style="font-size:13px;font-weight:800">Override inbox</span>
+<span class="ep-k">{{ overridePending }} pending your approval</span>
+</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Type</th><th class="ep-th">Target</th><th class="ep-th">Reason code &amp; justification</th><th class="ep-th">Initiator</th><th class="ep-th">Approver</th><th class="ep-th">State</th><th class="ep-th" style="text-align:right">Decision</th></tr></thead>
+<tbody>
+<sc-for list="{{ overrides }}" as="o" hint-placeholder-count="4">
+<tr>
+<td class="ep-cell" style="font-weight:600">{{ o.type }}</td>
+<td class="ep-cell" style="font-size:12.5px">{{ o.target }}</td>
+<td class="ep-cell" style="max-width:300px"><div style="font-size:11.5px;font-weight:700;letter-spacing:.04em">{{ o.code }}</div><div style="font-size:11.5px;color:rgba(32,30,29,.68);line-height:1.4">{{ o.why }}</div></td>
+<td class="ep-cell" style="font-size:12px">{{ o.by }}</td>
+<td class="ep-cell" style="font-size:12px">{{ o.approver }}</td>
+<td class="ep-cell"><span style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ o.bg }};color:{{ o.fg }}">{{ o.state }}</span></td>
+<td class="ep-cell" style="text-align:right;white-space:nowrap">
+<sc-if value="{{ o.open }}" hint-placeholder-val="{{ true }}">
+<span style="display:inline-flex;gap:6px"><button class="ep-b" onClick="{{ o.reject }}">Reject</button><button class="ep-b" data-v="p" onClick="{{ o.approve }}">Approve</button></span>
+</sc-if>
+<sc-if value="{{ o.closed }}" hint-placeholder-val="{{ false }}">
+<span style="font-size:11.5px;color:rgba(32,30,29,.6)">{{ o.closedNote }}</span>
+</sc-if>
+</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ VENDOR — TENDER INBOX ══ -->
+<sc-if value="{{ s.vTenders }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center;border-left:3px solid #ec3013">
+<div style="flex:1"><div style="font-size:14px;font-weight:800">You have been invited to 2 of 5 line items on this tender</div><div style="font-size:12.5px;color:rgba(32,30,29,.65);margin-top:3px">You see only the lines you individually qualified for. Lines you are not mapped or rated for are not visible or biddable.</div></div>
+<div style="text-align:right;flex:none"><div class="ep-k">Time remaining</div><div style="font-size:22px;font-weight:800;color:#ae1800">4d 06h</div></div>
+</div>
+<div class="ep-pane">
+<div style="padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4);font-size:13px;font-weight:800">Open invitations</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Tender</th><th class="ep-th">Line items for you</th><th class="ep-th">Type</th><th class="ep-th">Closes</th><th class="ep-th">Bid status</th><th class="ep-th" style="text-align:right"></th></tr></thead>
+<tbody>
+<sc-for list="{{ vTenderRows }}" as="t" hint-placeholder-count="3">
+<tr>
+<td class="ep-cell"><div style="font-weight:700">{{ t.ref }}</div><div style="font-size:11.5px;color:rgba(32,30,29,.65)">{{ t.title }}</div></td>
+<td class="ep-cell" style="font-size:12.5px;line-height:1.5">{{ t.lines }}</td>
+<td class="ep-cell" style="font-size:12px">{{ t.types }}</td>
+<td class="ep-cell" style="font-size:12.5px">{{ t.closes }}</td>
+<td class="ep-cell"><span style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ t.bg }};color:{{ t.fg }}">{{ t.status }}</span></td>
+<td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="{{ t.v }}" onClick="{{ t.go }}">{{ t.action }}</button></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div class="ep-pane" style="padding:14px 16px">
+<div class="ep-k" style="margin-bottom:8px">Tender documents — header level</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap">
+<sc-for list="{{ vDocs }}" as="d" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 11px;background:#f3f2f2;border:1px solid rgba(32,30,29,.25)">
+<span style="width:26px;height:32px;background:rgba(32,30,29,.15);display:grid;place-items:center;font-size:8.5px;font-weight:800">{{ d.ext }}</span>
+<div><div style="font-size:12.5px;font-weight:600">{{ d.name }}</div><div style="font-size:11px;color:rgba(32,30,29,.6)">{{ d.meta }}</div></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ VENDOR — BID ══ -->
+<sc-if value="{{ s.vBid }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center">
+<div style="flex:1"><div style="font-size:14px;font-weight:800">Quotation — TND/2026/CCE/0184</div><div style="font-size:12.5px;color:rgba(32,30,29,.65);margin-top:3px">Sealed bid. Your prices are masked from all hospital users until the submission deadline lapses. Partial bidding on eligible lines is permitted.</div></div>
+<div style="text-align:right;flex:none"><div class="ep-k">Quoted total</div><div style="font-size:24px;font-weight:800">{{ bidTotal }}</div></div>
+</div>
+<sc-for list="{{ bidLines }}" as="l" hint-placeholder-count="2">
+<div class="ep-pane">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:2px solid rgba(32,30,29,.4)">
+<span style="font-size:12px;font-weight:800;font-family:ui-monospace,Menlo,monospace">L{{ l.no }}</span>
+<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ l.tBg }};color:{{ l.tFg }}">{{ l.type }}</span>
+<span style="font-size:13.5px;font-weight:800">{{ l.name }}</span>
+<div style="flex:1"></div>
+<span style="font-size:12px;color:rgba(32,30,29,.62)">{{ l.qty }}</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+<div style="padding:14px;border-right:1px solid rgba(32,30,29,.25);display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+<div>
+<div class="ep-k" style="margin-bottom:4px">Unit price (₹)</div>
+<input class="input" type="text" value="{{ l.unit }}" onChange="{{ l.setUnit }}" disabled="{{ l.locked }}">
+</div>
+<div><div class="ep-k" style="margin-bottom:4px">GST</div><div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px">{{ l.gst }}</div></div>
+<div><div class="ep-k" style="margin-bottom:4px">Landed unit price</div><div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px;font-weight:800">{{ l.landed }}</div></div>
+<div><div class="ep-k" style="margin-bottom:4px">Line total</div><div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px;font-weight:800">{{ l.total }}</div></div>
+<div><div class="ep-k" style="margin-bottom:4px">Delivery lead time</div><div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px">{{ l.lead }}</div></div>
+<div><div class="ep-k" style="margin-bottom:4px">Quote validity</div><div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px">{{ l.validity }}</div></div>
+<div style="grid-column:span 2"><div class="ep-k" style="margin-bottom:4px">{{ l.extraK }}</div><div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px">{{ l.extraV }}</div></div>
+<div style="grid-column:span 2;padding-top:2px;border-top:1px solid rgba(32,30,29,.22)">
+<div class="ep-k" style="margin:9px 0 6px">Specification match declaration</div>
+<div style="display:flex;gap:9px;align-items:center">
+<button class="ep-b" data-v="{{ l.matchYesV }}" disabled="{{ l.locked }}" onClick="{{ l.setExact }}">Exact match to specification</button>
+<button class="ep-b" data-v="{{ l.matchNoV }}" disabled="{{ l.locked }}" onClick="{{ l.setDeviation }}">Not an exact match</button>
+</div>
+</div>
+<sc-if value="{{ l.showReason }}" hint-placeholder-val="{{ false }}">
+<div style="grid-column:span 2">
+<div class="ep-k" style="margin-bottom:4px;color:{{ l.reasonLabelColor }}">Deviation reason (mandatory) — how the offered product differs</div>
+<textarea class="input" style="min-height:62px;border-color:{{ l.reasonBorder }}" value="{{ l.reason }}" onChange="{{ l.setReason }}" disabled="{{ l.locked }}"></textarea>
+</div>
+</sc-if>
+<div style="grid-column:span 2">
+<div class="ep-k" style="margin-bottom:4px">Remark (optional)</div>
+<textarea class="input" style="min-height:52px" value="{{ l.remark }}" onChange="{{ l.setRemark }}" disabled="{{ l.locked }}"></textarea>
+</div>
+</div>
+<div style="padding:14px">
+<div class="ep-k" style="margin-bottom:8px">Mandatory attachments · {{ l.type }} line</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ l.attach }}" as="a" hint-placeholder-count="3">
+<button onClick="{{ a.toggle }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:{{ a.bg }};border:0;border-left:3px solid {{ a.bar }};cursor:pointer;text-align:left;width:100%;font-family:Archivo,system-ui,sans-serif">
+<span style="width:16px;height:16px;flex:none;display:grid;place-items:center;border:1.5px solid {{ a.bar }};background:{{ a.boxBg }};color:#f3f2f2;font-size:10px;font-weight:800">{{ a.mark }}</span>
+<div style="flex:1"><div style="font-size:12.5px;font-weight:600">{{ a.name }}</div><div style="font-size:11px;color:rgba(32,30,29,.6)">{{ a.meta }}</div></div>
+</button>
+</sc-for>
+</div>
+<div style="font-size:11px;color:rgba(32,30,29,.6);margin-top:10px;line-height:1.45">{{ l.attachNote }}</div>
+</div>
+</div>
+</div>
+</sc-for>
+<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:14px;border-left:3px solid {{ bidBarColor }}">
+<div style="flex:1"><div style="font-size:13px;font-weight:800;color:{{ bidBarColor }}">{{ bidGate.title }}</div><div style="font-size:12px;color:rgba(32,30,29,.68);margin-top:2px">{{ bidGate.body }}</div></div>
+<button class="ep-b">Save draft</button>
+<button class="ep-b" data-v="p" disabled="{{ bidGate.off }}" onClick="{{ submitBid }}">{{ bidGate.label }}</button>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ VENDOR — PROFILE ══ -->
+<sc-if value="{{ s.vProfile }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+<div class="ep-pane" style="padding:18px 20px">
+<div style="font-size:14px;font-weight:800;margin-bottom:14px">Company &amp; statutory details</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:13px 16px">
+<sc-for list="{{ regFields }}" as="f" hint-placeholder-count="10">
+<div style="grid-column:span {{ f.span }}">
+<div class="ep-k" style="margin-bottom:4px">{{ f.k }}</div>
+<div style="min-height:36px;padding:7px 10px;background:#f3f2f2;border:1px solid rgba(32,30,29,.28);font-size:13px;font-weight:600">{{ f.v }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:18px">
+<div class="ep-pane">
+<div style="padding:12px 14px;border-bottom:2px solid rgba(32,30,29,.4);font-size:13px;font-weight:800">Document vault</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Document</th><th class="ep-th">Valid till</th><th class="ep-th">Status</th></tr></thead>
+<tbody>
+<sc-for list="{{ regDocs }}" as="d" hint-placeholder-count="5">
+<tr>
+<td class="ep-cell" style="font-weight:600">{{ d.name }}</td>
+<td class="ep-cell" style="font-size:12.5px">{{ d.till }}</td>
+<td class="ep-cell"><span style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ d.bg }};color:{{ d.fg }}">{{ d.state }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div class="ep-pane" style="padding:16px 18px">
+<div class="ep-k">Category declaration</div>
+<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px">
+<sc-for list="{{ regCats }}" as="c" hint-placeholder-count="5">
+<span style="font-size:11.5px;padding:4px 10px;background:{{ c.bg }};color:{{ c.fg }};font-weight:600">{{ c.label }}</span>
+</sc-for>
+</div>
+<div style="font-size:11.5px;color:rgba(32,30,29,.65);margin-top:12px;line-height:1.45">Category approval does not auto-approve every SKU within it. Requests are reviewed by the category manager and timestamped on approval.</div>
+<button class="ep-b" style="margin-top:12px">Request additional category</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ══ VENDOR — POs ══ -->
+<sc-if value="{{ s.vPo }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ noVendorPo }}" hint-placeholder-val="{{ false }}">
+<div class="ep-pane" style="padding:30px;border-left:3px solid rgba(32,30,29,.4)">
+<div style="font-size:15px;font-weight:800">No purchase orders received</div>
+<div style="font-size:12.5px;color:rgba(32,30,29,.68);margin-top:5px;max-width:520px;line-height:1.5">Award notifications and POs appear here once the hospital finalises the tender. Regret notifications for non-awarded lines arrive on the same channel.</div>
+</div>
+</sc-if>
+<sc-for list="{{ vendorPos }}" as="p" hint-placeholder-count="1">
+<div class="ep-pane">
+<div style="display:flex;align-items:center;gap:14px;padding:12px 15px;border-bottom:2px solid rgba(32,30,29,.4)">
+<div><div class="ep-k">{{ p.no }} · issued {{ p.date }}</div><div style="font-size:15px;font-weight:800;margin-top:2px">{{ p.title }}</div></div>
+<div style="flex:1"></div>
+<div style="text-align:right"><div class="ep-k">Value</div><div style="font-size:17px;font-weight:800">{{ p.value }}</div></div>
+<span style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:3px 9px;background:{{ p.stBg }};color:{{ p.stFg }}">{{ p.status }}</span>
+</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Line</th><th class="ep-th">Description</th><th class="ep-th">Qty</th><th class="ep-th">Unit</th><th class="ep-th">Total</th><th class="ep-th">Deliver by</th></tr></thead>
+<tbody>
+<sc-for list="{{ p.lines }}" as="li" hint-placeholder-count="2">
+<tr>
+<td class="ep-cell" style="font-family:ui-monospace,Menlo,monospace;font-size:12px">L{{ li.no }}</td>
+<td class="ep-cell" style="font-weight:600">{{ li.name }}</td>
+<td class="ep-cell">{{ li.qty }}</td>
+<td class="ep-cell">{{ li.unit }}</td>
+<td class="ep-cell" style="font-weight:700">{{ li.total }}</td>
+<td class="ep-cell" style="font-size:12.5px">{{ li.by }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="padding:13px 15px;display:flex;align-items:center;gap:12px;border-top:1px solid rgba(32,30,29,.25)">
+<div style="flex:1;font-size:12px;color:rgba(32,30,29,.68);line-height:1.45">Acknowledge to close the procurement cycle for these lines. Requesting an amendment routes a PO amendment override to Procurement Admin.</div>
+<button class="ep-b" onClick="{{ p.amend }}">Request amendment</button>
+<button class="ep-b" data-v="p" onClick="{{ p.accept }}">{{ p.acceptLabel }}</button>
+</div>
+</div>
+</sc-for>
+<div class="ep-pane" style="padding:15px 17px">
+<div class="ep-k" style="margin-bottom:9px">Line outcomes</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ vendorOutcomes }}" as="o" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:11px;border-left:3px solid {{ o.bar }};padding:3px 0 3px 10px">
+<div style="flex:1"><div style="font-size:12.5px;font-weight:700">{{ o.line }}</div><div style="font-size:11.5px;color:rgba(32,30,29,.65)">{{ o.detail }}</div></div>
+<span style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;background:{{ o.bg }};color:{{ o.fg }}">{{ o.state }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+</div>
+</main>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:266px;bottom:22px;max-width:520px;background:#201e1d;color:#f3f2f2;padding:12px 16px;border-left:3px solid #ec3013;box-shadow:0 12px 32px rgba(45,43,43,.22);z-index:40">
+<div style="font-size:12.5px;font-weight:800">{{ toast.title }}</div>
+<div style="font-size:12px;opacity:.8;margin-top:2px;line-height:1.45">{{ toast.body }}</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasMapDetail }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:rgba(45,43,43,.5);display:grid;place-items:center;z-index:55">
+<div style="width:720px;background:#eae9e9;border:2px solid #201e1d;box-shadow:0 12px 32px rgba(45,43,43,.3)">
+<div style="padding:15px 18px;border-bottom:2px solid rgba(32,30,29,.4);display:flex;align-items:flex-start;gap:14px">
+<div style="flex:1">
+<div class="ep-k">{{ mapDetail.code }} · {{ mapDetail.type }} mapping</div>
+<h4 style="margin:4px 0 2px;font-size:20px">{{ mapDetail.vendor }} → {{ mapDetail.cat }}</h4>
+</div>
+<span style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:4px 10px;background:{{ mapDetail.stBg }};color:{{ mapDetail.stFg }}">{{ mapDetail.state }}</span>
+</div>
+<div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
+<div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
+<sc-for list="{{ mapDetail.facts }}" as="f" hint-placeholder-count="8">
+<div><div class="ep-k">{{ f.k }}</div><div style="font-size:12.5px;font-weight:600;margin-top:3px;line-height:1.4">{{ f.v }}</div></div>
+</sc-for>
+</div>
+<div style="height:2px;background:rgba(32,30,29,.35);margin:15px 0 11px"></div>
+<div class="ep-k" style="margin-bottom:7px">Mapping history</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ mapDetail.history }}" as="h" hint-placeholder-count="3">
+<div style="border-left:3px solid rgba(32,30,29,.4);padding:1px 0 1px 9px">
+<div style="font-size:11px;color:rgba(32,30,29,.55)">{{ h.when }}</div>
+<div style="font-size:12px;line-height:1.4">{{ h.what }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div>
+<div class="ep-k" style="margin-bottom:7px">SKUs / service lines in scope</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th class="ep-th">Code</th><th class="ep-th">Entry</th><th class="ep-th">State</th></tr></thead>
+<tbody>
+<sc-for list="{{ mapDetail.skus }}" as="k" hint-placeholder-count="3">
+<tr>
+<td class="ep-cell" style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px">{{ k.code }}</td>
+<td class="ep-cell" style="font-size:12px">{{ k.name }}</td>
+<td class="ep-cell"><span style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 7px;background:{{ k.bg }};color:{{ k.fg }}">{{ k.state }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="font-size:11.5px;color:rgba(32,30,29,.65);margin-top:11px;line-height:1.45">{{ mapDetail.note }}</div>
+</div>
+</div>
+<div style="padding:13px 18px;border-top:2px solid rgba(32,30,29,.4);display:flex;align-items:center;gap:10px">
+<div style="flex:1;font-size:11.5px;color:rgba(32,30,29,.62)">This matrix is the single source of truth for who can be invited at tender time.</div>
+<button class="ep-b" onClick="{{ closeMapDetail }}">Close</button>
+<button class="ep-b" data-v="p" onClick="{{ mapDetail.act }}">{{ mapDetail.actLabel }}</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:rgba(45,43,43,.5);display:grid;place-items:center;z-index:60">
+<div style="width:560px;background:#eae9e9;border:2px solid #201e1d;box-shadow:0 12px 32px rgba(45,43,43,.3)">
+<div style="padding:15px 18px;border-bottom:2px solid rgba(32,30,29,.4)">
+<div class="ep-k">Manual override · requires approval</div>
+<h4 style="margin:4px 0 0;font-size:20px">{{ modal.title }}</h4>
+</div>
+<div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+<div style="font-size:12.5px;color:rgba(32,30,29,.72);line-height:1.5">{{ modal.body }}</div>
+<div>
+<div class="ep-k" style="margin-bottom:5px">Reason code (mandatory)</div>
+<div style="display:flex;flex-wrap:wrap;gap:7px">
+<sc-for list="{{ modal.codes }}" as="c" hint-placeholder-count="3">
+<button class="ep-b" data-v="{{ c.v }}" onClick="{{ c.pick }}">{{ c.label }}</button>
+</sc-for>
+</div>
+</div>
+<div>
+<div class="ep-k" style="margin-bottom:5px">Justification (mandatory)</div>
+<textarea class="input" style="min-height:74px" value="{{ modal.text }}" onChange="{{ modalText }}"></textarea>
+</div>
+<div style="display:flex;gap:22px;padding-top:2px">
+<div><div class="ep-k">Resolved approver</div><div style="font-size:12.5px;font-weight:700;margin-top:3px">{{ modal.approver }}</div></div>
+<div><div class="ep-k">Escalates to</div><div style="font-size:12.5px;font-weight:700;margin-top:3px">{{ modal.escalate }}</div></div>
+</div>
+</div>
+<div style="padding:13px 18px;border-top:2px solid rgba(32,30,29,.4);display:flex;align-items:center;gap:10px">
+<div style="flex:1;font-size:11.5px;color:rgba(32,30,29,.62)">Target record is unchanged until the workflow reaches Approved.</div>
+<button class="ep-b" onClick="{{ closeModal }}">Cancel</button>
+<button class="ep-b" data-v="p" disabled="{{ modal.off }}" onClick="{{ modal.submit }}">Submit for approval</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:980},&quot;showTechnicalEvaluation&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Evaluation&quot;,&quot;label&quot;:&quot;Show technical evaluation (T1, T2…) by default&quot;}}">
+class Component extends DCLogic {
+  state = {
+    role: 'internal', screen: 'dash',
+    selVendor: 'V-1290',
+    vendorStatus: {},
+    masterFilter: 'ALL',
+    mapping: {},
+    invites: {},
+    awards: {},
+    split: 60,
+    overrides: [],
+    posConfirmed: false,
+    bidUnit: { '01': '212', '02': '27.50' },
+    bidExact: { '01': true, '02': true },
+    bidReason: {},
+    bidRemark: {},
+    bidAttach: {},
+    bidSubmitted: false,
+    poAck: {},
+    sowUploaded: false,
+    toast: null,
+    modal: null
+  };
+
+  // ── static data ────────────────────────────────────────────────
+  VENDORS = [
+    { code: 'V-1042', name: 'Medisure Surgicals Pvt Ltd', status: 'Active', kinds: 'Item · Surgical consumables', rating: 92, gst: '27AABCM1234K1Z5' },
+    { code: 'V-1088', name: 'Krishna Pharma Distributors', status: 'Active', kinds: 'Item · Pharmaceuticals', rating: 87, gst: '29AACCK4521P1ZB' },
+    { code: 'V-1130', name: 'Aarogya Meditech LLP', status: 'Active', kinds: 'Asset · Medical equipment', rating: 81, gst: '27AAFCA7788L1ZQ' },
+    { code: 'V-1177', name: 'Nirmal Facility Services', status: 'Active', kinds: 'Service · Housekeeping, manpower', rating: 68, gst: '27AAGCN9012M1ZR' },
+    { code: 'V-1201', name: 'Sanjeevani Biomedical Solutions', status: 'Active', kinds: 'Asset · Service · Biomedical', rating: 74, gst: '24AAHCS3344N1ZT' },
+    { code: 'V-1233', name: 'Prakash Surgico', status: 'Suspended', kinds: 'Item · Drug licence lapsed', rating: 61, gst: '27AAICP5566Q1ZV' },
+    { code: 'V-1290', name: 'Deccan Implants & Devices', status: 'Pending Verification', kinds: 'Item · Implants (declared)', rating: 0, gst: '36AAJCD7788R1ZX' }
+  ];
+
+  LINES = [
+    { no: '01', type: 'ITEM', name: 'Ventilator Circuit, Disposable, Adult', short: 'Vent circuits', qty: '2,000 NOS', qtyN: 2000, budget: '₹4,80,000', budgetN: 480000 },
+    { no: '02', type: 'ITEM', name: 'Surgical Gloves, Sterile, Latex, 7.5', short: 'Surgical gloves', qty: '12,000 PAIR', qtyN: 12000, budget: '₹3,60,000', budgetN: 360000 },
+    { no: '03', type: 'ASSET', name: 'ICU Ventilator, Invasive + NIV', short: 'ICU ventilators', qty: '6 NOS', qtyN: 6, budget: '₹96,00,000', budgetN: 9600000 },
+    { no: '04', type: 'SERVICE', name: 'CMC — ICU Ventilator Fleet, 36 months', short: 'Ventilator CMC', qty: '36 months', qtyN: 1, budget: '₹14,40,000', budgetN: 1440000 },
+    { no: '05', type: 'ITEM', name: 'Cold-Chain Vaccine Carrier, 5 L', short: 'Vaccine carriers', qty: '40 NOS', qtyN: 40, budget: '₹2,60,000', budgetN: 260000 }
+  ];
+
+  BIDS = {
+    '01': [
+      { v: 'V-1088', name: 'Krishna Pharma Distributors', rating: 87, unit: 208, tax: 18, qual: 'Qualified', tech: 82 },
+      { v: 'V-1042', name: 'Medisure Surgicals Pvt Ltd', rating: 92, unit: 212, tax: 18, qual: 'Qualified', tech: 88 },
+      { v: 'V-1201', name: 'Sanjeevani Biomedical Solutions', rating: 74, unit: 226, tax: 18, qual: 'Qualified', tech: 76 }
+    ],
+    '02': [
+      { v: 'V-1042', name: 'Medisure Surgicals Pvt Ltd', rating: 92, unit: 27.5, tax: 12, qual: 'Qualified', tech: 91 },
+      { v: 'V-1088', name: 'Krishna Pharma Distributors', rating: 87, unit: 27.5, tax: 12, qual: 'Qualified', tech: 84 },
+      { v: 'V-1201', name: 'Sanjeevani Biomedical Solutions', rating: 74, unit: 29.4, tax: 12, qual: 'Qualified', tech: 79 }
+    ],
+    '03': [
+      { v: 'V-1201', name: 'Sanjeevani Biomedical Solutions', rating: 74, unit: 1395000, tax: 12, qual: 'Disqualified', tech: 58 },
+      { v: 'V-1130', name: 'Aarogya Meditech LLP', rating: 81, unit: 1420000, tax: 12, qual: 'Qualified', tech: 89 },
+      { v: 'V-1042', name: 'Medisure Surgicals Pvt Ltd', rating: 92, unit: 1512000, tax: 12, qual: 'Qualified', tech: 93 }
+    ],
+    '04': [
+      { v: 'GUEST-01', name: 'Bharat Medisys (Guest)', rating: 0, unit: 1190000, tax: 18, qual: 'Qualified', tech: 77 },
+      { v: 'V-1201', name: 'Sanjeevani Biomedical Solutions', rating: 74, unit: 1260000, tax: 18, qual: 'Qualified', tech: 85 },
+      { v: 'V-1130', name: 'Aarogya Meditech LLP', rating: 81, unit: 1380000, tax: 18, qual: 'Qualified', tech: 90 }
+    ]
+  };
+
+  TECHPARAMS = {
+    '01': [['Specification conformity', 40], ['Regulatory / quality certification', 25], ['Shelf life offered', 20], ['Sample evaluation', 15]],
+    '02': [['Specification conformity (AQL)', 40], ['Regulatory / quality certification', 25], ['Shelf life offered', 20], ['Sample evaluation', 15]],
+    '03': [['Specification conformity', 35], ['CE / FDA / BIS certification', 25], ['Installation & training plan', 20], ['Spares & service commitment', 20]],
+    '04': [['Method statement vs SOW', 35], ['SLA commitment', 25], ['Manpower & skill deployment', 20], ['Reference installations', 20]]
+  };
+
+  NOTES = {
+    '01': 'L1 by landed price. No tie. Krishna Pharma holds an active mapping on Surgical Consumables → Respiratory and a rating of 87 against a threshold of 75.',
+    '02': 'Tie at L1 on landed price (₹30.80). Tie-break rule applied: higher current rating wins — Medisure 92 over Krishna 87. Split-award is enabled on this line.',
+    '03': 'Sanjeevani quoted lowest but failed technical qualification — no FDA/CE certificate for the invasive ventilation mode — and is excluded from price ranking before L1 is computed.',
+    '04': 'L1 is a guest vendor invited by manual override. Award is permitted; PO issuance is blocked until KYC completes and status is upgraded from Guest to Active.'
+  };
+
+  SPLITTABLE = '02';
+  THRESH = { '01': 75, '02': 70, '03': 78, '04': 70, '05': 85 };
+
+  // ── helpers ────────────────────────────────────────────────────
+  inr(n) {
+    const s = Math.round(n).toString();
+    if (s.length <= 3) return '₹' + s;
+    const last = s.slice(-3);
+    let rest = s.slice(0, -3), out = '';
+    while (rest.length > 2) { out = ',' + rest.slice(-2) + out; rest = rest.slice(0, -2); }
+    return '₹' + rest + out + ',' + last;
+  }
+  inr2(n) { return n < 100 ? '₹' + n.toFixed(2) : this.inr(n); }
+  landed(b) { return b.unit * (1 + b.tax / 100); }
+  ranked(id) {
+    const rows = (this.BIDS[id] || []).slice();
+    const q = rows.filter(r => r.qual === 'Qualified').sort((a, b) => this.landed(a) - this.landed(b) || b.rating - a.rating);
+    q.forEach((r, i) => { r._rank = 'L' + (i + 1); });
+    rows.filter(r => r.qual !== 'Qualified').forEach(r => { r._rank = '—'; });
+    return rows.slice().sort((a, b) => this.landed(a) - this.landed(b));
+  }
+  lineAward(id) { return this.state.awards[id] || null; }
+  awardedValue(id) {
+    const a = this.lineAward(id); if (!a) return 0;
+    const line = this.LINES.find(l => l.no === id);
+    const b = (this.BIDS[id] || []).find(x => x.v === a.v); if (!b) return 0;
+    const full = this.landed(b) * line.qtyN;
+    if (a.split) {
+      const second = this.ranked(id).filter(r => r.qual === 'Qualified')[1];
+      const pct = this.state.split / 100;
+      return full * pct + (second ? this.landed(second) * line.qtyN * (1 - pct) : 0);
+    }
+    return full;
+  }
+  toast(title, body) { this.setState({ toast: { title, body } }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: null }), 4200); }
+  go(screen) { return () => this.setState({ screen, toast: null }); }
+
+  addOverride(o) {
+    this.setState(s => ({
+      overrides: s.overrides.concat([Object.assign({ id: 'OVR-' + (1040 + s.overrides.length), state: 'Pending Approval', by: 'R. Kulkarni · Proc. Officer' }, o)]),
+      modal: null
+    }));
+    this.toast('Override raised — ' + o.type, 'Routed to ' + o.approver + '. The target record is unchanged until the workflow reaches Approved.');
+  }
+
+  openModal(m) { this.setState({ modal: Object.assign({ code: null, text: '' }, m) }); }
+
+  // ── screen builders ────────────────────────────────────────────
+  tagFor(type) {
+    if (type === 'ITEM') return ['rgba(32,30,29,.12)', '#201e1d'];
+    if (type === 'ASSET') return ['#ffe0d9', '#7c1405'];
+    return ['#d7d3d3', '#2d2b2b'];
+  }
+  statusColors(st) {
+    if (st === 'Active') return ['#ffe0d9', '#7c1405'];
+    if (st === 'Suspended' || st === 'Rejected') return ['#201e1d', '#f3f2f2'];
+    if (st === 'Info Requested') return ['#d7d3d3', '#2d2b2b'];
+    return ['rgba(32,30,29,.12)', '#201e1d'];
+  }
+
+  renderVals() {
+    const S = this.state, internal = S.role === 'internal';
+    const V = {};
+
+    // nav
+    const pendingOvr = S.overrides.filter(o => o.state === 'Pending Approval').length;
+    const navItems = internal ? [
+      ['dash', 'Dashboard', ''], ['vendors', 'Vendor registrations', '1'], ['master', 'Item · Asset · Service', ''],
+      ['mapping', 'Vendor mapping', ''], ['rating', 'Ratings & scorecards', ''], ['create', 'Tender creation', ''],
+      ['publish', 'Selective publishing', ''], ['evaluate', 'Evaluation & L1 award', '★'], ['po', 'Purchase orders', String(this.poList().length || '')],
+      ['overrides', 'Override inbox', pendingOvr ? String(pendingOvr) : '']
+    ] : [
+      ['vTenders', 'My invitations', '2'], ['vBid', 'Submit quotation', ''], ['vPo', 'Awards & POs', ''], ['vProfile', 'Company profile', '']
+    ];
+    V.nav = navItems.map(([k, label, badge]) => ({ label, badge, on: S.screen === k ? '1' : '0', go: this.go(k) }));
+    V.navHeading = internal ? 'Procurement workspace' : 'Vendor portal';
+    V.who = internal ? { name: 'Rohan Kulkarni', role: 'Procurement Officer · Sunrise Multispecialty' } : { name: 'Medisure Surgicals', role: 'V-1042 · Active vendor' };
+    V.setInternal = () => this.setState({ role: 'internal', screen: 'dash' });
+    V.setVendor = () => this.setState({ role: 'vendor', screen: 'vTenders' });
+    V.roleInternalV = internal ? 'p' : '';
+    V.roleVendorV = internal ? '' : 'p';
+
+    const titles = {
+      dash: ['Overview', 'Procurement command centre'],
+      vendors: ['Module 1', 'Vendor registration & onboarding'],
+      master: ['Module 2', 'Item, Asset & Service master'],
+      mapping: ['Module 2', 'Vendor–product eligibility matrix'],
+      rating: ['Module 3', 'Vendor rating & scorecard'],
+      create: ['Module 4', 'E-tender creation — TND/2026/CCE/0184'],
+      publish: ['Module 5', 'Selective publishing'],
+      evaluate: ['Module 7', 'Bid evaluation & L1 selection'],
+      po: ['Module 8', 'Purchase orders'],
+      overrides: ['Section 12', 'Manual override & exception workflow'],
+      vTenders: ['Vendor portal', 'Tender invitations'],
+      vBid: ['Module 6', 'Quotation submission'],
+      vPo: ['Vendor portal', 'Awards & purchase orders'],
+      vProfile: ['Module 1', 'Company profile & documents']
+    };
+    const t = titles[S.screen] || ['', ''];
+    V.crumb = t[0]; V.title = t[1];
+    V.s = { dash: S.screen === 'dash', vendors: S.screen === 'vendors', master: S.screen === 'master', mapping: S.screen === 'mapping', rating: S.screen === 'rating', create: S.screen === 'create', publish: S.screen === 'publish', evaluate: S.screen === 'evaluate', po: S.screen === 'po', overrides: S.screen === 'overrides', vTenders: S.screen === 'vTenders', vBid: S.screen === 'vBid', vPo: S.screen === 'vPo', vProfile: S.screen === 'vProfile' };
+
+    // toast / modal
+    V.hasToast = !!S.toast; V.toast = S.toast || { title: '', body: '' };
+    V.hasModal = !!S.modal;
+    V.closeModal = () => this.setState({ modal: null });
+    V.modalText = e => { const val = e.target.value; this.setState(s => ({ modal: Object.assign({}, s.modal, { text: val }) })); };
+    if (S.modal) {
+      const m = S.modal;
+      V.modal = Object.assign({}, m, {
+        off: !(m.code && (m.text || '').trim().length > 3),
+        text: m.text,
+        codes: m.reasonCodes.map(c => ({ label: c, v: m.code === c ? 'p' : '', pick: () => this.setState(s => ({ modal: Object.assign({}, s.modal, { code: c }) })) })),
+        submit: () => { const done = m.onSubmit; this.addOverride({ type: m.type, target: m.target, code: m.code, why: m.text, approver: m.approver, escalate: m.escalate }); if (done) done(); }
+      });
+    } else {
+      V.modal = { title: '', body: '', codes: [], approver: '', escalate: '', text: '', off: true, submit: () => {} };
+    }
+
+    // ── dashboard
+    V.stats = [
+      { label: 'Live tenders', value: '3', sub: '1 awaiting award' },
+      { label: 'Active vendors', value: '5', sub: '1 suspended · 1 pending' },
+      { label: 'Bids in window', value: '11', sub: 'prices masked until close' },
+      { label: 'Awaiting approval', value: String(2 + pendingOvr), sub: 'overrides & POs' }
+    ];
+    const stageState = [
+      ['Vendor registration', '5 active · 1 in queue', 1],
+      ['Master & mapping', '96 entries · 38 mappings', 1],
+      ['Rating refresh', 'last run 31 Aug 2026', 1],
+      ['Tender & publishing', '4 of 5 lines published', 1],
+      ['Bid → L1 → PO', Object.keys(S.awards).length + ' of 4 lines awarded', Object.keys(S.awards).length ? 1 : 0]
+    ];
+    V.pipeline = stageState.map(([name, note, done], i) => ({
+      n: String(i + 1), name, note,
+      dotBg: done ? '#ec3013' : 'rgba(32,30,29,.18)', dotFg: done ? '#f3f2f2' : '#201e1d',
+      bar: done ? '#ec3013' : 'rgba(32,30,29,.18)'
+    }));
+    V.tasks = [
+      { task: 'Verify KYC — Deccan Implants & Devices', detail: 'Implants category · GSTIN verified', ref: 'V-1290', due: 'today', dueColor: '#ae1800', go: this.go('vendors') },
+      { task: 'Line 05 blocked — zero qualifying vendors', detail: 'Cold-chain vaccine carrier · threshold 85', ref: 'L05', due: 'today', dueColor: '#ae1800', go: this.go('publish') },
+      { task: 'Award L1 across 4 line items', detail: 'Prices unlocked · comparative statement ready', ref: 'CCE/0184', due: '05 Sep', dueColor: 'rgba(32,30,29,.7)', go: this.go('evaluate') },
+      { task: 'Approve guest invite — Bharat Medisys', detail: 'Unregistered vendor · CMC line', ref: 'OVR-1039', due: '05 Sep', dueColor: 'rgba(32,30,29,.7)', go: this.go('overrides') },
+      { task: 'Rating adjustment pending', detail: 'Nirmal Facility Services · force-majeure exclusion', ref: 'OVR-1038', due: '06 Sep', dueColor: 'rgba(32,30,29,.7)', go: this.go('overrides') },
+      { task: 'Sign off draft POs', detail: 'Generated on award confirmation', ref: 'PO queue', due: '08 Sep', dueColor: 'rgba(32,30,29,.7)', go: this.go('po') }
+    ];
+    V.vendorMix = [
+      { label: 'Active', n: 5, w: '71%', color: '#ec3013' },
+      { label: 'Pending verification', n: 1, w: '14%', color: '#ff9783' },
+      { label: 'Suspended', n: 1, w: '14%', color: '#201e1d' },
+      { label: 'Unrated (no PO history)', n: 1, w: '14%', color: 'rgba(32,30,29,.45)' },
+      { label: 'Guest — registration incomplete', n: 1, w: '14%', color: '#7d7979' }
+    ];
+
+    // ── vendor queue
+    V.vendors = this.VENDORS.map(v => {
+      const st = S.vendorStatus[v.code] || v.status;
+      const c = this.statusColors(st);
+      const sel = S.selVendor === v.code;
+      return { name: v.name, code: v.code, status: st, kinds: v.kinds, statusBg: c[0], statusFg: c[1], selBg: sel ? 'rgba(236,48,19,.09)' : '#eae9e9', selBar: sel ? '#ec3013' : 'transparent', pick: () => this.setState({ selVendor: v.code }) };
+    });
+    const sv = this.VENDORS.find(v => v.code === S.selVendor) || this.VENDORS[6];
+    const svStatus = S.vendorStatus[sv.code] || sv.status;
+    const svc = this.statusColors(svStatus);
+    const docState = st => st === 'Verified' ? ['#ffe0d9', '#7c1405'] : st === 'Expired' ? ['#201e1d', '#f3f2f2'] : ['rgba(32,30,29,.12)', '#201e1d'];
+    const mkDocs = rows => rows.map(r => { const c = docState(r[3]); return { name: r[0], ref: r[1], till: r[2], state: r[3], bg: c[0], fg: c[1] }; });
+    const docSets = {
+      'V-1290': mkDocs([['Certificate of incorporation', 'U33110TG2019PTC1204', '—', 'Verified'], ['GST registration', '36AAJCD7788R1ZX', '—', 'Verified'], ['PAN', 'AAJCD7788R', '—', 'Verified'], ['Drug licence (Form 20B/21B)', 'TG/HYD/20B/44812', '31 Mar 2028', 'Pending review'], ['ISO 13485:2016', 'IN/QMS/13485/9921', '14 Jul 2027', 'Pending review'], ['Cancelled cheque / bank letter', 'HDFC · 50200041XXXX', '—', 'Verified']]),
+      'V-1233': mkDocs([['GST registration', '27AAICP5566Q1ZV', '—', 'Verified'], ['Drug licence (Form 20B/21B)', 'MH/PUN/20B/22910', '12 Aug 2026', 'Expired'], ['PAN', 'AAICP5566Q', '—', 'Verified']]),
+      'V-1042': mkDocs([['GST registration', '27AABCM1234K1Z5', '—', 'Verified'], ['Drug licence (Form 20B/21B)', 'MH/MUM/20B/10023', '30 Jun 2029', 'Verified'], ['ISO 13485:2016', 'IN/QMS/13485/5510', '02 Feb 2028', 'Verified'], ['MSME / Udyam', 'UDYAM-MH-19-0044821', '—', 'Verified']])
+    };
+    V.sv = {
+      code: sv.code, name: sv.name, status: svStatus, statusBg: svc[0], statusFg: svc[1],
+      applied: sv.code === 'V-1290' ? '28 Aug 2026' : '11 Feb 2024',
+      address: sv.code === 'V-1290' ? 'Plot 44, IDA Nacharam, Hyderabad 500076 · Telangana' : 'Unit 7, Marol MIDC, Andheri East, Mumbai 400093 · Maharashtra',
+      facts: [
+        { k: 'Entity type', v: 'Private limited' }, { k: 'GSTIN', v: sv.gst }, { k: 'Incorporated', v: sv.code === 'V-1290' ? '2019' : '2004' }, { k: 'Declared categories', v: sv.kinds.split(' · ')[1] || '—' },
+        { k: 'Payment terms', v: '45 days from GRN' }, { k: 'Lead time', v: sv.code === 'V-1130' ? '10–12 weeks' : '7 days' }, { k: 'Min. order value', v: '₹25,000' }, { k: 'Current rating', v: sv.rating ? sv.rating + ' / 100' : 'Unrated' }
+      ],
+      docs: docSets[sv.code] || docSets['V-1042'],
+      approve: () => { this.setState(s => ({ vendorStatus: Object.assign({}, s.vendorStatus, { [sv.code]: 'Active' }) })); this.toast('Vendor activated — ' + sv.name, 'Status set to Active. Category mapping request opened against declared categories; audit entry written.'); },
+      reject: () => { this.setState(s => ({ vendorStatus: Object.assign({}, s.vendorStatus, { [sv.code]: 'Rejected' }) })); this.toast('Registration rejected', 'Rejection reason captured and mailed to the applicant. Vendor cannot be mapped or invited.'); },
+      info: () => { this.setState(s => ({ vendorStatus: Object.assign({}, s.vendorStatus, { [sv.code]: 'Info Requested' }) })); this.toast('Clarification requested', 'Drug licence and ISO certificate flagged for re-upload. Vendor notified by email and SMS.'); }
+    };
+
+    // ── master
+    const MASTER = [
+      ['ITM-CNS-0412', 'Ventilator Circuit, Disposable, Adult', 'Dual limb, 22 mm, with water trap', 'ITEM', 'Surgical Consumables › Respiratory', 'UOM NOS · pack of 10 · shelf life tracked · ambient storage · reorder 400', '₹205 – ₹255', 4],
+      ['ITM-CNS-0088', 'Surgical Gloves, Sterile, Latex, 7.5', 'Powder-free, textured, AQL 1.5', 'ITEM', 'Surgical Consumables › PPE', 'UOM PAIR · pack of 50 · shelf life tracked · reorder 3,000', '₹26 – ₹34', 5],
+      ['ITM-PHR-1190', 'Inj. Noradrenaline 2 mg/mL', 'Schedule H1 · 4 mL ampoule', 'ITEM', 'Pharmaceuticals › Critical care', 'UOM AMP · batch & expiry mandatory · Schedule H1 · cold chain 2–8 °C', '₹58 – ₹79', 3],
+      ['ITM-CLD-0501', 'Cold-Chain Vaccine Carrier, 5 L', 'With 4 ice packs, WHO PQS E004', 'ITEM', 'Stores › Cold chain', 'UOM NOS · WHO PQS certification required · reorder 10', '₹5,900 – ₹7,200', 1],
+      ['AST-EQP-2201', 'ICU Ventilator, Invasive + NIV', 'Turbine driven, 12" touch, integrated compressor', 'ASSET', 'Capital › Medical equipment', 'Useful life 10 yrs · warranty 24 mo · installation + commissioning · CE/FDA required · site power 5 kVA UPS', '₹13.4L – ₹16.2L', 3],
+      ['AST-EQP-2260', 'Multipara Patient Monitor, 5-para', 'ECG, SpO2, NIBP, Temp, Resp', 'ASSET', 'Capital › Medical equipment', 'Useful life 8 yrs · warranty 36 mo · BIS certification · AMC applicable', '₹1.1L – ₹1.6L', 4],
+      ['AST-ITH-3310', 'Nursing Station Workstation, All-in-one', 'i5 / 16 GB / 512 GB SSD, 24"', 'ASSET', 'Capital › IT hardware', 'Useful life 5 yrs · warranty 36 mo onsite · no civil work · asset tagging required', '₹52,000 – ₹68,000', 2],
+      ['SRV-CMC-4102', 'CMC — ICU Ventilator Fleet', 'Comprehensive, spares inclusive', 'SERVICE', 'Biomedical › CMC', 'Tenure 36 mo · SLA 4 h response / 98% uptime · milestone billing · LD 0.5%/week', '₹11.4L – ₹14.8L', 3],
+      ['SRV-HKP-4420', 'Housekeeping — Critical Care Block', 'Round-the-clock, 3 shifts', 'SERVICE', 'Facility › Housekeeping', 'Tenure 24 mo · 34 FTE · police verification + PF/ESI · insurance ₹10L · exit transition 60 days', '₹1.8L – ₹2.4L /mo', 2],
+      ['SRV-CAL-4488', 'Biomedical Calibration — Annual', 'NABL traceable, 412 devices', 'SERVICE', 'Biomedical › Calibration', 'Tenure 12 mo · NABL scope certificate · milestone billing · onsite', '₹3.2L – ₹4.1L', 2]
+    ];
+    const mf = S.masterFilter;
+    V.masterTabs = ['ALL', 'ITEM', 'ASSET', 'SERVICE'].map(k => ({ label: k === 'ALL' ? 'All types' : k.charAt(0) + k.slice(1).toLowerCase(), v: mf === k ? 'p' : '', go: () => this.setState({ masterFilter: k }) }));
+    const mrows = MASTER.filter(r => mf === 'ALL' || r[3] === mf);
+    V.masterCount = mrows.length;
+    V.masterRows = mrows.map(r => { const c = this.tagFor(r[3]); return { code: r[0], name: r[1], spec: r[2], type: r[3], tBg: c[0], tFg: c[1], cat: r[4], attrs: r[5], band: r[6], vendors: r[7] }; });
+
+    // ── mapping matrix
+    const cols = [['Surgical consumables', 'Item'], ['Pharmaceuticals', 'Item'], ['Cold chain', 'Item'], ['Medical equipment', 'Asset'], ['Biomedical CMC', 'Service'], ['Facility services', 'Service']];
+    const base = {
+      'V-1042': ['M', '', '', 'M', '', ''], 'V-1088': ['M', 'M', 'P', '', '', ''],
+      'V-1130': ['', '', '', 'M', 'M', ''], 'V-1177': ['', '', '', '', '', 'M'],
+      'V-1201': ['M', '', '', 'M', 'M', ''], 'V-1233': ['M', 'M', '', '', '', ''], 'V-1290': ['P', '', '', '', '', '']
+    };
+    V.matrixCols = cols.map(c => ({ label: c[0], type: c[1] }));
+    V.matrixRows = this.VENDORS.map(v => ({
+      name: v.name, meta: v.code + ' · rating ' + (v.rating || '—'),
+      cells: cols.map((c, i) => {
+        const key = v.code + ':' + i;
+        const val = S.mapping[key] !== undefined ? S.mapping[key] : base[v.code][i];
+        const mark = val === 'M' ? 'MAPPED' : val === 'P' ? 'PENDING' : '—';
+        return {
+          mark, bg: val === 'M' ? 'rgba(236,48,19,.14)' : val === 'P' ? 'rgba(32,30,29,.12)' : 'transparent',
+          fg: val === 'M' ? '#ae1800' : val === 'P' ? '#201e1d' : 'rgba(32,30,29,.4)',
+          toggle: () => this.setState({ mapDetail: { key, val, vendor: v, cat: c[0], type: c[1] } })
+        };
+      })
+    }));
+
+    // mapping detail popover
+    const md = S.mapDetail;
+    V.hasMapDetail = !!md;
+    V.closeMapDetail = () => this.setState({ mapDetail: null });
+    if (md) {
+      const mapped = md.val === 'M', pending = md.val === 'P';
+      const skuSets = {
+        'Surgical consumables': [['ITM-CNS-0412', 'Ventilator Circuit, Disposable, Adult', 'Approved'], ['ITM-CNS-0088', 'Surgical Gloves, Sterile, Latex, 7.5', 'Approved'], ['ITM-CNS-0311', 'Suction Catheter, 12 Fr', 'Approved']],
+        'Pharmaceuticals': [['ITM-PHR-1190', 'Inj. Noradrenaline 2 mg/mL', 'Approved'], ['ITM-PHR-1204', 'Inj. Vancomycin 500 mg', 'Pending']],
+        'Cold chain': [['ITM-CLD-0501', 'Cold-Chain Vaccine Carrier, 5 L', 'Pending']],
+        'Medical equipment': [['AST-EQP-2201', 'ICU Ventilator, Invasive + NIV', 'Approved'], ['AST-EQP-2260', 'Multipara Patient Monitor', 'Approved']],
+        'Biomedical CMC': [['SRV-CMC-4102', 'CMC — ICU Ventilator Fleet', 'Approved'], ['SRV-CAL-4488', 'Biomedical Calibration — Annual', 'Pending']],
+        'Facility services': [['SRV-HKP-4420', 'Housekeeping — Critical Care Block', 'Approved']]
+      };
+      V.mapDetail = {
+        vendor: md.vendor.name, code: md.vendor.code, cat: md.cat, type: md.type,
+        state: mapped ? 'Active mapping' : pending ? 'Pending category-manager review' : 'Not mapped',
+        stBg: mapped ? '#ffe0d9' : pending ? 'rgba(32,30,29,.12)' : 'rgba(32,30,29,.06)',
+        stFg: mapped ? '#7c1405' : '#201e1d',
+        facts: [
+          { k: 'Procurement type', v: md.type },
+          { k: 'Mapping scope', v: mapped ? 'Category + 3 SKUs (not bulk-approved)' : 'Category level, requested' },
+          { k: 'Requested by', v: mapped ? 'Vendor self-declaration · 11 Feb 2024' : 'Vendor self-declaration · 28 Aug 2026' },
+          { k: 'Approved by', v: mapped ? 'S. Menon · Category Manager' : '—' },
+          { k: 'Approved on', v: mapped ? '14 Feb 2024 · 16:08 · version 3' : '—' },
+          { k: 'Min. rating for category', v: md.cat === 'Medical equipment' ? '78 (restricted)' : md.cat === 'Cold chain' ? '85 (critical)' : '70' },
+          { k: 'Vendor current rating', v: md.vendor.rating ? md.vendor.rating + ' / 100' : 'Unrated' },
+          { k: 'Credentials on file', v: md.type === 'Service' ? 'Method statement, PF/ESI, insurance' : 'Catalogue, ISO 13485, brand authorisation' }
+        ],
+        skus: (skuSets[md.cat] || []).map(s => ({ code: s[0], name: s[1], state: s[2], bg: s[2] === 'Approved' ? '#ffe0d9' : 'rgba(32,30,29,.12)', fg: s[2] === 'Approved' ? '#7c1405' : '#201e1d' })),
+        history: mapped
+          ? [{ when: '14 Feb 2024 · 16:08', what: 'Mapping approved at category level — version 3' }, { when: '09 Nov 2025 · 10:22', what: 'SKU ITM-CNS-0311 added to scope' }, { when: '02 Jun 2026 · 09:15', what: 'Re-verified against renewed ISO 13485 certificate' }]
+          : [{ when: '28 Aug 2026 · 14:40', what: 'Vendor requested mapping with supporting catalogue' }],
+        actLabel: mapped ? 'Suspend mapping' : 'Approve mapping',
+        note: mapped
+          ? 'Suspension takes effect immediately for future tenders and is logged with reason. Tenders already published are unaffected.'
+          : 'Approval is timestamped and versioned. Category approval does not auto-approve every SKU within the category.',
+        act: () => {
+          const next = mapped ? '' : 'M';
+          this.setState(s => ({ mapping: Object.assign({}, s.mapping, { [md.key]: next }), mapDetail: null }));
+          this.toast(next ? 'Mapping approved' : 'Mapping suspended', md.vendor.name + ' → ' + md.cat + '. Change is versioned and timestamped; published tenders are unaffected.');
+        }
+      };
+    } else {
+      V.mapDetail = { vendor: '', code: '', cat: '', type: '', state: '', facts: [], skus: [], history: [], actLabel: '', note: '', act: () => {} };
+    }
+
+    // ── ratings
+    V.weights = [['25%', 'On-time delivery'], ['25%', 'Quality acceptance'], ['20%', 'Price competitiveness'], ['15%', 'Compliance currency'], ['15%', 'Responsiveness']].map(w => ({ pct: w[0], label: w[1], flex: parseInt(w[0]) }));
+    const scParams = {
+      'V-1042': [['On-time delivery', '96%', 96], ['Quality acceptance', '98%', 98], ['Price competitiveness', '84%', 84], ['Compliance currency', '100%', 100], ['Responsiveness', '78%', 78]],
+      'V-1088': [['On-time delivery', '91%', 91], ['Quality acceptance', '94%', 94], ['Price competitiveness', '88%', 88], ['Compliance currency', '92%', 92], ['Responsiveness', '66%', 66]],
+      'V-1130': [['On-time delivery', '82%', 82], ['Quality acceptance', '90%', 90], ['Price competitiveness', '72%', 72], ['Compliance currency', '96%', 96], ['Responsiveness', '58%', 58]],
+      'V-1201': [['On-time delivery', '74%', 74], ['Quality acceptance', '79%', 79], ['Price competitiveness', '81%', 81], ['Compliance currency', '68%', 68], ['Responsiveness', '62%', 62]],
+      'V-1177': [['On-time delivery', '64%', 64], ['Quality acceptance', '71%', 71], ['Price competitiveness', '77%', 77], ['Compliance currency', '58%', 58], ['Responsiveness', '69%', 69]],
+      'V-1290': [['On-time delivery', 'n/a', 0], ['Quality acceptance', 'n/a', 0], ['Price competitiveness', 'n/a', 0], ['Compliance currency', '88%', 88], ['Responsiveness', 'n/a', 0]]
+    };
+    const notes = {
+      'V-1042': 'Above threshold for every live category. Tie-break winner on line 02.',
+      'V-1088': 'Responsiveness dropped after two late query turnarounds in Q2.',
+      'V-1130': 'Sole mapped vendor above threshold for ICU ventilators.',
+      'V-1201': 'Compliance currency dragging the composite — insurance certificate expires 30 Sep 2026.',
+      'V-1177': 'Below the critical floor of 70 — auto-flagged for suspension review.',
+      'V-1290': 'Provisional score. Flagged Unrated until 3 POs close.'
+    };
+    V.scorecards = ['V-1042', 'V-1088', 'V-1130', 'V-1201', 'V-1177', 'V-1290'].map(code => {
+      const v = this.VENDORS.find(x => x.code === code);
+      const score = code === 'V-1290' ? 'NR' : v.rating;
+      return {
+        name: v.name, code: v.code, kind: v.kinds.split(' · ')[0], score,
+        scoreColor: code === 'V-1290' ? 'rgba(32,30,29,.45)' : v.rating >= 75 ? '#ec3013' : '#201e1d',
+        tier: code === 'V-1290' ? 'Unrated' : v.rating >= 85 ? 'Preferred' : v.rating >= 75 ? 'Qualified' : 'Watch',
+        params: scParams[code].map(p => ({ label: p[0], v: p[1], w: p[2] + '%', color: p[2] >= 75 ? '#ec3013' : 'rgba(32,30,29,.5)' })),
+        note: notes[code],
+        adjust: () => this.openModal({
+          type: 'Vendor rating adjustment', target: v.code + ' · ' + v.name, title: 'Adjust rating — ' + v.name,
+          body: 'A manual rating adjustment does not change the composite score until approved. Procurement Admin approves within ±5 score points; anything wider escalates to Department Head.',
+          reasonCodes: ['Force-majeure exclusion', 'Data correction', 'Audit finding', 'Policy exception'],
+          approver: 'Procurement Admin', escalate: 'Department Head — beyond ±5 points'
+        })
+      };
+    });
+
+    // ── tender creation
+    V.headerFields = [
+      { k: 'Tender ID', v: 'TND/2026/CCE/0184', span: 1 }, { k: 'Tender type', v: 'RFP — technical + commercial', span: 1 },
+      { k: 'Procurement types included', v: 'Item · Asset · Service', span: 1 }, { k: 'Department', v: 'Critical Care Expansion', span: 1 },
+      { k: 'Title', v: 'Critical Care Expansion — ICU consumables, ventilators & CMC', span: 2 },
+      { k: 'Publish date', v: '24 Aug 2026 · 10:00', span: 1 }, { k: 'Bid due date', v: '04 Sep 2026 · 17:00', span: 1 },
+      { k: 'Default rating threshold', v: '75 / 100', span: 1 }, { k: 'Invites per line', v: 'min 2 · max 4', span: 1 },
+      { k: 'Payment terms', v: '45 days from GRN', span: 1 }, { k: 'Penalty clause', v: 'LD 0.5% per week, cap 5%', span: 1 }
+    ];
+    const attachSets = {
+      '01': [['Packaging / label reference image', 'circuit-pack-ref.jpg · 412 KB · v2', 'ok', 'Replace'], ['Master specification sheet', 'itm-cns-0412-spec.pdf · 88 KB', 'ok', 'Replace']],
+      '02': [['Sample specification sheet', 'gloves-aql-spec.pdf · 64 KB', 'ok', 'Replace']],
+      '03': [['Technical specification sheet', 'vent-tech-spec-v3.pdf · 1.2 MB · mandatory above ₹5,00,000', 'ok', 'Replace'], ['Site layout / floor plan', 'icu-2f-layout.pdf · 3.4 MB', 'ok', 'Replace'], ['Reference configuration photograph', 'ref-config.jpg · 780 KB', 'ok', 'Replace']],
+      '04': [['Scope of Work (SOW) document', S.sowUploaded ? 'cmc-sow-ventilators.docx · 210 KB · uploaded just now' : 'missing — mandatory for Service lines', S.sowUploaded ? 'ok' : 'bad', S.sowUploaded ? 'Replace' : 'Upload'], ['Existing asset list for CMC scope', 'vent-fleet-asset-list.xlsx · 42 KB', 'ok', 'Replace']],
+      '05': [['WHO PQS certification reference', 'pqs-e004-ref.pdf · 120 KB', 'ok', 'Replace']]
+    };
+    const lineFields = {
+      '01': [['HSN code', '90192090 · auto from master'], ['Batch & expiry tracking', 'Mandatory — vendor declares shelf life at delivery'], ['Alternate brand allowed', 'Yes — subject to category manager sign-off'], ['Delivery', '18 Sep 2026 · Central Stores, Tower B'], ['Spec override', 'Water trap mandatory on expiratory limb'], ['Split-award allowed', 'No']],
+      '02': [['HSN code', '40151100'], ['Batch & expiry tracking', 'Mandatory'], ['Alternate brand allowed', 'Yes'], ['Delivery', '18 Sep 2026 · Central Stores'], ['Line rating threshold', '70 — relaxed from tender default 75'], ['Split-award allowed', 'Yes — min split 30%']],
+      '03': [['Compliance required', 'CE + FDA for invasive mode · BIS marking'], ['Warranty sought', '24 months comprehensive, on-site'], ['AMC / CMC', 'Quoted separately on line 04'], ['Installation & site readiness', 'Included · 5 kVA UPS and 1.2 m clearance provided by hospital'], ['Training', '2 sessions · biomedical + ICU nursing'], ['Spares commitment', '10 years post-sale']],
+      '04': [['Scope of work', 'Comprehensive, spares inclusive, 6 ventilators'], ['Tenure', '36 months · renewal on mutual consent'], ['SLA', '4 h response · 98% uptime · LD 0.5%/week'], ['Billing basis', 'Milestone — quarterly in arrears'], ['Insurance / indemnity', 'Workmen comp + ₹50L general liability'], ['Exit / transition', '60-day handover with calibration records']],
+      '05': [['Compliance required', 'WHO PQS E004 certification'], ['Line rating threshold', '85 — critical cold-chain category'], ['Delivery', '30 Sep 2026 · Immunisation Clinic'], ['Alternate brand allowed', 'No'], ['Storage condition', 'Ambient, dry'], ['Split-award allowed', 'No']]
+    };
+    V.createLines = this.LINES.map(l => {
+      const c = this.tagFor(l.type);
+      return {
+        no: l.no, type: l.type, name: l.name, qty: l.qty, budget: l.budget, tBg: c[0], tFg: c[1],
+        fields: lineFields[l.no].map(f => ({ k: f[0], v: f[1] })),
+        attach: attachSets[l.no].map(a => ({
+          name: a[0], meta: a[1], action: a[3], mark: a[2] === 'ok' ? '✓' : '!',
+          bg: a[2] === 'ok' ? 'rgba(32,30,29,.06)' : 'rgba(236,48,19,.1)',
+          bar: a[2] === 'ok' ? 'rgba(32,30,29,.4)' : '#ec3013'
+        })),
+        thumbs: l.type === 'ASSET' ? ['SPEC PDF', 'LAYOUT', 'PHOTO'] : l.type === 'SERVICE' ? ['SOW DOCX', 'ASSET XLSX'] : ['REF JPG', 'SPEC PDF']
+      };
+    });
+    V.createBlock = S.sowUploaded ? {
+      title: 'Mandatory attachment checklist satisfied', body: 'All 5 lines cleared. Tender value ₹1,21,40,000 routes to Department Head for approval before publishing.',
+      blocked: false, fix: () => {}, send: () => { this.toast('Sent for approval', 'Tender routed to Department Head (₹10,00,000+ band). On approval it moves to Ready to Publish and Module 5 resolves eligibility.'); this.setState({ screen: 'publish' }); }
+    } : {
+      title: 'Line 04 cannot leave Draft — Scope of Work missing', body: 'A Service line cannot be published without an SOW document. Upload it, or record a documented exception through the override engine.',
+      blocked: true, fix: () => { this.setState({ sowUploaded: true }); this.toast('SOW uploaded', 'cmc-sow-ventilators.docx scanned for malware and versioned as v1. Line 04 checklist now satisfied.'); }, send: () => {}
+    };
+
+    // ── publishing
+    const pubBase = {
+      '01': { steps: [['Registered vendors', 7], ['Status = Active', 5], ['Mapped to line', 4], ['Rating ≥ 75', 3], ['Compliance clear', 3]], invites: [['V-1088', 'Krishna Pharma Distributors', 'rating 87 · mapped to Surgical Consumables › Respiratory'], ['V-1042', 'Medisure Surgicals Pvt Ltd', 'rating 92 · mapped to Surgical Consumables'], ['V-1201', 'Sanjeevani Biomedical Solutions', 'rating 74 · manually added']], excluded: ['Prakash Surgico — suspended, drug licence expired', 'Nirmal Facility Services — not mapped', 'Deccan Implants — pending verification'] },
+      '02': { steps: [['Registered vendors', 7], ['Status = Active', 5], ['Mapped to line', 4], ['Rating ≥ 70', 4], ['Capped at max 4', 4]], invites: [['V-1042', 'Medisure Surgicals Pvt Ltd', 'rating 92'], ['V-1088', 'Krishna Pharma Distributors', 'rating 87'], ['V-1201', 'Sanjeevani Biomedical Solutions', 'rating 74']], excluded: ['Prakash Surgico — suspended', 'Deccan Implants — pending verification'] },
+      '03': { steps: [['Registered vendors', 7], ['Status = Active', 5], ['Mapped to Medical equipment', 3], ['Rating ≥ 78', 2], ['Compliance clear', 2]], invites: [['V-1130', 'Aarogya Meditech LLP', 'rating 81 · mapped to Capital › Medical equipment'], ['V-1042', 'Medisure Surgicals Pvt Ltd', 'rating 92 · mapped to Medical equipment']], excluded: ['Sanjeevani Biomedical — rating 74, below threshold 78 (manually added later)'] },
+      '04': { steps: [['Registered vendors', 7], ['Status = Active', 5], ['Mapped to Biomedical CMC', 3], ['Rating ≥ 70', 2], ['Guest invite added', 3]], invites: [['V-1130', 'Aarogya Meditech LLP', 'rating 81'], ['V-1201', 'Sanjeevani Biomedical Solutions', 'rating 74'], ['GUEST-01', 'Bharat Medisys', 'guest — registration incomplete']], excluded: ['Nirmal Facility Services — mapped to Facility services only'] },
+      '05': { steps: [['Registered vendors', 7], ['Status = Active', 5], ['Mapped to Cold chain', 1], ['Rating ≥ 85', 0], ['Compliance clear', 0]], invites: [], excluded: ['Krishna Pharma — mapping pending approval', 'All others — not mapped to Cold chain'] }
+    };
+    let inviteTotal = 0;
+    V.publishLines = this.LINES.map(l => {
+      const p = pubBase[l.no], c = this.tagFor(l.type);
+      const removed = S.invites[l.no] || [];
+      const invites = p.invites.filter(v => removed.indexOf(v[0]) < 0);
+      inviteTotal += invites.length;
+      const maxN = 7;
+      return {
+        no: l.no, type: l.type, name: l.name, tBg: c[0], tFg: c[1],
+        threshold: this.THRESH[l.no], cap: l.no === '05' ? 3 : 4,
+        bar: invites.length ? 'rgba(32,30,29,.4)' : '#ec3013',
+        blocked: invites.length === 0,
+        steps: p.steps.map((st, i) => ({ label: st[0], n: st[1], w: (st[1] / maxN * 100) + '%', color: i === p.steps.length - 1 ? '#ec3013' : 'rgba(32,30,29,.45)' })),
+        excluded: p.excluded,
+        invites: invites.map(v => {
+          const manual = /manual|guest/i.test(v[2]);
+          return {
+            name: v[1], meta: v[0] + ' · ' + v[2],
+            bg: manual ? 'rgba(236,48,19,.08)' : 'rgba(32,30,29,.06)', bar: manual ? '#ec3013' : 'rgba(32,30,29,.4)',
+            tag: manual ? (/guest/i.test(v[2]) ? 'Guest invite' : 'Manually invited') : 'System qualified',
+            tagBg: manual ? '#ffe0d9' : 'rgba(32,30,29,.12)', tagFg: manual ? '#7c1405' : '#201e1d',
+            remove: () => this.openModal({
+              type: 'Remove vendor from publish list', target: 'L' + l.no + ' · ' + v[1], title: 'Remove ' + v[1] + ' from line ' + l.no,
+              body: 'Removing a system-qualified vendor from a resolved invite list is a governed override. The invite list is unchanged until Procurement Admin approves.',
+              reasonCodes: ['Quality concern', 'Conflict of interest', 'Capacity constraint', 'Strategic sourcing'],
+              approver: 'Procurement Admin', escalate: 'Department Head — above cumulative override threshold',
+              onSubmit: () => this.setState(s => ({ invites: Object.assign({}, s.invites, { [l.no]: (s.invites[l.no] || []).concat([v[0]]) }) }))
+            })
+          };
+        }),
+        addVendor: () => this.openModal({
+          type: 'Add vendor to publish list', target: 'L' + l.no + ' · ' + l.name, title: 'Add a registered vendor to line ' + l.no,
+          body: 'The vendor will be flagged Manually Invited and visibly distinct from system-qualified vendors throughout evaluation and audit.',
+          reasonCodes: ['Too few qualifying vendors', 'Strategic sourcing', 'New market entrant', 'Category exception'],
+          approver: 'Procurement Admin', escalate: 'Department Head — cumulative override value above ₹10,00,000'
+        }),
+        guest: () => this.openModal({
+          type: 'Guest vendor invite (unregistered)', target: 'L' + l.no + ' · ' + l.name, title: 'Guest invite — line ' + l.no,
+          body: 'A placeholder profile is created in status Guest — Registration Incomplete, with a system user ID and temporary password. The vendor completes a short basic-details form on first login before the line becomes accessible. Full KYC is mandatory before any PO can be issued.',
+          reasonCodes: ['New market entrant', 'Too few qualifying vendors', 'Emergency sourcing'],
+          approver: 'Procurement Officer (self-attested)', escalate: 'Procurement Admin — above guest count limit or on award'
+        })
+      };
+    });
+    V.publishTotal = inviteTotal;
+    V.publishNote = 'Line 05 has zero qualifying vendors and is held back — publishing proceeds for lines 01–04 only. Eligibility computations and every manual override are written to an immutable audit record against the tender.';
+    V.publishNow = () => { this.toast('Published to 11 invitations across 4 lines', 'Portal, email and SMS notifications dispatched, each scoped to the recipient vendor’s eligible lines. Line 05 remains unpublished.'); this.setState({ screen: 'evaluate' }); };
+
+    // ── evaluation
+    const showTech = S.showTech === null || S.showTech === undefined ? !!this.props.showTechnicalEvaluation : !!S.showTech;
+    V.showTech = showTech;
+    V.techToggleV = showTech ? 'p' : '';
+    V.techToggleLabel = showTech ? 'Hide technical evaluation' : 'Show technical evaluation (T1, T2…)';
+    V.toggleTech = () => this.setState({ showTech: !showTech });
+    V.evalLines = this.LINES.filter(l => l.no !== '05').map(l => {
+      const c = this.tagFor(l.type);
+      const rows = this.ranked(l.no);
+      const qualified = rows.filter(r => r.qual === 'Qualified');
+      const tRankOf = {};
+      qualified.slice().sort((a, b) => b.tech - a.tech).forEach((r, i) => { tRankOf[r.v] = 'T' + (i + 1); });
+      const l1 = qualified[0], l2 = qualified[1];
+      const award = this.lineAward(l.no);
+      const splittable = l.no === this.SPLITTABLE;
+      return {
+        no: l.no, type: l.type, name: l.name, qty: l.qty, budget: l.budget, tBg: c[0], tFg: c[1],
+        splitLabel: splittable ? 'enabled (min 30%)' : 'off',
+        note: this.NOTES[l.no],
+        showTech,
+        techParams: (this.TECHPARAMS[l.no] || []).map(p => ({ label: p[0], weight: p[1] + '%' })),
+        techNote: 'Technical qualification runs before price ranking. T-rank is the weighted technical score; a bid below the ' + (l.type === 'ASSET' ? '70' : '65') + '-point qualifying cut-off is excluded from L-ranking entirely.',
+        showSplit: splittable && !!award && !!l2,
+        splitPct: S.split,
+        splitText: S.split + ' / ' + (100 - S.split),
+        splitL1: l1 ? l1.name.split(' ')[0] + ' ' + Math.round(l.qtyN * S.split / 100).toLocaleString('en-IN') + ' pair' : '',
+        splitL2: l2 ? l2.name.split(' ')[0] + ' ' + Math.round(l.qtyN * (100 - S.split) / 100).toLocaleString('en-IN') + ' pair' : '',
+        setSplit: e => this.setState({ split: parseInt(e.target.value) }),
+        rows: rows.map(r => {
+          const isAwarded = award && award.v === r.v;
+          const isL1 = r._rank === 'L1';
+          const dq = r.qual !== 'Qualified';
+          const tRank = dq ? '—' : tRankOf[r.v];
+          return {
+            showTech,
+            tech: r.tech, techW: r.tech + '%',
+            techColor: dq ? '#201e1d' : r.tech >= 85 ? '#ec3013' : 'rgba(32,30,29,.5)',
+            tRank, tRankBg: tRank === 'T1' ? 'rgba(236,48,19,.16)' : 'transparent', tRankFg: tRank === 'T1' ? '#ae1800' : 'rgba(32,30,29,.7)',
+            rank: r._rank, rankBg: isL1 ? '#ec3013' : dq ? '#201e1d' : 'rgba(32,30,29,.14)', rankFg: isL1 || dq ? '#f3f2f2' : '#201e1d',
+            vendor: r.name, meta: r.v + (r.v === 'GUEST-01' ? ' · KYC incomplete' : '') + (dq ? ' · excluded before price ranking' : ''),
+            rating: r.rating || 'NR', strike: dq ? 'line-through' : 'none',
+            unit: this.inr2(r.unit), tax: r.tax + '% GST', landed: this.inr2(this.landed(r)), total: this.inr(this.landed(r) * l.qtyN),
+            qual: r.qual, qBg: dq ? '#201e1d' : 'rgba(32,30,29,.12)', qFg: dq ? '#f3f2f2' : '#201e1d',
+            rowBg: isAwarded ? 'rgba(236,48,19,.1)' : 'transparent',
+            btnLabel: isAwarded ? (award.split ? 'Split awarded' : 'Awarded') : dq ? 'Excluded' : isL1 ? 'Award L1' : 'Award ' + r._rank,
+            btnV: isAwarded ? 'p' : '', btnOff: dq,
+            award: () => {
+              if (dq) return;
+              if (isL1) {
+                this.setState(s => ({ awards: Object.assign({}, s.awards, { [l.no]: { v: r.v, split: splittable && !!l2 } }) }));
+                this.toast('L1 awarded — L' + l.no, r.name + ' at ' + this.inr2(this.landed(r)) + ' landed. Award recorded per line item; other lines remain independently evaluable.');
+              } else {
+                this.openModal({
+                  type: 'Non-L1 award override', target: 'L' + l.no + ' · ' + r.name + ' (' + r._rank + ')', title: 'Award ' + r._rank + ' instead of L1',
+                  body: 'Awarding a non-L1 bid needs a reason code and does not take effect until approved. Approver resolves on award value: ' + this.inr(this.landed(r) * l.qtyN) + '.',
+                  reasonCodes: ['Technical superiority', 'Delivery urgency', 'L1 capacity constraint', 'Clinical preference'],
+                  approver: 'Procurement Admin', escalate: 'Finance / Management Committee — above ₹10,00,000',
+                  onSubmit: () => this.setState(s => ({ awards: Object.assign({}, s.awards, { [l.no]: { v: r.v, split: false, pending: true } }) }))
+                });
+              }
+            }
+          };
+        })
+      };
+    });
+    const awardedLines = Object.keys(S.awards);
+    V.awardRows = this.LINES.filter(l => l.no !== '05').map(l => {
+      const a = this.lineAward(l.no);
+      const bid = a ? (this.BIDS[l.no] || []).find(x => x.v === a.v) : null;
+      return {
+        no: l.no, short: l.short, bar: a ? (a.pending ? '#ff9783' : '#ec3013') : 'rgba(32,30,29,.25)',
+        value: a ? this.inr(this.awardedValue(l.no)) : '—',
+        vendor: a ? (bid ? bid.name : '') + (a.split ? ' + ' + S.split + '/' + (100 - S.split) + ' split' : '') + (a.pending ? ' · override pending' : '') : 'not yet awarded'
+      };
+    });
+    const total = awardedLines.reduce((n, id) => n + this.awardedValue(id), 0);
+    const budget = this.LINES.filter(l => l.no !== '05' && S.awards[l.no]).reduce((n, l) => n + l.budgetN, 0);
+    V.awardTotal = total ? this.inr(total) : '—';
+    V.variance = budget ? (total <= budget ? '−' : '+') + this.inr(Math.abs(budget - total)).slice(1) + ' (' + (total <= budget ? 'under' : 'over') + ')' : '—';
+    V.varianceColor = total <= budget ? '#ae1800' : '#201e1d';
+    const vendorSet = {}; awardedLines.forEach(id => { const a = S.awards[id]; vendorSet[a.v] = 1; if (a.split) { const l2 = this.ranked(id).filter(r => r.qual === 'Qualified')[1]; if (l2) vendorSet[l2.v] = 1; } });
+    V.awardVendors = awardedLines.length ? Object.keys(vendorSet).length : '—';
+    V.poCount = awardedLines.length ? Object.keys(vendorSet).length : '—';
+    V.awardWarn = awardedLines.indexOf('04') >= 0;
+    V.awardWarnText = 'Line 04 L1 is a guest vendor. The award is allowed, but PO generation stays blocked and a second override approval is required before issuance.';
+    V.confirmOff = awardedLines.length < 4;
+    V.confirmLabel = awardedLines.length < 4 ? 'Award all 4 lines to continue (' + awardedLines.length + '/4)' : 'Confirm awards → generate POs';
+    V.confirmAwards = () => { this.setState({ posConfirmed: true, screen: 'po' }); this.toast('Awards confirmed — 3 draft POs generated', 'Awarded lines grouped by vendor, one PO per vendor. Regret notifications sent per line to L2+ bidders.'); };
+    V.goEval = this.go('evaluate');
+
+    // ── POs
+    const pos = this.poList();
+    V.pos = pos.map(p => ({
+      no: p.no, vendor: p.vendor, value: this.inr(p.value), status: p.status,
+      stBg: p.status === 'Blocked' ? '#201e1d' : p.status === 'Issued' ? '#ffe0d9' : 'rgba(32,30,29,.12)',
+      stFg: p.status === 'Blocked' ? '#f3f2f2' : p.status === 'Issued' ? '#7c1405' : '#201e1d',
+      lines: p.lines, payment: '45 days from GRN', delivery: p.delivery, penalty: 'LD 0.5%/week · cap 5%',
+      trail: p.trail, blocked: p.blocked,
+      actV: p.blocked ? '' : 'p', actLabel: p.status === 'Issued' ? 'Dispatched to vendor' : 'Approve & issue',
+      act: () => { if (p.blocked) return; this.setState(s => ({ poAck: Object.assign({}, s.poAck, { [p.no]: 'Issued' }) })); this.toast('PO issued — ' + p.no, 'PDF generated with the digital approval trail and dispatched to the vendor by portal and email. Awaiting vendor acknowledgement.'); }
+    }));
+    V.noPos = pos.length === 0;
+
+    // ── overrides
+    const seeded = [
+      { type: 'Guest vendor invite', target: 'L04 · Bharat Medisys', code: 'NEW MARKET ENTRANT', why: 'Only two mapped CMC vendors above threshold; Bharat Medisys services the same ventilator platform at two peer hospitals.', by: 'R. Kulkarni · Proc. Officer', approver: 'Proc. Officer (self-attested)', state: 'Approved' },
+      { type: 'Bid due-date extension', target: 'Tender · +3 days', code: 'CLARIFICATION ROUND', why: 'Vendor queries on the invasive-mode specification warranted a clarification round before close.', by: 'R. Kulkarni · Proc. Officer', approver: 'Proc. Officer (self-attested)', state: 'Approved' },
+      { type: 'Vendor rating adjustment', target: 'V-1177 · Nirmal Facility Services', code: 'FORCE-MAJEURE EXCLUSION', why: 'Exclude the July flood-related delivery delays from the on-time delivery parameter.', by: 'S. Menon · Category Mgr', approver: 'Procurement Admin', state: 'Pending Approval' },
+      { type: 'Late bid submission', target: 'L03 · Medisure Surgicals', code: 'PORTAL OUTAGE', why: 'Vendor submission failed twice during the 14:10–14:35 IST portal incident; server logs attached.', by: 'R. Kulkarni · Proc. Officer', approver: 'Procurement Admin', state: 'Escalated' }
+    ];
+    const all = seeded.concat(S.overrides);
+    const ostate = st => st === 'Approved' ? ['#ffe0d9', '#7c1405'] : st === 'Rejected' ? ['#201e1d', '#f3f2f2'] : st === 'Escalated' ? ['#d7d3d3', '#2d2b2b'] : ['rgba(236,48,19,.16)', '#ae1800'];
+    V.overridePending = all.filter(o => o.state === 'Pending Approval' || o.state === 'Escalated').length;
+    V.overrides = all.map((o, i) => {
+      const c = ostate(o.state);
+      const open = o.state === 'Pending Approval' || o.state === 'Escalated';
+      const decide = next => () => {
+        if (i < seeded.length) { this._seedDecided = this._seedDecided || {}; }
+        this.setState(s => {
+          const idx = i - seeded.length;
+          if (idx >= 0) { const arr = s.overrides.slice(); arr[idx] = Object.assign({}, arr[idx], { state: next }); return { overrides: arr }; }
+          seeded[i].state = next; return { overrides: s.overrides.slice() };
+        });
+        this.toast('Override ' + next.toLowerCase() + ' — ' + o.type, next === 'Approved' ? 'Applied to the target record and stamped with approver identity and timestamp.' : 'Discarded with a mandatory rejection reason. The underlying record is left unchanged.');
+      };
+      return {
+        type: o.type, target: o.target, code: o.code, why: o.why, by: o.by, approver: o.approver,
+        state: o.state, bg: c[0], fg: c[1], open, closed: !open,
+        closedNote: o.state === 'Approved' ? 'applied 03 Sep · 11:24' : 'closed',
+        approve: decide('Approved'), reject: decide('Rejected')
+      };
+    });
+    V.overrideStates = [
+      { name: 'Requested', desc: 'reason code + justification captured; target record untouched' },
+      { name: 'Pending approval', desc: 'approver role resolved from type and value band' },
+      { name: 'Approved', desc: 'override applied, stamped with identity and timestamp' },
+      { name: 'Rejected', desc: 'discarded with mandatory reason; record unchanged' },
+      { name: 'Escalated', desc: 'value, count or SLA breach re-routes up the chain' },
+      { name: 'Expired', desc: 'auto-rejected after the configured SLA window' }
+    ];
+
+    // ── vendor portal
+    V.vTenderRows = [
+      { ref: 'TND/2026/CCE/0184', title: 'Critical Care Expansion — ICU consumables, ventilators & CMC', lines: 'L01 Ventilator circuits · L02 Surgical gloves', types: 'Item', closes: '04 Sep 2026 · 17:00', status: S.bidSubmitted ? 'Submitted' : 'Not submitted', bg: S.bidSubmitted ? '#ffe0d9' : 'rgba(236,48,19,.16)', fg: S.bidSubmitted ? '#7c1405' : '#ae1800', v: 'p', action: S.bidSubmitted ? 'View quotation' : 'Submit quotation', go: this.go('vBid') },
+      { ref: 'TND/2026/STR/0177', title: 'Central stores quarterly rate contract — PPE', lines: 'L02 Nitrile gloves · L04 Face shields · L06 Gowns', types: 'Item', closes: '19 Sep 2026 · 15:00', status: 'Draft saved', bg: 'rgba(32,30,29,.12)', fg: '#201e1d', v: '', action: 'Open', go: this.go('vBid') },
+      { ref: 'TND/2026/BMD/0162', title: 'Biomedical calibration — annual', lines: 'Not eligible — service mapping not approved', types: 'Service', closes: 'closed 22 Aug 2026', status: 'Not invited', bg: 'rgba(32,30,29,.08)', fg: 'rgba(32,30,29,.55)', v: '', action: 'Request category', go: this.go('vProfile') }
+    ];
+    V.vDocs = [
+      { ext: 'PDF', name: 'Tender terms & conditions', meta: '240 KB · v2 · re-issued 27 Aug' },
+      { ext: 'XLSX', name: 'Sample BOQ', meta: '58 KB' },
+      { ext: 'JPG', name: 'Central stores dock reference', meta: '640 KB' },
+      { ext: 'PDF', name: 'Packaging / label reference — L01', meta: '412 KB · line-item level' }
+    ];
+
+    const bidMeta = {
+      '01': { gst: '18%', lead: '10 days from PO', validity: '90 days', extraK: 'Declared shelf life at delivery (mandatory — batch tracked line)', extraV: '22 months of 24 · Lot MSC/26/0914', attach: [['Batch / shelf-life declaration', 'mandatory for batch-tracked items'], ['Product photograph', 'recommended'], ['Packaging sample image', 'recommended']], note: 'Attachments lock with the rest of the bid at the submission deadline. Your files are never visible to other vendors.' },
+      '02': { gst: '12%', lead: '7 days from PO', validity: '90 days', extraK: 'Alternate brand offered', extraV: 'No — quoting the preferred brand on the master', attach: [['Batch / shelf-life declaration', 'mandatory for batch-tracked items'], ['AQL test report', 'recommended']], note: 'Split-award is enabled on this line — quantity may be allocated across more than one vendor.' }
+    };
+    const bidLineIds = ['01', '02'];
+    let bidTotalN = 0, bidReady = true;
+    V.bidLines = bidLineIds.map(id => {
+      const l = this.LINES.find(x => x.no === id), m = bidMeta[id], c = this.tagFor(l.type);
+      const unitN = parseFloat(S.bidUnit[id]) || 0;
+      const landed = unitN * (1 + parseInt(m.gst) / 100);
+      bidTotalN += landed * l.qtyN;
+      const attach = m.attach.map((a, i) => {
+        const key = id + ':' + i;
+        const on = S.bidAttach[key] || (i > 0);
+        if (i === 0 && !on) bidReady = false;
+        return {
+          name: a[0], meta: a[1], mark: on ? '✓' : '', boxBg: on ? '#ec3013' : 'transparent',
+          bg: on ? 'rgba(32,30,29,.06)' : 'rgba(236,48,19,.1)', bar: on ? 'rgba(32,30,29,.4)' : '#ec3013',
+          toggle: () => this.setState(s => ({ bidAttach: Object.assign({}, s.bidAttach, { [key]: !on }) }))
+        };
+      });
+      const exact = S.bidExact[id] !== false;
+      const reason = S.bidReason[id] || '';
+      if (!exact && reason.trim().length < 4) bidReady = false;
+      return {
+        no: id, type: l.type, name: l.name, qty: l.qty, tBg: c[0], tFg: c[1],
+        unit: S.bidUnit[id], locked: S.bidSubmitted,
+        matchYesV: exact ? 'p' : '', matchNoV: exact ? '' : 'p', showReason: !exact,
+        reason, remark: S.bidRemark[id] || '',
+        reasonBorder: reason.trim().length < 4 ? '#ec3013' : 'rgba(32,30,29,.3)',
+        reasonLabelColor: reason.trim().length < 4 ? '#ae1800' : 'rgba(32,30,29,.5)',
+        setExact: () => this.setState(s => ({ bidExact: Object.assign({}, s.bidExact, { [id]: true }) })),
+        setDeviation: () => this.setState(s => ({ bidExact: Object.assign({}, s.bidExact, { [id]: false }) })),
+        setReason: e => { const v = e.target.value; this.setState(s => ({ bidReason: Object.assign({}, s.bidReason, { [id]: v }) })); },
+        setRemark: e => { const v = e.target.value; this.setState(s => ({ bidRemark: Object.assign({}, s.bidRemark, { [id]: v }) })); },
+        setUnit: e => { const v = e.target.value; this.setState(s => ({ bidUnit: Object.assign({}, s.bidUnit, { [id]: v }) })); },
+        gst: m.gst, landed: this.inr2(landed), total: this.inr(landed * l.qtyN),
+        lead: m.lead, validity: m.validity, extraK: m.extraK, extraV: m.extraV, attach, attachNote: m.note
+      };
+    });
+    V.bidTotal = this.inr(bidTotalN);
+    V.bidGate = S.bidSubmitted
+      ? { title: 'Quotation submitted and sealed', body: 'Submitted 03 Sep 2026 · 12:41 IST. Prices are masked from all hospital users until 04 Sep 17:00. Attachments are locked.', off: true, label: 'Submitted' }
+      : bidReady
+        ? { title: 'Ready to submit', body: 'Mandatory attachments present on both lines. Submission locks the bid and its attachments.', off: false, label: 'Submit sealed bid' }
+        : { title: 'Mandatory declaration incomplete', body: 'Each line needs its batch / shelf-life declaration attached, and any line marked as not an exact match needs a deviation reason. Drafts can still be saved.', off: true, label: 'Submit sealed bid' };
+    V.bidBarColor = S.bidSubmitted ? 'rgba(32,30,29,.5)' : bidReady ? '#201e1d' : '#ec3013';
+    V.submitBid = () => { this.setState({ bidSubmitted: true }); this.toast('Sealed bid submitted', 'Two line items quoted. Prices stay masked from every hospital user until the deadline lapses, then unlock simultaneously for all bidders.'); };
+
+    V.regFields = [
+      { k: 'Legal name', v: 'Medisure Surgicals Private Limited', span: 2 },
+      { k: 'Trade name', v: 'Medisure', span: 1 }, { k: 'Entity type', v: 'Private limited', span: 1 },
+      { k: 'GSTIN', v: '27AABCM1234K1Z5', span: 1 }, { k: 'PAN', v: 'AABCM1234K', span: 1 },
+      { k: 'Registered address', v: 'Unit 7, Marol MIDC, Andheri East, Mumbai 400093', span: 2 },
+      { k: 'Primary contact', v: 'Anjali Deshpande · Sales Director', span: 1 }, { k: 'Phone', v: '+91 98200 44118', span: 1 },
+      { k: 'Bank', v: 'HDFC Bank · 50200041XXXX · HDFC0000234', span: 2 },
+      { k: 'Payment terms offered', v: '45 days from GRN', span: 1 }, { k: 'Min. order value', v: '₹25,000', span: 1 }
+    ];
+    V.regDocs = [
+      { name: 'GST registration certificate', till: '—', state: 'Verified', bg: '#ffe0d9', fg: '#7c1405' },
+      { name: 'Drug licence Form 20B/21B', till: '30 Jun 2029', state: 'Verified', bg: '#ffe0d9', fg: '#7c1405' },
+      { name: 'ISO 13485:2016', till: '02 Feb 2028', state: 'Verified', bg: '#ffe0d9', fg: '#7c1405' },
+      { name: 'MSME / Udyam registration', till: '—', state: 'Verified', bg: '#ffe0d9', fg: '#7c1405' },
+      { name: 'General liability insurance', till: '14 Oct 2026', state: 'Expiring in 41 days', bg: 'rgba(236,48,19,.16)', fg: '#ae1800' }
+    ];
+    V.regCats = [
+      { label: 'Surgical Consumables — approved', bg: '#ffe0d9', fg: '#7c1405' },
+      { label: 'PPE — approved', bg: '#ffe0d9', fg: '#7c1405' },
+      { label: 'Medical Equipment — approved', bg: '#ffe0d9', fg: '#7c1405' },
+      { label: 'Biomedical CMC — requested', bg: 'rgba(32,30,29,.12)', fg: '#201e1d' },
+      { label: 'Pharmaceuticals — not requested', bg: 'rgba(32,30,29,.06)', fg: 'rgba(32,30,29,.55)' }
+    ];
+
+    const vpos = pos.filter(p => /Medisure/.test(p.vendor));
+    V.vendorPos = vpos.map(p => ({
+      no: p.no, date: '03 Sep 2026', title: 'Critical Care Expansion — awarded lines', value: this.inr(p.value),
+      status: S.poAck[p.no] === 'Accepted' ? 'Accepted' : p.status,
+      stBg: S.poAck[p.no] === 'Accepted' ? '#ffe0d9' : 'rgba(32,30,29,.12)', stFg: S.poAck[p.no] === 'Accepted' ? '#7c1405' : '#201e1d',
+      lines: p.lines.map(li => ({ no: li.no, name: li.name, qty: li.qty, unit: li.unit, total: li.total, by: '18 Sep 2026' })),
+      acceptLabel: S.poAck[p.no] === 'Accepted' ? 'Accepted' : 'Accept PO',
+      accept: () => { this.setState(s => ({ poAck: Object.assign({}, s.poAck, { [p.no]: 'Accepted' }) })); this.toast('PO accepted', 'Acknowledgement recorded. Delivery tracking and GRN are handled downstream in the hospital ERP.'); },
+      amend: () => this.openModal({ type: 'PO amendment (price/quantity)', target: p.no, title: 'Request PO amendment', body: 'A PO line’s price and quantity must trace back exactly to the awarded bid. Any change is a governed override and releases a new PO version only after approval — the current version stays live meanwhile.', reasonCodes: ['Quantity revision', 'Tax revision', 'Delivery reschedule', 'Specification clarification'], approver: 'Procurement Admin', escalate: 'Department Head — above amendment value threshold' })
+    }));
+    V.noVendorPo = vpos.length === 0;
+    V.vendorOutcomes = [
+      { line: 'L02 · Surgical gloves, sterile, 7.5', detail: awardedLines.indexOf('02') >= 0 ? 'L1 on tie-break (rating 92 vs 87) · ' + S.split + '% of 12,000 pair' : 'awaiting award decision', bar: awardedLines.indexOf('02') >= 0 ? '#ec3013' : 'rgba(32,30,29,.25)', state: awardedLines.indexOf('02') >= 0 ? 'Awarded' : 'Under review', bg: awardedLines.indexOf('02') >= 0 ? '#ffe0d9' : 'rgba(32,30,29,.12)', fg: awardedLines.indexOf('02') >= 0 ? '#7c1405' : '#201e1d' },
+      { line: 'L01 · Ventilator circuits, disposable', detail: awardedLines.indexOf('01') >= 0 ? 'L2 at ₹250.16 landed — Krishna Pharma awarded at ₹245.44' : 'awaiting award decision', bar: 'rgba(32,30,29,.25)', state: awardedLines.indexOf('01') >= 0 ? 'Regret' : 'Under review', bg: 'rgba(32,30,29,.12)', fg: '#201e1d' },
+      { line: 'L03 · ICU ventilator, invasive + NIV', detail: awardedLines.indexOf('03') >= 0 ? 'L2 at ₹15.9L landed per unit' : 'awaiting award decision', bar: 'rgba(32,30,29,.25)', state: awardedLines.indexOf('03') >= 0 ? 'Regret' : 'Under review', bg: 'rgba(32,30,29,.12)', fg: '#201e1d' }
+    ];
+
+    return V;
+  }
+
+  poList() {
+    const S = this.state;
+    if (!S.posConfirmed) return [];
+    const groups = {};
+    Object.keys(S.awards).forEach(id => {
+      const a = S.awards[id], line = this.LINES.find(l => l.no === id);
+      const q = this.ranked(id).filter(r => r.qual === 'Qualified');
+      const parts = a.split && q[1]
+        ? [[q.find(r => r.v === a.v) || q[0], S.split / 100], [q[1], 1 - S.split / 100]]
+        : [[(this.BIDS[id] || []).find(r => r.v === a.v), 1]];
+      parts.forEach(([bid, frac]) => {
+        if (!bid) return;
+        const qty = Math.round(line.qtyN * frac);
+        const landed = bid.unit * (1 + bid.tax / 100);
+        groups[bid.v] = groups[bid.v] || { vendor: bid.name, lines: [], value: 0 };
+        groups[bid.v].lines.push({ no: line.no, name: line.name, spec: line.type === 'SERVICE' ? '36 months · SLA 4 h / 98% uptime' : 'per master specification', qty: line.type === 'SERVICE' ? '36 mo' : qty.toLocaleString('en-IN'), unit: this.inr2(bid.unit), tax: bid.tax + '% GST', total: this.inr(landed * (line.type === 'SERVICE' ? 1 : qty)) });
+        groups[bid.v].value += landed * (line.type === 'SERVICE' ? 1 : qty);
+      });
+    });
+    return Object.keys(groups).map((v, i) => {
+      const g = groups[v];
+      const guest = v === 'GUEST-01';
+      const no = 'PO/SMH/2026/' + (4410 + i);
+      const issued = S.poAck[no] === 'Issued';
+      return {
+        no, vendor: g.vendor, value: g.value, lines: g.lines, blocked: guest,
+        status: guest ? 'Blocked' : issued ? 'Issued' : 'Pending approval',
+        delivery: g.lines.length && g.lines[0].qty === '36 mo' ? 'From 01 Oct 2026' : '18 Sep 2026 · Central Stores',
+        trail: [
+          { role: 'Procurement Officer — R. Kulkarni', detail: 'Initiated 03 Sep 2026 · 11:52 from confirmed awards', dot: '#ec3013' },
+          { role: g.value > 1000000 ? 'Finance / Management Committee' : 'Procurement Admin', detail: g.value > 1000000 ? 'Pending · value band above ₹10,00,000' : 'Pending · value band up to ₹10,00,000', dot: issued ? '#ec3013' : 'rgba(32,30,29,.3)' },
+          { role: 'Dispatch to vendor', detail: issued ? 'PDF generated and emailed · awaiting acknowledgement' : guest ? 'Blocked — vendor KYC incomplete' : 'Queued after approval', dot: issued ? '#ec3013' : 'rgba(32,30,29,.3)' }
+        ]
+      };
+    });
+  }
+}
+
+</script>
+</body>
+</html>

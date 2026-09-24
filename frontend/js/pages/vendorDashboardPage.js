@@ -3,175 +3,126 @@ import { state } from "../state.js";
 import { showResult } from "../ui.js";
 import { modalPrompt } from "../modal.js";
 import { switchView } from "../nav.js";
-import { setProfileSubtab } from "./vendorProfilePage.js";
-import { MAPPING_STATE_PRIORITY } from "../constants.js";
+import { esc, tag, stateTag, th, emptyRow, fmtDateTime, inr } from "../kit.js";
 
-// Reflects the actual outcome of the vendor's category requests instead of
-// a generic "go pick some" prompt once there's something to report --
-// disappears back to a plain prompt only when there's truly nothing yet.
-async function renderVendorCategoriesNotice(vendor) {
-  const notice = document.getElementById("vendor-categories-notice");
+// ---- Vendor portal home: tender invitations (the prototype's vTenders
+// screen) and the vendor's submitted bids. A status note at the top says
+// what to do next (verification pending -> categories -> bidding). ----
+const root = () => document.getElementById("vendor-dashboard-root");
+const resultEl = () => document.getElementById("vendor-dashboard-result");
+
+const NOTES = {
+  pending_verification: "Verification pending: your registration and documents are with our team for review. You'll be able to request categories once they're approved.",
+  info_requested: "More information requested: check the note on your profile and re-upload any rejected documents under Company profile.",
+  rejected: "Your registration was not approved. See the note on your profile.",
+};
+
+async function statusNote(vendor) {
   if (vendor.status !== "active") {
-    const msgs = {
-      pending_verification: "Verification pending: your registration and documents are with our team for review. You'll be able to select categories once they're approved.",
-      info_requested: "More information requested: please check the note on your profile and re-upload any rejected documents under My Profile → My Documents.",
-      rejected: "Your registration was not approved. See the reason above.",
-    };
-    notice.hidden = false;
-    notice.innerHTML = `<span>${msgs[vendor.status] || "Your registration is not active yet."}</span>`;
-    if (vendor.status === "info_requested") {
-      const b = document.createElement("button");
-      b.textContent = "Go to My Documents";
-      b.addEventListener("click", () => {
-        switchView("vendor-profile");
-        setProfileSubtab("documents");
-      });
-      notice.appendChild(b);
-    }
-    return;
+    return `<div class="ep-note"><span>${esc(NOTES[vendor.status] || "Your registration is not active yet.")}</span>${
+      vendor.status === "info_requested" ? '<button class="ep-b" id="goto-profile">Open profile</button>' : ""
+    }</div>`;
   }
-
-  let mappings, products;
   try {
-    [mappings, products] = await Promise.all([api("/vendor-portal/mappings"), api("/products?active=true")]);
+    const mappings = await api("/vendor-portal/mappings");
+    const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0 };
+    for (const m of mappings) counts[m.state]++;
+    const message = mappings.length
+      ? `Your category/item requests: ${["approved", "pending", "rejected", "suspended"].filter((k) => counts[k]).map((k) => `${counts[k]} ${k === "pending" ? "pending review" : k}`).join(", ")}.`
+      : "Your documents are approved! Pick which categories (or individual items) you can supply to become eligible for tenders.";
+    return `<div class="ep-note"><span>${esc(message)}</span><button class="ep-b" id="goto-profile">Go to Company profile</button></div>`;
   } catch (err) {
-    notice.hidden = true;
-    return;
+    return "";
   }
+}
 
-  // Aggregate by category, same as the Categories tab itself -- counting
-  // raw mapping rows would double-count a category with multiple products.
-  const productsByCategory = new Map();
-  for (const p of products) {
-    if (!productsByCategory.has(p.category)) productsByCategory.set(p.category, []);
-    productsByCategory.get(p.category).push(p.id);
-  }
-  const mappingByProduct = new Map(mappings.map((m) => [m.product_master_id, m]));
-  const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0 };
-  let totalCategoriesWithStatus = 0;
-  for (const [, productIds] of productsByCategory) {
-    let categoryState = null;
-    for (const pid of productIds) {
-      const m = mappingByProduct.get(pid);
-      if (!m) continue;
-      if (categoryState === null || MAPPING_STATE_PRIORITY.indexOf(m.state) < MAPPING_STATE_PRIORITY.indexOf(categoryState)) {
-        categoryState = m.state;
-      }
-    }
-    if (categoryState) {
-      counts[categoryState]++;
-      totalCategoriesWithStatus++;
-    }
-  }
-
-  let message;
-  if (totalCategoriesWithStatus === 0) {
-    message = "Your documents are approved! Pick which catalog categories you can supply to become eligible for tenders in them.";
-  } else {
-    const parts = [];
-    if (counts.approved) parts.push(`${counts.approved} approved`);
-    if (counts.rejected) parts.push(`${counts.rejected} rejected`);
-    if (counts.pending) parts.push(`${counts.pending} pending review`);
-    if (counts.suspended) parts.push(`${counts.suspended} suspended`);
-    message = `Your category request(s): ${parts.join(", ")}.`;
-  }
-
-  notice.hidden = false;
-  notice.innerHTML = `<span>${message}</span>`;
-  const goBtn = document.createElement("button");
-  goBtn.textContent = "Go to Categories";
-  goBtn.addEventListener("click", () => {
-    switchView("vendor-profile");
-    setProfileSubtab("categories");
-  });
-  notice.appendChild(goBtn);
+function timeRemaining(iso) {
+  const ms = new Date(iso) - Date.now();
+  if (ms <= 0) return "closed";
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  return d > 0 ? `${d}d ${String(h).padStart(2, "0")}h` : `${h}h ${Math.floor((ms % 3600000) / 60000)}m`;
 }
 
 export async function loadVendorDashboard() {
-  const profileEl = document.getElementById("vendor-profile-card");
-  const resultEl = document.getElementById("vendor-dashboard-result");
   try {
     const vendor = await api("/vendor-auth/me");
     state.vendor = vendor;
-    profileEl.innerHTML = `
-      <p><b>${vendor.legal_name}</b> (#${vendor.id}) —
-        <span class="status-pill status-${vendor.status}">${vendor.status.replace("_", " ")}</span>
-        ${vendor.rejection_reason ? `<br><span style="color:#a33;">Reason: ${vendor.rejection_reason}</span>` : ""}
-      </p>`;
+    const [note, tenders, bids] = await Promise.all([statusNote(vendor), api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
 
-    await renderVendorCategoriesNotice(vendor);
+    const lineRows = tenders.flatMap((t) => t.line_items.map((li) => ({ t, li })));
+    const openLines = lineRows.filter(({ t }) => t.can_bid);
+    const soonest = tenders.filter((t) => t.can_bid && t.bid_due_date).map((t) => t.bid_due_date).sort()[0];
 
-    const [openTenders, bids] = await Promise.all([api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
+    const banner = `<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center;border-left:3px solid #ec3013">
+      <div style="flex:1"><div style="font-size:14px;font-weight:800">${
+        lineRows.length ? `You have been invited to ${lineRows.length} line item(s) across ${tenders.length} tender(s)` : "You have no open invitations yet"
+      }</div>
+        <div class="hint" style="margin-top:3px">You see only the lines you individually qualified for. Lines you are not mapped or rated for are not visible or biddable.</div></div>
+      <div style="text-align:right;flex:none">${'<div class="ep-k">Time remaining</div>'}<div style="font-size:22px;font-weight:800;color:#ae1800">${soonest ? timeRemaining(soonest) : "—"}</div></div>
+    </div>`;
 
-    const openBody = document.querySelector("#vendor-open-tenders-table tbody");
-    openBody.innerHTML = "";
-    let rowCount = 0;
-    for (const t of openTenders) {
-      for (const li of t.line_items) {
-        rowCount++;
-        const tr = document.createElement("tr");
-        const dueStr = t.bid_due_date ? new Date(t.bid_due_date).toLocaleString() : "—";
-        let actionCell;
-        if (li.already_bid) {
-          actionCell = `<span class="status-pill status-active">Bid ${li.bid_status}</span>`;
-        } else if (t.can_bid) {
-          actionCell = `<button class="approve" data-line-item-id="${li.line_item_id}" data-title="${t.title}" data-product="${li.product_name}">Submit Bid</button>`;
-        } else {
-          actionCell = `<span style="color:#888;">Deadline passed</span>`;
-        }
-        tr.innerHTML = `
-          <td>${t.title}</td>
-          <td>${t.tender_type}</td>
-          <td>${li.product_name}</td>
-          <td>${li.qty}</td>
-          <td>${dueStr}</td>
-          <td class="row-actions">${actionCell}</td>`;
-        openBody.appendChild(tr);
-      }
-    }
-    if (rowCount === 0) {
-      openBody.innerHTML = '<tr><td colspan="6" style="color:#888;">No open tenders you\'re currently invited to.</td></tr>';
-    }
+    const invitations = `<div class="ep-pane">
+      <div class="ep-pane-head"><span>Open invitations</span><span class="ep-k">${openLines.length} biddable</span></div>
+      <table class="ep-table">${th("Tender", "Line item for you", "Type", "Closes", "Bid status", "")}<tbody>${
+        lineRows.length
+          ? lineRows
+              .map(({ t, li }) => {
+                const status = li.already_bid ? tag(`Bid ${li.bid_status}`, "pos") : t.can_bid ? tag("Not submitted", "att") : tag("Deadline passed", "neg");
+                const action = !li.already_bid && t.can_bid ? `<button class="ep-b" data-v="p" data-line="${li.line_item_id}" data-title="${esc(t.title)}" data-product="${esc(li.product_name)}">Submit bid</button>` : "";
+                return `<tr>
+                  <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
+                  <td class="ep-cell" style="font-size:12.5px">${esc(li.product_name)} · ${li.qty}</td>
+                  <td class="ep-cell" style="font-size:12px">${esc(t.tender_type)}</td>
+                  <td class="ep-cell" style="font-size:12.5px">${fmtDateTime(t.bid_due_date)}</td>
+                  <td class="ep-cell">${status}</td>
+                  <td class="ep-cell" style="text-align:right">${action}</td></tr>`;
+              })
+              .join("")
+          : emptyRow(6, "No open tenders you're currently invited to.")
+      }</tbody></table>
+    </div>`;
 
-    const bidsBody = document.querySelector("#vendor-bids-table tbody");
-    bidsBody.innerHTML = bids.length ? "" : '<tr><td colspan="6" style="color:#888;">No bids submitted yet.</td></tr>';
-    for (const b of bids) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${b.tender_title}</td>
-        <td>${b.product_name}</td>
-        <td>${b.qty}</td>
-        <td>${b.unit_price}</td>
-        <td><span class="status-pill status-active">${b.status}</span></td>
-        <td>${new Date(b.submitted_at).toLocaleString()}</td>`;
-      bidsBody.appendChild(tr);
-    }
-    resultEl.textContent = "";
+    const bidsPane = `<div class="ep-pane">
+      <div class="ep-pane-head"><span>Your bids</span><span class="ep-k">sealed until the deadline</span></div>
+      <table class="ep-table">${th("Tender", "Line item", "Qty", "Your unit price", "Status", "Submitted")}<tbody>${
+        bids.length
+          ? bids
+              .map(
+                (b) => `<tr><td class="ep-cell">${esc(b.tender_title)}</td><td class="ep-cell">${esc(b.product_name)}</td><td class="ep-cell">${b.qty}</td>
+                  <td class="ep-cell" style="font-weight:700">${inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px">${fmtDateTime(b.submitted_at)}</td></tr>`
+              )
+              .join("")
+          : emptyRow(6, "No bids submitted yet.")
+      }</tbody></table>
+    </div>`;
+
+    root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${banner}${invitations}${bidsPane}</div>`;
+    root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-profile"));
+    root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => submitBid(b)));
+    resultEl().textContent = "";
   } catch (err) {
-    showResult(resultEl, "Could not load dashboard: " + err.message, false);
+    showResult(resultEl(), "Could not load dashboard: " + err.message, false);
   }
 }
 
-document.querySelector("#vendor-open-tenders-table tbody").addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-line-item-id]");
-  if (!btn) return;
-  const resultEl = document.getElementById("vendor-dashboard-result");
+async function submitBid(btn) {
   const priceStr = await modalPrompt(`Your unit price for "${btn.dataset.product}" (${btn.dataset.title}):`);
   if (!priceStr) return;
   const unitPrice = Number(priceStr);
   if (!(unitPrice > 0)) {
-    showResult(resultEl, "Price must be a positive number.", false);
+    showResult(resultEl(), "Price must be a positive number.", false);
     return;
   }
   try {
     await api("/vendor-portal/bids", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tender_line_item_id: Number(btn.dataset.lineItemId), unit_price: unitPrice }),
+      body: JSON.stringify({ tender_line_item_id: Number(btn.dataset.line), unit_price: unitPrice }),
     });
-    showResult(resultEl, "Bid submitted.", true);
+    showResult(resultEl(), "Bid submitted.", true);
     loadVendorDashboard();
   } catch (err) {
-    showResult(resultEl, "Could not submit bid: " + err.message, false);
+    showResult(resultEl(), "Could not submit bid: " + err.message, false);
   }
-});
+}

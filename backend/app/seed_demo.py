@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.models.product_master import ProcurementType, ProductMaster
+from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.tender import Tender, TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
@@ -38,6 +38,7 @@ WIPE_TABLES = [
     "vendor_documents",
     "vendors",
     "product_master",
+    "product_categories",
 ]
 
 VENDORS = [
@@ -101,6 +102,11 @@ PRODUCTS = [
         procurement_type=ProcurementType.ITEM,
         category="Consumables",
         sub_category="PPE",
+        unit_of_measure="Box of 100",
+        reorder_level=50,
+        price_band_min=6.0,
+        price_band_max=12.0,
+        type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True, "storage_condition": "Store below 30 C, dry"},
     ),
     dict(
         code="XRAY-MACH-001",
@@ -109,6 +115,16 @@ PRODUCTS = [
         procurement_type=ProcurementType.ASSET,
         category="Imaging Equipment",
         sub_category="Radiology",
+        regulatory_class="AERB licensed",
+        approved_brands=["Siemens", "GE", "Philips"],
+        type_specific_attrs={
+            "expected_useful_life_years": 10,
+            "warranty_months": 24,
+            "installation_required": True,
+            "amc_cmc_applicable": True,
+            "compliance_certifications": ["CE", "AERB"],
+            "site_readiness": "Lead-lined room, 3-phase power, ceiling load check",
+        },
     ),
     dict(
         code="HKEEP-SVC-001",
@@ -117,6 +133,13 @@ PRODUCTS = [
         procurement_type=ProcurementType.SERVICE,
         category="Facility Services",
         sub_category="Housekeeping",
+        type_specific_attrs={
+            "default_tenure_months": 12,
+            "sla_response_time_hours": 2,
+            "sla_penalty_clauses": "1% of monthly fee per missed audit",
+            "billing_basis": "fixed",
+            "manpower_deployment_norms": "1 supervisor per 15 staff",
+        },
     ),
     dict(
         code="ICU-BED-001",
@@ -125,6 +148,7 @@ PRODUCTS = [
         procurement_type=ProcurementType.ASSET,
         category="Patient Care Equipment",
         sub_category="Critical Care",
+        type_specific_attrs={"warranty_months": 36, "installation_required": True, "compliance_certifications": ["ISO 13485"]},
     ),
     dict(
         code="MED-SYRINGE-001",
@@ -133,11 +157,43 @@ PRODUCTS = [
         procurement_type=ProcurementType.ITEM,
         category="Consumables",
         sub_category="General Supplies",
+        unit_of_measure="Box of 100",
+        type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True},
+    ),
+    # A restricted entry: mapping needs a minimum item rating (spec 4.4).
+    dict(
+        code="IMPL-HIP-001",
+        name="Total Hip Implant (Cemented)",
+        description="Cemented total hip replacement implant set",
+        procurement_type=ProcurementType.ITEM,
+        category="Implants",
+        sub_category="Orthopaedic",
+        regulatory_class="Class III implant",
+        approved_brands=["Zimmer Biomet", "Stryker"],
+        min_mapping_rating=80.0,
+        type_specific_attrs={"pack_size": "1 set", "shelf_life_tracking": True, "storage_condition": "Sterile, room temperature"},
     ),
 ]
 
+# Categories that need a minimum vendor rating before ANY mapping to them is approved.
+CATEGORY_MIN_RATING = {"Implants": 75.0}
+
 # (vendor index, product index) pairs, 0-based into VENDORS/PRODUCTS above.
 MAPPINGS = [(0, 0), (0, 4), (1, 1), (2, 3), (3, 2)]
+
+# (vendor index, category name, state): category-level mappings. An approved
+# category mapping makes the vendor eligible for every item in it.
+CATEGORY_MAPPINGS = [
+    (2, "Consumables", MappingState.APPROVED),  # PharmaLink covers gloves + syringes
+    (4, "Consumables", MappingState.PENDING),   # NextGen's request awaiting review
+]
+
+# Per-type rating tweaks on top of RATINGS: vendor index -> {type: delta}.
+# Shows that a vendor can be strong in one type and weaker in another.
+RATING_TYPE_DELTA = {
+    0: {ProcurementType.SERVICE: -20.0},
+    3: {ProcurementType.ITEM: -15.0},
+}
 
 # vendor index -> manual rating fields (None = leave unset/provisional)
 RATINGS = {
@@ -181,7 +237,19 @@ def run():
             db.refresh(v)
         print(f"Created {len(vendors)} vendors (login password for all: {VENDOR_DEMO_PASSWORD})")
 
-        products = [ProductMaster(**p) for p in PRODUCTS]
+        categories: dict[tuple[str, ProcurementType], ProductCategory] = {}
+        for p in PRODUCTS:
+            key = (p["category"], p["procurement_type"])
+            if key not in categories:
+                categories[key] = ProductCategory(
+                    name=key[0], procurement_type=key[1], min_mapping_rating=CATEGORY_MIN_RATING.get(key[0])
+                )
+                db.add(categories[key])
+        db.flush()
+        products = []
+        for p in PRODUCTS:
+            fields = {k: v for k, v in p.items() if k != "category"}
+            products.append(ProductMaster(category_id=categories[(p["category"], p["procurement_type"])].id, **fields))
         db.add_all(products)
         db.commit()
         for p in products:
@@ -199,21 +267,41 @@ def run():
             db.flush()
             db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=None, to_state=MappingState.PENDING))
             db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=MappingState.PENDING, to_state=MappingState.APPROVED))
-        db.commit()
-        print(f"Created {len(MAPPINGS)} approved vendor mappings")
-
-        for vendor_idx, fields in RATINGS.items():
-            rating = VendorRating(vendor_id=vendors[vendor_idx].id, price_competitiveness=50.0, **fields)
-            rating.recompute_overall()
-            if any(v is not None for v in fields.values()):
-                rating.last_manual_update_at = datetime.now(timezone.utc)
-            db.add(rating)
+        for vendor_idx, category_name, state in CATEGORY_MAPPINGS:
+            category = next(c for (name, _), c in categories.items() if name == category_name)
+            mapping = VendorMapping(
+                vendor_id=vendors[vendor_idx].id,
+                category_id=category.id,
+                state=state,
+                decided_at=datetime.now(timezone.utc) if state == MappingState.APPROVED else None,
+            )
+            db.add(mapping)
             db.flush()
-            for field, value in fields.items():
-                if value is not None:
-                    db.add(RatingHistory(rating_id=rating.id, field=field, old_value=None, new_value=value, comment="Initial demo data"))
+            db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=None, to_state=MappingState.PENDING))
+            if state == MappingState.APPROVED:
+                db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=MappingState.PENDING, to_state=MappingState.APPROVED))
         db.commit()
-        print(f"Created {len(RATINGS)} vendor ratings")
+        print(f"Created {len(MAPPINGS)} item mappings and {len(CATEGORY_MAPPINGS)} category mappings")
+
+        # Ratings are per (vendor, procurement type); the demo gives each
+        # vendor the same manual scores in all three types.
+        for vendor_idx, fields in RATINGS.items():
+            for ptype in ProcurementType:
+                delta = RATING_TYPE_DELTA.get(vendor_idx, {}).get(ptype, 0.0)
+                typed = {k: (None if v is None else max(0.0, min(100.0, v + delta))) for k, v in fields.items()}
+                rating = VendorRating(
+                    vendor_id=vendors[vendor_idx].id, procurement_type=ptype, price_competitiveness=50.0, **typed
+                )
+                rating.recompute_overall()
+                if any(v is not None for v in typed.values()):
+                    rating.last_manual_update_at = datetime.now(timezone.utc)
+                db.add(rating)
+                db.flush()
+                for field, value in typed.items():
+                    if value is not None:
+                        db.add(RatingHistory(rating_id=rating.id, field=field, old_value=None, new_value=value, comment="Initial demo data"))
+        db.commit()
+        print(f"Created ratings for {len(RATINGS)} vendors x {len(ProcurementType)} procurement types")
 
         bid_due = datetime.now(timezone.utc) + timedelta(days=14)
         first_tender, first_line_item = None, None
@@ -254,6 +342,7 @@ def run():
         first_tender.status = TenderStatus.PUBLISHED
         first_tender.round_number = 1
         first_tender.published_at = datetime.now(timezone.utc)
+        first_line_item.published = bool(eligible)
         db.add(
             TenderApprovalRound(
                 tender_id=first_tender.id,

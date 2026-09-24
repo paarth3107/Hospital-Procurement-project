@@ -30,7 +30,7 @@ Phase 4, then Evaluation/Award (Phase 5) next per IMPLEMENTATION-SPEC.md §11.
 
 **Vendor auth is separate from staff auth end-to-end**: a vendor sets a
 password at registration (no email/SMS adapter exists to deliver one later),
-logs in with GSTIN (not email — Vendor.email isn't unique on this model) at
+logs in with their registered email (GSTIN, PAN, email and phone are each unique per vendor) at
 `/api/v1/vendor-auth/login`, and gets a JWT tagged `"typ": "vendor"` that can
 never authorize a staff-only endpoint (`app/security.py`'s `get_current_user`
 rejects it, and `get_current_vendor` rejects a staff token the same way).
@@ -52,7 +52,7 @@ Key distinctions the spec is strict about:
 - **Split-Award (Spec §6.3.4, §9.5, §10.2) — in scope for Phase 1, was missing from the wireframe until this pass.** A line item flagged `Split-Award Allowed` at creation can have its quantity/value divided across more than one vendor (e.g. 70% to L1/C1, 30% to L2/C2), subject to a configured minimum split threshold. The Procurement Officer *proposes* the split at L1 Selection (§9.5); the Approving Authority *confirms or adjusts* it at L1 Approval (§10.2) — the Approving Authority has final say on the exact allocation, not just a yes/no. A split line item produces a separate PO data file entry per vendor, each carrying only that vendor's allocated share.
 - **Multi-round approval with escalation (§7.3)**: every tender-approval and L1-approval submission is a numbered Round, not a single submit/approve cycle. Rejection returns it to Draft/re-evaluation with mandatory comments pinned to that round; resubmission creates the next round rather than overwriting history. A configurable max round count (or per-round SLA breach) auto-escalates to the next Approving Authority tier — this applies identically to both approval gates.
 - **Open Tender (§6.8)**: a tender type that bypasses vendor *mapping and rating* eligibility filtering and publishes as a public self-registration link/QR code (no scoped vendor list). Still requires the same E-Tender Approval gate — only the meaning of "publish" changes.
-- **Guest Invite (§6.7)**: officer can send a registration invite to a name/email not yet on the platform. **Deviates from spec here — see "PROJECT OVERRIDE" below.**
+- **Guest Invite (§6.7)**: officer can send a registration invite to a name/email not yet on the platform. **See "PROJECT OVERRIDE" below — as of 2026-09-24 guest invitees follow the reference prototype (they may bid), Open Tender still requires full approval.**
 - **Price confidentiality (§9.6)**: commercial prices are masked from *everyone* (including Procurement Officer and Approving Authority) until the bid deadline passes — not just hidden in the frontend. Per-line-item due dates unlock independently. Technical submissions unlock first; prices unlock only after technical qualification is recorded.
 - **ERP handoff is data export only** (CSV/XML, field structure in Spec §10.4) — this app does not create the ERP PO itself. One file per awarded vendor per tender.
 - **Overrides don't touch the underlying record until Approved.** One reusable override/approval engine (Spec §12), not bespoke logic per module — states: Requested/Pending Approval/Approved/Rejected/Escalated/Expired. Spec §12.3 has the full table of override types (rating override, vendor add, expedited registration review — reframed from spec's "guest invite", see PROJECT OVERRIDE below —, technical score correction, late-submission exception, due-date extension, non-L1/C1 award override, PO re-export) with their default approver and escalation trigger.
@@ -62,7 +62,12 @@ Key distinctions the spec is strict about:
 - **Vendor rating (Spec §5.2, now with concrete illustrative weights, not just "configurable"):** On-time Delivery % 25% (manual), Quality Acceptance Rate 25% (manual), Price Competitiveness 20% (system-computed from this system's own bid history, rolling 12-month window), Compliance/Documentation Currency 15% (manual), Responsiveness 15% (manual). Only Price Competitiveness is automatic; overriding it is a governed override — routine manual entry of the other four is not. New vendors are "Unrated" until enough history exists; stale manual entries flag "Stale — Manual Update Due".
 - **Technical evaluation precedes commercial (Spec §9.2–9.4)**: Qualify/Disqualify (default, Item lines) or Scored Technical Ranking (Asset/Service lines, T1/T2/T3…) happens first; commercial L-ranking runs only among technically-qualified bids; QCBS combined C-ranking (Combined Score = Technical%×Weight + Price%×Weight, common defaults 70/30 for critical Assets or 60/40 for Services) is an optional per-line-item alternative to plain L1, fixed at tender creation.
 
-## PROJECT OVERRIDE — no bidding without full vendor approval (deviates from spec §6.7/§6.8)
+## PROJECT OVERRIDE — vendor approval before bidding (deviates from spec §6.8; §6.7 partly restored 2026-09-24)
+
+**UPDATE 2026-09-24 (user-directed, explicit): Guest Invite follows the reference prototype, NOT the rule below.** Answering the prototype-vs-override conflict, the user chose "Follow the prototype" for guest vendors. So, for Guest Invite (§6.7) only: an officer/approver invites an unregistered vendor → placeholder profile in status **"Guest — Registration Incomplete"** (system user ID + temporary password, short basic-details form on first login) → the guest **may bid and may be L1** on that line → **PO issuance/export is blocked until full KYC is completed and status is upgraded to Active** (a second override approval is required). The guest bullets below ("Guest Invite no longer creates a vendor that can bid…", "Expedited Registration Review" reframing, and the "must never contain an unregistered vendor" rule as it applies to guests) are **superseded** by this. **Not built yet** — current code is still Active-only for bidding; implement guests with the Bidding/Evaluation phases and keep PO/ERP-export blocked for guests server-side.
+**Open Tender (§6.8) is NOT changed by this update** — the user has not addressed it, so the full-registration-first rule below still applies to Open Tender. Listed under Active Questions to confirm.
+
+(Original rule, still in force for everything except Guest Invite:)
 
 **User-directed deviation from the base spec, confirmed explicitly — do not silently revert this.**
 
@@ -98,6 +103,17 @@ Approval and L1 Approval).
 Resolved by `E-Procurement-Spec-v2.md` (illustrative values, still to be finalized with actual hospital policy per Spec §17, but no longer "undefined placeholder"):
 - ~~Vendor rating weighting~~ → Spec §5.2, weights above.
 - ~~Who approves what~~ → Spec §11.2 value-based matrix: ≤₹1,00,000 Procurement Admin; ₹1,00,001–₹10,00,000 Department Head; above ₹10,00,000 Department Head + Finance/Management Committee (same bands for both E-Tender Approval and L1 Approval, resolved per facility).
+
+## ACTIVE QUESTIONS (deferred by the user — ask when the topic comes up; do not decide silently)
+
+Raised by comparing the reference prototype (`E-Procurement Prototype.dc.html` + its `index.html` handoff spec) with this build on 2026-09-24:
+- **PO handling (later stage):** prototype creates/approves/PDF-previews/dispatches POs in-app and the vendor accepts/amends them; spec §10.4 + this file say the app only exports PO data (CSV/XML) to the ERP, one file per awarded vendor. Ask when reaching PO/ERP handoff.
+- **Manual rating edits (later):** prototype treats any "Manual adjustment" as a governed override (reason code, approval, ±5-point rule); build/spec §5.3.1 lets Procurement Admin enter the four manual parameters directly (only Price Competitiveness override is governed). Ask when reaching the override engine.
+- **Price unlock timing (Evaluation):** prototype unlocks all prices simultaneously at the bid deadline; spec §9.6 says technical first, prices only after technical qualification is recorded.
+- **Approval bands:** prototype has PO ≤₹10,00,000 Procurement Admin / above Finance-Management Committee, tender >₹10,00,000 Department Head; this build uses the 3-band §11.2 matrix (₹1L / ₹10L).
+- **Open Tender vs the guest change:** confirm whether Open Tender also follows the prototype's deferred-KYC model or keeps full-registration-first.
+- **Vendor rating "Unrated" until 3 POs close** (prototype) vs default provisional score 50 in this build's eligibility.
+- **Prototype design system:** Modernist (Archivo, accent #ec3013, radius 0, left sidebar shell) is the target UI; see `DESIGN-REFERENCE.md`.
 
 Still genuinely open (Spec §17 — do not silently resolve, flag and ask):
 1. Final rating weights/thresholds per category/criticality (§5.2 values are illustrative starting points).

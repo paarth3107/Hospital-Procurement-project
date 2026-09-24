@@ -1,6 +1,6 @@
 import { API_BASE, api } from "../api.js";
 import { state } from "../state.js";
-import { showResult } from "../ui.js";
+import { showResult, setWhoami } from "../ui.js";
 import { switchView, showStaffTabsForRole, DEFAULT_VIEW_BY_ROLE } from "../nav.js";
 
 // ---- Staff login ----
@@ -26,7 +26,7 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     state.user = await api("/auth/me");
 
     showResult(resultEl, `Logged in as ${state.user.full_name} (${state.user.role})`, true);
-    document.getElementById("whoami").textContent = `${state.user.full_name} — ${state.user.role}`;
+    setWhoami(state.user.full_name, state.user.role.replace(/_/g, " "));
     showStaffTabsForRole(state.user.role);
     switchView(DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");
   } catch (err) {

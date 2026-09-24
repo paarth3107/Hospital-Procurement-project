@@ -5,22 +5,22 @@
 // imports to pull them in transitively) keeps the dependency graph easy
 // to read: this file is the one place that lists "every page that exists".
 import "./nav.js";
-import "./pages/registerPage.js";
+import "./pages/register/registerPage.js";
 import "./pages/staffLoginPage.js";
 import "./pages/vendorLoginPage.js";
 import "./pages/dashboardPage.js";
 import "./pages/vendorQueuePage.js";
-import "./pages/catalogPage.js";
-import "./pages/mappingsPage.js";
-import "./pages/ratingsPage.js";
-import "./pages/tendersPage.js";
+import "./pages/catalog/catalogPage.js";
+import "./pages/mappings/mappingsPage.js";
+import "./pages/ratings/ratingsPage.js";
+import "./pages/tenders/tendersPage.js";
 import "./pages/approvalsPage.js";
 import "./pages/vendorDocumentsPage.js";
 import "./pages/vendorProfilePage.js";
-import "./pages/vendorCategoriesPage.js";
 import "./pages/vendorDashboardPage.js";
 
 import { api } from "./api.js";
+import { setWhoami } from "./ui.js";
 import { state } from "./state.js";
 import { switchView, showStaffTabsForRole, showVendorDashboardTab, DEFAULT_VIEW_BY_ROLE } from "./nav.js";
 import { routeVendorAfterAuth } from "./pages/vendorLoginPage.js";
@@ -31,14 +31,17 @@ import { routeVendorAfterAuth } from "./pages/vendorLoginPage.js";
   try {
     if (state.actorType === "vendor") {
       state.vendor = await api("/vendor-auth/me");
-      document.getElementById("whoami").textContent = `${state.vendor.legal_name} — Vendor #${state.vendor.id}`;
+      setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`);
       showVendorDashboardTab();
-      await routeVendorAfterAuth();
+      const deepLink = new URLSearchParams(location.search).get("view");
+      if (deepLink && document.getElementById("view-" + deepLink)) switchView(deepLink);
+      else await routeVendorAfterAuth();
     } else {
       state.user = await api("/auth/me");
-      document.getElementById("whoami").textContent = `${state.user.full_name} — ${state.user.role}`;
+      setWhoami(state.user.full_name, state.user.role.replace(/_/g, " "));
       showStaffTabsForRole(state.user.role);
-      switchView(DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");
+      const deepLink = new URLSearchParams(location.search).get("view"); // e.g. /?view=mappings
+      switchView(document.getElementById("view-" + deepLink) ? deepLink : DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");
     }
   } catch (e) {
     state.token = null;

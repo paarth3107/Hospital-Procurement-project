@@ -8,10 +8,3 @@ export const VENDOR_DOC_TYPES = [
   { value: "incorporation_certificate", label: "Certificate of Incorporation", mandatory: true },
   { value: "bank_proof", label: "Cancelled Cheque / Bank Proof", mandatory: false },
 ];
-
-// Vendor–Product Eligibility Matrix aggregation order (approved outranks a
-// merely-pending mapping, etc). Shared by the staff matrix, the vendor's
-// own Categories tab, and the vendor dashboard's category notice -- all
-// three need to collapse several per-product mappings into one per-category
-// state the same way.
-export const MAPPING_STATE_PRIORITY = ["approved", "pending", "suspended", "rejected"];

@@ -8,10 +8,14 @@ from app.database import get_db
 from app.models.bid import Bid
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
+from app.models.product_master import ProductMaster
 from app.models.tender_line_item import TenderLineItem
+from app.models.vendor_mapping import MappingState, VendorMapping
+from app.models.vendor_rating import VendorRating
 from app.models.user_account import UserAccount
 from app.models.vendor import Vendor, VendorStatus
 from app.schemas.dashboard import (
+    DashboardHeldLineOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
     DashboardRecentPublishedOut,
@@ -75,7 +79,26 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         .all()
     )
 
+    vendors_by_status = {
+        status.value: count for status, count in db.query(Vendor.status, func.count(Vendor.id)).group_by(Vendor.status).all()
+    }
+    published_tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).all()
+    published_lines = [li for t in published_tenders for li in t.line_items]
+    held_lines = [li for li in published_lines if not li.published]
+
     return DashboardStatsOut(
+        vendors_by_status=vendors_by_status,
+        catalog_entries_count=db.query(ProductMaster).filter(ProductMaster.active.is_(True)).count(),
+        mappings_approved_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.APPROVED).count(),
+        mappings_pending_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.PENDING).count(),
+        lines_total=len(published_lines),
+        lines_published=len(published_lines) - len(held_lines),
+        last_rating_update=db.query(func.max(VendorRating.last_manual_update_at)).scalar(),
+        next_bid_close=open_tenders[0].bid_due_date if open_tenders else None,
+        held_lines=[
+            DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)
+            for li in held_lines[:5]
+        ],
         open_tenders_count=len(open_tenders),
         pending_approval_count=len(pending_your_approval),
         vendors_pending_count=vendors_pending_count,

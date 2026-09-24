@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.models.product_master import ProcurementType
 
 # Spec §5.2 — illustrative seed weights, explicitly "to be finalized with
 # hospital procurement policy" (spec §15, and IMPLEMENTATION-SPEC.md open
@@ -29,10 +30,16 @@ STALE_AFTER_DAYS = 90
 
 
 class VendorRating(Base):
+    """One rating per (vendor, procurement type): a vendor can be excellent
+    at supplying Items and mediocre at Services (spec §4.3: "hold different
+    ratings across each Procurement Type")."""
+
     __tablename__ = "vendor_ratings"
+    __table_args__ = (UniqueConstraint("vendor_id", "procurement_type", name="uq_vendor_rating_type"),)
 
     id = Column(Integer, primary_key=True)
-    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, unique=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    procurement_type = Column(Enum(ProcurementType), nullable=False)
 
     # System-computed (spec §5.3) — the only auto sub-score. With no bid
     # history yet (tenders/bidding are a later phase), this stays at a

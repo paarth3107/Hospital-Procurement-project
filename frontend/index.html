@@ -4,373 +4,243 @@
 <meta charset="utf-8">
 <title>MedSource — Hospital E-Procurement</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="design-system.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<header class="topbar" id="topbar" hidden>
-  <span class="brand" id="brand-home-link" title="Back to home">MedSource</span>
-  <nav id="topnav">
-    <button class="tab-btn" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden>My Dashboard</button>
-    <button class="tab-btn" id="vendor-profile-tab" data-view="vendor-profile" hidden>My Profile</button>
-    <button class="tab-btn" id="dashboard-tab" data-view="dashboard" hidden>Dashboard</button>
-    <button class="tab-btn" id="queue-tab" data-view="queue" hidden>Vendor Approval Queue</button>
-    <button class="tab-btn" id="catalog-tab" data-view="catalog" hidden>Product Catalog</button>
-    <button class="tab-btn" id="mappings-tab" data-view="mappings" hidden>Vendor Mapping</button>
-    <button class="tab-btn" id="ratings-tab" data-view="ratings" hidden>Vendor Rating</button>
-    <button class="tab-btn" id="tenders-tab" data-view="tenders" hidden>Tenders</button>
-    <button class="tab-btn" id="approvals-tab" data-view="approvals" hidden>E-Tender Approval</button>
-    <span id="whoami"></span>
-    <button id="logout-btn" hidden>Log out</button>
+<!-- ============ Sidebar (logged-in only) ============ -->
+<aside class="ep-side" id="topbar" hidden>
+  <div class="ep-brand" id="brand-home-link" title="Back to home">
+    <div class="ep-brand-name">MedSource</div>
+    <div class="ep-k" style="margin-top:4px">E-Procurement · v1.0</div>
+  </div>
+  <div class="ep-navhead ep-k" id="nav-heading"></div>
+  <nav class="ep-navlist" id="topnav">
+    <button class="tab-btn ep-nav" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden><span class="nav-label">Tender invitations</span><span class="nav-badge" id="badge-vendor-dashboard"></span></button>
+    <button class="tab-btn ep-nav" id="vendor-profile-tab" data-view="vendor-profile" hidden><span class="nav-label">Company profile</span></button>
+    <button class="tab-btn ep-nav" id="dashboard-tab" data-view="dashboard" hidden><span class="nav-label">Dashboard</span></button>
+    <button class="tab-btn ep-nav" id="queue-tab" data-view="queue" hidden><span class="nav-label">Vendor registrations</span><span class="nav-badge" id="badge-queue"></span></button>
+    <button class="tab-btn ep-nav" id="catalog-tab" data-view="catalog" hidden><span class="nav-label">Item · Asset · Service</span></button>
+    <button class="tab-btn ep-nav" id="mappings-tab" data-view="mappings" hidden><span class="nav-label">Vendor mapping</span><span class="nav-badge" id="badge-mappings"></span></button>
+    <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" hidden><span class="nav-label">Ratings &amp; scorecards</span></button>
+    <button class="tab-btn ep-nav" id="tenders-tab" data-view="tenders" hidden><span class="nav-label">Tender creation</span></button>
+    <button class="tab-btn ep-nav" id="approvals-tab" data-view="approvals" hidden><span class="nav-label">E-tender approval</span><span class="nav-badge" id="badge-approvals"></span></button>
   </nav>
-</header>
+  <div class="ep-identity">
+    <div class="ep-k">Signed in as</div>
+    <div id="whoami"></div>
+    <div><button class="ep-b" id="logout-btn" hidden>Log out</button></div>
+  </div>
+</aside>
 
 <main id="app">
 
+  <!-- Page header (logged-in only): kicker + title, facts on the right -->
+  <header class="ep-head" id="page-head" hidden>
+    <div style="flex:1;min-width:0">
+      <div class="ep-k" id="page-kicker"></div>
+      <h3 id="page-title"></h3>
+    </div>
+    <div class="ep-head-facts" id="page-facts"></div>
+  </header>
+
+  <div class="ep-content" id="content">
+
+  <!-- ============ Landing / auth (logged out) ============ -->
   <section id="view-landing" class="view">
-    <div class="landing-hero">
+    <div style="padding-bottom:16px;border-bottom:2px solid rgba(32,30,29,.4)">
       <div class="landing-title">MedSource</div>
-      <p class="landing-subtitle">Hospital E-Procurement Portal</p>
+      <div class="hint" style="margin-top:4px">Hospital E-Procurement Portal</div>
     </div>
-    <div class="landing-split">
-      <div class="landing-panel">
-        <h2>Hospital Staff</h2>
-        <p class="hint">Manage tenders, vendor approvals, the catalog, and vendor ratings.</p>
-        <button class="landing-btn" data-view="login">Staff Login</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div class="ep-pane ep-pane-pad">
+        <div class="ep-k">Hospital</div>
+        <div style="font-size:18px;font-weight:800;margin:4px 0 8px">Staff</div>
+        <p class="hint" style="min-height:40px;margin-bottom:18px">Manage tenders, vendor approvals, the catalog, and vendor ratings.</p>
+        <button class="ep-b landing-btn" data-v="p" data-view="login">Staff login</button>
       </div>
-      <div class="landing-panel landing-panel-vendor">
-        <h2>Vendor</h2>
-        <p class="hint">Log in to manage your documents and bids, or register your company to get started.</p>
-        <button class="landing-btn" data-view="vendor-login">Vendor Login</button>
-        <button class="landing-btn landing-btn-secondary" data-view="register">Register as a Vendor</button>
+      <div class="ep-pane ep-pane-pad" style="border-left:3px solid #ec3013">
+        <div class="ep-k">Supplier</div>
+        <div style="font-size:18px;font-weight:800;margin:4px 0 8px">Vendor</div>
+        <p class="hint" style="min-height:40px;margin-bottom:18px">Log in to manage your profile and bids, or register your company to get started.</p>
+        <button class="ep-b landing-btn" data-v="p" data-view="vendor-login">Vendor login</button>
+        <button class="ep-b landing-btn" data-view="register">Register as a vendor</button>
       </div>
     </div>
-  </section>
-
-  <section id="view-dashboard" class="view" hidden>
-    <h1>Dashboard</h1>
-
-    <div class="stat-row">
-      <div class="stat-card"><div class="stat-label">Open Tenders</div><div class="stat-value" id="stat-open-tenders">—</div></div>
-      <div class="stat-card"><div class="stat-label">Pending Your Approval</div><div class="stat-value accent" id="stat-pending-approval">—</div></div>
-      <div class="stat-card"><div class="stat-label">Vendors Pending Approval</div><div class="stat-value accent" id="stat-vendors-pending">—</div></div>
-      <div class="stat-card"><div class="stat-label">Bids Submitted</div><div class="stat-value" id="stat-bids-submitted">—</div></div>
-      <div class="stat-card"><div class="stat-label">Registered Vendors</div><div class="stat-value" id="stat-registered-vendors">—</div></div>
-    </div>
-
-    <h2>Open Tenders</h2>
-    <table id="dashboard-open-tenders-table">
-      <thead><tr><th>Tender</th><th>Department</th><th>Bids Received</th><th>Closes</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Pending Your Approval</h2>
-    <table id="dashboard-pending-approval-table">
-      <thead><tr><th>Tender</th><th>Round</th><th>Required Tier</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Recently Published</h2>
-    <table id="dashboard-recent-published-table">
-      <thead><tr><th>Tender</th><th>Published</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div id="dashboard-result" class="result"></div>
   </section>
 
   <section id="view-register" class="view auth-view" hidden>
-    <button class="back-home-link" data-view="landing">← Back to home</button>
-    <h1>Register as a Vendor</h1>
-    <p class="hint">Submissions are reviewed by Procurement Admin before you can bid on anything.</p>
-    <form id="register-form" novalidate>
-      <label>Legal Name <input name="legal_name" required></label>
-      <label>GSTIN (15 characters) <input name="gstin" required maxlength="15" minlength="15"></label>
-      <label>PAN <input name="pan" required></label>
-      <label>Contact Person <input name="contact_person" required></label>
-      <label>Email <input name="email" type="email" required></label>
-      <label>Phone <input name="phone" required></label>
-      <label>Password (for logging in later, 8+ characters) <input name="password" type="password" required minlength="8"></label>
-      <div class="field-group-label">Required documents (PDF, JPG, or PNG, max 10MB each)</div>
+    <button class="back-link" data-view="landing">← Back to home</button>
+    <div>
+      <div class="ep-k">Module 1</div>
+      <div style="font-size:24px;font-weight:800">Register as a vendor</div>
+      <p class="hint" style="margin-top:4px">Submissions are reviewed by Procurement Admin before you can bid on anything.</p>
+    </div>
+    <form id="register-form" class="ep-pane ep-pane-pad ep-form" novalidate>
+      <div class="ep-form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="ep-field"><div class="ep-k">Legal name</div><input class="input" name="legal_name" required></div>
+        <div class="ep-field"><div class="ep-k">GSTIN (15 characters)</div><input class="input" name="gstin" required maxlength="15" minlength="15"></div>
+        <div class="ep-field"><div class="ep-k">PAN</div><input class="input" name="pan" required></div>
+        <div class="ep-field"><div class="ep-k">Contact person</div><input class="input" name="contact_person" required></div>
+        <div class="ep-field"><div class="ep-k">Email (your login)</div><input class="input" name="email" type="email" required></div>
+        <div class="ep-field"><div class="ep-k">Phone</div><input class="input" name="phone" required></div>
+        <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Password (8+ characters)</div><input class="input" name="password" type="password" required minlength="8"></div>
+      </div>
+      <div class="ep-k">Required documents · PDF, JPG or PNG, max 10 MB each</div>
       <div id="register-doc-zones"></div>
-      <button type="submit" id="register-submit-btn">Submit for Verification</button>
+      <div><button type="submit" class="ep-b" data-v="p" id="register-submit-btn">Submit for verification</button></div>
     </form>
     <div id="register-result" class="result"></div>
   </section>
 
-
-  <section id="view-vendor-login" class="view auth-view" hidden>
-    <button class="back-home-link" data-view="landing">← Back to home</button>
-    <h1>Vendor Login</h1>
-    <p class="hint">Log in with the GSTIN and password you registered with.</p>
-    <form id="vendor-login-form">
-      <label>GSTIN (15 characters) <input name="gstin" required maxlength="15" minlength="15"></label>
-      <label>Password <input name="password" type="password" required></label>
-      <button type="submit">Log in</button>
+  <section id="view-vendor-login" class="view auth-view" hidden style="max-width:460px">
+    <button class="back-link" data-view="landing">← Back to home</button>
+    <div>
+      <div class="ep-k">Vendor access</div>
+      <div style="font-size:24px;font-weight:800">Vendor login</div>
+      <p class="hint" style="margin-top:4px">Log in with the email and password you registered with.</p>
+    </div>
+    <form id="vendor-login-form" class="ep-pane ep-pane-pad ep-form">
+      <div class="ep-field"><div class="ep-k">Email</div><input class="input" name="email" type="email" required autocomplete="username"></div>
+      <div class="ep-field"><div class="ep-k">Password</div><input class="input" name="password" type="password" required autocomplete="current-password"></div>
+      <div><button type="submit" class="ep-b" data-v="p">Log in</button></div>
     </form>
     <div id="vendor-login-result" class="result"></div>
   </section>
 
-  <section id="view-vendor-profile" class="view" hidden>
-    <h1>My Profile</h1>
-    <div class="subtabs">
-      <button class="subtab-btn active" data-subtab="details">Company Details</button>
-      <button class="subtab-btn" data-subtab="documents">My Documents</button>
-      <button class="subtab-btn" data-subtab="categories">Categories</button>
+  <section id="view-login" class="view auth-view" hidden style="max-width:460px">
+    <button class="back-link" data-view="landing">← Back to home</button>
+    <div>
+      <div class="ep-k">Hospital access</div>
+      <div style="font-size:24px;font-weight:800">Staff login</div>
     </div>
-    <div id="profile-subtab-details" class="subtab-panel">
-      <div id="vendor-profile-details"></div>
-    </div>
-    <div id="profile-subtab-documents" class="subtab-panel" hidden>
-      <p class="hint">Required documents must be verified before your registration can be approved. Optional ones can help speed up review. You can come back here any time later too -- for example if a license needs renewing.</p>
-      <div id="vendor-documents-list"></div>
-      <div id="vendor-documents-result" class="result"></div>
-    </div>
-    <div id="profile-subtab-categories" class="subtab-panel" hidden>
-      <p class="hint">Select every category you can supply. Each becomes a mapping request a Category Manager reviews before you're eligible for tenders in it. Come back here any time to add more.</p>
-      <div id="vendor-category-picker"></div>
-      <div id="vendor-category-picker-result" class="result"></div>
-    </div>
-  </section>
-
-  <section id="view-vendor-dashboard" class="view" hidden>
-    <h1>My Dashboard</h1>
-    <div id="vendor-profile-card"></div>
-    <div id="vendor-categories-notice" hidden></div>
-
-    <h2>Tenders You Can Apply To</h2>
-    <p class="hint">Only tenders you've been invited to (via an approved catalog mapping meeting the tender's rating threshold), and only while Published and before the bid deadline.</p>
-    <table id="vendor-open-tenders-table">
-      <thead><tr><th>Tender</th><th>Type</th><th>Line Item</th><th>Qty</th><th>Bid Due</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Your Bids</h2>
-    <table id="vendor-bids-table">
-      <thead><tr><th>Tender</th><th>Line Item</th><th>Qty</th><th>Your Unit Price</th><th>Status</th><th>Submitted</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div id="vendor-dashboard-result" class="result"></div>
-  </section>
-
-  <section id="view-login" class="view auth-view" hidden>
-    <button class="back-home-link" data-view="landing">← Back to home</button>
-    <h1>Staff Login</h1>
-    <form id="login-form">
-      <label>Email <input name="email" type="email" required value="admin@medsource.local"></label>
-      <label>Password <input name="password" type="password" required value="changeme123"></label>
-      <button type="submit">Log in</button>
+    <form id="login-form" class="ep-pane ep-pane-pad ep-form">
+      <div class="ep-field"><div class="ep-k">Email</div><input class="input" name="email" type="email" required value="admin@medsource.local"></div>
+      <div class="ep-field"><div class="ep-k">Password</div><input class="input" name="password" type="password" required value="changeme123"></div>
+      <div><button type="submit" class="ep-b" data-v="p">Log in</button></div>
     </form>
     <div id="login-result" class="result"></div>
   </section>
 
-  <section id="view-queue" class="view" hidden>
-    <h1>Vendor Approval Queue</h1>
-    <div class="toolbar">
-      <label>Filter by status
-        <select id="status-filter">
-          <option value="pending_verification" selected>Pending Verification</option>
-          <option value="info_requested">Info Requested</option>
-          <option value="active">Active</option>
-          <option value="rejected">Rejected</option>
-          <option value="">All</option>
-        </select>
-      </label>
-      <button id="refresh-btn">Refresh</button>
-    </div>
-    <table id="vendor-table">
-      <thead>
-        <tr><th>ID</th><th>Company</th><th>GSTIN</th><th>Contact</th><th>Status</th><th></th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div id="queue-result" class="result"></div>
+  <!-- ============ Hospital screens ============ -->
+  <section id="view-dashboard" class="view" hidden>
+    <div id="dashboard-root"></div>
+    <div id="dashboard-result" class="result"></div>
+  </section>
 
-    <div id="vendor-review-detail" hidden>
-      <div class="toolbar" style="justify-content: space-between;">
-        <h2 id="vendor-review-title" style="margin: 0;"></h2>
-        <button id="close-vendor-review-btn">Close</button>
-      </div>
-      <div id="vendor-review-info"></div>
-      <div id="vendor-review-mandatory-banner" hidden></div>
-      <h3>Documents</h3>
-      <div id="vendor-review-documents"></div>
-      <div class="toolbar">
-        <button id="vendor-review-approve-btn" class="approve">Approve Vendor</button>
-        <button id="vendor-review-reject-btn" class="reject">Reject Registration</button>
-        <button id="vendor-review-request-info-btn">Request Documents Again</button>
-      </div>
-      <div id="vendor-review-result" class="result"></div>
-    </div>
+  <section id="view-queue" class="view" hidden>
+    <div id="queue-root"></div>
+    <div id="queue-result" class="result"></div>
   </section>
 
   <section id="view-catalog" class="view" hidden>
-    <h1>Product Catalog</h1>
-    <p class="hint">Item/Asset/Service master (spec §4.2). New entries are added by Procurement Admin / Category Manager.</p>
-    <table id="product-table">
-      <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Category</th><th>Active</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="toolbar">
-      <button id="add-product-btn">+ Add Item</button>
-    </div>
-    <form id="product-form" hidden>
-      <label>Code / SKU <input name="code" required></label>
-      <label>Name <input name="name" required></label>
-      <label>Description <input name="description"></label>
-      <label>Procurement Type
-        <select name="procurement_type" required>
-          <option value="item">Item</option>
-          <option value="asset">Asset</option>
-          <option value="service">Service</option>
-        </select>
-      </label>
-      <label>Category <input name="category" required></label>
-      <label>Sub-category <input name="sub_category"></label>
-      <button type="submit">Add to Catalog</button>
-    </form>
+    <div id="catalog-root"></div>
+    <div id="catalog-form-host" hidden></div>
     <div id="product-result" class="result"></div>
   </section>
 
   <section id="view-mappings" class="view" hidden>
-    <h1>Vendor–Product Eligibility Matrix</h1>
-    <p class="hint">Spec §4.3 — the source of truth for who can be invited at tender time. Click a cell to filter the detail list below to that vendor/category.</p>
-    <div id="mapping-matrix"></div>
+    <div id="mappings-root"></div>
     <div id="mapping-result" class="result"></div>
-
-    <h2>Mapping Detail</h2>
-    <div id="mapping-filter-note" hidden></div>
-    <div class="toolbar">
-      <label>Filter by state
-        <select id="mapping-state-filter">
-          <option value="pending" selected>Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="suspended">Suspended</option>
-          <option value="">All</option>
-        </select>
-      </label>
-      <button id="mapping-refresh-btn">Refresh</button>
-    </div>
-    <table id="mapping-table">
-      <thead><tr><th>Vendor</th><th>Catalog Entry</th><th>State</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
   </section>
 
   <section id="view-ratings" class="view" hidden>
-    <h1>Vendor Rating</h1>
-    <p class="hint">Spec §5.2/§5.3 — Price Competitiveness is system-computed; the other four parameters are entered by Procurement Admin.</p>
-
-    <div id="rating-dashboard"></div>
-
-    <form id="rating-lookup-form">
-      <label>Vendor
-        <select name="vendor_id" required>
-          <option value="">— select a vendor —</option>
-        </select>
-      </label>
-      <button type="submit">Load Rating</button>
-    </form>
-    <div id="rating-card" hidden>
-      <div id="rating-header"></div>
-      <div id="rating-breakdown"></div>
-      <form id="rating-update-form">
-        <label>On-time Delivery % <input name="on_time_pct" type="number" step="0.1" min="0" max="100"></label>
-        <label>Quality Acceptance Rate % <input name="quality_pct" type="number" step="0.1" min="0" max="100"></label>
-        <label>Compliance / Documentation Currency % <input name="compliance_pct" type="number" step="0.1" min="0" max="100"></label>
-        <label>Responsiveness % <input name="responsiveness" type="number" step="0.1" min="0" max="100"></label>
-        <label>Comment (required for a material change) <input name="comment"></label>
-        <button type="submit">Save Manual Ratings</button>
-      </form>
-      <h2>History</h2>
-      <table id="rating-history-table">
-        <thead><tr><th>Field</th><th>Old</th><th>New</th><th>Comment</th><th>When</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    <div id="ratings-root"></div>
     <div id="rating-result" class="result"></div>
   </section>
 
   <section id="view-tenders" class="view" hidden>
-    <h1>Tenders</h1>
-    <p class="hint">Spec §6 — every tender this facility has drafted, published, or closed. Open one to manage it, or start a new one.</p>
-    <table id="tender-table">
-      <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Status</th><th>Round</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div id="tender-list-root"></div>
 
-    <div class="toolbar">
-      <button id="add-tender-btn">+ New Tender</button>
-    </div>
+    <form id="tender-form" class="ep-form" hidden novalidate>
+      <div id="tender-status-notice" class="ep-note" hidden></div>
+      <div class="ep-pane ep-pane-pad">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+          <span style="font-size:14px;font-weight:800" id="tender-form-title">Tender header</span>
+          <span class="ep-tag" id="tender-form-status">Draft</span>
+        </div>
+        <fieldset id="tender-fields" style="border:0;padding:0;margin:0;min-width:0">
+          <div class="ep-form-grid">
+            <div class="ep-field"><div class="ep-k">Facility</div>
+              <select class="input" name="facility_id" required><option value="">— select a facility —</option></select></div>
+            <div class="ep-field"><div class="ep-k">Tender type</div>
+              <select class="input" name="tender_type" required>
+                <option value="rfq">RFQ — price only</option>
+                <option value="rfp">RFP — technical + commercial</option>
+                <option value="rate_contract">Rate contract</option>
+              </select></div>
+            <div class="ep-field"><div class="ep-k">Department</div><input class="input" name="department"></div>
+            <div class="ep-field"><div class="ep-k">Bid due date</div><input class="input" name="bid_due_date" type="datetime-local"></div>
+            <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Title</div><input class="input" name="title" required></div>
+            <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Description</div><input class="input" name="description"></div>
+            <div class="ep-field"><div class="ep-k">Default rating threshold</div><input class="input" name="min_rating_threshold" type="number" step="0.1" value="0"></div>
+            <div class="ep-field"><div class="ep-k">Max vendors to invite (optional)</div><input class="input" name="max_invites" type="number"></div>
+          </div>
+        </fieldset>
+      </div>
 
-    <form id="tender-form" hidden>
-      <label>Facility
-        <select name="facility_id" required>
-          <option value="">— select a facility —</option>
-        </select>
-      </label>
-      <label>Title <input name="title" required></label>
-      <label>Description <input name="description"></label>
-      <label>Tender Type
-        <select name="tender_type" required>
-          <option value="rfq">RFQ (price-only)</option>
-          <option value="rfp">RFP (technical + commercial)</option>
-          <option value="rate_contract">Rate Contract</option>
-        </select>
-      </label>
-      <label>Department <input name="department"></label>
-      <label>Minimum Vendor Rating Threshold <input name="min_rating_threshold" type="number" step="0.1" value="0"></label>
-      <label>Max Vendors to Invite (optional) <input name="max_invites" type="number"></label>
-      <label>Bid Due Date <input name="bid_due_date" type="datetime-local" required></label>
-      <button type="submit">Create Draft Tender</button>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:14px;font-weight:800">Line items</span>
+        <span class="hint">each line is evaluated and awarded independently</span>
+        <div style="flex:1"></div>
+        <button type="button" class="ep-b" id="add-line-item-btn">+ Add line item</button>
+      </div>
+      <div id="tender-line-items" style="display:flex;flex-direction:column;gap:18px"></div>
+
+      <div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:14px;border-left:3px solid #ec3013" id="tender-form-actions">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:800;color:#ae1800" id="tender-gate-title">Draft</div>
+          <div class="hint" style="margin-top:2px" id="tender-gate-body">Save as draft any time. Submitting sends it to E-Tender Approval, which publishes it to the eligible vendors.</div>
+        </div>
+        <button type="submit" class="ep-b" id="save-draft-btn" data-action="save">Save as draft</button>
+        <button type="submit" class="ep-b" data-v="p" id="submit-approval-btn" data-action="submit">Send for approval</button>
+        <button type="button" class="ep-b" id="tender-form-cancel-btn">Close</button>
+      </div>
     </form>
     <div id="tender-result" class="result"></div>
 
-    <div id="tender-detail" hidden>
-      <div class="toolbar" style="justify-content: space-between;">
-        <h2 id="tender-detail-title" style="margin: 0;"></h2>
-        <button id="close-tender-detail-btn">Close</button>
+    <div id="tender-detail" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="ep-pane" id="tender-publish-status" hidden>
+        <div class="ep-pane-head"><span>Line publishing</span><span class="ep-k">held lines can be published later</span></div>
+        <table class="ep-table" id="publish-status-table">
+          <thead><tr><th class="ep-th">Line item</th><th class="ep-th">Status</th><th class="ep-th"></th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <div id="tender-status-notice" hidden></div>
-      <form id="line-item-form">
-        <label>Catalog Entry
-          <select name="product_master_id" required>
-            <option value="">— select a catalog entry —</option>
-          </select>
-        </label>
-        <label>Quantity <input name="qty" type="number" step="0.01" required></label>
-        <label>Estimated Price / Unit (reference only) <input name="estimated_price" type="number" step="0.01"></label>
-        <button type="submit">Add Line Item</button>
-      </form>
-      <table id="line-item-table">
-        <thead><tr><th>Catalog Entry</th><th>Type</th><th>Qty</th><th>Est. Price</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="toolbar">
-        <button id="preview-eligibility-btn">Preview Eligibility</button>
-        <button id="submit-tender-btn">Submit for Approval</button>
+      <div class="ep-pane">
+        <div class="ep-pane-head"><span>Eligible vendors per line</span><button class="ep-b" id="preview-eligibility-btn">Preview eligibility</button></div>
+        <div id="eligibility-preview" class="ep-pane-pad hint">Preview shows who would be invited for the saved version.</div>
       </div>
-      <div id="eligibility-preview"></div>
-      <h3>Approval Rounds</h3>
-      <table id="round-table">
-        <thead><tr><th>Round</th><th>Decision</th><th>Required Tier</th><th>Comments</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="ep-pane">
+        <div class="ep-pane-head"><span>Approval rounds</span></div>
+        <table class="ep-table" id="round-table">
+          <thead><tr><th class="ep-th">Round</th><th class="ep-th">Decision</th><th class="ep-th">Required tier</th><th class="ep-th">Comments</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
   <section id="view-approvals" class="view" hidden>
-    <h1>E-Tender Approval</h1>
-    <p class="hint">Spec §7 — the gate that actually publishes a tender and notifies vendors. Resolved Approving Authority tier shown per tender's current round.</p>
-    <button id="approvals-refresh-btn">Refresh</button>
-    <table id="approval-table">
-      <thead><tr><th>ID</th><th>Title</th><th>Round</th><th>Required Tier</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div id="approvals-root"></div>
     <div id="approval-result" class="result"></div>
   </section>
 
+  <!-- ============ Vendor screens ============ -->
+  <section id="view-vendor-dashboard" class="view" hidden>
+    <div id="vendor-dashboard-root"></div>
+    <div id="vendor-dashboard-result" class="result"></div>
+  </section>
+
+  <section id="view-vendor-profile" class="view" hidden>
+    <div id="vendor-profile-root"></div>
+  </section>
+
+  </div>
 </main>
+
+<div id="app-dialog" class="dialog-overlay" hidden><div id="app-dialog-box" class="dialog-box"></div></div>
 
 <div id="modal-overlay" class="modal-overlay" hidden>
   <div class="modal-box">

@@ -1,55 +1,137 @@
 import { api } from "../api.js";
+import { state } from "../state.js";
 import { showResult } from "../ui.js";
-import { switchView } from "../nav.js";
+import { switchView, ROLE_TABS } from "../nav.js";
+import { esc, kicker, th, emptyRow, fmtDate, fmtDateTime } from "../kit.js";
 
-// ---- Staff Dashboard ----
+// ---- Staff dashboard: the prototype's command-centre layout, fed by
+// GET /dashboard/stats (real counts only). ----
+
+function kpiStrip(s) {
+  const v = s.vendors_by_status;
+  const cells = [
+    ["Live tenders", s.open_tenders_count, s.next_bid_close ? `next bid close ${fmtDate(s.next_bid_close)}` : "none open for bidding"],
+    ["Active vendors", v.active || 0, `${v.suspended || 0} suspended · ${(v.pending_verification || 0) + (v.info_requested || 0)} pending`],
+    ["Bids submitted", s.bids_submitted_count, "prices masked from staff"],
+    ["Awaiting your approval", s.pending_approval_count, "e-tender approval"],
+  ];
+  return `<div class="ep-kpis">${cells
+    .map(([label, value, sub]) => `<div class="ep-kpi">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></div>`)
+    .join("")}</div>`;
+}
+
+function pipeline(s) {
+  const v = s.vendors_by_status;
+  const stages = [
+    ["Vendor registration", `${v.active || 0} active · ${(v.pending_verification || 0) + (v.info_requested || 0)} in queue`, (v.active || 0) > 0],
+    ["Master & mapping", `${s.catalog_entries_count} entries · ${s.mappings_approved_count} mappings`, s.catalog_entries_count > 0 && s.mappings_approved_count > 0],
+    ["Rating refresh", s.last_rating_update ? `last manual update ${fmtDate(s.last_rating_update)}` : "no manual entries yet", !!s.last_rating_update],
+    ["Tender & publishing", `${s.lines_published} of ${s.lines_total} live lines published`, s.lines_total > 0 && s.lines_published === s.lines_total],
+    ["Bid → L1 → PO", `${s.bids_submitted_count} bid(s) received`, s.bids_submitted_count > 0],
+  ];
+  return `<div>
+    <div class="ep-k" style="margin-bottom:9px">Procurement pipeline</div>
+    <div class="ep-pipeline">${stages
+      .map(
+        ([name, note, done], i) => `<div class="ep-stage">
+          <div style="display:flex;align-items:center;gap:7px">
+            <span class="ep-stage-dot" style="background:${done ? "#ec3013" : "rgba(32,30,29,.18)"};color:${done ? "#f3f2f2" : "#201e1d"}">${i + 1}</span>
+            <span style="font-size:12.5px;font-weight:800">${esc(name)}</span>
+          </div>
+          <div class="ep-sub" style="line-height:1.4">${esc(note)}</div>
+          <div style="height:3px;margin-top:auto;background:${done ? "#ec3013" : "rgba(32,30,29,.18)"}"></div>
+        </div>`
+      )
+      .join("")}</div>
+  </div>`;
+}
+
+// One task per thing that actually needs a human, limited to screens this role can open.
+function buildTasks(s) {
+  const allowed = new Set(ROLE_TABS[state.user?.role] || []);
+  const tasks = [];
+  const add = (view, task) => allowed.has(view) && tasks.push({ view, ...task });
+  if (s.vendors_pending_count) add("queue", { task: `Verify KYC — ${s.vendors_pending_count} registration(s)`, detail: "Documents awaiting review", ref: "Registrations", due: "today", hot: true });
+  for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
+  if (s.mappings_pending_count) add("mappings", { task: `Review ${s.mappings_pending_count} mapping request(s)`, detail: "Vendor category / item requests", ref: "Mapping", due: "open" });
+  for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
+  for (const t of s.open_tenders) add("tenders", { task: `Track bids — ${t.title}`, detail: `${t.bids_received} bid(s) received`, ref: `#${t.id}`, due: t.bid_due_date ? fmtDate(t.bid_due_date) : "—" });
+  return tasks;
+}
+
+function actionQueue(s) {
+  const tasks = buildTasks(s);
+  const rows = tasks.length
+    ? tasks
+        .map(
+          (t, i) => `<tr>
+            <td class="ep-cell"><div style="font-weight:600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
+            <td class="ep-cell" style="font-size:12px">${esc(t.ref)}</td>
+            <td class="ep-cell" style="font-size:12px;color:${t.hot ? "#ae1800" : "rgba(32,30,29,.7)"}">${esc(t.due)}</td>
+            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-task="${i}">Open</button></td>
+          </tr>`
+        )
+        .join("")
+    : emptyRow(4, "Nothing needs your attention right now.");
+  return {
+    html: `<div class="ep-pane">
+      <div class="ep-pane-head"><span>My action queue</span><span class="ep-k">${tasks.length} open</span></div>
+      <table class="ep-table">${th("Task", "Ref", "Due", "")}<tbody>${rows}</tbody></table>
+    </div>`,
+    tasks,
+  };
+}
+
+function vendorBase(s) {
+  const v = s.vendors_by_status;
+  const total = Object.values(v).reduce((a, b) => a + b, 0) || 1;
+  const rows = [
+    ["Active", v.active || 0, "#ec3013"],
+    ["Pending verification", v.pending_verification || 0, "#ff9783"],
+    ["Info requested", v.info_requested || 0, "#7d7979"],
+    ["Suspended", v.suspended || 0, "#201e1d"],
+    ["Rejected", v.rejected || 0, "rgba(32,30,29,.45)"],
+  ];
+  const alerts = [];
+  const queued = (v.pending_verification || 0) + (v.info_requested || 0);
+  if (queued) alerts.push(["#ec3013", `${queued} registration(s) waiting on KYC review or a vendor reply.`]);
+  if (s.held_lines.length) alerts.push(["rgba(32,30,29,.4)", `${s.held_lines.length} published line(s) held back — no eligible vendor yet.`]);
+  return `<div class="ep-pane">
+    <div class="ep-pane-head"><span>Vendor base</span></div>
+    <div style="padding:14px">
+      ${rows
+        .map(
+          ([label, n, color]) => `<div style="margin-bottom:13px">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>${label}</span><span>${n}</span></div>
+            <div class="ep-bar" style="margin-top:5px"><div style="width:${(n / total) * 100}%;background:${color}"></div></div>
+          </div>`
+        )
+        .join("")}
+      <div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0 13px"></div>
+      ${kicker("Alerts")}
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">${
+        alerts.length
+          ? alerts.map(([c, t]) => `<div style="border-left:3px solid ${c};padding:2px 0 2px 9px;font-size:12.5px;line-height:1.4">${esc(t)}</div>`).join("")
+          : '<div class="ep-sub">No alerts.</div>'
+      }</div>
+    </div>
+  </div>`;
+}
+
 export async function loadDashboard() {
+  const root = document.getElementById("dashboard-root");
   const resultEl = document.getElementById("dashboard-result");
   try {
-    const stats = await api("/dashboard/stats");
-    document.getElementById("stat-open-tenders").textContent = stats.open_tenders_count;
-    document.getElementById("stat-pending-approval").textContent = stats.pending_approval_count;
-    document.getElementById("stat-vendors-pending").textContent = stats.vendors_pending_count;
-    document.getElementById("stat-bids-submitted").textContent = stats.bids_submitted_count;
-    document.getElementById("stat-registered-vendors").textContent = stats.registered_vendors_count;
-
-    const openBody = document.querySelector("#dashboard-open-tenders-table tbody");
-    openBody.innerHTML = stats.open_tenders.length
-      ? ""
-      : '<tr><td colspan="4" style="color:#888;">No tenders currently open for bidding.</td></tr>';
-    for (const t of stats.open_tenders) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${t.title}</td><td>${t.department || "—"}</td><td>${t.bids_received}</td><td>${t.bid_due_date ? new Date(t.bid_due_date).toLocaleString() : "—"}</td>`;
-      openBody.appendChild(tr);
-    }
-
-    const pendingBody = document.querySelector("#dashboard-pending-approval-table tbody");
-    pendingBody.innerHTML = stats.pending_approval.length
-      ? ""
-      : '<tr><td colspan="4" style="color:#888;">Nothing pending your approval.</td></tr>';
-    for (const t of stats.pending_approval) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${t.title}</td><td>${t.round_number}</td><td>${t.required_tier}</td><td class="row-actions"><button data-id="${t.id}">Review →</button></td>`;
-      pendingBody.appendChild(tr);
-    }
-
-    const recentBody = document.querySelector("#dashboard-recent-published-table tbody");
-    recentBody.innerHTML = stats.recently_published.length
-      ? ""
-      : '<tr><td colspan="2" style="color:#888;">Nothing published yet.</td></tr>';
-    for (const t of stats.recently_published) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${t.title}</td><td>${t.published_at ? new Date(t.published_at).toLocaleString() : "—"}</td>`;
-      recentBody.appendChild(tr);
-    }
+    const s = await api("/dashboard/stats");
+    const queue = actionQueue(s);
+    root.innerHTML = `<div style="display:flex;flex-direction:column;gap:22px">
+      ${kpiStrip(s)}
+      ${pipeline(s)}
+      <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${vendorBase(s)}</div>
+    </div>`;
+    root.querySelectorAll("button[data-task]").forEach((b) => b.addEventListener("click", () => switchView(queue.tasks[Number(b.dataset.task)].view)));
     resultEl.textContent = "";
   } catch (err) {
     showResult(resultEl, "Could not load dashboard: " + err.message, false);
   }
 }
-
-document.querySelector("#dashboard-pending-approval-table tbody").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-id]");
-  if (!btn) return;
-  switchView("approvals");
-});

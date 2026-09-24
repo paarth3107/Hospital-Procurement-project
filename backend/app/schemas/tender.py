@@ -8,7 +8,31 @@ from app.models.tender_approval_round import RoundDecision
 from app.models.tender_line_item import TechnicalEvalMethod
 
 
+class LineItemCreate(BaseModel):
+    product_master_id: int
+    procurement_type: ProcurementType
+    qty: float
+    estimated_price: float | None = None
+    split_award_allowed: bool = False
+    min_rating_threshold_override: float | None = None
+    technical_eval_method: TechnicalEvalMethod = TechnicalEvalMethod.QUALIFY_DISQUALIFY
+    technical_weight: float | None = None
+    price_weight: float | None = None
+    line_details: dict = {}
+
+    @field_validator("qty")
+    @classmethod
+    def qty_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("qty must be greater than zero")
+        return v
+
+
 class TenderCreate(BaseModel):
+    """Also the body of PUT (full replace of a Draft): line_items, when
+    given, replaces the tender's whole line-item list."""
+
+
     facility_id: int
     title: str
     description: str | None = None
@@ -19,6 +43,7 @@ class TenderCreate(BaseModel):
     max_invites: int | None = None
     publish_date: datetime | None = None
     bid_due_date: datetime | None = None
+    line_items: list[LineItemCreate] = []
 
 
 class TenderOut(BaseModel):
@@ -41,26 +66,6 @@ class TenderOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class LineItemCreate(BaseModel):
-    product_master_id: int
-    procurement_type: ProcurementType
-    qty: float
-    estimated_price: float | None = None
-    split_award_allowed: bool = False
-    min_rating_threshold_override: float | None = None
-    technical_eval_method: TechnicalEvalMethod = TechnicalEvalMethod.QUALIFY_DISQUALIFY
-    technical_weight: float | None = None
-    price_weight: float | None = None
-    line_details: dict = {}
-
-    @field_validator("qty")
-    @classmethod
-    def qty_positive(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError("qty must be greater than zero")
-        return v
-
-
 class LineItemOut(BaseModel):
     id: int
     tender_id: int
@@ -69,6 +74,7 @@ class LineItemOut(BaseModel):
     qty: float
     estimated_price: float | None
     split_award_allowed: bool
+    published: bool
     min_rating_threshold_override: float | None
     technical_eval_method: TechnicalEvalMethod
     technical_weight: float | None
@@ -87,6 +93,7 @@ class EligibleVendorOut(BaseModel):
 
 class LineItemEligibilityOut(BaseModel):
     line_item_id: int
+    product_name: str
     product_master_id: int
     threshold_applied: float
     eligible_vendors: list[EligibleVendorOut]

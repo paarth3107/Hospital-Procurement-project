@@ -1,100 +1,67 @@
 import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
+import { esc, tag, stateTag, th, fmtDate } from "../kit.js";
 
-// ---- Vendor documents (the vendor's own upload page) ----
-export async function renderVendorDocuments() {
-  const container = document.getElementById("vendor-documents-list");
-  const resultEl = document.getElementById("vendor-documents-result");
+// ---- The vendor's document vault (a pane in Company profile): each
+// required/optional document with its verification status, and an
+// Upload / Replace button. Re-uploading resets a document to Pending. ----
+export async function renderVendorDocuments(container) {
   try {
     const docs = await api("/vendor-portal/documents");
     const byType = new Map(docs.map((d) => [d.doc_type, d]));
-
-    container.innerHTML = VENDOR_DOC_TYPES.map((t) => {
-      const doc = byType.get(t.value);
-      const reqBadge = t.mandatory ? '<span class="badge badge-required">Required</span>' : '<span class="badge badge-optional">Optional</span>';
-      const statusBadge = doc ? `<span class="badge badge-${doc.status}">${doc.status}</span>` : "";
-      const meta = doc
-        ? `<div class="doc-meta">${doc.original_filename} — ${(doc.size_bytes / 1024).toFixed(0)} KB — uploaded ${new Date(doc.uploaded_at).toLocaleString()} — <a href="#" class="doc-view-link" data-doc-id="${doc.id}">View</a></div>`
-        : "";
-      const rejectReason =
-        doc && doc.status === "rejected" && doc.rejection_reason
-          ? `<div class="doc-reject-reason">Reason: ${doc.rejection_reason}</div>`
-          : "";
-      return `
-        <div class="doc-card">
-          <div class="doc-card-head">
-            <span class="doc-title">${t.label}</span>
-            <span>${reqBadge} ${statusBadge}</span>
-          </div>
-          ${meta}
-          ${rejectReason}
-          <div class="dropzone" data-doc-type="${t.value}">
-            ${doc ? "Drop a new file here to replace, or click to browse" : "Drop a file here, or click to browse"} (PDF, JPG, or PNG)
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png">
-          </div>
-        </div>`;
-    }).join("");
-
-    wireVendorDocumentDropzones();
-    resultEl.textContent = "";
+    container.innerHTML = `<div class="ep-pane">
+      <div class="ep-pane-head"><span>Document vault</span><span class="ep-k">PDF, JPG or PNG · max 10 MB</span></div>
+      <table class="ep-table">${th("Document", "File", "Status", "")}<tbody>${VENDOR_DOC_TYPES.map((t) => {
+        const d = byType.get(t.value);
+        return `<tr>
+          <td class="ep-cell" style="font-weight:600">${t.label}<div>${tag(t.mandatory ? "Required" : "Optional", t.mandatory ? "att" : "")}</div></td>
+          <td class="ep-cell" style="font-size:12px">${
+            d ? `<span class="ep-mono">${esc(d.original_filename)}</span><div class="ep-sub">${(d.size_bytes / 1024).toFixed(0)} KB · uploaded ${fmtDate(d.uploaded_at)} · <a href="#" data-view="${d.id}">View</a></div>` : '<span class="ep-sub">Not uploaded</span>'
+          }</td>
+          <td class="ep-cell">${d ? stateTag(d.status) : tag("Missing", t.mandatory ? "att" : "")}${d && d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
+          <td class="ep-cell" style="text-align:right">
+            <button class="ep-b" data-upload="${t.value}">${d ? "Replace" : "Upload"}</button>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" hidden data-input="${t.value}">
+          </td></tr>`;
+      }).join("")}</tbody></table>
+      <div id="vendor-documents-result" class="result"></div>
+    </div>`;
+    wire(container);
   } catch (err) {
-    showResult(resultEl, "Could not load documents: " + err.message, false);
+    container.innerHTML = `<div class="result err">Could not load documents: ${esc(err.message)}</div>`;
   }
 }
 
-function wireVendorDocumentDropzones() {
-  document.querySelectorAll("#vendor-documents-list .dropzone").forEach((zone) => {
-    const input = zone.querySelector("input[type=file]");
-    zone.addEventListener("click", () => input.click());
-    input.addEventListener("change", () => {
-      if (input.files[0]) uploadVendorDocument(zone.dataset.docType, input.files[0]);
-    });
-    zone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      zone.classList.add("dragover");
-    });
-    zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
-    zone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      zone.classList.remove("dragover");
-      const file = e.dataTransfer.files[0];
-      if (file) uploadVendorDocument(zone.dataset.docType, file);
+function wire(container) {
+  const result = container.querySelector("#vendor-documents-result");
+  container.querySelectorAll("[data-upload]").forEach((b) => {
+    const input = container.querySelector(`[data-input="${b.dataset.upload}"]`);
+    b.addEventListener("click", () => input.click());
+    input.addEventListener("change", async () => {
+      if (!input.files[0]) return;
+      const formData = new FormData();
+      formData.append("doc_type", b.dataset.upload);
+      formData.append("file", input.files[0]);
+      try {
+        // no JSON Content-Type: fetch sets the multipart boundary itself
+        await api("/vendor-portal/documents", { method: "POST", body: formData });
+        renderVendorDocuments(container);
+      } catch (err) {
+        showResult(result, "Could not upload: " + err.message, false);
+      }
     });
   });
-
-  document.querySelectorAll("#vendor-documents-list .doc-view-link").forEach((link) => {
-    link.addEventListener("click", (e) => {
+  container.querySelectorAll("[data-view]").forEach((a) =>
+    a.addEventListener("click", async (e) => {
       e.preventDefault();
-      downloadVendorDocument(link.dataset.docId);
-    });
-  });
-}
-
-async function uploadVendorDocument(docType, file) {
-  const resultEl = document.getElementById("vendor-documents-result");
-  const formData = new FormData();
-  formData.append("doc_type", docType);
-  formData.append("file", file);
-  try {
-    // Deliberately not going through api()'s JSON Content-Type -- leaving
-    // headers unset here lets fetch set the correct multipart boundary itself.
-    await api("/vendor-portal/documents", { method: "POST", body: formData });
-    showResult(resultEl, `Uploaded ${file.name}.`, true);
-    renderVendorDocuments();
-  } catch (err) {
-    showResult(resultEl, "Could not upload: " + err.message, false);
-  }
-}
-
-async function downloadVendorDocument(docId) {
-  const resultEl = document.getElementById("vendor-documents-result");
-  try {
-    const res = await fetch(API_BASE + `/vendor-portal/documents/${docId}/download`, { headers: apiHeaders() });
-    if (!res.ok) throw new Error("Could not open document");
-    const blob = await res.blob();
-    window.open(URL.createObjectURL(blob), "_blank");
-  } catch (err) {
-    showResult(resultEl, err.message, false);
-  }
+      try {
+        const res = await fetch(API_BASE + `/vendor-portal/documents/${a.dataset.view}/download`, { headers: apiHeaders() });
+        if (!res.ok) throw new Error("Could not open document");
+        window.open(URL.createObjectURL(await res.blob()), "_blank");
+      } catch (err) {
+        showResult(result, err.message, false);
+      }
+    })
+  );
 }

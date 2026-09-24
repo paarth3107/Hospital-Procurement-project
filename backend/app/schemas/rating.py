@@ -2,10 +2,13 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.product_master import ProcurementType
+
 
 class RatingOut(BaseModel):
     id: int
     vendor_id: int
+    procurement_type: ProcurementType
     price_competitiveness: float
     on_time_pct: float | None
     quality_pct: float | None
@@ -27,6 +30,7 @@ class RatingManualUpdate(BaseModel):
     more than MATERIAL_CHANGE_THRESHOLD (spec point 2), since that check
     needs the prior stored value, not just this payload."""
 
+    procurement_type: ProcurementType
     on_time_pct: float | None = None
     quality_pct: float | None = None
     compliance_pct: float | None = None

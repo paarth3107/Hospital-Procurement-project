@@ -54,8 +54,10 @@ def create_tender(
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
-    tender = Tender(**payload.model_dump(), created_by_id=user.id)
+    tender = Tender(**payload.model_dump(exclude={"line_items"}), created_by_id=user.id)
     db.add(tender)
+    db.flush()
+    _set_line_items(tender, payload.line_items, db)
     db.commit()
     db.refresh(tender)
     return tender
@@ -87,6 +89,57 @@ def _require_draft(tender: Tender) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Tender is in status '{tender.status.value}'; line items can only be edited while Draft",
         )
+
+
+def _validate_line_item(payload: LineItemCreate, db: Session) -> None:
+    product = db.get(ProductMaster, payload.product_master_id)
+    if not product or not product.active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
+    if product.procurement_type != payload.procurement_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Catalog entry #{product.id} is a '{product.procurement_type.value}', not '{payload.procurement_type.value}'",
+        )
+
+
+def _set_line_items(tender: Tender, items: list[LineItemCreate], db: Session) -> None:
+    """Replaces the tender's whole line-item list (Draft only -- callers
+    check). Old rows go through the ORM so their persisted invites cascade
+    away too; invites are recomputed at submit anyway."""
+
+    for item in items:
+        _validate_line_item(item, db)
+    for old in list(tender.line_items):
+        db.delete(old)
+    db.flush()
+    for item in items:
+        db.add(TenderLineItem(tender_id=tender.id, **item.model_dump()))
+    db.flush()
+    db.expire(tender, ["line_items"])
+
+
+@router.put("/{tender_id}", response_model=TenderOut)
+def update_draft_tender(
+    tender_id: int,
+    payload: TenderCreate,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """"Save as Draft" on an existing tender: every header field and the
+    full line-item list are editable, but only while Draft."""
+
+    tender = _load_tender(tender_id, db)
+    if tender.status != TenderStatus.DRAFT:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Tender is in status '{tender.status.value}'; it can only be edited while Draft",
+        )
+    for field, value in payload.model_dump(exclude={"line_items"}).items():
+        setattr(tender, field, value)
+    _set_line_items(tender, payload.line_items, db)
+    db.commit()
+    db.refresh(tender)
+    return tender
 
 
 @router.post("/{tender_id}/line-items", response_model=LineItemOut, status_code=status.HTTP_201_CREATED)
@@ -137,6 +190,7 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
         results.append(
             LineItemEligibilityOut(
                 line_item_id=li.id,
+                product_name=li.product.name,
                 product_master_id=li.product_master_id,
                 threshold_applied=threshold,
                 eligible_vendors=[
@@ -148,19 +202,19 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
     return results
 
 
-def _persist_invites(tender: Tender, db: Session) -> list[int]:
+def _persist_invites(tender: Tender, db: Session) -> list[str]:
     """Recomputes and overwrites the system-resolved invite list for every
     line item. Returns the ids of any line item left with zero eligible
     vendors, per spec §6.5: "the system blocks that line from moving to
     approval" — there's no manual-override escape hatch yet (deferred to
     Phase 7's override engine), so this phase's block is unconditional."""
 
-    zero_eligible: list[int] = []
+    zero_eligible: list[str] = []
     for li in tender.line_items:
         db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id).delete()
         eligible = resolve_eligible_vendors(li, db)
         if not eligible:
-            zero_eligible.append(li.id)
+            zero_eligible.append(li.product.name)
             continue
         for e in eligible:
             db.add(TenderInvite(tender_line_item_id=li.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
@@ -181,13 +235,15 @@ def submit_for_approval(
     if not tender.bid_due_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be set before submission")
 
+    # A line with zero eligible vendors doesn't block the tender: it is held
+    # back (not published) while the other lines proceed. Only a tender where
+    # NO line has an eligible vendor is refused.
     zero_eligible = _persist_invites(tender, db)
-    if zero_eligible:
+    if len(zero_eligible) == len(tender.line_items):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Line item(s) {zero_eligible} have zero eligible vendors — relax the rating threshold or map more vendors "
-            "before submitting (no manual-override path exists yet)",
+            detail="No line item has an eligible vendor — relax the rating threshold or map more vendors before submitting",
         )
 
     total_value = _total_estimated_value(tender)
@@ -256,11 +312,22 @@ def approve_tender(
     # Spec §5.9 "approval-time re-check" — vendor/mapping/rating state may
     # have moved since submission.
     zero_eligible = _persist_invites(tender, db)
-    if zero_eligible:
+    if len(zero_eligible) == len(tender.line_items):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Line item(s) {zero_eligible} now have zero eligible vendors — cannot approve as-is",
+            detail="No line item has an eligible vendor any more — cannot approve as-is",
         )
+    # Publish the lines that have invites; hold back the rest. (The session does
+    # not autoflush, so push the freshly added invites before querying them.)
+    db.flush()
+    invited_line_ids = {
+        row[0]
+        for row in db.query(TenderInvite.tender_line_item_id)
+        .filter(TenderInvite.tender_line_item_id.in_([li.id for li in tender.line_items]))
+        .all()
+    }
+    for li in tender.line_items:
+        li.published = li.id in invited_line_ids
 
     round_.decision = RoundDecision.APPROVED
     round_.reviewer_id = user.id
@@ -327,9 +394,48 @@ def withdraw_to_draft(
 
     tender.status = TenderStatus.DRAFT
     tender.published_at = None
+    for li in tender.line_items:
+        li.published = False
     db.commit()
     db.refresh(tender)
     return tender
+
+
+@router.post("/{tender_id}/line-items/{line_item_id}/publish", response_model=LineItemOut)
+def publish_held_line(
+    tender_id: int,
+    line_item_id: int,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Publishes a line that was held back at approval time (it had no
+    eligible vendor then) once vendors qualify. The tender itself was already
+    approved; only this line's eligibility is re-resolved."""
+
+    tender = _load_tender(tender_id, db)
+    if tender.status != TenderStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a Published tender can have a held line published")
+    if tender.bid_due_date is not None and datetime.now(timezone.utc) > tender.bid_due_date:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The bid deadline for this tender has passed")
+    line = next((li for li in tender.line_items if li.id == line_item_id), None)
+    if line is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Line item not found on this tender")
+    if line.published:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This line is already published")
+
+    eligible = resolve_eligible_vendors(line, db)
+    if not eligible:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Still no eligible vendor for {line.product.name} — relax the rating threshold or map more vendors",
+        )
+    db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id).delete()
+    for e in eligible:
+        db.add(TenderInvite(tender_line_item_id=line.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
+    line.published = True
+    db.commit()
+    db.refresh(line)
+    return line
 
 
 @router.get("/{tender_id}/invites", response_model=list[TenderInviteOut])

@@ -1,29 +1,69 @@
 import { state } from "./state.js";
+import { setWhoami } from "./ui.js";
+import { api } from "./api.js";
+import { esc, fmtDateTime } from "./kit.js";
 import { loadDashboard } from "./pages/dashboardPage.js";
 import { loadVendors } from "./pages/vendorQueuePage.js";
-import { loadProducts } from "./pages/catalogPage.js";
-import { renderMappingMatrix, loadMappings } from "./pages/mappingsPage.js";
-import { populateRatingPicker, renderRatingDashboard } from "./pages/ratingsPage.js";
+import { loadProducts } from "./pages/catalog/catalogPage.js";
+import { loadMappingsPage } from "./pages/mappings/mappingsPage.js";
+import { loadRatingsPage } from "./pages/ratings/ratingsPage.js";
 import { loadVendorDashboard } from "./pages/vendorDashboardPage.js";
 import { loadVendorProfile } from "./pages/vendorProfilePage.js";
-import { loadTenders } from "./pages/tendersPage.js";
+import { loadTenders } from "./pages/tenders/tendersPage.js";
 import { loadApprovals } from "./pages/approvalsPage.js";
+
+// Page header (kicker + title) per screen, as in the prototype.
+const PAGE_TITLES = {
+  dashboard: ["Overview", "Procurement command centre"],
+  queue: ["Module 1", "Vendor registration & onboarding"],
+  catalog: ["Module 2", "Item, Asset & Service master"],
+  mappings: ["Module 2", "Vendor–product eligibility matrix"],
+  ratings: ["Module 3", "Vendor rating & scorecard"],
+  tenders: ["Module 4", "E-tender creation"],
+  approvals: ["Module 4B", "E-tender approval"],
+  "vendor-dashboard": ["Vendor portal", "Tender invitations"],
+  "vendor-profile": ["Module 1", "Company profile & documents"],
+};
+
+function setPageHead(view) {
+  const head = document.getElementById("page-head");
+  const titles = PAGE_TITLES[view];
+  head.hidden = !titles || document.getElementById("topbar").hidden;
+  if (!titles) return;
+  document.getElementById("page-kicker").textContent = titles[0];
+  document.getElementById("page-title").textContent = titles[1];
+}
+
+// Sidebar badges and the header's fact strip come from the same real counts
+// as the dashboard (staff only).
+export async function refreshChrome() {
+  if (state.actorType === "vendor" || !state.token) return;
+  try {
+    const s = await api("/dashboard/stats");
+    const badge = (id, n) => (document.getElementById(id).textContent = n ? String(n) : "");
+    badge("badge-queue", s.vendors_pending_count);
+    badge("badge-approvals", s.pending_approval_count);
+    badge("badge-mappings", s.mappings_pending_count);
+    document.getElementById("page-facts").innerHTML = `
+      <div class="ep-fact"><div class="ep-k">Open tenders</div><div class="ep-fact-value">${esc(s.open_tenders_count)}</div></div>
+      <div class="ep-fact-rule"></div>
+      <div class="ep-fact"><div class="ep-k">Next bid close</div><div class="ep-fact-value" style="color:#ae1800">${s.next_bid_close ? esc(fmtDateTime(s.next_bid_close)) : "—"}</div></div>`;
+  } catch (err) {
+    // chrome is decorative; a failed refresh must never block the screen
+  }
+}
 
 export function switchView(view) {
   document.querySelectorAll(".view").forEach((el) => (el.hidden = true));
   document.getElementById("view-" + view).hidden = false;
+  setPageHead(view);
+  refreshChrome();
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();
-  if (view === "mappings") {
-    renderMappingMatrix();
-    loadMappings();
-  }
-  if (view === "ratings") {
-    populateRatingPicker();
-    renderRatingDashboard();
-  }
+  if (view === "mappings") loadMappingsPage();
+  if (view === "ratings") loadRatingsPage();
   if (view === "vendor-dashboard") loadVendorDashboard();
   if (view === "vendor-profile") loadVendorProfile();
   if (view === "tenders") loadTenders();
@@ -61,6 +101,8 @@ export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings",
 
 export function showStaffTabsForRole(role) {
   document.getElementById("topbar").hidden = false;
+  document.getElementById("nav-heading").textContent = "Procurement workspace";
+  document.getElementById("page-facts").innerHTML = "";
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-profile-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
@@ -71,11 +113,12 @@ export function showStaffTabsForRole(role) {
   // Only Procurement Admin can save manual ratings server-side (see
   // ratings.py's require_role) — everyone else on the Ratings tab gets a
   // read-only lookup instead of a form that would just 403 on submit.
-  document.getElementById("rating-update-form").hidden = role !== "procurement_admin";
 }
 
 export function showVendorDashboardTab() {
   document.getElementById("topbar").hidden = false;
+  document.getElementById("nav-heading").textContent = "Vendor portal";
+  document.getElementById("page-facts").innerHTML = "";
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;
   }
@@ -101,7 +144,7 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   state.vendor = null;
   sessionStorage.removeItem("token");
   sessionStorage.removeItem("actorType");
-  document.getElementById("whoami").textContent = "";
+  setWhoami("", "");
   resetToLoggedOutNav();
   switchView("landing");
 });

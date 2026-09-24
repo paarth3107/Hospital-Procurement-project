@@ -58,8 +58,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 def get_current_vendor(token: str = Depends(vendor_oauth2_scheme), db: Session = Depends(get_db)) -> Vendor:
-    """Mirrors get_current_user for the vendor side. Subject is GSTIN, not
-    email -- Vendor.email isn't unique in this model, GSTIN is."""
+    """Mirrors get_current_user for the vendor side. Subject is the vendor's
+    (unique) email."""
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,13 +70,13 @@ def get_current_vendor(token: str = Depends(vendor_oauth2_scheme), db: Session =
         payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
         if payload.get("typ") != "vendor":
             raise credentials_exception
-        gstin = payload.get("sub")
-        if gstin is None:
+        email = payload.get("sub")
+        if email is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    vendor = db.query(Vendor).filter(Vendor.gstin == gstin).first()
+    vendor = db.query(Vendor).filter(Vendor.email == email).first()
     if vendor is None:
         raise credentials_exception
     return vendor

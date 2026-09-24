@@ -10,9 +10,10 @@ from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import VendorMapping
-from app.schemas.mapping import MappingOut
+from app.schemas.mapping import MappingOut, VendorMappingRequest
 from app.schemas.vendor_portal import BidCreate, BidOut, PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
+from app.services.mappings import create_pending_mapping
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
 
@@ -101,6 +102,16 @@ def list_my_mappings(vendor: Vendor = Depends(get_current_vendor), db: Session =
         .order_by(VendorMapping.requested_at.desc())
         .all()
     )
+
+
+@router.post("/mappings", response_model=MappingOut, status_code=status.HTTP_201_CREATED)
+def request_my_mapping(
+    payload: VendorMappingRequest, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)
+):
+    """A vendor requests a category mapping or an item mapping for
+    themselves -- the vendor is always the logged-in one."""
+
+    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id)
 
 
 @router.get("/bids", response_model=list[BidOut])

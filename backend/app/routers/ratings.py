@@ -5,54 +5,51 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user_account import Role, UserAccount
-from app.models.vendor import Vendor
+from app.models.product_master import ProcurementType
 from app.models.vendor_rating import MATERIAL_CHANGE_THRESHOLD, RatingHistory, VendorRating
 from app.schemas.rating import RatingHistoryOut, RatingManualUpdate, RatingOut
 from app.security import get_current_user, require_role
+from app.services.ratings import get_or_create_rating
 
 router = APIRouter(prefix="/api/v1/ratings", tags=["ratings"])
 
 MANUAL_FIELDS = ("on_time_pct", "quality_pct", "compliance_pct", "responsiveness")
 
 
-def _get_or_create_rating(vendor_id: int, db: Session) -> VendorRating:
-    vendor = db.get(Vendor, vendor_id)
-    if not vendor:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
+@router.get("", response_model=list[RatingOut])
+def list_ratings(
+    procurement_type: ProcurementType | None = None,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(get_current_user),
+):
+    """Every stored rating row (one per vendor per procurement type), for
+    dashboards/matrices -- vendors never rated in a type simply have no row
+    (they resolve to the provisional default, see services/ratings.py)."""
 
-    rating = db.query(VendorRating).filter(VendorRating.vendor_id == vendor_id).first()
-    if not rating:
-        # Spec §5.3 point 5: a vendor with no rating history yet gets a
-        # provisional/default score, not a missing row — created lazily on
-        # first access rather than at vendor-approval time, since nothing
-        # else about the rating depends on when the row itself appears.
-        # Column defaults apply at INSERT, not at object construction — set
-        # explicitly here since recompute_overall() needs a real number to
-        # weight, not the column's not-yet-applied default.
-        rating = VendorRating(vendor_id=vendor_id, price_competitiveness=50.0)
-        rating.recompute_overall()
-        db.add(rating)
-        db.commit()
-        db.refresh(rating)
-    return rating
+    query = db.query(VendorRating)
+    if procurement_type is not None:
+        query = query.filter(VendorRating.procurement_type == procurement_type)
+    return query.all()
 
 
 @router.get("/{vendor_id}", response_model=RatingOut)
 def get_rating(
     vendor_id: int,
+    procurement_type: ProcurementType,
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(get_current_user),
 ):
-    return _get_or_create_rating(vendor_id, db)
+    return get_or_create_rating(vendor_id, procurement_type, db)
 
 
 @router.get("/{vendor_id}/history", response_model=list[RatingHistoryOut])
 def get_rating_history(
     vendor_id: int,
+    procurement_type: ProcurementType,
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(get_current_user),
 ):
-    rating = _get_or_create_rating(vendor_id, db)
+    rating = get_or_create_rating(vendor_id, procurement_type, db)
     return sorted(rating.history, key=lambda h: h.entered_at)
 
 
@@ -69,7 +66,7 @@ def update_rating(
     (spec point 4), which routes through the override/approval engine
     (Phase 7, not built yet) rather than this ordinary data-entry endpoint."""
 
-    rating = _get_or_create_rating(vendor_id, db)
+    rating = get_or_create_rating(vendor_id, payload.procurement_type, db)
 
     changes = {f: getattr(payload, f) for f in MANUAL_FIELDS if getattr(payload, f) is not None}
     if not changes:

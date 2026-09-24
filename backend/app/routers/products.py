@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.product_master import ProcurementType, ProductMaster
+from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.user_account import Role, UserAccount
 from app.schemas.product import ProductCreate, ProductOut
 from app.security import get_current_user, require_role
@@ -12,6 +12,17 @@ router = APIRouter(prefix="/api/v1/products", tags=["products"])
 # Spec §4.1/§4.2 — catalog maintenance sits with Procurement Admin/Category
 # Manager, the same two roles that later decide Vendor Mapping requests.
 CATALOG_MANAGERS = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+
+
+def _check_category(payload: ProductCreate, db: Session) -> None:
+    category = db.get(ProductCategory, payload.category_id)
+    if not category or not category.active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    if category.procurement_type != payload.procurement_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category '{category.name}' is for {category.procurement_type.value}s, not {payload.procurement_type.value}s",
+        )
 
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
@@ -24,6 +35,7 @@ def create_product(
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A catalog entry with this code already exists")
 
+    _check_category(payload, db)
     product = ProductMaster(**payload.model_dump())
     db.add(product)
     db.commit()
@@ -58,6 +70,32 @@ def get_product(
     product = db.get(ProductMaster, product_id)
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
+    return product
+
+
+@router.put("/{product_id}", response_model=ProductOut)
+def update_product(
+    product_id: int,
+    payload: ProductCreate,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*CATALOG_MANAGERS)),
+):
+    """Edit a catalog entry. Its procurement type is fixed once created --
+    tender line items copy it, and the type decides the attribute set."""
+
+    product = db.get(ProductMaster, product_id)
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
+    if payload.procurement_type != product.procurement_type:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A catalog entry's procurement type can't be changed")
+    clash = db.query(ProductMaster).filter(ProductMaster.code == payload.code, ProductMaster.id != product_id).first()
+    if clash:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A catalog entry with this code already exists")
+    _check_category(payload, db)
+    for field, value in payload.model_dump().items():
+        setattr(product, field, value)
+    db.commit()
+    db.refresh(product)
     return product
 
 

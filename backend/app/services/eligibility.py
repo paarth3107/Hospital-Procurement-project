@@ -5,13 +5,13 @@ from sqlalchemy.orm import Session
 from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping
-from app.models.vendor_rating import VendorRating
+from app.services.ratings import rating_score
 
-# The default a freshly-created VendorRating resolves to (only
-# price_competitiveness=50.0 set, nothing else) — see
-# VendorRating.recompute_overall(). Mirrored here so eligibility resolution
-# doesn't have to persist a rating row just to read this vendor's score.
-DEFAULT_RATING_SCORE = 50.0
+# Spec 4.4: "an Active mapping exists for that exact item/asset/service or
+# its parent category (configurable)". True = an approved category mapping
+# makes the vendor a candidate for every item in that category (an item-level
+# Suspended/Rejected mapping still excludes them from that one item).
+CATEGORY_MAPPING_COVERS_ITEMS = True
 
 
 @dataclass
@@ -20,14 +20,32 @@ class EligibleVendor:
     rating_score: float
 
 
+def _mapped_vendor_ids(line_item: TenderLineItem, db: Session) -> set[int]:
+    product = line_item.product
+
+    item_mappings = db.query(VendorMapping).filter(VendorMapping.product_master_id == product.id).all()
+    blocked = {m.vendor_id for m in item_mappings if m.state in (MappingState.SUSPENDED, MappingState.REJECTED)}
+    allowed = {m.vendor_id for m in item_mappings if m.state == MappingState.APPROVED}
+
+    if CATEGORY_MAPPING_COVERS_ITEMS:
+        category_mappings = (
+            db.query(VendorMapping)
+            .filter(VendorMapping.category_id == product.category_id, VendorMapping.state == MappingState.APPROVED)
+            .all()
+        )
+        allowed |= {m.vendor_id for m in category_mappings}
+
+    return allowed - blocked
+
+
 def resolve_eligible_vendors(line_item: TenderLineItem, db: Session) -> list[EligibleVendor]:
-    """Spec §6.5 filter chain, in order:
+    """Spec 6.5 filter chain, in order:
     1. Vendor status = Active.
-    2. Vendor has an Active (Approved) Vendor Mapping to this catalog entry.
-    3. Vendor's rating >= this line's (or the tender's default) threshold.
-    4. (Suspended/blacklisted vendors are already excluded by #1 — this
-       system has no separate Suspended-but-still-Active state.)
-    5. If max_invites is set and more vendors qualify, rank by rating desc
+    2. Vendor has an Active (Approved) mapping to this catalog entry, or to
+       its category (see CATEGORY_MAPPING_COVERS_ITEMS).
+    3. Vendor's rating *for this line's procurement type* >= this line's (or
+       the tender's default) threshold.
+    4. If max_invites is set and more vendors qualify, rank by rating desc
        and cap at max_invites.
     """
 
@@ -37,22 +55,12 @@ def resolve_eligible_vendors(line_item: TenderLineItem, db: Session) -> list[Eli
         else line_item.tender.min_rating_threshold
     )
 
-    mappings = (
-        db.query(VendorMapping)
-        .filter(
-            VendorMapping.product_master_id == line_item.product_master_id,
-            VendorMapping.state == MappingState.APPROVED,
-        )
-        .all()
-    )
-
     candidates: list[EligibleVendor] = []
-    for mapping in mappings:
-        vendor = db.get(Vendor, mapping.vendor_id)
+    for vendor_id in _mapped_vendor_ids(line_item, db):
+        vendor = db.get(Vendor, vendor_id)
         if not vendor or vendor.status != VendorStatus.ACTIVE:
             continue
-        rating = db.query(VendorRating).filter(VendorRating.vendor_id == vendor.id).first()
-        score = rating.overall_score if rating else DEFAULT_RATING_SCORE
+        score = rating_score(vendor.id, line_item.procurement_type, db)
         if score >= threshold:
             candidates.append(EligibleVendor(vendor=vendor, rating_score=score))
 

@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers import (
     auth,
+    categories,
     dashboard,
     facilities,
     health,
@@ -35,6 +36,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(vendors.router)
 app.include_router(facilities.router)
+app.include_router(categories.router)
 app.include_router(products.router)
 app.include_router(mappings.router)
 app.include_router(ratings.router)

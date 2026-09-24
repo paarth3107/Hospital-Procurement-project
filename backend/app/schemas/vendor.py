@@ -32,6 +32,25 @@ class VendorCreate(BaseModel):
             raise ValueError(f"GSTIN must be {GSTIN_LENGTH} characters")
         return v
 
+    @field_validator("email")
+    @classmethod
+    def email_lowercase(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("pan")
+    @classmethod
+    def pan_uppercase(cls, v: str) -> str:
+        return v.strip().upper()
+
+    @field_validator("phone")
+    @classmethod
+    def phone_normalised(cls, v: str) -> str:
+        # Digits and a leading + only, so "98200 11122" and "9820011122" clash.
+        cleaned = "".join(ch for ch in v if ch.isdigit() or ch == "+")
+        if len(cleaned.lstrip("+")) < 7:
+            raise ValueError("Enter a valid phone number")
+        return cleaned
+
     @field_validator("password")
     @classmethod
     def password_length(cls, v: str) -> str:

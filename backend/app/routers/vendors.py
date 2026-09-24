@@ -70,14 +70,21 @@ async def register_vendor(
         msg = "; ".join(f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors())
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
 
-    existing = db.query(Vendor).filter(Vendor.gstin == payload.gstin).first()
-    if existing:
-        # Spec §3.5 duplicate check + §6.8.2 point 3 (Open Tender self-
-        # registration matches an existing profile instead of duplicating).
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A vendor with this GSTIN is already registered (status: {existing.status.value})",
-        )
+    # Spec §3.5 duplicate check + §6.8.2 point 3 (Open Tender self-
+    # registration matches an existing profile instead of duplicating).
+    # GSTIN, PAN, email and phone must each be unique to one vendor.
+    for column, value, label in (
+        (Vendor.gstin, payload.gstin, "GSTIN"),
+        (Vendor.pan, payload.pan, "PAN"),
+        (Vendor.email, payload.email, "email address"),
+        (Vendor.phone, payload.phone, "phone number"),
+    ):
+        existing = db.query(Vendor).filter(column == value).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A vendor with this {label} is already registered (status: {existing.status.value})",
+            )
 
     files = {
         VendorDocType.GST_CERTIFICATE: gst_certificate,

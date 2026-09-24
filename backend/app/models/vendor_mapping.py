@@ -1,6 +1,7 @@
 import enum
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     Enum,
@@ -29,11 +30,23 @@ class MappingState(str, enum.Enum):
 
 class VendorMapping(Base):
     __tablename__ = "vendor_mappings"
-    __table_args__ = (UniqueConstraint("vendor_id", "product_master_id", name="uq_vendor_product"),)
+    # A mapping is EITHER item-level (product_master_id) OR category-level
+    # (category_id) -- never both. Item and category mappings are separate
+    # rows with separate approvals (spec §4.3: approving a category does not
+    # approve every item in it).
+    __table_args__ = (
+        UniqueConstraint("vendor_id", "product_master_id", name="uq_vendor_product"),
+        UniqueConstraint("vendor_id", "category_id", name="uq_vendor_category"),
+        CheckConstraint(
+            "(product_master_id IS NOT NULL AND category_id IS NULL) OR (product_master_id IS NULL AND category_id IS NOT NULL)",
+            name="ck_mapping_item_xor_category",
+        ),
+    )
 
     id = Column(Integer, primary_key=True)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
-    product_master_id = Column(Integer, ForeignKey("product_master.id"), nullable=False)
+    product_master_id = Column(Integer, ForeignKey("product_master.id"), nullable=True)
+    category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
     state = Column(Enum(MappingState), nullable=False, default=MappingState.PENDING)
 
     requested_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -43,6 +56,7 @@ class VendorMapping(Base):
 
     vendor = relationship("Vendor")
     product = relationship("ProductMaster", back_populates="mappings")
+    category = relationship("ProductCategory")
     history = relationship("VendorMappingHistory", back_populates="mapping", cascade="all, delete-orphan")
 
 

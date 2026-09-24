@@ -1,7 +1,7 @@
 from app.models.approval_band import ApprovalBand
 from app.models.bid import Bid, BidStatus
 from app.models.facility import Facility
-from app.models.product_master import ProcurementType, ProductMaster
+from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.tender import Tender, TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
@@ -18,6 +18,7 @@ __all__ = [
     "Vendor",
     "VendorStatus",
     "ProductMaster",
+    "ProductCategory",
     "ProcurementType",
     "VendorMapping",
     "VendorMappingHistory",
