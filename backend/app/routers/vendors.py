@@ -32,7 +32,9 @@ from app.schemas.vendor import (
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
 from app.routers.vendor_documents import store_document
 from app.security import get_current_user, hash_password, require_role, verify_password
+from app.schemas.vendor_document import ItemRequirementOut
 from app.services.audit import record
+from app.services.document_requirements import to_out, vendor_requirements
 from app.services.expiry import reinstate_if_cleared
 from app.services.vendor_status import set_status
 
@@ -513,3 +515,14 @@ def reveal_sensitive_field(
     record(db, "vendor.sensitive_revealed", "vendor", vendor.id, actor=user, entity_label=vendor.legal_name, meta={"field": payload.field})
     db.commit()
     return VendorRevealOut(field=payload.field, value=getattr(vendor, payload.field))
+
+
+@router.get("/{vendor_id}/document-requirements", response_model=list[ItemRequirementOut])
+def vendor_document_requirements(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
+):
+    """What this vendor still owes per item, so the reviewer can see which
+    requirement a newly uploaded document answers and who can bid on what."""
+    return to_out(vendor_requirements(db, _load_vendor(vendor_id, db)))

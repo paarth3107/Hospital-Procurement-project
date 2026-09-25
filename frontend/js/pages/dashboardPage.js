@@ -54,6 +54,8 @@ function buildTasks(s) {
   const add = (view, task) => allowed.has(view) && tasks.push({ view, ...task });
   for (const v of s.pending_vendors)
     add("queue", { task: `${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`, detail: v.responded ? "Vendor answered your information request" : "New registration, documents awaiting review", ref: `Vendor #${v.id}`, due: "today", hot: true, vendorId: v.id });
+  for (const v of s.docs_to_verify)
+    add("queue", { task: `Verify documents — ${v.legal_name}`, detail: `${v.count} document(s) uploaded by an approved vendor`, ref: `Vendor #${v.vendor_id}`, due: "today", hot: true, vendorId: v.vendor_id, allStatuses: true });
   for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
   if (s.mappings_pending_count) add("mappings", { task: `Review ${s.mappings_pending_count} mapping request(s)`, detail: "Vendor category / item requests", ref: "Mapping", due: "open" });
   for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
@@ -111,7 +113,7 @@ function vendorBase(s) {
 }
 
 function openTask(task) {
-  if (task.vendorId) preselectVendor(task.vendorId);
+  if (task.vendorId) preselectVendor(task.vendorId, task.allStatuses ? "" : "pending_verification");
   switchView(task.view);
 }
 

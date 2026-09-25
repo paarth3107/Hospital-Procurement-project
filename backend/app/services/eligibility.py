@@ -6,7 +6,7 @@ from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping
 from app.services.expiry import expired_documents
-from app.services.mappings import unverified_documents
+from app.services.mappings import required_document_types, unverified_documents
 from app.services.ratings import rating_score
 
 # Spec 4.4: "an Active mapping exists for that exact item/asset/service or
@@ -45,11 +45,14 @@ def _mapped_vendor_ids(line_item: TenderLineItem, db: Session) -> set[int]:
             minimum = product.min_mapping_rating
             if minimum is not None and rating_score(m.vendor_id, product.procurement_type, db) < minimum:
                 continue
-            # ...and the item's own required documents (the category's were
-            # checked when the category was approved).
-            if unverified_documents(db, m.vendor_id, list(product.required_documents or [])):
-                continue
             allowed.add(m.vendor_id)
+
+    # Documents are re-checked for everyone at resolution time (item and
+    # category requirements can be added after an approval): a vendor is
+    # eligible for an item only while every document it requires is Verified.
+    needed = required_document_types(product, product.category_ref)
+    if needed:
+        allowed = {vid for vid in allowed if not unverified_documents(db, vid, needed)}
 
     return allowed - blocked
 

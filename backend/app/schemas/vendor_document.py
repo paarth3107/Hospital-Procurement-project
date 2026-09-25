@@ -31,3 +31,22 @@ class VendorDocumentRejection(BaseModel):
         if not v or not v.strip():
             raise ValueError("A reason is required")
         return v.strip()
+
+
+class RequiredDocumentOut(BaseModel):
+    entry: str  # catalog entry, e.g. "gst_certificate" or "other:CE marking"
+    label: str
+    state: str  # missing | pending | verified | rejected | expired
+    doc_id: int | None
+    reason: str | None
+
+
+class ItemRequirementOut(BaseModel):
+    product_id: int
+    product_code: str
+    product_name: str
+    category: str
+    source: str  # category | item
+    mapping_state: str  # approved | pending
+    summary: str  # verified | documents_needed | awaiting_verification
+    documents: list[RequiredDocumentOut]

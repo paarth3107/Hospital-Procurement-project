@@ -54,6 +54,11 @@ class TenderLineItem(Base):
     # explicitly illustrative and type-dependent, not a fixed schema.
     line_details = Column(JSON, nullable=False, default=dict)
 
+    # Spec 9.2.3 / 9.6: prices open only after technical qualification is recorded
+    # for the line. Set when an evaluator closes the line's technical evaluation.
+    technical_closed_at = Column(DateTime(timezone=True), nullable=True)
+    technical_closed_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     tender = relationship("Tender", back_populates="line_items")

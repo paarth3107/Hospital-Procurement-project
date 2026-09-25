@@ -18,6 +18,7 @@ from app.schemas.dashboard import (
     DashboardHeldLineOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
+    DashboardDocsToVerifyOut,
     DashboardPendingVendorOut,
     DashboardRecentPublishedOut,
     DashboardStatsOut,
@@ -94,6 +95,17 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         )
     }
     registered_vendors_count = db.query(Vendor).count()
+    # Documents uploaded by vendors who are already Active/Suspended (e.g. answering a
+    # newly added item requirement): nothing else in the queue would surface them.
+    docs_to_verify = [
+        DashboardDocsToVerifyOut(vendor_id=vid, legal_name=name, count=n)
+        for vid, name, n in db.query(Vendor.id, Vendor.legal_name, func.count(VendorDocument.id))
+        .join(VendorDocument, VendorDocument.vendor_id == Vendor.id)
+        .filter(VendorDocument.status == DocumentStatus.PENDING, Vendor.status.in_([VendorStatus.ACTIVE, VendorStatus.SUSPENDED]))
+        .group_by(Vendor.id, Vendor.legal_name)
+        .order_by(Vendor.legal_name)
+        .all()
+    ]
     bids_submitted_count = db.query(Bid).filter(Bid.status == BidStatus.SUBMITTED).count()
 
     recently_published = (
@@ -122,6 +134,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         next_bid_close=open_tenders[0].bid_due_date if open_tenders else None,
         docs_expiring_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expiring"),
         docs_expired_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expired"),
+        docs_to_verify=docs_to_verify,
         pending_vendors=[DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids) for v in pending_vendor_rows[:10]],
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)

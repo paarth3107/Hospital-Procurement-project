@@ -1,11 +1,12 @@
 import { api } from "../../api.js";
 import { state } from "../../state.js";
 import { showResult } from "../../ui.js";
+import { refreshChrome } from "../../nav.js";
 import { esc } from "../../kit.js";
-import { docKey } from "../../constants.js";
+import { docKey, acceptFor, VENDOR_DOC_TYPES } from "../../constants.js";
 import { renderCategoryRequestSection, submitCategoryRequests } from "./categoryRequests.js";
 import { renderItemRequestSection, submitItemRequests } from "./itemRequests.js";
-import { renderCoveredItemsNotice } from "./coveredItems.js";
+import { renderItemRequirements } from "./coveredItems.js";
 
 // ---- Category declaration pane (in Company profile): chips showing each
 // category/item the vendor has requested and its approval state, plus a
@@ -30,11 +31,12 @@ export async function renderVendorCategories(container) {
     return;
   }
   try {
-    const [categories, products, mappings, docs] = await Promise.all([
+    const [categories, products, mappings, docs, requirements] = await Promise.all([
       api("/categories"),
       api("/products?active=true"),
       api("/vendor-portal/mappings"),
       api("/vendor-portal/documents"),
+      api("/vendor-portal/documents/requirements"),
     ]);
     const ctx = {
       docsByKey: new Map(docs.map((d) => [docKey(d), d])),
@@ -49,11 +51,11 @@ export async function renderVendorCategories(container) {
       .map((m) => chip(m.category_id != null ? catName.get(m.category_id) : prodName.get(m.product_master_id), m.state))
       .filter(Boolean);
 
-    container.innerHTML = `<div class="ep-pane ep-pane-pad">
+    const owed = renderItemRequirements(requirements);
+    container.innerHTML = `${owed ? `<div class="ep-pane ep-pane-pad" style="margin-bottom:18px;border-left:3px solid #ec3013">${owed}</div>` : ""}<div class="ep-pane ep-pane-pad">
       <div class="ep-k">Category declaration</div>
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px">${chips.length ? chips.join("") : '<span class="hint">Nothing requested yet.</span>'}</div>
       <div class="hint" style="margin-top:12px">Category approval does not auto-approve every SKU within it. Requests are reviewed by the category manager and timestamped on approval.</div>
-      ${renderCoveredItemsNotice(ctx)}
       <button class="ep-b" style="margin-top:12px" id="toggle-request">${requesting ? "Hide request panel" : "Request additional category"}</button>
       ${
         requesting
@@ -84,6 +86,31 @@ export async function renderVendorCategories(container) {
           try {
             await api("/vendor-portal/documents", { method: "POST", body: formData });
             renderVendorCategories(container);
+          } catch (err) {
+            alert("Could not upload: " + err.message);
+          }
+        });
+        input.click();
+      })
+    );
+    // Any document a catalog entry requires (standard type or free-text "other") uploaded from the notice.
+    container.querySelectorAll("[data-upload-req]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const entry = btn.dataset.uploadReq;
+        const isOther = entry.startsWith("other:");
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = isOther ? ".pdf,.jpg,.jpeg,.png" : acceptFor(VENDOR_DOC_TYPES.find((t) => t.value === entry) || {});
+        input.addEventListener("change", async () => {
+          if (!input.files[0]) return;
+          const formData = new FormData();
+          formData.append("doc_type", isOther ? "other" : entry);
+          if (isOther) formData.append("custom_label", entry.slice(6).trim());
+          formData.append("file", input.files[0]);
+          try {
+            await api("/vendor-portal/documents", { method: "POST", body: formData });
+            renderVendorCategories(container);
+            refreshChrome();
           } catch (err) {
             alert("Could not upload: " + err.message);
           }

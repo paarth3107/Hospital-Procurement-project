@@ -14,6 +14,7 @@ from app.routers import (
     auth,
     categories,
     dashboard,
+    evaluation,
     facilities,
     health,
     mappings,
@@ -81,6 +82,7 @@ app.include_router(tenders.router)
 app.include_router(vendor_auth.router)
 app.include_router(vendor_portal.router)
 app.include_router(vendor_bids.router)
+app.include_router(evaluation.router)
 app.include_router(vendor_documents.router)
 app.include_router(dashboard.router)
 

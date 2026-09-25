@@ -30,9 +30,9 @@ const FILTERS = [
 ];
 
 // Lets the dashboard's action queue open the list with one vendor preselected.
-export function preselectVendor(id) {
+export function preselectVendor(id, filter = "pending_verification") {
   selectedId = id;
-  statusFilter = "pending_verification";
+  statusFilter = filter;
 }
 
 export async function loadVendors() {
@@ -179,6 +179,27 @@ function decisionBar(vendor, docs) {
   return `<div class="ep-pane ep-pane-pad hint">This vendor is ${esc(vendor.status)}; no decision is pending.</div>`;
 }
 
+// What this vendor still owes per item (a catalog entry can add a requirement
+// after a whole category was approved). Documents the vendor uploads appear in
+// the pane above, where the reviewer verifies them; the vendor becomes
+// eligible for an item once every one of its documents is Verified.
+const REQ_STATE = { missing: ["Not uploaded", "att"], pending: ["Uploaded — verify above", "esc"], verified: ["Verified", "pos"], rejected: ["Rejected", "neg"], expired: ["Expired", "neg"] };
+const REQ_SUMMARY = { documents_needed: ["Waiting on the vendor", "att"], awaiting_verification: ["Needs your verification", "esc"], verified: ["Eligible", "pos"] };
+function requirementsPane(reqs) {
+  if (!reqs.length) return "";
+  const rows = reqs
+    .map((r) => {
+      const [sl, st] = REQ_SUMMARY[r.summary];
+      return `<tr><td class="ep-cell" style="font-weight:600">${esc(r.product_name)}<div class="ep-sub">${esc(r.product_code)} · ${esc(r.category)}</div></td>
+        <td class="ep-cell ep-sub">${r.source === "category" ? "Via approved category" : `Item request (${esc(r.mapping_state)})`}</td>
+        <td class="ep-cell">${r.documents.map((d) => `<div style="font-size:12.5px">${esc(d.label)} ${tag(...REQ_STATE[d.state])}${d.reason ? ` <span class="ep-sub">${esc(d.reason)}</span>` : ""}</div>`).join("")}</td>
+        <td class="ep-cell">${tag(sl, st)}</td></tr>`;
+    })
+    .join("");
+  return `<div class="ep-pane"><div class="ep-pane-head"><span>Item document requirements</span><span class="ep-k">verify uploaded documents above</span></div>
+    <table class="ep-table">${th("Item", "Held through", "Required documents", "Status")}<tbody>${rows}</tbody></table></div>`;
+}
+
 function historyPane(history) {
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>Status history</span></div>
@@ -199,13 +220,14 @@ async function render() {
   let docs = [];
   if (selectedId !== null) {
     try {
-      let history;
-      [current, docs, history] = await Promise.all([
+      let history, requirements;
+      [current, docs, history, requirements] = await Promise.all([
         api(`/vendors/${selectedId}`),
         api(`/vendors/${selectedId}/documents`),
         api(`/vendors/${selectedId}/status-history`),
+        api(`/vendors/${selectedId}/document-requirements`),
       ]);
-      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${docsPane(current, docs)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
+      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${docsPane(current, docs)}${requirementsPane(requirements)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
     } catch (err) {
       detail = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
     }

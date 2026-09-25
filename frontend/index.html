@@ -18,13 +18,14 @@
   <div class="ep-navhead ep-k" id="nav-heading"></div>
   <nav class="ep-navlist" id="topnav">
     <button class="tab-btn ep-nav" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden><span class="nav-label">Tender invitations</span><span class="nav-badge" id="badge-vendor-dashboard"></span></button>
-    <button class="tab-btn ep-nav" id="vendor-profile-tab" data-view="vendor-profile" hidden><span class="nav-label">Company profile</span></button>
+    <button class="tab-btn ep-nav" id="vendor-profile-tab" data-view="vendor-profile" hidden><span class="nav-label">Company profile</span><span class="nav-badge" id="badge-vendor-profile"></span></button>
     <button class="tab-btn ep-nav" id="dashboard-tab" data-view="dashboard" hidden><span class="nav-label">Dashboard</span></button>
     <button class="tab-btn ep-nav" id="queue-tab" data-view="queue" hidden><span class="nav-label">Vendors</span><span class="nav-badge" id="badge-queue"></span></button>
     <button class="tab-btn ep-nav" id="catalog-tab" data-view="catalog" hidden><span class="nav-label">Items</span></button>
     <button class="tab-btn ep-nav" id="mappings-tab" data-view="mappings" hidden><span class="nav-label">Vendor mapping</span><span class="nav-badge" id="badge-mappings"></span></button>
     <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" hidden><span class="nav-label">Ratings &amp; scorecards</span></button>
     <button class="tab-btn ep-nav" id="tenders-tab" data-view="tenders" hidden><span class="nav-label">Tender creation</span></button>
+    <button class="tab-btn ep-nav" id="evaluation-tab" data-view="evaluation" hidden><span class="nav-label">Bid evaluation</span></button>
     <button class="tab-btn ep-nav" id="approvals-tab" data-view="approvals" hidden><span class="nav-label">E-tender approval</span><span class="nav-badge" id="badge-approvals"></span></button>
     <button class="tab-btn ep-nav" id="staff-tab" data-view="staff" hidden><span class="nav-label">Staff accounts</span></button>
     <button class="tab-btn ep-nav" id="audit-tab" data-view="audit" hidden><span class="nav-label">Audit log</span></button>
@@ -229,6 +230,11 @@
   <section id="view-staff" class="view" hidden>
     <div id="staff-root"></div>
     <div id="staff-result-msg" class="result"></div>
+  </section>
+
+  <section id="view-evaluation" class="view" hidden>
+    <div id="evaluation-root"></div>
+    <div id="evaluation-result" class="result"></div>
   </section>
 
   <section id="view-approvals" class="view" hidden>

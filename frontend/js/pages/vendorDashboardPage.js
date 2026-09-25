@@ -26,13 +26,17 @@ async function statusNote(vendor) {
     }</div>`;
   }
   try {
-    const mappings = await api("/vendor-portal/mappings");
+    const [mappings, reqs] = await Promise.all([api("/vendor-portal/mappings"), api("/vendor-portal/documents/requirements")]);
+    const owed = reqs.filter((r) => r.summary === "documents_needed");
     const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0 };
     for (const m of mappings) counts[m.state]++;
     const message = mappings.length
       ? `Your category/item requests: ${["approved", "pending", "rejected", "suspended"].filter((k) => counts[k]).map((k) => `${counts[k]} ${k === "pending" ? "pending review" : k}`).join(", ")}.`
       : "Your documents are approved! Pick which categories (or individual items) you can supply to become eligible for tenders.";
-    return `<div class="ep-note"><span>${esc(message)}</span><button class="ep-b" id="goto-profile">Go to Company profile</button></div>`;
+    const owedNote = owed.length
+      ? `<div class="ep-note warn"><span>New documents are required for ${owed.length} of your items (${esc(owed.slice(0, 3).map((r) => r.product_name).join(", "))}${owed.length > 3 ? "…" : ""}). Upload them in Company profile; you can bid on those items once they are verified.</span><button class="ep-b" data-v="p" id="goto-profile-docs">Upload documents</button></div>`
+      : "";
+    return `${owedNote}<div class="ep-note"><span>${esc(message)}</span><button class="ep-b" id="goto-profile">Go to Company profile</button></div>`;
   } catch (err) {
     return "";
   }
@@ -106,6 +110,7 @@ export async function loadVendorDashboard() {
 
     root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${banner}${invitations}${bidsPane}</div>`;
     root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-profile"));
+    root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-profile"));
     root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => openBid(Number(b.dataset.line))));
     resultEl().textContent = "";
   } catch (err) {

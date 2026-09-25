@@ -10,10 +10,20 @@ from app.models.vendor import DocumentStatus, Vendor, VendorDocType, VendorDocum
 from app.schemas.vendor_document import VendorDocumentOut
 from app.security import get_current_vendor
 from app.services import document_store
+from app.schemas.vendor_document import ItemRequirementOut
 from app.services.audit import record
+from app.services.document_requirements import to_out, vendor_requirements
 from app.services.vendor_status import set_status
 
 router = APIRouter(prefix="/api/v1/vendor-portal/documents", tags=["vendor-documents"])
+
+
+@router.get("/requirements", response_model=list[ItemRequirementOut])
+def my_document_requirements(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Per item the vendor holds (through a category or an item request): which
+    required documents are missing, awaiting verification, rejected, expired or
+    verified. This is what tells a vendor a newly added requirement exists."""
+    return to_out(vendor_requirements(db, vendor))
 
 
 @router.get("", response_model=list[VendorDocumentOut])

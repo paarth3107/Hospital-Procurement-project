@@ -270,3 +270,64 @@ Audit rows (draft/submit/amend/withdraw/reopen/attachment) record field names on
 
 Not built yet: bid-level (whole-tender) attachments, late-submission exception, due-date extension,
 per-line all-or-nothing tenders, the staff comparison view and price unlock (Evaluation).
+
+## Bid tracking & technical evaluation (spec §9.2, §9.6)
+
+Staff endpoints under `/api/v1/evaluation` (`app/routers/evaluation.py`, rules in
+`app/services/technical_evaluation.py`). Viewers: Procurement Officer, Category Manager, Procurement
+Admin, System Admin; scoring: Category Manager / Procurement Admin / System Admin.
+
+- `GET /lines`, `GET /lines/{id}`: every published line and its stage (bidding open -> technical
+  evaluation -> technical closed). **Before the due date only Submitted / Not submitted per invited
+  vendor is shown** (a vendor's drafts stay private). After it, the **technical envelope only**: brand,
+  compliance statement, type answers (shelf life, warranty...), attachment list. Unit price, taxes,
+  lead time, validity and payment terms are never in any response here.
+- `PUT /bids/{id}/evaluation`: an evaluator's qualify/disqualify (reason required to disqualify) or,
+  on technically scored lines (scored / QCBS), 0-100 scores per criterion. Weights (spec 9.2.2,
+  illustrative, normalised over the criteria that apply): compliance 35, vendor rating 15 (automatic,
+  from Module 3), warranty/serviceability 20 (Asset), manufacturer authorization 10 (Asset), SOW/SLA
+  quality 20 and manpower 15 (Service), past performance 15 (optional). Minimum qualifying score 60.
+  Evaluators score independently: until the line is closed each sees only their own.
+- `POST /lines/{id}/close-technical`: needs every submitted bid evaluated; records qualified /
+  disqualified per bid (any evaluator's disqualification disqualifies; scored lines average the
+  evaluators and need the minimum), T-ranks qualified bids on scored lines (tie-break: higher rating,
+  then earlier submission) and locks the line. Only qualified bids may have prices opened later.
+- `GET /bids/{id}/attachments/{aid}/download`: evaluators only, after the due date, every view logged
+  (`bid.attachment_viewed`, spec 8.3.3).
+UI: "Bid evaluation" tab (`frontend/js/pages/evaluation/`). Audit: `evaluation.saved`,
+`evaluation.technical_closed`, `bid.attachment_viewed`.
+
+Not built: commercial price unlock and L-ranking / QCBS (next), per-line minimum score and evaluator
+designation per category, exclude-outlier averaging, governed override for changing a score after close.
+
+## Commercial evaluation (spec §9.3, §9.4)
+
+`GET /api/v1/evaluation/lines/{id}/commercial` -- the comparative statement. **Automatic, not a manual
+step:** it opens as soon as the line's technical evaluation is closed (409 before that; 409 before the
+due date). Visible to the Procurement Officer and System Admin only (Category Manager, Procurement Admin
+and Approving Authority get 403; the Approving Authority sees prices at L1 approval, not built yet).
+Every opening is audited (`evaluation.prices_viewed`).
+
+Only technically qualified bids are ranked; a disqualified bid is listed with its reason and **no price
+fields** (never opened, spec 9.2.4). Standard and scored lines: ranked by landed price (unit price + GST +
+other duties), L1 = lowest; tie-break: higher current rating, then higher technical score, then earliest
+submission (flagged on the row). QCBS lines: price score = lowest landed / this landed x 100, combined =
+technical score x technical weight + price score x price weight (weights taken from the line, e.g. 70/30),
+ranked C1, C2, highest first. Rows also show variance against the internal estimated price and flag prices
+outside the catalog price band or far from the estimate. The statement recommends rank 1 but awards
+nothing: the Officer's L1 confirmation, split-award proposal and non-top-ranked override come next.
+
+### Technical evaluation, revised (user-directed)
+
+- **Every line is scored out of 10**, standard or technically scored, on the spec 9.2.2 aspects (compliance,
+  vendor rating (automatic), warranty/serviceability and manufacturer authorization on Assets, SOW/SLA and
+  manpower on Services, past performance optional). Weighted average out of 10; a bid qualifies at 6.0 or more,
+  or is disqualified outright by the evaluator with a reason. Only scored / QCBS lines then get T1, T2...; on
+  standard lines qualified bids stand on equal footing. (QCBS multiplies the technical score by 10 to combine
+  it on a 100-point scale with the price score.)
+- **The bid's content is not in the table.** `GET /evaluation/bids/{id}/review` (evaluators only, after the
+  due date) returns the technical envelope when an evaluator clicks Evaluate. The Procurement Officer gets
+  403 there, sees no bid content and no scoring, only the recorded outcome once a line is closed.
+- **Files must be opened first.** Each attachment download by an evaluator is recorded
+  (`bid_attachment_views`); `PUT /bids/{id}/evaluation` returns 409 until that evaluator has opened every
+  attachment on the bid (a second evaluator must open them too). The pop-up mirrors this.
