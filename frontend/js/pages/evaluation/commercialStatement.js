@@ -17,7 +17,7 @@ function row(r, qcbs) {
   return `<tr>
     <td class="ep-cell">${rankCell(r)}</td>
     <td class="ep-cell"><div style="font-weight:600">${esc(r.vendor_name)}</div><div class="ep-sub">rating ${r.rating}</div>${r.tie_note ? `<div class="ep-sub" style="max-width:220px;color:#ae1800">${esc(r.tie_note)}</div>` : ""}</td>
-    <td class="ep-cell" style="font-size:12.5px">${off ? esc(r.technical_reason || "") : `${r.technical_score != null ? `score <b>${r.technical_score}</b> / 10${r.t_rank ? ` · T${r.t_rank}` : ""}` : "qualified"}`}</td>
+    <td class="ep-cell" style="font-size:12.5px">${off ? esc(r.technical_reason || "") : `${r.technical_score != null ? `score <b>${r.technical_score}</b> / 100${r.t_rank ? ` · T${r.t_rank}` : ""}` : "qualified"}`}</td>
     <td class="ep-cell">${off ? '<span class="ep-sub">Price not opened</span>' : `<div style="font-weight:700">${inr(r.unit_price)}</div><div class="ep-sub">+${r.gst_percent ?? 0}% GST${r.other_duties ? ` + ${inr(r.other_duties)}` : ""}</div>`}</td>
     <td class="ep-cell">${off ? "" : `<div style="font-weight:700">${inr(r.landed_unit_price)}</div><div class="ep-sub">total ${inr(r.landed_total)}</div>`}</td>
     ${qcbs ? `<td class="ep-cell" style="font-size:12.5px">${off ? "" : `price ${dash(r.price_score)}<div class="ep-sub">combined <b>${dash(r.combined_score)}</b></div>`}</td>` : ""}

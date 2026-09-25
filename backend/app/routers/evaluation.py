@@ -27,6 +27,7 @@ from app.security import require_role
 from app.services import commercial_evaluation as commercial
 from app.services import technical_evaluation as tech
 from app.services.audit import record
+from app.services.notifier import notify_vendor
 from app.services.bids import KIND_LABELS
 from app.services.ratings import rating_score
 
@@ -44,7 +45,7 @@ PRICE_VIEWERS = (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN)
 
 def _line(db: Session, line_id: int) -> TenderLineItem:
     line = db.get(TenderLineItem, line_id)
-    if not line or line.tender.status != TenderStatus.PUBLISHED or not line.published:
+    if not line or line.tender.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED) or not line.published:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Line item not found")
     return line
 
@@ -76,7 +77,7 @@ def list_lines(db: Session = Depends(get_db), _user: UserAccount = Depends(requi
     lines = (
         db.query(TenderLineItem)
         .join(Tender, TenderLineItem.tender_id == Tender.id)
-        .filter(Tender.status == TenderStatus.PUBLISHED, TenderLineItem.published.is_(True))
+        .filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED]), TenderLineItem.published.is_(True))
         .order_by(Tender.bid_due_date, TenderLineItem.id)
         .all()
     )
@@ -226,6 +227,14 @@ def close_technical_evaluation(line_id: int, db: Session = Depends(get_db), user
         },
         meta={"line_item_id": line.id, "scored": tech.is_scored(line)},
     )
+    for r in rows:
+        if r.outcome == TechnicalDecision.DISQUALIFIED:
+            bid = db.get(Bid, r.bid_id)
+            notify_vendor(
+                db, bid.vendor_id, "technical_disqualified", f"Technical evaluation: {t.title}",
+                f"Your bid for {line.product.name} on tender #{t.id} ({t.title}) was not technically qualified. Reason: {r.reason or 'not stated'}. Its price was not opened.",
+                t.id,
+            )
     db.commit()
     return line_detail(line_id, db, user)
 
@@ -259,39 +268,7 @@ def commercial_statement(line_id: int, db: Session = Depends(get_db), user: User
     only once the line's technical evaluation is closed, and every opening is
     logged (spec 8.3.3 / 9.6: an audit trail covering bid price access)."""
     line = _line(db, line_id)
-    method, rows = commercial.build_statement(line, db)
-    product = line.product
-    est = line.estimated_price
-    out = []
-    for r in rows:
-        b = r.bid
-        qualified = r.rank is not None
-        flags = []
-        variance = None
-        if qualified and est:
-            variance = round((b.unit_price - est) / est * 100, 1)
-        if qualified and product.price_band_min is not None and b.unit_price < product.price_band_min:
-            flags.append("Below the catalog price band")
-        if qualified and product.price_band_max is not None and b.unit_price > product.price_band_max:
-            flags.append("Above the catalog price band")
-        if variance is not None and variance > 20:
-            flags.append(f"{variance:g}% above the estimated price")
-        if variance is not None and variance < -30:
-            flags.append(f"{abs(variance):g}% below the estimated price (check for an error)")
-        landed = r.landed
-        out.append(
-            CommercialRowOut(
-                vendor_id=b.vendor_id, vendor_name=b.vendor.legal_name, bid_id=b.id, technical_outcome=r.result.outcome,
-                technical_score=r.result.consolidated_score, t_rank=r.result.t_rank, technical_reason=r.result.reason, rating=r.rating,
-                rank=r.rank, rank_label=(f"{'C' if method == 'QCBS' else 'L'}{r.rank}" if qualified else None), recommended=r.rank == 1,
-                unit_price=b.unit_price if qualified else None, gst_percent=b.gst_percent if qualified else None,
-                other_duties=b.other_duties if qualified else None, landed_unit_price=round(landed, 2) if qualified else None,
-                total_price=round(b.unit_price * line.qty, 2) if qualified else None, landed_total=round(landed * line.qty, 2) if qualified else None,
-                delivery_lead_days=b.delivery_lead_days if qualified else None, quote_validity_days=b.quote_validity_days if qualified else None,
-                payment_terms=b.payment_terms if qualified else None, price_score=r.price_score, combined_score=r.combined,
-                variance_pct=variance, price_flags=flags, tie_note=r.tie_note, submitted_at=b.submitted_at,
-            )
-        )
+    method, rows, out = commercial.statement_out(line, db)
     t = line.tender
     record(
         db, "evaluation.prices_viewed", "tender", t.id, actor=user, entity_label=f"#{t.id} {t.title} - {line.product.name}", facility_id=t.facility_id,
@@ -300,5 +277,5 @@ def commercial_statement(line_id: int, db: Session = Depends(get_db), user: User
     db.commit()
     return CommercialStatementOut(
         summary=_summary(line, db), method=method, technical_weight=line.technical_weight, price_weight=line.price_weight,
-        estimated_price=est, rows=out,
+        estimated_price=line.estimated_price, rows=out,
     )

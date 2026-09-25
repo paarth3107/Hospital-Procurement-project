@@ -26,6 +26,7 @@ class TenderStatus(str, enum.Enum):
     PENDING_APPROVAL = "pending_approval"
     PUBLISHED = "published"
     WITHDRAWN = "withdrawn"
+    AWARDED = "awarded"  # spec 10.2 point 6: every line approved (or excluded); PO data files generated
 
 
 class Tender(Base):
@@ -38,6 +39,7 @@ class Tender(Base):
     tender_type = Column(Enum(TenderType), nullable=False)
     status = Column(Enum(TenderStatus), nullable=False, default=TenderStatus.DRAFT)
     department = Column(String, nullable=True)
+    awarded_at = Column(DateTime(timezone=True), nullable=True)
 
     # Spec §6.2 — tender-wide defaults, overridable per line item.
     min_rating_threshold = Column(Float, nullable=False, default=0.0)

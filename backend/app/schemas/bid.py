@@ -170,3 +170,4 @@ class MyBidOut(BaseModel):
     unit_price: float | None
     total_price: float | None
     submitted_at: datetime | None
+    outcome: str | None = None  # awarded / not selected / technically disqualified, once known

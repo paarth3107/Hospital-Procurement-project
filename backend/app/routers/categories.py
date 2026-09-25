@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.product_master import ProcurementType, ProductCategory
+from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.user_account import UserAccount
 from app.routers.products import CATALOG_MANAGERS
 from app.schemas.product import CategoryCreate, CategoryOut
@@ -37,7 +37,7 @@ def create_category(
     )
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This category already exists for that type")
-    category = ProductCategory(**payload.model_dump(mode="json"))
+    category = ProductCategory(**payload.model_dump(mode="json", exclude={"apply_minimum_to_items"}))
     db.add(category)
     db.flush()
     record(db, "category.created", "category", category.id, actor=_user, entity_label=category.name, after=snapshot(category, CATEGORY_FIELDS))
@@ -62,6 +62,16 @@ def update_category(
     category.name = payload.name
     category.min_mapping_rating = payload.min_mapping_rating
     category.required_documents = payload.required_documents
+    followers = []
+    if payload.apply_minimum_to_items:
+        followers = [p for p in db.query(ProductMaster).filter(ProductMaster.category_id == category.id, ProductMaster.min_mapping_rating.isnot(None)).all()]
+        for p in followers:
+            record(
+                db, "product.updated", "product", p.id, actor=_user, entity_label=f"{p.code} {p.name}",
+                before={"min_mapping_rating": p.min_mapping_rating}, after={"min_mapping_rating": None},
+                reason=f"Now follows the category minimum ({category.min_mapping_rating})",
+            )
+            p.min_mapping_rating = None
     before, after = changed(old, snapshot(category, CATEGORY_FIELDS))
     if after:
         record(db, "category.updated", "category", category.id, actor=_user, entity_label=category.name, before=before, after=after)

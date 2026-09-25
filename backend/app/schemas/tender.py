@@ -124,6 +124,18 @@ class TenderInviteOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ApprovalPayload(BaseModel):
+    """Optional comments on an approval (spec 7.2 point 5: "approver identity,
+    timestamp, and any comments")."""
+
+    comments: str | None = None
+
+    @field_validator("comments")
+    @classmethod
+    def blank_to_none(cls, v):
+        return (v or "").strip() or None
+
+
 class RejectionPayload(BaseModel):
     comments: str
 

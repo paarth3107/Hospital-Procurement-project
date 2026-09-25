@@ -11,6 +11,7 @@ from app.services.expiry import sweep_all
 
 from app.routers import (
     audit_log,
+    awards,
     auth,
     categories,
     dashboard,
@@ -19,11 +20,14 @@ from app.routers import (
     health,
     mappings,
     products,
+    po_files,
     ratings,
     staff,
+    tender_review,
     tenders,
     vendor_auth,
     vendor_bids,
+    vendor_notifications,
     vendor_documents,
     vendor_portal,
     vendors,
@@ -79,10 +83,14 @@ app.include_router(products.router)
 app.include_router(mappings.router)
 app.include_router(ratings.router)
 app.include_router(tenders.router)
+app.include_router(tender_review.router)
 app.include_router(vendor_auth.router)
 app.include_router(vendor_portal.router)
 app.include_router(vendor_bids.router)
 app.include_router(evaluation.router)
+app.include_router(awards.router)
+app.include_router(po_files.router)
+app.include_router(vendor_notifications.router)
 app.include_router(vendor_documents.router)
 app.include_router(dashboard.router)
 

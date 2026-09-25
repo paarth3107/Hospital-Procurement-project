@@ -2,7 +2,8 @@ import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
 import { openBid } from "./bid/bidPage.js";
-import { switchView } from "../nav.js";
+import { notificationsHtml, wireNotifications } from "./vendorNotifications.js";
+import { switchView, refreshChrome } from "../nav.js";
 import { esc, tag, stateTag, th, emptyRow, fmtDateTime, inr } from "../kit.js";
 
 // ---- Vendor portal home: tender invitations (the prototype's vTenders
@@ -30,13 +31,17 @@ async function statusNote(vendor) {
     const owed = reqs.filter((r) => r.summary === "documents_needed");
     const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0 };
     for (const m of mappings) counts[m.state]++;
-    const message = mappings.length
-      ? `Your category/item requests: ${["approved", "pending", "rejected", "suspended"].filter((k) => counts[k]).map((k) => `${counts[k]} ${k === "pending" ? "pending review" : k}`).join(", ")}.`
-      : "Your documents are approved! Pick which categories (or individual items) you can supply to become eligible for tenders.";
+    // Only say something while there is something to do: nothing requested yet, or a request was
+    // rejected / suspended. Approved or pending requests need no message.
+    const message = !mappings.length
+      ? "Your documents are approved! Pick which categories (or individual items) you can supply to become eligible for tenders."
+      : counts.rejected || counts.suspended
+      ? `${[counts.rejected ? `${counts.rejected} request(s) rejected` : "", counts.suspended ? `${counts.suspended} suspended` : ""].filter(Boolean).join(", ")} — see Company profile.`
+      : null;
     const owedNote = owed.length
       ? `<div class="ep-note warn"><span>New documents are required for ${owed.length} of your items (${esc(owed.slice(0, 3).map((r) => r.product_name).join(", "))}${owed.length > 3 ? "…" : ""}). Upload them in Company profile; you can bid on those items once they are verified.</span><button class="ep-b" data-v="p" id="goto-profile-docs">Upload documents</button></div>`
       : "";
-    return `${owedNote}<div class="ep-note"><span>${esc(message)}</span><button class="ep-b" id="goto-profile">Go to Company profile</button></div>`;
+    return `${owedNote}${message ? `<div class="ep-note"><span>${esc(message)}</span><button class="ep-b" id="goto-profile">Go to Company profile</button></div>` : ""}`;
   } catch (err) {
     return "";
   }
@@ -54,7 +59,7 @@ export async function loadVendorDashboard() {
   try {
     const vendor = await api("/vendor-auth/me");
     state.vendor = vendor;
-    const [note, tenders, bids] = await Promise.all([statusNote(vendor), api("/vendor-portal/tenders"), api("/vendor-portal/bids")]);
+    const [note, tenders, bids, notes] = await Promise.all([statusNote(vendor), api("/vendor-portal/tenders"), api("/vendor-portal/bids"), api("/vendor-portal/notifications")]);
 
     const lineRows = tenders.flatMap((t) => t.line_items.map((li) => ({ t, li })));
     const openLines = lineRows.filter(({ t }) => t.can_bid);
@@ -96,23 +101,28 @@ export async function loadVendorDashboard() {
 
     const bidsPane = `<div class="ep-pane">
       <div class="ep-pane-head"><span>Your bids</span><span class="ep-k">sealed until the deadline</span></div>
-      <table class="ep-table">${th("Tender", "Line item", "Qty", "Your unit price", "Status", "Submitted")}<tbody>${
+      <table class="ep-table">${th("Tender", "Line item", "Qty", "Your unit price", "Status", "Outcome")}<tbody>${
         bids.length
           ? bids
               .map(
                 (b) => `<tr><td class="ep-cell">${esc(b.tender_title)}</td><td class="ep-cell">${esc(b.product_name)}</td><td class="ep-cell">${b.qty}</td>
-                  <td class="ep-cell" style="font-weight:700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px">${b.submitted_at ? fmtDateTime(b.submitted_at) : "—"}</td></tr>`
+                  <td class="ep-cell" style="font-weight:700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px;font-weight:600">${b.outcome ? esc(b.outcome) : `<span class="ep-sub">${b.submitted_at ? "Awaiting result" : "—"}</span>`}</td></tr>`
               )
               .join("")
           : emptyRow(6, "No bids yet.")
       }</tbody></table>
     </div>`;
 
-    root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${banner}${invitations}${bidsPane}</div>`;
+    root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${notificationsHtml(notes)}${banner}${invitations}${bidsPane}</div>`;
+    wireNotifications(root(), () => { loadVendorDashboard(); refreshChrome(); });
     root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-profile"));
     root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-profile"));
     root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => openBid(Number(b.dataset.line))));
     resultEl().textContent = "";
+    if (state.flash) {
+      showResult(resultEl(), state.flash, true);
+      state.flash = null;
+    }
   } catch (err) {
     showResult(resultEl(), "Could not load dashboard: " + err.message, false);
   }

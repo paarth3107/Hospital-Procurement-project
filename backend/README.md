@@ -331,3 +331,55 @@ nothing: the Officer's L1 confirmation, split-award proposal and non-top-ranked 
 - **Files must be opened first.** Each attachment download by an evaluator is recorded
   (`bid_attachment_views`); `PUT /bids/{id}/evaluation` returns 409 until that evaluator has opened every
   attachment on the bid (a second evaluator must open them too). The pop-up mirrors this.
+
+### Corrections (latest)
+
+- **Technical scores are on the spec's 100-point scale again** (spec 9.2.5: minimum qualifying score "e.g. 60/100"; QCBS
+  combines technical and price percentages). Criteria are scored 0-100, the vendor's Module 3 rating is used as-is for its
+  automatic criterion, the minimum is 60, and QCBS combines the two 100-point scores by weight. Supersedes the "out of 10"
+  text above.
+- **Evaluation comments** are "Comments (if any)"; only when Disqualify is ticked and the box is empty is a reason required
+  (the box is highlighted on submit; the server also refuses).
+- **Approval review** `GET /api/v1/tenders/{id}/approval-review` (read-only): header terms, facility, department, dates,
+  total estimated value and the tier it needs, each line (type, quantity, estimated price, evaluation method, split-award,
+  specification and catalog attributes, required vendor documents) with the vendors it would be published to (live
+  resolution) or a "held back" flag, warnings, approval history, and whether the viewer may decide. The Approving Authority
+  decides from inside this review; approval accepts optional comments, rejection requires them.
+- **Minimum vendor rating**: an item's own minimum overrides its category's. The approval error now says where the number
+  comes from, and editing a category's minimum offers to make items that set their own follow the category
+  (`apply_minimum_to_items`, audited per item).
+
+## L1 recommendation, L1 approval, PO data files, vendor notification (spec §9.5, §10)
+
+**Officer (L1 confirmation, `/api/v1/awards`).** After a line's technical evaluation is closed, the Officer recommends per line
+(`PUT /awards/lines/{id}/recommendation`): `confirm_top` (the system's L1/C1), `other_vendor` (a different technically qualified
+bid; **a reason is mandatory**), `split` (Split-Award lines only: shares total 100%, each at least `MIN_SPLIT_PCT`=10%, qualified
+bids only), or `exclude` (leave the line out of the award; reason mandatory). Saved as a draft; `POST /awards/tenders/{id}/submit`
+sends every line to L1 approval. The required tier comes from the total award value (landed price x allocated quantity) via the
+value bands, one tier higher if a line has been rejected 3 times running.
+
+**Approving Authority (L1 approval).** `POST /awards/lines/{id}/decision`: `approve` (the Officer's recommendation; a split's shares
+can be adjusted), `award_system_l1` (only when the Officer chose someone else), or `reject` (comments mandatory; the line comes
+back to the Officer as the next round). Each line keeps its own round history (`award_rounds`, `award_allocations`). Prices are
+shown to the Officer and to the Authority only once a recommendation is submitted; Category Manager / Procurement Admin get 403.
+When every published line is approved (or left out) the tender becomes **Awarded**.
+
+**PO data files (`/api/v1/po-files`).** On the last approval the system generates **one file per awarded vendor**, consolidating
+that vendor's lines and shares, from the approved allocations only (`po_data_files.payload` is a frozen snapshot; CSV and XML are
+rendered from it on download, `?format=csv|xml`). Fields per spec 10.4: batch id, tender reference, facility/entity code,
+department, vendor code + GSTIN, item code, description, quantity, UOM, unit price, tax, line total, delivery lead time and
+location, payment terms, approver id/name/timestamp (budget code blank until the ERP template is known). Handoff is manual
+(user-directed): Procurement Admin / Category Manager downloads, loads it into the ERP, then `mark-imported` (ERP PO number) or
+`mark-failed` (reason); a failed file can be `re-export`ed as a new version (reason mandatory; the old one is kept as superseded;
+price and quantity cannot change). Re-export is meant to be a governed override (spec 12); the override engine isn't built, so it
+is an audited action for now. The Officer and Authority can list files but not download them (they carry GSTIN and prices).
+
+**Vendors are told at L1 approval** (user-directed, spec 10.6): awarded vendors (lines, quantities, prices), technically qualified
+vendors who did not win (regret), and technically disqualified vendors (sent when technical evaluation closes). Delivery is a
+portal notification (`/vendor-portal/notifications`); there is no email/SMS gateway, so that is logged, not sent. Vendors also see
+an Outcome per bid (Awarded (qty) / Not selected / Technically disqualified).
+
+Audit: `award.recommendation_saved`, `award.submitted_for_l1_approval`, `award.approved`, `award.rejected`, `award.finalized`,
+`award.prices_viewed`, `po_file.downloaded|imported|import_failed|re_exported`.
+Not built: governed-override engine for a non-L1 award and for re-export, per-line configurable minimum split, SLA-based escalation,
+ERP API/SFTP push and return channel, guest-vendor PO block.

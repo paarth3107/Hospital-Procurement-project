@@ -18,12 +18,16 @@ from app.schemas.dashboard import (
     DashboardHeldLineOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
+    DashboardAwardTaskOut,
     DashboardDocsToVerifyOut,
+    DashboardPoFileOut,
     DashboardPendingVendorOut,
     DashboardRecentPublishedOut,
     DashboardStatsOut,
 )
 from app.security import get_current_user
+from app.models.award import PoDataFile
+from app.services import awards as award_rules
 from app.services.approval_matrix import can_approve_tier
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -135,6 +139,13 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         docs_expiring_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expiring"),
         docs_expired_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expired"),
         docs_to_verify=docs_to_verify,
+        award_tasks=[DashboardAwardTaskOut(**t) for t in award_rules.tasks_for(db, user)],
+        po_files_pending=[
+            DashboardPoFileOut(id=f.id, batch_id=f.batch_id, vendor_name=f.vendor.legal_name)
+            for f in db.query(PoDataFile).filter(PoDataFile.status == "pending_upload").order_by(PoDataFile.id).all()
+        ]
+        if user.role.value in ("procurement_admin", "category_manager", "system_admin")
+        else [],
         pending_vendors=[DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids) for v in pending_vendor_rows[:10]],
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)

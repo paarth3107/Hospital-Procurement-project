@@ -13,6 +13,9 @@ from app.schemas.bid import AttachmentOut, BidFormOut, BidSave, LineContextOut, 
 from app.security import get_current_vendor
 from app.services import bids as rules
 from app.services import document_store
+from app.models.award import APPROVED, FINAL, AwardRound
+from app.models.bid_evaluation import BidTechnicalResult, TechnicalDecision
+from app.models.tender import TenderStatus
 from app.services.audit import record
 
 router = APIRouter(prefix="/api/v1/vendor-portal/bids", tags=["vendor-bids"])
@@ -72,6 +75,23 @@ def _form(db: Session, vendor: Vendor, line: TenderLineItem, bid: Bid | None) ->
     )
 
 
+def _outcome(db: Session, b: Bid) -> str | None:
+    """What the vendor may know about their own bid's result (spec 11.1: vendors view the outcome)."""
+    res = db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id == b.id).first()
+    if res is not None and res.outcome == TechnicalDecision.DISQUALIFIED:
+        return "Technically disqualified"
+    line = b.line_item
+    if line.tender.status != TenderStatus.AWARDED:
+        return None
+    rnd = db.query(AwardRound).filter(AwardRound.line_item_id == line.id, AwardRound.status == APPROVED).order_by(AwardRound.round_number.desc()).first()
+    if rnd is not None:
+        for a in rnd.allocations:
+            if a.stage == FINAL and a.bid_id == b.id:
+                qty = line.qty * a.share_pct / 100.0
+                return f"Awarded ({qty:g})"
+    return "Not selected"
+
+
 @router.get("", response_model=list[MyBidOut])
 def list_my_bids(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
     out = []
@@ -81,7 +101,7 @@ def list_my_bids(vendor: Vendor = Depends(get_current_vendor), db: Session = Dep
             MyBidOut(
                 id=b.id, tender_line_item_id=line.id, tender_id=line.tender.id, tender_title=line.tender.title,
                 product_name=line.product.name, qty=line.qty, status=b.status, unit_price=b.unit_price,
-                total_price=b.unit_price * line.qty if b.unit_price is not None else None, submitted_at=b.submitted_at,
+                total_price=b.unit_price * line.qty if b.unit_price is not None else None, submitted_at=b.submitted_at, outcome=_outcome(db, b),
             )
         )
     return out

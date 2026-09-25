@@ -12,6 +12,7 @@ from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
 from app.models.user_account import Role, UserAccount
 from app.schemas.tender import (
+    ApprovalPayload,
     ApprovalRoundOut,
     EligibleVendorOut,
     LineItemCreate,
@@ -341,6 +342,7 @@ def _authorize_approver(user: UserAccount, required_tier: int) -> None:
 @router.post("/{tender_id}/approve", response_model=TenderOut)
 def approve_tender(
     tender_id: int,
+    payload: ApprovalPayload | None = None,
     db: Session = Depends(get_db),
     user: UserAccount = Depends(get_current_user),
 ):
@@ -372,6 +374,7 @@ def approve_tender(
         li.published = li.id in invited_line_ids
 
     round_.decision = RoundDecision.APPROVED
+    round_.comments = payload.comments if payload else None
     round_.reviewer_id = user.id
     round_.decided_at = datetime.now(timezone.utc)
     tender.status = TenderStatus.PUBLISHED
@@ -384,7 +387,7 @@ def approve_tender(
     )
     record(
         db, "tender.approved", "tender", tender.id, actor=user, entity_label=label, facility_id=tender.facility_id,
-        before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": TenderStatus.PUBLISHED},
+        before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": TenderStatus.PUBLISHED}, reason=payload.comments if payload else None,
         meta={
             "round_number": round_.round_number, "required_tier": round_.required_tier,
             "lines_published": len(invited_line_ids), "lines_held": len(tender.line_items) - len(invited_line_ids),

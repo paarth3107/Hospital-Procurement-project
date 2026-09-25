@@ -1,4 +1,5 @@
 import { api } from "../../api.js";
+import { state } from "../../state.js";
 import { showResult } from "../../ui.js";
 import { esc, kicker, stateTag, tag, fmtDateTime } from "../../kit.js";
 import { modalConfirm } from "../../modal.js";
@@ -104,8 +105,8 @@ function render() {
     if (!submitted && !(await modalConfirm("Submit this bid? You can amend or withdraw it until the deadline.", { title: "Submit bid", confirmLabel: "Submit" }))) return;
     try {
       await save(true);
-      render();
-      inline(submitted ? "Amendment saved." : "Bid submitted.", true);
+      state.flash = submitted ? "Your amended bid was saved." : "Your bid was submitted.";
+      switchView("vendor-dashboard");
     } catch (err) {
       inline(err.message, false);
     }

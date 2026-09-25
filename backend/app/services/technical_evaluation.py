@@ -15,10 +15,10 @@ from app.models.product_master import ProcurementType
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
 from app.services.ratings import rating_score
 
-# Spec 9.2.5: minimum qualifying technical score (spec example 60/100 = 6 out of 10),
-# "configurable per line item". There is no per-line field yet, so this default applies to all.
-# Evaluators score every criterion out of 10 (user-directed), on every line type.
-DEFAULT_MIN_TECHNICAL_SCORE = 6.0  # out of 10
+# Spec 9.2.5: minimum qualifying technical score (e.g. 60/100), "configurable per
+# line item". There is no per-line field yet, so this default applies to all.
+# Evaluators score every criterion 0-100 on every line type (spec 100-point scale).
+DEFAULT_MIN_TECHNICAL_SCORE = 60.0  # out of 100
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ def manual_criteria(ptype: ProcurementType) -> list[Criterion]:
 
 
 def clean_scores(ptype: ProcurementType, raw: dict) -> dict:
-    """Validates an evaluator's typed scores: only known criteria, 0 to 10, and
+    """Validates an evaluator's typed scores: only known criteria, 0 to 100, and
     every non-optional manual criterion present."""
     allowed = {c.key: c for c in manual_criteria(ptype)}
     out = {}
@@ -74,8 +74,8 @@ def clean_scores(ptype: ProcurementType, raw: dict) -> dict:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Unknown criterion '{key}'")
         if value is None or value == "":
             continue
-        if not 0 <= float(value) <= 10:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"'{allowed[key].label}' must be scored 0 to 10")
+        if not 0 <= float(value) <= 100:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"'{allowed[key].label}' must be scored 0 to 100")
         out[key] = float(value)
     missing = [c.label for c in allowed.values() if not c.optional and c.key not in out]
     if missing:
@@ -84,11 +84,11 @@ def clean_scores(ptype: ProcurementType, raw: dict) -> dict:
 
 
 def weighted_score(ptype: ProcurementType, scores: dict, vendor_rating: float) -> float:
-    """Weighted average out of 10. The vendor's rating (0-100 in Module 3) is
-    brought onto the same 10-point scale for its automatic criterion."""
+    """Weighted average out of 100; the vendor's Module 3 rating (0-100) is the
+    automatic criterion's score."""
     total_w = total = 0.0
     for c in CRITERIA[ptype]:
-        s = vendor_rating / 10 if c.auto else scores.get(c.key)
+        s = vendor_rating if c.auto else scores.get(c.key)
         if s is None:
             continue
         total_w += c.weight
@@ -108,7 +108,7 @@ class Consolidated:
 def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], db: Session) -> Consolidated:
     """Spec 9.2.3 steps 3-5. Any evaluator disqualifying disqualifies the bid.
     On every line the consolidated score is the simple average of the
-    evaluators' weighted scores (out of 10) and must reach the minimum. Only
+    evaluators' weighted scores (out of 100) and must reach the minimum. Only
     technically scored lines (scored / QCBS) then get T1, T2... ranks; on a
     standard line all qualified bids stand on equal footing (spec 9.2.1). (Exclude-outlier
     averaging is the spec's other method; not built.)"""
@@ -118,7 +118,7 @@ def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], db: 
         return Consolidated(bid, TechnicalDecision.DISQUALIFIED, None, "; ".join(e.comments for e in disq if e.comments) or "Disqualified by evaluator", rating)
     score = round(sum(e.weighted_score or 0 for e in evals) / len(evals), 2)
     if score < DEFAULT_MIN_TECHNICAL_SCORE:
-        return Consolidated(bid, TechnicalDecision.DISQUALIFIED, score, f"Score {score:g} out of 10 is below the minimum qualifying score of {DEFAULT_MIN_TECHNICAL_SCORE:g}", rating)
+        return Consolidated(bid, TechnicalDecision.DISQUALIFIED, score, f"Score {score:g} out of 100 is below the minimum qualifying score of {DEFAULT_MIN_TECHNICAL_SCORE:g}", rating)
     return Consolidated(bid, TechnicalDecision.QUALIFIED, score, None, rating)
 
 

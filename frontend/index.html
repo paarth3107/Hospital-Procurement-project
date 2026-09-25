@@ -26,6 +26,8 @@
     <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" hidden><span class="nav-label">Ratings &amp; scorecards</span></button>
     <button class="tab-btn ep-nav" id="tenders-tab" data-view="tenders" hidden><span class="nav-label">Tender creation</span></button>
     <button class="tab-btn ep-nav" id="evaluation-tab" data-view="evaluation" hidden><span class="nav-label">Bid evaluation</span></button>
+    <button class="tab-btn ep-nav" id="awards-tab" data-view="awards" hidden><span class="nav-label">L1 award</span><span class="nav-badge" id="badge-awards"></span></button>
+    <button class="tab-btn ep-nav" id="pofiles-tab" data-view="pofiles" hidden><span class="nav-label">PO data files</span><span class="nav-badge" id="badge-pofiles"></span></button>
     <button class="tab-btn ep-nav" id="approvals-tab" data-view="approvals" hidden><span class="nav-label">E-tender approval</span><span class="nav-badge" id="badge-approvals"></span></button>
     <button class="tab-btn ep-nav" id="staff-tab" data-view="staff" hidden><span class="nav-label">Staff accounts</span></button>
     <button class="tab-btn ep-nav" id="audit-tab" data-view="audit" hidden><span class="nav-label">Audit log</span></button>
@@ -235,6 +237,16 @@
   <section id="view-evaluation" class="view" hidden>
     <div id="evaluation-root"></div>
     <div id="evaluation-result" class="result"></div>
+  </section>
+
+  <section id="view-awards" class="view" hidden>
+    <div id="awards-root"></div>
+    <div id="awards-result" class="result"></div>
+  </section>
+
+  <section id="view-pofiles" class="view" hidden>
+    <div id="pofiles-root"></div>
+    <div id="pofiles-result" class="result"></div>
   </section>
 
   <section id="view-approvals" class="view" hidden>

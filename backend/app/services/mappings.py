@@ -138,31 +138,35 @@ def create_pending_mapping(
     return mapping
 
 
-def _rating_requirement(mapping: VendorMapping) -> tuple[float | None, ProcurementType]:
-    """(minimum rating required, procurement type it's measured in). An item
-    can set its own minimum, else it inherits its category's."""
+def _rating_requirement(mapping: VendorMapping) -> tuple[float | None, ProcurementType, str]:
+    """(minimum rating required, procurement type it's measured in, where the
+    minimum comes from). An item can set its own minimum, which overrides its
+    category's; otherwise it inherits the category's."""
 
     if mapping.product is not None:
         product = mapping.product
-        minimum = product.min_mapping_rating
-        if minimum is None:
-            minimum = product.category_ref.min_mapping_rating
-        return minimum, product.procurement_type
-    return mapping.category.min_mapping_rating, mapping.category.procurement_type
+        category = product.category_ref
+        if product.min_mapping_rating is not None:
+            note = f"set on the item '{product.name}' itself"
+            if category.min_mapping_rating is not None and category.min_mapping_rating != product.min_mapping_rating:
+                note += f", which overrides its category '{category.name}' ({category.min_mapping_rating:g})"
+            return product.min_mapping_rating, product.procurement_type, note
+        return category.min_mapping_rating, product.procurement_type, f"set on its category '{category.name}'"
+    return mapping.category.min_mapping_rating, mapping.category.procurement_type, f"set on the category '{mapping.category.name}'"
 
 
 def check_rating_gate(mapping: VendorMapping, db: Session) -> None:
     """Spec 4.4 point 2: approving a mapping to a restricted/critical entry
     requires a minimum vendor rating in that entry's procurement type."""
 
-    minimum, ptype = _rating_requirement(mapping)
+    minimum, ptype, source = _rating_requirement(mapping)
     if minimum is None:
         return
     score = rating_score(mapping.vendor_id, ptype, db)
     if score < minimum:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"This mapping requires a minimum {ptype.value} rating of {minimum:g}; "
+            detail=f"This mapping requires a minimum {ptype.value} rating of {minimum:g} ({source}); "
             f"the vendor's current {ptype.value} rating is {score:.1f}",
         )
 
@@ -188,7 +192,7 @@ def meets_document_gate(mapping: VendorMapping, db: Session) -> bool:
 
 
 def meets_rating_gate(mapping: VendorMapping, db: Session) -> bool:
-    minimum, ptype = _rating_requirement(mapping)
+    minimum, ptype, _source = _rating_requirement(mapping)
     return minimum is None or rating_score(mapping.vendor_id, ptype, db) >= minimum
 
 

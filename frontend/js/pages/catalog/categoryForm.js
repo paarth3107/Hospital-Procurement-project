@@ -2,6 +2,7 @@ import { api } from "../../api.js";
 import { esc } from "../../kit.js";
 import { requiredDocsHtml, wireRequiredDocs, readRequiredDocs } from "./requiredDocs.js";
 import { showResult } from "../../ui.js";
+import { modalChoose } from "../../modal.js";
 
 // Categories are managed entries (not free text), so items and vendor
 // mappings all point at the same category. A category can require a minimum
@@ -44,6 +45,26 @@ export function openCategoryForm(host, category, onSaved, onCancel) {
       required_documents: readRequiredDocs(form),
     };
     try {
+      // An item's own minimum rating overrides its category's. If some items in this
+      // category set one, ask whether they should now follow the category instead.
+      if (category && payload.min_mapping_rating !== category.min_mapping_rating) {
+        const items = (await api(`/products?procurement_type=${category.procurement_type}`)).filter(
+          (p) => p.category_id === category.id && p.min_mapping_rating != null && p.min_mapping_rating !== payload.min_mapping_rating
+        );
+        if (items.length) {
+          const list = items.map((p) => `${p.name} (${p.min_mapping_rating})`).join(", ");
+          const choice = await modalChoose(
+            `${items.length} item(s) in this category set their own minimum rating, which overrides the category's: ${list}. Should they follow the category minimum${payload.min_mapping_rating == null ? " (none)" : ` (${payload.min_mapping_rating})`} instead?`,
+            [
+              { value: "follow", label: "Yes, make them follow the category" },
+              { value: "keep", label: "No, keep their own minimums" },
+            ],
+            "Items with their own minimum"
+          );
+          if (choice === null) return;
+          payload.apply_minimum_to_items = choice === "follow";
+        }
+      }
       await api(category ? `/categories/${category.id}` : "/categories", {
         method: category ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },

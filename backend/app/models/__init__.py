@@ -1,6 +1,7 @@
 from app.models.approval_band import ApprovalBand
 from app.models.audit_log import AuditLog
 from app.models.bid_evaluation import BidAttachmentView, BidEvaluation, BidTechnicalResult, TechnicalDecision
+from app.models.award import AwardAllocation, AwardRound, Notification, PoDataFile
 from app.models.bid import Bid, BidAttachment, BidAttachmentKind, BidStatus
 from app.models.facility import Facility
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
@@ -48,6 +49,10 @@ __all__ = [
     "RoundDecision",
     "Bid",
     "BidStatus",
+    "AwardRound",
+    "AwardAllocation",
+    "PoDataFile",
+    "Notification",
     "BidAttachmentView",
     "BidEvaluation",
     "BidTechnicalResult",

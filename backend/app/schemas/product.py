@@ -31,6 +31,9 @@ class CategoryCreate(BaseModel):
     procurement_type: ProcurementType
     min_mapping_rating: float | None = None
     required_documents: list[str] = []
+    # On edit only: clear the own minimum of items in this category that set one,
+    # so they follow the category's (an item's own minimum otherwise overrides it).
+    apply_minimum_to_items: bool = False
 
     @field_validator("name")
     @classmethod

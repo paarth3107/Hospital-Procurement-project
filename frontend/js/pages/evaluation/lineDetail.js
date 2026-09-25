@@ -20,7 +20,7 @@ function evaluationCell(row, detail) {
   if (!row.submitted || !detail.can_see_evaluations) return "";
   const mine = row.evaluations.find((e) => e.mine);
   const others = detail.technical_closed_at ? row.evaluations.filter((e) => !e.mine) : [];
-  const line = (e) => `<div style="font-size:12.5px">${esc(e.evaluator)}: ${tag(e.decision, e.decision === "qualified" ? "pos" : "neg")}${e.weighted_score != null ? ` <b>${e.weighted_score}</b><span class="ep-sub">/10</span>` : ""}${e.comments ? `<div class="ep-sub">${esc(e.comments)}</div>` : ""}</div>`;
+  const line = (e) => `<div style="font-size:12.5px">${esc(e.evaluator)}: ${tag(e.decision, e.decision === "qualified" ? "pos" : "neg")}${e.weighted_score != null ? ` <b>${e.weighted_score}</b><span class="ep-sub">/100</span>` : ""}${e.comments ? `<div class="ep-sub">${esc(e.comments)}</div>` : ""}</div>`;
   const shown = [...(mine ? [mine] : []), ...others].map(line).join("");
   return `${shown || '<span class="ep-sub">Not evaluated by you</span>'}<div class="ep-sub">${row.evaluation_count} evaluator(s) have scored</div>`;
 }
@@ -28,7 +28,7 @@ function evaluationCell(row, detail) {
 function resultCell(row) {
   const r = row.result;
   if (!r) return "";
-  return `${tag(r.outcome, r.outcome === "qualified" ? "pos" : "neg")}${r.t_rank ? ` <b>T${r.t_rank}</b>` : ""}${r.consolidated_score != null ? `<div class="ep-sub">score ${r.consolidated_score} / 10</div>` : ""}${r.reason ? `<div class="ep-sub" style="max-width:220px">${esc(r.reason)}</div>` : ""}`;
+  return `${tag(r.outcome, r.outcome === "qualified" ? "pos" : "neg")}${r.t_rank ? ` <b>T${r.t_rank}</b>` : ""}${r.consolidated_score != null ? `<div class="ep-sub">score ${r.consolidated_score} / 100</div>` : ""}${r.reason ? `<div class="ep-sub" style="max-width:220px">${esc(r.reason)}</div>` : ""}`;
 }
 
 export async function renderLineDetail(container, lineId, { onBack, onReload, resultEl }) {
@@ -66,7 +66,7 @@ export async function renderLineDetail(container, lineId, { onBack, onReload, re
     ${s.phase === "bidding_open" ? '<div class="ep-note">Bids are sealed. Until the due date you can see only who has submitted; technical content and prices stay hidden from everyone.</div>' : ""}
     ${
       detail.can_see_evaluations
-        ? `<div class="ep-pane ep-pane-pad"><div class="ep-k">Scored out of 10 · minimum qualifying score ${detail.min_technical_score}${detail.scored ? " · qualified bids are T-ranked" : " · qualified bids stand on equal footing"}</div>
+        ? `<div class="ep-pane ep-pane-pad"><div class="ep-k">Scored out of 100 · minimum qualifying score ${detail.min_technical_score}${detail.scored ? " · qualified bids are T-ranked" : " · qualified bids stand on equal footing"}</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:8px">${detail.criteria.map((c) => `<div class="ep-sub"><b>${c.weight}%</b> ${esc(c.label)}${c.auto ? " (from rating)" : c.optional ? " (optional)" : ""}</div>`).join("")}</div></div>`
         : ""
     }

@@ -45,6 +45,21 @@ class DashboardDocsToVerifyOut(BaseModel):
     count: int
 
 
+class DashboardAwardTaskOut(BaseModel):
+    tender_id: int
+    title: str
+    kind: str  # recommend | decide
+    lines: int
+    tier: int | None
+    detail: str
+
+
+class DashboardPoFileOut(BaseModel):
+    id: int
+    batch_id: str
+    vendor_name: str
+
+
 class DashboardStatsOut(BaseModel):
     open_tenders_count: int
     pending_approval_count: int
@@ -63,6 +78,8 @@ class DashboardStatsOut(BaseModel):
     held_lines: list[DashboardHeldLineOut]
     pending_vendors: list[DashboardPendingVendorOut]
     docs_to_verify: list[DashboardDocsToVerifyOut]
+    award_tasks: list[DashboardAwardTaskOut]
+    po_files_pending: list[DashboardPoFileOut]
     docs_expiring_count: int
     docs_expired_count: int
     open_tenders: list[DashboardOpenTenderOut]

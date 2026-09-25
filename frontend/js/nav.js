@@ -15,6 +15,8 @@ import { loadStaff } from "./pages/staff/staffPage.js";
 import { loadAuditLog } from "./pages/audit/auditPage.js";
 import { loadBid } from "./pages/bid/bidPage.js";
 import { loadEvaluation } from "./pages/evaluation/evaluationPage.js";
+import { loadAwards } from "./pages/awards/awardsPage.js";
+import { loadPoFiles } from "./pages/po/poFilesPage.js";
 
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
@@ -29,6 +31,8 @@ const PAGE_TITLES = {
   audit: ["Administration", "Audit log"],
   bid: ["Vendor portal", "Prepare bid"],
   evaluation: ["Module 6", "Bid evaluation"],
+  awards: ["Module 6-7", "L1 recommendation & approval"],
+  pofiles: ["Module 7", "PO data files for the ERP"],
   "vendor-dashboard": ["Vendor portal", "Tender invitations"],
   "vendor-profile": ["Module 1", "Company profile & documents"],
 };
@@ -52,6 +56,8 @@ export async function refreshChrome() {
     try {
       const reqs = await api("/vendor-portal/documents/requirements");
       badge("badge-vendor-profile", reqs.filter((r) => r.summary === "documents_needed").length);
+      const notes = await api("/vendor-portal/notifications");
+      badge("badge-vendor-dashboard", notes.filter((n) => !n.read).length);
     } catch (err) {
       // decorative
     }
@@ -60,6 +66,8 @@ export async function refreshChrome() {
   try {
     const s = await api("/dashboard/stats");
     badge("badge-queue", s.vendors_pending_count + s.docs_to_verify.length);
+    badge("badge-awards", s.award_tasks.length);
+    badge("badge-pofiles", s.po_files_pending.length);
     badge("badge-approvals", s.pending_approval_count);
     badge("badge-mappings", s.mappings_pending_count);
     document.getElementById("page-facts").innerHTML = `
@@ -90,6 +98,8 @@ export function switchView(view) {
   if (view === "audit") loadAuditLog();
   if (view === "bid") loadBid();
   if (view === "evaluation") loadEvaluation();
+  if (view === "awards") loadAwards();
+  if (view === "pofiles") loadPoFiles();
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -101,12 +111,12 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // "logged in staff sees everything". Kept in one place so a new tab only
 // needs one line here, not a scattered set of if/role checks.
 export const ROLE_TABS = {
-  procurement_officer: ["dashboard", "tenders", "evaluation"],
+  procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
   // Procurement Admin and Category Manager are one job (KYC, mapping, catalog, ratings).
-  category_manager: ["dashboard", "queue", "catalog", "mappings", "ratings", "evaluation"],
-  procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "evaluation"],
-  approving_authority: ["dashboard", "approvals"],
-  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "approvals", "staff", "audit"],
+  category_manager: ["dashboard", "queue", "catalog", "mappings", "ratings", "evaluation", "pofiles"],
+  procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "evaluation", "pofiles"],
+  approving_authority: ["dashboard", "approvals", "awards"],
+  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
 };
 export const DEFAULT_VIEW_BY_ROLE = {
   procurement_officer: "dashboard",
@@ -115,7 +125,7 @@ export const DEFAULT_VIEW_BY_ROLE = {
   approving_authority: "dashboard",
   system_admin: "dashboard",
 };
-export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "approvals", "staff", "audit"];
+export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"];
 
 // Vendor Registration/Login and Staff Login are reached only through the
 // landing page now (view-landing's two panels, plus a "back to home" link
