@@ -26,6 +26,7 @@ class TenderStatus(str, enum.Enum):
     PENDING_APPROVAL = "pending_approval"
     PUBLISHED = "published"
     WITHDRAWN = "withdrawn"
+    NO_AWARD = "no_award"  # every line was left out of the award: closed with nothing awarded, no PO files
     AWARDED = "awarded"  # spec 10.2 point 6: every line approved (or excluded); PO data files generated
 
 

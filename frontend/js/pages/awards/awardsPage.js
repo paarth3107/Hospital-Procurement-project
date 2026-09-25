@@ -24,7 +24,7 @@ async function showList() {
               .join(" · ");
             return `<tr>
               <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
-              <td class="ep-cell">${t.status === "awarded" ? tag("Awarded", "pos") : tag("In progress", "att")}</td>
+              <td class="ep-cell">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("In progress", "att")}</td>
               <td class="ep-cell" style="font-size:12.5px">${chips}</td>
               <td class="ep-cell" style="font-size:12.5px">${t.required_tier ? `${inr(t.pending_value)}<div class="ep-sub">tier ${t.required_tier}</div>` : "—"}</td>
               <td class="ep-cell">${t.waiting_for_you ? tag("Waiting for you", "att") : ""}</td>

@@ -30,14 +30,14 @@ VIEWERS = (Role.PROCUREMENT_OFFICER, Role.APPROVING_AUTHORITY, Role.SYSTEM_ADMIN
 
 def _tender(db: Session, tender_id: int) -> Tender:
     t = db.get(Tender, tender_id)
-    if not t or t.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED):
+    if not t or t.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender not found")
     return t
 
 
 def _line(db: Session, line_id: int) -> TenderLineItem:
     line = db.get(TenderLineItem, line_id)
-    if not line or not line.published or line.tender.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED):
+    if not line or not line.published or line.tender.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Line item not found")
     return line
 
@@ -63,7 +63,7 @@ def _line_out(db: Session, line: TenderLineItem, user: UserAccount, audit_prices
     rnd = rules.latest_round(db, line)
     state = rules.line_state(rnd)
     closed = line.technical_closed_at is not None
-    awarded = line.tender.status == TenderStatus.AWARDED
+    awarded = line.tender.status in (TenderStatus.AWARDED, TenderStatus.NO_AWARD)
     statement, method = None, None
     # who may see the prices: the Officer and System Admin once technical is closed; the Approving
     # Authority only for a recommendation that has been submitted to them
@@ -88,8 +88,8 @@ def _tender_out(db: Session, tender: Tender, user: UserAccount) -> AwardTenderOu
     pending = [l.current for l in lines if l.current and l.current.status == PENDING]
     blockers = []  # everything that stops a submission
     to_do = []  # what the Officer is shown: only lines still needing a recommendation
-    if tender.status == TenderStatus.AWARDED:
-        blockers.append("awarded")
+    if tender.status in (TenderStatus.AWARDED, TenderStatus.NO_AWARD):
+        blockers.append("finished")
     else:
         for l in lines:
             if not l.technical_closed:
@@ -120,7 +120,7 @@ def list_award_tenders(db: Session = Depends(get_db), user: UserAccount = Depend
     """Tenders that have reached the award stage: at least one line's technical
     evaluation is closed (Officer: to recommend) or a recommendation is waiting
     (Approving Authority: to decide)."""
-    tenders = db.query(Tender).filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED])).order_by(Tender.id.desc()).all()
+    tenders = db.query(Tender).filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD])).order_by(Tender.id.desc()).all()
     out = []
     for t in tenders:
         lines = rules.published_lines(t)
@@ -134,14 +134,14 @@ def list_award_tenders(db: Session = Depends(get_db), user: UserAccount = Depend
             counts[st] = counts.get(st, 0) + 1
             if rnd is not None and rnd.status == PENDING:
                 pending_rounds.append(rnd)
-        if user.role == Role.APPROVING_AUTHORITY and not pending_rounds and t.status != TenderStatus.AWARDED:
+        if user.role == Role.APPROVING_AUTHORITY and not pending_rounds and t.status not in (TenderStatus.AWARDED, TenderStatus.NO_AWARD):
             continue
         out.append(
             AwardTenderSummary(
                 tender_id=t.id, title=t.title, status=t.status, lines_total=len(lines), counts=counts,
                 required_tier=pending_rounds[0].required_tier if pending_rounds else None, pending_value=round(sum(r.award_value or 0 for r in pending_rounds), 2),
                 waiting_for_you=bool(pending_rounds and user.role in DECIDERS and can_approve_tier(user, pending_rounds[0].required_tier))
-                or bool(user.role in RECOMMENDERS and t.status != TenderStatus.AWARDED and counts.get("none", 0) + counts.get("draft", 0) + counts.get("returned", 0) > 0),
+                or bool(user.role in RECOMMENDERS and t.status not in (TenderStatus.AWARDED, TenderStatus.NO_AWARD) and counts.get("none", 0) + counts.get("draft", 0) + counts.get("returned", 0) > 0),
             )
         )
     return out

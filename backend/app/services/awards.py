@@ -116,7 +116,7 @@ def validate_allocations(line: TenderLineItem, allocations: list[dict], qualifie
 def save_recommendation(db: Session, line: TenderLineItem, user: UserAccount, mode: str, bid_id: int | None, allocations: list[dict] | None, reason: str | None) -> AwardRound:
     if line.technical_closed_at is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recommend only after the line's technical evaluation is closed")
-    if line.tender.status == TenderStatus.AWARDED:
+    if line.tender.status in (TenderStatus.AWARDED, TenderStatus.NO_AWARD):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This tender is already awarded")
     reason = (reason or "").strip() or None
     rows = qualified_rows(line, db)
@@ -186,7 +186,7 @@ def submit_for_approval(db: Session, tender: Tender, user: UserAccount) -> tuple
     published line needs a recommendation (or an approved decision from an
     earlier round); the required tier comes from the total award value, one
     tier higher when any line has been rejected repeatedly (spec 7.3 point 5)."""
-    if tender.status == TenderStatus.AWARDED:
+    if tender.status in (TenderStatus.AWARDED, TenderStatus.NO_AWARD):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This tender is already awarded")
     lines = published_lines(tender)
     drafts, missing = [], []
@@ -279,13 +279,15 @@ def maybe_finalize(db: Session, tender: Tender, user: UserAccount) -> bool:
     rounds = [latest_round(db, li) for li in lines]
     if not lines or any(r is None or r.status != APPROVED for r in rounds):
         return False
-    tender.status = TenderStatus.AWARDED
+    # If every line was left out, nothing was awarded: no PO files, and the tender is closed as such.
+    anything_awarded = any(r.kind == AWARD for r in rounds)
+    tender.status = TenderStatus.AWARDED if anything_awarded else TenderStatus.NO_AWARD
     tender.awarded_at = datetime.now(timezone.utc)
     files = po_files.generate_for_tender(db, tender, user, rounds)
     _notify_outcome(db, tender, rounds)
     record(
         db, "award.finalized", "tender", tender.id, actor=user, entity_label=f"#{tender.id} {tender.title}", facility_id=tender.facility_id,
-        before={"status": TenderStatus.PUBLISHED}, after={"status": TenderStatus.AWARDED},
+        before={"status": TenderStatus.PUBLISHED}, after={"status": tender.status},
         meta={"po_data_files": [f.batch_id for f in files], "lines_awarded": sum(1 for r in rounds if r.kind == AWARD), "lines_left_out": sum(1 for r in rounds if r.kind == EXCLUDE)},
     )
     return True

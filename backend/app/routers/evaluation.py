@@ -45,7 +45,7 @@ PRICE_VIEWERS = (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN)
 
 def _line(db: Session, line_id: int) -> TenderLineItem:
     line = db.get(TenderLineItem, line_id)
-    if not line or line.tender.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED) or not line.published:
+    if not line or line.tender.status not in (TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD) or not line.published:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Line item not found")
     return line
 
@@ -77,7 +77,7 @@ def list_lines(db: Session = Depends(get_db), _user: UserAccount = Depends(requi
     lines = (
         db.query(TenderLineItem)
         .join(Tender, TenderLineItem.tender_id == Tender.id)
-        .filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED]), TenderLineItem.published.is_(True))
+        .filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD]), TenderLineItem.published.is_(True))
         .order_by(Tender.bid_due_date, TenderLineItem.id)
         .all()
     )

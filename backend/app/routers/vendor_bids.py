@@ -81,7 +81,7 @@ def _outcome(db: Session, b: Bid) -> str | None:
     if res is not None and res.outcome == TechnicalDecision.DISQUALIFIED:
         return "Technically disqualified"
     line = b.line_item
-    if line.tender.status != TenderStatus.AWARDED:
+    if line.tender.status not in (TenderStatus.AWARDED, TenderStatus.NO_AWARD):
         return None
     rnd = db.query(AwardRound).filter(AwardRound.line_item_id == line.id, AwardRound.status == APPROVED).order_by(AwardRound.round_number.desc()).first()
     if rnd is not None:

@@ -63,11 +63,11 @@ export async function renderTenderAward(container, tenderId, { onBack, resultEl 
       <div><button class="ep-b" id="aw-back">← All tenders</button></div>
       <div class="ep-pane ep-pane-pad" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
         <div style="flex:1;min-width:260px">${kicker(`Tender #${t.tender_id}`)}<h4 style="margin:4px 0 3px;font-size:22px">${esc(t.title)}</h4><div class="ep-sub">${esc(t.facility_name)}${t.department ? " · " + esc(t.department) : ""}</div></div>
-        <div>${kicker("Status")}<div style="margin-top:5px">${t.status === "awarded" ? tag("Awarded", "pos") : tag("Award in progress", "att")}</div>${t.awarded_at ? `<div class="ep-sub">${esc(fmtDateTime(t.awarded_at))}</div>` : ""}</div>
+        <div>${kicker("Status")}<div style="margin-top:5px">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("Award in progress", "att")}</div>${t.awarded_at ? `<div class="ep-sub">${esc(fmtDateTime(t.awarded_at))}</div>` : ""}</div>
         ${t.required_tier ? `<div>${kicker("Waiting for approval")}<div style="font-size:20px;font-weight:800;margin-top:3px">${inr(t.pending_value)}</div><div class="ep-sub">needs tier ${t.required_tier}</div></div>` : ""}
       </div>
       ${
-        t.status === "awarded"
+        t.status === "awarded" && t.po_files.length
           ? `<div class="ep-pane"><div class="ep-pane-head"><span>PO data files</span></div><table class="ep-table"><tbody>${t.po_files.map((f) => `<tr><td class="ep-cell" style="font-weight:600">${esc(f.batch_id)}</td><td class="ep-cell">${esc(f.vendor_name)}</td><td class="ep-cell">${stateTag(f.status)}</td></tr>`).join("")}</tbody></table></div>`
           : t.submit_blockers.length
           ? `<div class="ep-note">${t.submit_blockers.map(esc).join("<br>")}</div>`

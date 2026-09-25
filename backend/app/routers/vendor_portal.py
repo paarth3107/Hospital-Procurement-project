@@ -30,7 +30,7 @@ def list_open_tenders(vendor: Vendor = Depends(get_current_vendor), db: Session 
         db.query(TenderInvite)
         .join(TenderLineItem, TenderInvite.tender_line_item_id == TenderLineItem.id)
         .join(Tender, TenderLineItem.tender_id == Tender.id)
-        .filter(TenderInvite.vendor_id == vendor.id, Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED]))
+        .filter(TenderInvite.vendor_id == vendor.id, Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD]))
         .all()
     )
     if not invites:
