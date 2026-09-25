@@ -13,6 +13,7 @@ import { loadTenders } from "./pages/tenders/tendersPage.js";
 import { loadApprovals } from "./pages/approvalsPage.js";
 import { loadStaff } from "./pages/staff/staffPage.js";
 import { loadAuditLog } from "./pages/audit/auditPage.js";
+import { loadBid } from "./pages/bid/bidPage.js";
 
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
@@ -25,6 +26,7 @@ const PAGE_TITLES = {
   approvals: ["Module 4B", "E-tender approval"],
   staff: ["Administration", "Staff accounts"],
   audit: ["Administration", "Audit log"],
+  bid: ["Vendor portal", "Prepare bid"],
   "vendor-dashboard": ["Vendor portal", "Tender invitations"],
   "vendor-profile": ["Module 1", "Company profile & documents"],
 };
@@ -74,6 +76,7 @@ export function switchView(view) {
   if (view === "approvals") loadApprovals();
   if (view === "staff") loadStaff();
   if (view === "audit") loadAuditLog();
+  if (view === "bid") loadBid();
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {

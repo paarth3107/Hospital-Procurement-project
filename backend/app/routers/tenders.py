@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.bid import Bid
+from app.models.bid import Bid, BidStatus
 from app.models.product_master import ProductMaster
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
@@ -445,7 +445,7 @@ def withdraw_to_draft(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Tender is in status '{tender.status.value}', not Published")
 
     line_item_ids = [li.id for li in tender.line_items]
-    bid_count = db.query(Bid).filter(Bid.tender_line_item_id.in_(line_item_ids)).count() if line_item_ids else 0
+    bid_count = db.query(Bid).filter(Bid.tender_line_item_id.in_(line_item_ids), Bid.status == BidStatus.SUBMITTED).count() if line_item_ids else 0
     if bid_count:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

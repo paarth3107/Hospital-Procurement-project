@@ -11,28 +11,13 @@ from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import VendorMapping
 from app.schemas.mapping import MappingOut, VendorMappingRequest
-from app.schemas.vendor_portal import BidCreate, BidOut, PortalLineItemOut, PortalTenderOut
+from app.schemas.vendor_portal import PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
 from app.services.audit import record
 from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
-
-
-def _bid_out(bid: Bid) -> BidOut:
-    line_item = bid.line_item
-    return BidOut(
-        id=bid.id,
-        tender_line_item_id=bid.tender_line_item_id,
-        unit_price=bid.unit_price,
-        status=bid.status,
-        submitted_at=bid.submitted_at,
-        tender_id=line_item.tender.id,
-        tender_title=line_item.tender.title,
-        product_name=line_item.product.name,
-        qty=line_item.qty,
-    )
 
 
 @router.get("/tenders", response_model=list[PortalTenderOut])
@@ -114,58 +99,3 @@ def request_my_mapping(
     themselves -- the vendor is always the logged-in one."""
 
     return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, require_uploaded_documents=True, requested_by=vendor)
-
-
-@router.get("/bids", response_model=list[BidOut])
-def list_my_bids(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
-    bids = db.query(Bid).filter(Bid.vendor_id == vendor.id).order_by(Bid.submitted_at.desc()).all()
-    return [_bid_out(b) for b in bids]
-
-
-@router.post("/bids", response_model=BidOut, status_code=status.HTTP_201_CREATED)
-def submit_bid(payload: BidCreate, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
-    """Spec §5.6: "the most heavily gated function in the system" -- every
-    check here is server-side and independent of anything the client
-    claims, per CLAUDE.md's PROJECT OVERRIDE and the spec's own emphasis."""
-
-    # An expired statutory document suspends the vendor at the moment it matters.
-    if sweep_vendor(db, vendor):
-        db.commit()
-    if vendor.status != VendorStatus.ACTIVE:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only an Active, approved vendor may submit a bid")
-
-    line_item = db.get(TenderLineItem, payload.tender_line_item_id)
-    if not line_item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender line item not found")
-
-    tender = line_item.tender
-    if tender.status != TenderStatus.PUBLISHED:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This tender is not open for bidding")
-    if tender.bid_due_date is None or datetime.now(timezone.utc) > tender.bid_due_date:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The bid deadline for this tender has passed")
-
-    invited = (
-        db.query(TenderInvite)
-        .filter(TenderInvite.tender_line_item_id == line_item.id, TenderInvite.vendor_id == vendor.id)
-        .first()
-    )
-    if not invited:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You were not invited to bid on this line item")
-
-    existing = db.query(Bid).filter(Bid.tender_line_item_id == line_item.id, Bid.vendor_id == vendor.id).first()
-    if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You have already submitted a bid for this line item")
-
-    if payload.unit_price <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unit price must be a positive number")
-
-    bid = Bid(tender_line_item_id=line_item.id, vendor_id=vendor.id, unit_price=payload.unit_price)
-    db.add(bid)
-    db.flush()
-    record(
-        db, "bid.submitted", "bid", bid.id, actor=vendor, entity_label=f"#{tender.id} {tender.title} - {line_item.product.name}",
-        facility_id=tender.facility_id, meta={"tender_id": tender.id, "line_item_id": line_item.id},
-    )
-    db.commit()
-    db.refresh(bid)
-    return _bid_out(bid)

@@ -1,6 +1,6 @@
 from app.models.approval_band import ApprovalBand
 from app.models.audit_log import AuditLog
-from app.models.bid import Bid, BidStatus
+from app.models.bid import Bid, BidAttachment, BidAttachmentKind, BidStatus
 from app.models.facility import Facility
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.tender import Tender, TenderStatus, TenderType
@@ -47,6 +47,8 @@ __all__ = [
     "RoundDecision",
     "Bid",
     "BidStatus",
+    "BidAttachment",
+    "BidAttachmentKind",
     "VendorDocument",
     "VendorDocType",
     "DocumentStatus",

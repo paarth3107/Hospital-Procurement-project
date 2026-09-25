@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.bid import Bid
+from app.models.bid import Bid, BidStatus
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.product_master import ProductMaster
@@ -60,6 +60,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     bid_counts = dict(
         db.query(TenderLineItem.tender_id, func.count(Bid.id))
         .join(Bid, Bid.tender_line_item_id == TenderLineItem.id)
+        .filter(Bid.status == BidStatus.SUBMITTED)
         .group_by(TenderLineItem.tender_id)
         .all()
     )
@@ -93,7 +94,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         )
     }
     registered_vendors_count = db.query(Vendor).count()
-    bids_submitted_count = db.query(Bid).count()
+    bids_submitted_count = db.query(Bid).filter(Bid.status == BidStatus.SUBMITTED).count()
 
     recently_published = (
         db.query(Tender)

@@ -22,6 +22,7 @@ from app.routers import (
     staff,
     tenders,
     vendor_auth,
+    vendor_bids,
     vendor_documents,
     vendor_portal,
     vendors,
@@ -79,6 +80,7 @@ app.include_router(ratings.router)
 app.include_router(tenders.router)
 app.include_router(vendor_auth.router)
 app.include_router(vendor_portal.router)
+app.include_router(vendor_bids.router)
 app.include_router(vendor_documents.router)
 app.include_router(dashboard.router)
 

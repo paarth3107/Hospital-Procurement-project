@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
-import { modalPrompt } from "../modal.js";
+import { openBid } from "./bid/bidPage.js";
 import { switchView } from "../nav.js";
 import { esc, tag, stateTag, th, emptyRow, fmtDateTime, inr } from "../kit.js";
 
@@ -70,8 +70,13 @@ export async function loadVendorDashboard() {
         lineRows.length
           ? lineRows
               .map(({ t, li }) => {
-                const status = li.already_bid ? tag(`Bid ${li.bid_status}`, "pos") : t.can_bid ? tag("Not submitted", "att") : tag("Deadline passed", "neg");
-                const action = !li.already_bid && t.can_bid ? `<button class="ep-b" data-v="p" data-line="${li.line_item_id}" data-title="${esc(t.title)}" data-product="${esc(li.product_name)}">Submit bid</button>` : "";
+                const bs = li.bid_status;
+                const status = bs === "submitted" ? tag("Bid submitted", "pos") : bs === "draft" ? tag("Draft saved", "esc") : bs === "withdrawn" ? tag("Withdrawn", "neg") : t.can_bid ? tag("Not submitted", "att") : tag("Deadline passed", "neg");
+                const action = t.can_bid
+                  ? `<button class="ep-b" ${bs ? "" : 'data-v="p"'} data-line="${li.line_item_id}">${bs === "submitted" ? "View / amend" : bs === "draft" ? "Continue bid" : bs === "withdrawn" ? "Reopen" : "Prepare bid"}</button>`
+                  : bs
+                  ? `<button class="ep-b" data-line="${li.line_item_id}">View</button>`
+                  : "";
                 return `<tr>
                   <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
                   <td class="ep-cell" style="font-size:12.5px">${esc(li.product_name)} · ${li.qty}</td>
@@ -92,39 +97,18 @@ export async function loadVendorDashboard() {
           ? bids
               .map(
                 (b) => `<tr><td class="ep-cell">${esc(b.tender_title)}</td><td class="ep-cell">${esc(b.product_name)}</td><td class="ep-cell">${b.qty}</td>
-                  <td class="ep-cell" style="font-weight:700">${inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px">${fmtDateTime(b.submitted_at)}</td></tr>`
+                  <td class="ep-cell" style="font-weight:700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px">${b.submitted_at ? fmtDateTime(b.submitted_at) : "—"}</td></tr>`
               )
               .join("")
-          : emptyRow(6, "No bids submitted yet.")
+          : emptyRow(6, "No bids yet.")
       }</tbody></table>
     </div>`;
 
     root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${banner}${invitations}${bidsPane}</div>`;
     root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-profile"));
-    root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => submitBid(b)));
+    root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => openBid(Number(b.dataset.line))));
     resultEl().textContent = "";
   } catch (err) {
     showResult(resultEl(), "Could not load dashboard: " + err.message, false);
-  }
-}
-
-async function submitBid(btn) {
-  const priceStr = await modalPrompt(`Your unit price for "${btn.dataset.product}" (${btn.dataset.title}):`);
-  if (!priceStr) return;
-  const unitPrice = Number(priceStr);
-  if (!(unitPrice > 0)) {
-    showResult(resultEl(), "Price must be a positive number.", false);
-    return;
-  }
-  try {
-    await api("/vendor-portal/bids", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tender_line_item_id: Number(btn.dataset.line), unit_price: unitPrice }),
-    });
-    showResult(resultEl(), "Bid submitted.", true);
-    loadVendorDashboard();
-  } catch (err) {
-    showResult(resultEl(), "Could not submit bid: " + err.message, false);
   }
 }

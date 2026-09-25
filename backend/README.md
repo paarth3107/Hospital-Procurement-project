@@ -241,3 +241,32 @@ action, actor_type, actor_id, facility_id, date_from, date_to, search; paginated
 (`frontend/js/pages/audit/`). Not yet audited: reading the log itself, and things not built yet
 (L1 selection/approval, PO export, override engine, notifications) -- add a `record()` call when
 each is built.
+
+## Bid submission form (spec §8)
+
+Vendor endpoints under `/api/v1/vendor-portal/bids` (`app/routers/vendor_bids.py`, rules in
+`app/services/bids.py`): `GET /line/{line_item_id}` (the form: line context, what this line
+requires, the vendor's own bid), `PUT /line/{line_item_id}` (save a draft, submit, or amend a
+submitted bid), `POST /{id}/withdraw`, `POST|DELETE /{id}/attachments`, `GET /{id}/attachments/{aid}/download`,
+`GET ""` (own bids). Bid statuses: draft -> submitted <-> withdrawn (a withdrawn bid reopens as a draft).
+
+Fields: unit price, GST %, other duties per unit, delivery lead time (days), quote validity (days),
+payment terms (optional), technical compliance statement (required for RFP tenders and technically
+scored lines), brand offered, plus type answers: Item shelf life at delivery (when the catalog item is
+batch/expiry tracked); Asset warranty months (required), installation/training included, spares
+commitment years, "bidding as a distributor"; Service SOW/method statement (required), manpower plan,
+SLA commitment. Landed price = unit price + GST + duties (what evaluation will rank on).
+
+Attachments (PDF, DOCX, XLSX, JPG, PNG; 10 MB; scanned via the document-store stub), mandatory by
+type: Asset -> datasheet (+ manufacturer authorization if distributor); Service -> SOW/method
+statement (+ manpower plan where the catalog item has manpower norms; datasheet on RFP); Item -> none,
+except a datasheet when the tender is RFP / the line is technically scored.
+
+Server-side gates on every change: vendor Active (expiry sweep first), tender Published AND the line
+published, before the deadline, vendor individually invited. A submit or amendment that leaves a
+required field or mandatory attachment missing is refused with the exact list. A vendor can only ever
+read their own bid; staff have no bid-read endpoint yet (Evaluation phase), so prices stay sealed.
+Audit rows (draft/submit/amend/withdraw/reopen/attachment) record field names only, never values.
+
+Not built yet: bid-level (whole-tender) attachments, late-submission exception, due-date extension,
+per-line all-or-nothing tenders, the staff comparison view and price unlock (Evaluation).

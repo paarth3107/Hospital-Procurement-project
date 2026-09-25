@@ -16,6 +16,11 @@ SPREADSHEET_CONTENT_TYPES = {
     "application/vnd.ms-excel",
     "text/csv",
 }
+# Spec 6.4.2 / 8.3.2: bid attachments also accept DOCX and XLSX.
+OFFICE_CONTENT_TYPES = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 
 
@@ -23,10 +28,15 @@ class DocumentValidationError(ValueError):
     pass
 
 
-def validate(content_type: str, size_bytes: int, allow_spreadsheets: bool = False) -> None:
-    allowed = ALLOWED_CONTENT_TYPES | SPREADSHEET_CONTENT_TYPES if allow_spreadsheets else ALLOWED_CONTENT_TYPES
+def validate(content_type: str, size_bytes: int, allow_spreadsheets: bool = False, allow_office: bool = False) -> None:
+    allowed = ALLOWED_CONTENT_TYPES | SPREADSHEET_CONTENT_TYPES if allow_spreadsheets else set(ALLOWED_CONTENT_TYPES)
+    if allow_office:
+        allowed |= OFFICE_CONTENT_TYPES
     if content_type not in allowed:
-        accepted = "PDF, JPG, PNG, or a spreadsheet (XLSX/CSV)" if allow_spreadsheets else "PDF, JPG, and PNG"
+        if allow_office:
+            accepted = "PDF, DOCX, XLSX, JPG, and PNG"
+        else:
+            accepted = "PDF, JPG, PNG, or a spreadsheet (XLSX/CSV)" if allow_spreadsheets else "PDF, JPG, and PNG"
         raise DocumentValidationError(f"Unsupported file type '{content_type}' — {accepted} are accepted")
     if size_bytes == 0:
         raise DocumentValidationError("File is empty")
