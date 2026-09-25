@@ -53,6 +53,6 @@ def can_approve_tier(user: UserAccount, required_tier: int) -> bool:
 
     if user.role == Role.SYSTEM_ADMIN:
         return True
-    if required_tier <= 1:
-        return user.role in (Role.PROCUREMENT_ADMIN, Role.APPROVING_AUTHORITY)
+    # Approving Authority only, at every value (user-directed: Procurement
+    # Admin no longer self-attests the lowest band).
     return user.role == Role.APPROVING_AUTHORITY and (user.approval_tier or 0) >= required_tier

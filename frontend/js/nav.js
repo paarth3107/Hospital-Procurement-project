@@ -11,6 +11,7 @@ import { loadVendorDashboard } from "./pages/vendorDashboardPage.js";
 import { loadVendorProfile } from "./pages/vendorProfilePage.js";
 import { loadTenders } from "./pages/tenders/tendersPage.js";
 import { loadApprovals } from "./pages/approvalsPage.js";
+import { loadStaff } from "./pages/staff/staffPage.js";
 
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
@@ -21,6 +22,7 @@ const PAGE_TITLES = {
   ratings: ["Module 3", "Vendor rating & scorecard"],
   tenders: ["Module 4", "E-tender creation"],
   approvals: ["Module 4B", "E-tender approval"],
+  staff: ["Administration", "Staff accounts"],
   "vendor-dashboard": ["Vendor portal", "Tender invitations"],
   "vendor-profile": ["Module 1", "Company profile & documents"],
 };
@@ -68,6 +70,7 @@ export function switchView(view) {
   if (view === "vendor-profile") loadVendorProfile();
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
+  if (view === "staff") loadStaff();
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -79,11 +82,12 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // "logged in staff sees everything". Kept in one place so a new tab only
 // needs one line here, not a scattered set of if/role checks.
 export const ROLE_TABS = {
-  procurement_officer: ["dashboard", "queue", "tenders"],
+  procurement_officer: ["dashboard", "tenders"],
+  // Procurement Admin and Category Manager are one job (KYC, mapping, catalog, ratings).
   category_manager: ["dashboard", "queue", "catalog", "mappings", "ratings"],
-  procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
+  procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings"],
   approving_authority: ["dashboard", "approvals"],
-  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"],
+  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals", "staff"],
 };
 export const DEFAULT_VIEW_BY_ROLE = {
   procurement_officer: "dashboard",
@@ -92,7 +96,7 @@ export const DEFAULT_VIEW_BY_ROLE = {
   approving_authority: "dashboard",
   system_admin: "dashboard",
 };
-export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals"];
+export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals", "staff"];
 
 // Vendor Registration/Login and Staff Login are reached only through the
 // landing page now (view-landing's two panels, plus a "back to home" link

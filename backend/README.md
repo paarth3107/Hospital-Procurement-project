@@ -91,10 +91,12 @@ called it without login is gone.
 `frontend/js/nav.js`'s `ROLE_TABS` map shows each staff role only the tabs it can
 actually use, driven directly off each router's `require_role(...)`/
 `get_current_user` gates (not a separate guess at what each role "should"
-see): Procurement Officer -> Tenders; Category Manager -> Product Catalog,
-Vendor Mapping, Vendor Rating (read-only — the "Save Manual Ratings" form is
-hidden since that endpoint is Procurement Admin-only); Procurement Admin /
-System Admin -> everything; Approving Authority -> E-Tender Approval only.
+see): Procurement Officer -> Tenders (creation, submission, resubmission, and later
+L1 recommendation); Category Manager and Procurement Admin (one job) -> Vendors (KYC
+review, suspend/blacklist/reinstate), Items catalog, Vendor Mapping, Vendor Rating
+(incl. manual entry); Approving Authority -> E-Tender Approval only; System Admin ->
+everything plus Staff accounts. Tender approval is Approving Authority only at every
+value band (user-directed; spec section 11.2 had Procurement Admin approving up to Rs.1,00,000).
 Vendor Registration / Staff Login tabs hide once logged in as staff. Add a
 new tab by adding it to `ALL_STAFF_TAB_VIEWS` and listing it under whichever
 roles' arrays in `ROLE_TABS` — one line, not a scattered set of role checks.
@@ -177,9 +179,9 @@ Fixes found by re-reading spec §4 against the first build:
 
 ## Vendor suspend / reinstate / blacklist (spec 3.4)
 
-- `POST /api/v1/vendors/{id}/suspend` (Active only, reason required), `/reinstate` (Suspended, or Blacklisted by the Procurement Officer with a reason), `/blacklist` (Active or Suspended, reason required), `GET /{id}/status-history`. Roles: Procurement Admin, Category Manager, System Admin.
+- `POST /api/v1/vendors/{id}/suspend` (Active only, reason required), `/reinstate` (Suspended, or Blacklisted with a mandatory reason), `/blacklist` (Active or Suspended, reason required), `GET /{id}/status-history`. Roles: Procurement Admin, Category Manager, System Admin.
 - Every status change (registration, approve, reject, request-info, suspend, reinstate, blacklist) goes through `services/vendor_status.set_status` and is written to `vendor_status_history`.
-- Suspended: can log in and view, but can't bid (bid gate and `can_bid`), be mapped or be invited; mappings and history are kept. Blacklisted: can't log in (403). It is reversible only by the **Procurement Officer** (or System Admin) via `POST /{id}/reinstate` with an **explicit, mandatory reason** recorded in `vendor_status_history` (no approval step; other roles get 403). Lifting a suspension stays with Procurement Admin / Category Manager / System Admin. The Procurement Officer sees the Vendor registrations tab read-only (no documents) with that single action.
+- Suspended: can log in and view, but can't bid (bid gate and `can_bid`), be mapped or be invited; mappings and history are kept. Blacklisted: can't log in (403). It is reversible by Procurement Admin / Category Manager / System Admin via `POST /{id}/reinstate` with an **explicit, mandatory reason** recorded in `vendor_status_history` (no approval step). The Procurement Officer has no access to vendor endpoints.
 - Not built yet: document expiry dates and auto-suspend on expiry (spec 3.5) — the next Module 1 item.
 
 ## Document expiry (spec 3.5)
@@ -204,3 +206,13 @@ Fixes found by re-reading spec §4 against the first build:
 - This also delivers spec §4.3 point 1 (supporting credentials with a mapping request), driven by the catalog configuration.
 
 **"Other" required documents:** besides the standard document types, a catalog entry/category can require a free-text document (stored as `other:<name>` in `required_documents`, e.g. "CE marking certificate"). The vendor uploads a file for it (`doc_type=other` + `custom_label`, matched to the requirement case-insensitively; one row per vendor per label — the unique constraint is now `(vendor, doc_type, custom_label)`), and the human reviewer reads the name and verifies it like any other document. The same upload → verify gates apply to mapping requests and approvals.
+
+## Staff accounts (admin panel)
+
+`/api/v1/staff` (System Admin only): list, create, edit (name/role/facility/approval tier),
+reset password, deactivate/reactivate. Rules: email is unique and fixed once created;
+an Approving Authority needs an approval tier (other roles have it cleared); you can't
+deactivate or change the role of your own account; at least one active System Admin must
+remain. The admin sets the initial password and shares it directly (no email adapter yet;
+no forced change-on-first-login). Accounts are deactivated, never deleted, so past work
+keeps its author. UI: "Staff accounts" tab (`frontend/js/pages/staff/`).

@@ -18,6 +18,7 @@ from app.routers import (
     mappings,
     products,
     ratings,
+    staff,
     tenders,
     vendor_auth,
     vendor_documents,
@@ -66,6 +67,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(staff.router)
 app.include_router(vendors.router)
 app.include_router(facilities.router)
 app.include_router(categories.router)

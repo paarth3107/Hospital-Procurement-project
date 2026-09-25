@@ -1,3 +1,4 @@
+import { askRevealPassword } from "./vendorReveal.js";
 import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
 import { modalPrompt, modalConfirm } from "../modal.js";
@@ -12,9 +13,6 @@ const root = () => document.getElementById("queue-root");
 const resultEl = () => document.getElementById("queue-result");
 
 let statusFilter = null; // set on first load, by role
-// The Procurement Officer sees this tab read-only, with one job: reinstating
-// blacklisted vendors (with an explicit reason). Everyone else reviews KYC.
-const isOfficer = () => state.user?.role === "procurement_officer";
 let vendors = [];
 let selectedId = null;
 // Verify/Reject on a document stay disabled until the reviewer has opened
@@ -31,8 +29,14 @@ const FILTERS = [
   ["", "All"],
 ];
 
+// Lets the dashboard's action queue open the list with one vendor preselected.
+export function preselectVendor(id) {
+  selectedId = id;
+  statusFilter = "pending_verification";
+}
+
 export async function loadVendors() {
-  if (statusFilter === null) statusFilter = isOfficer() ? "blacklisted" : "pending_verification";
+  if (statusFilter === null) statusFilter = "pending_verification";
   try {
     vendors = await api("/vendors" + (statusFilter ? `?status_filter=${statusFilter}` : ""));
     if (!vendors.some((v) => v.id === selectedId)) selectedId = vendors[0]?.id ?? null;
@@ -71,8 +75,8 @@ const money = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-I
 function identityPane(v) {
   const groups = [
     ["Company", [["Trade name", v.trade_name], ["Entity type", v.entity_type], ["Incorporated", v.year_of_incorporation], ["Vendor ID", `V-${v.id}`], ["Registered address", v.registered_address, 2], ["Branch locations", v.branch_locations, 2]]],
-    ["Statutory & banking", [["GSTIN", v.gstin], ["PAN", v.pan], ["Bank", v.bank_name], ["IFSC", v.bank_ifsc], ["Account number", v.bank_account_number, 2]]],
-    ["Contact", [["Primary contact", v.contact_person], ["Designation", v.contact_designation], ["Phone", v.phone], ["Email", v.email], ["Escalation contact", [v.escalation_contact_name, v.escalation_contact_phone, v.escalation_contact_email].filter(Boolean).join(" · "), 2]]],
+    ["Statutory & banking", [["GSTIN", v.gstin, 1, "gstin"], ["PAN", v.pan, 1, "pan"], ["Bank", v.bank_name], ["IFSC", v.bank_ifsc, 1, "bank_ifsc"], ["Account number", v.bank_account_number, 2, "bank_account_number"]]],
+    ["Contact", [["Primary contact", v.contact_person], ["Designation", v.contact_designation], ["Phone", v.phone, 1, "phone"], ["Email", v.email], ["Escalation contact", [v.escalation_contact_name, v.escalation_contact_email].filter(Boolean).join(" · "), 1], ["Escalation phone", v.escalation_contact_phone, 1, "escalation_contact_phone"]]],
     ["Commercial terms", [["Payment terms", v.payment_terms], ["Lead time", v.delivery_lead_time_days != null ? `${v.delivery_lead_time_days} days` : null], ["Min. order value", v.min_order_value != null ? money(v.min_order_value) : null], ["Note on file", v.rejection_reason]]],
   ];
   return `<div class="ep-pane ep-pane-pad">
@@ -84,7 +88,12 @@ function identityPane(v) {
       .map(
         ([title, facts]) => `<div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0 12px"></div>${kicker(title)}
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 16px;margin-top:8px">${facts
-          .map(([k, val, span]) => `<div style="grid-column:span ${span || 1}">${kicker(k)}<div style="font-size:13px;font-weight:600;margin-top:3px;word-break:break-word">${esc(val ?? "—")}</div></div>`)
+          .map(([k, val, span, secret]) => {
+            const cell = secret && val != null
+              ? `<span data-secret="${secret}" data-label="${esc(k)}">${esc(val)}</span> <button type="button" class="ep-b" data-reveal="${secret}" title="Show (asks for your password)" aria-label="Show ${esc(k)}" style="padding:0 7px;font-style:italic;font-family:serif">i</button>`
+              : esc(val ?? "—");
+            return `<div style="grid-column:span ${span || 1}">${kicker(k)}<div style="font-size:13px;font-weight:600;margin-top:3px;word-break:break-word">${cell}</div></div>`;
+          })
           .join("")}</div>`
       )
       .join("")}
@@ -126,13 +135,9 @@ function docsPane(vendor, docs) {
   </div>`;
 }
 
-const canReinstateBlacklisted = () => ["procurement_officer", "system_admin"].includes(state.user?.role);
+const canReinstateBlacklisted = () => ["procurement_admin", "category_manager", "system_admin"].includes(state.user?.role);
 
 function decisionBar(vendor, docs) {
-  // The Procurement Officer's only action here is reinstating a blacklisted vendor.
-  if (isOfficer() && vendor.status !== "blacklisted") {
-    return `<div class="ep-pane ep-pane-pad hint">Read-only for your role. The Procurement Officer's job on this tab is reinstating blacklisted vendors.</div>`;
-  }
   const decidable = ["pending_verification", "info_requested"].includes(vendor.status);
   const byType = new Map(docs.map((d) => [d.doc_type, d]));
   const mandatoryRejected = VENDOR_DOC_TYPES.filter((t) => t.mandatory).some((t) => byType.get(t.value)?.status === "rejected");
@@ -153,7 +158,7 @@ function decisionBar(vendor, docs) {
   }
   if (vendor.status === "active") {
     return bar(
-      "Suspending blocks bidding, new mappings and new invitations, and keeps history and mappings. Blacklisting also blocks login; only the Procurement Officer can reinstate a blacklisted vendor, with a reason.",
+      "Suspending blocks bidding, new mappings and new invitations, and keeps history and mappings. Blacklisting also blocks login; reinstating a blacklisted vendor needs an explicit reason.",
       btn("Blacklist", { attrs: 'data-decision="blacklist"' }) + btn("Suspend vendor", { primary: true, attrs: 'data-decision="suspend"' })
     );
   }
@@ -169,7 +174,7 @@ function decisionBar(vendor, docs) {
           "This vendor is blacklisted and cannot log in or bid. Reinstating needs an explicit reason, which is kept in the status history.",
           btn("Reinstate vendor", { primary: true, attrs: 'data-decision="reinstate-blacklisted"' })
         )
-      : `<div class="ep-pane ep-pane-pad hint">This vendor is blacklisted. Only the Procurement Officer can reinstate it, with an explicit reason.</div>`;
+      : `<div class="ep-pane ep-pane-pad hint">This vendor is blacklisted. Reinstating it needs an explicit reason.</div>`;
   }
   return `<div class="ep-pane ep-pane-pad hint">This vendor is ${esc(vendor.status)}; no decision is pending.</div>`;
 }
@@ -197,10 +202,10 @@ async function render() {
       let history;
       [current, docs, history] = await Promise.all([
         api(`/vendors/${selectedId}`),
-        isOfficer() ? Promise.resolve([]) : api(`/vendors/${selectedId}/documents`),
+        api(`/vendors/${selectedId}/documents`),
         api(`/vendors/${selectedId}/status-history`),
       ]);
-      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${isOfficer() ? "" : docsPane(current, docs)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
+      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${docsPane(current, docs)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
     } catch (err) {
       detail = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
     }
@@ -236,6 +241,16 @@ function wire(vendor) {
       selectedId = Number(b.dataset.vendor);
       reviewedDocIds = new Set();
       render();
+    })
+  );
+  r.querySelectorAll("[data-reveal]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const span = b.parentElement.querySelector("[data-secret]");
+      const value = await askRevealPassword(selectedId, b.dataset.reveal, span.dataset.label);
+      if (value != null) {
+        span.textContent = value;
+        b.remove(); // shown until the vendor is reopened or the tab re-rendered
+      }
     })
   );
   r.querySelectorAll("[data-view-doc]").forEach((a) =>
@@ -292,7 +307,7 @@ async function decide(kind, vendor) {
       await post(`/vendors/${vendor.id}/reinstate`, { reason });
       showResult(resultEl(), "Vendor reinstated.", true);
     } else if (kind === "blacklist") {
-      const reason = await modalPrompt(`Reason for blacklisting ${vendor.legal_name} (required — the Procurement Officer can reinstate later, with a reason):`);
+      const reason = await modalPrompt(`Reason for blacklisting ${vendor.legal_name} (required — it can be reinstated later, with a reason):`);
       if (!reason) return;
       await post(`/vendors/${vendor.id}/blacklist`, { reason });
       showResult(resultEl(), "Vendor blacklisted.", true);

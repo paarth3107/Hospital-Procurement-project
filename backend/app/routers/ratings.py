@@ -58,7 +58,7 @@ def update_rating(
     vendor_id: int,
     payload: RatingManualUpdate,
     db: Session = Depends(get_db),
-    user: UserAccount = Depends(require_role(Role.PROCUREMENT_ADMIN)),
+    user: UserAccount = Depends(require_role(Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER)),
 ):
     """Spec §5.3.1 — routine manual entry of the four non-computed
     parameters by the Procurement Admin. `price_competitiveness` is

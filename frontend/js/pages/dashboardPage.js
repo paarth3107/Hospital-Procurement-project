@@ -2,6 +2,7 @@ import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
 import { switchView, ROLE_TABS } from "../nav.js";
+import { preselectVendor } from "./vendorQueuePage.js";
 import { esc, kicker, th, emptyRow, fmtDate, fmtDateTime } from "../kit.js";
 
 // ---- Staff dashboard: the prototype's command-centre layout, fed by
@@ -51,7 +52,8 @@ function buildTasks(s) {
   const allowed = new Set(ROLE_TABS[state.user?.role] || []);
   const tasks = [];
   const add = (view, task) => allowed.has(view) && tasks.push({ view, ...task });
-  if (s.vendors_pending_count) add("queue", { task: `Verify KYC — ${s.vendors_pending_count} registration(s)`, detail: "Documents awaiting review", ref: "Registrations", due: "today", hot: true });
+  for (const v of s.pending_vendors)
+    add("queue", { task: `${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`, detail: v.responded ? "Vendor answered your information request" : "New registration, documents awaiting review", ref: `Vendor #${v.id}`, due: "today", hot: true, vendorId: v.id });
   for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
   if (s.mappings_pending_count) add("mappings", { task: `Review ${s.mappings_pending_count} mapping request(s)`, detail: "Vendor category / item requests", ref: "Mapping", due: "open" });
   for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
@@ -108,6 +110,11 @@ function vendorBase(s) {
   </div>`;
 }
 
+function openTask(task) {
+  if (task.vendorId) preselectVendor(task.vendorId);
+  switchView(task.view);
+}
+
 export async function loadDashboard() {
   const root = document.getElementById("dashboard-root");
   const resultEl = document.getElementById("dashboard-result");
@@ -119,7 +126,7 @@ export async function loadDashboard() {
       ${pipeline(s)}
       <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${vendorBase(s)}</div>
     </div>`;
-    root.querySelectorAll("button[data-task]").forEach((b) => b.addEventListener("click", () => switchView(queue.tasks[Number(b.dataset.task)].view)));
+    root.querySelectorAll("button[data-task]").forEach((b) => b.addEventListener("click", () => openTask(queue.tasks[Number(b.dataset.task)])));
     resultEl.textContent = "";
   } catch (err) {
     showResult(resultEl, "Could not load dashboard: " + err.message, false);

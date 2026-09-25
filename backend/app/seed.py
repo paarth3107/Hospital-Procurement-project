@@ -27,7 +27,7 @@ DEMO_STAFF = [
 # authority policy). Seeded as data, not hardcoded in application logic, so
 # a hospital can reconfigure these without a code change.
 DEFAULT_APPROVAL_BANDS = [
-    {"min_value": 0.0, "max_value": 100_000.0, "tier": 1, "label": "Procurement Admin (self-attested)"},
+    {"min_value": 0.0, "max_value": 100_000.0, "tier": 1, "label": "Approving Authority (tier 1)"},
     {"min_value": 100_000.0, "max_value": 1_000_000.0, "tier": 2, "label": "Department Head"},
     {"min_value": 1_000_000.0, "max_value": None, "tier": 3, "label": "Department Head + Finance/Management Committee"},
 ]

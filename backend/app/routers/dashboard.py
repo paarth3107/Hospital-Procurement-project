@@ -13,11 +13,12 @@ from app.models.tender_line_item import TenderLineItem
 from app.models.vendor_mapping import MappingState, VendorMapping
 from app.models.vendor_rating import VendorRating
 from app.models.user_account import UserAccount
-from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus
+from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, VendorStatusHistory
 from app.schemas.dashboard import (
     DashboardHeldLineOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
+    DashboardPendingVendorOut,
     DashboardRecentPublishedOut,
     DashboardStatsOut,
 )
@@ -77,11 +78,20 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         if t.id in rounds_by_tender and can_approve_tier(user, rounds_by_tender[t.id].required_tier)
     ]
 
-    vendors_pending_count = (
-        db.query(Vendor)
-        .filter(Vendor.status.in_([VendorStatus.PENDING_VERIFICATION, VendorStatus.INFO_REQUESTED]))
-        .count()
+    # Only Pending Verification is work for the admin; Info Requested is
+    # waiting on the vendor (it comes back here when they respond).
+    pending_vendor_rows = (
+        db.query(Vendor).filter(Vendor.status == VendorStatus.PENDING_VERIFICATION).order_by(Vendor.created_at).all()
     )
+    vendors_pending_count = len(pending_vendor_rows)
+    responded_ids = {
+        vid
+        for (vid,) in db.query(VendorStatusHistory.vendor_id).filter(
+            VendorStatusHistory.vendor_id.in_([v.id for v in pending_vendor_rows]),
+            VendorStatusHistory.from_status == VendorStatus.INFO_REQUESTED,
+            VendorStatusHistory.to_status == VendorStatus.PENDING_VERIFICATION,
+        )
+    }
     registered_vendors_count = db.query(Vendor).count()
     bids_submitted_count = db.query(Bid).count()
 
@@ -111,6 +121,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         next_bid_close=open_tenders[0].bid_due_date if open_tenders else None,
         docs_expiring_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expiring"),
         docs_expired_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expired"),
+        pending_vendors=[DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids) for v in pending_vendor_rows[:10]],
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)
             for li in held_lines[:5]

@@ -33,6 +33,12 @@ class DashboardHeldLineOut(BaseModel):
     product_name: str
 
 
+class DashboardPendingVendorOut(BaseModel):
+    id: int
+    legal_name: str
+    responded: bool  # True = answering an Info Requested, False = a new registration
+
+
 class DashboardStatsOut(BaseModel):
     open_tenders_count: int
     pending_approval_count: int
@@ -49,6 +55,7 @@ class DashboardStatsOut(BaseModel):
     last_rating_update: datetime | None
     next_bid_close: datetime | None
     held_lines: list[DashboardHeldLineOut]
+    pending_vendors: list[DashboardPendingVendorOut]
     docs_expiring_count: int
     docs_expired_count: int
     open_tenders: list[DashboardOpenTenderOut]

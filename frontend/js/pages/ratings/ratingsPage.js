@@ -26,7 +26,7 @@ function weightStrip() {
 }
 
 function render() {
-  const canAdjust = state.user?.role === "procurement_admin";
+  const canAdjust = ["procurement_admin", "category_manager"].includes(state.user?.role);
   const cards = vendors.length
     ? vendors.map((v) => scorecardHtml(v, ratingByVendor.get(v.id), type, canAdjust)).join("")
     : '<div class="ep-pane ep-pane-pad hint">No vendors to rate yet.</div>';

@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from app.models.vendor import VendorStatus
 
@@ -171,6 +171,41 @@ class VendorOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# Personal / financial identifiers staff must not see by default. The staff
+# API returns MASK for these; a staff member re-enters their own password to
+# reveal one (POST /vendors/{id}/reveal). The vendor's own views are unmasked.
+SENSITIVE_FIELDS = ("gstin", "pan", "bank_account_number", "bank_ifsc", "phone", "escalation_contact_phone")
+MASK = "•" * 8
+
+
+class VendorMaskedOut(VendorOut):
+    """VendorOut as staff see it: sensitive fields replaced by MASK (null stays null)."""
+
+    @model_validator(mode="after")
+    def mask_sensitive(self):
+        for name in SENSITIVE_FIELDS:
+            if getattr(self, name):
+                setattr(self, name, MASK)
+        return self
+
+
+class VendorRevealRequest(BaseModel):
+    field: str
+    password: str
+
+    @field_validator("field")
+    @classmethod
+    def known_field(cls, v: str) -> str:
+        if v not in SENSITIVE_FIELDS:
+            raise ValueError("That field can't be revealed")
+        return v
+
+
+class VendorRevealOut(BaseModel):
+    field: str
+    value: str | None
 
 
 class VendorStatusHistoryOut(BaseModel):

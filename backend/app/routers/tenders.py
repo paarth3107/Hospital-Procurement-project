@@ -28,7 +28,7 @@ from app.services.eligibility import resolve_eligible_vendors
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
 
-TENDER_AUTHORS = (Role.PROCUREMENT_OFFICER, Role.PROCUREMENT_ADMIN, Role.SYSTEM_ADMIN)
+TENDER_AUTHORS = (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN)
 
 
 def _load_tender(tender_id: int, db: Session) -> Tender:
@@ -281,7 +281,7 @@ def _current_round(tender: Tender, db: Session) -> TenderApprovalRound:
 def _authorize_approver(user: UserAccount, required_tier: int) -> None:
     """Spec §11.2's illustrative bands, reframed onto this system's roles
     (CLAUDE.md open question 2 — exact bands/roles still to be finalized):
-    tier 1 (<=Rs.1,00,000) self-attested by Procurement Admin; tier 2/3
+    tier 1 (<=Rs.1,00,000) to tier 3 all resolve to the Approving Authority; tier 2/3
     (Department Head, and Department Head + Finance/Management Committee)
     both resolve to the Approving Authority role, disambiguated by
     UserAccount.approval_tier since this system has one Approving Authority

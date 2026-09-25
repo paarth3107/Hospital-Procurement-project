@@ -6,10 +6,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.vendor import DocumentStatus, Vendor, VendorDocType, VendorDocument
+from app.models.vendor import DocumentStatus, Vendor, VendorDocType, VendorDocument, VendorStatus
 from app.schemas.vendor_document import VendorDocumentOut
 from app.security import get_current_vendor
 from app.services import document_store
+from app.services.vendor_status import set_status
 
 router = APIRouter(prefix="/api/v1/vendor-portal/documents", tags=["vendor-documents"])
 
@@ -40,6 +41,11 @@ async def upload_document(
         label = ""
     content = await file.read()
     doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label)
+    # Spec 3.3 step 4: a vendor answering an "Info Requested" goes back into
+    # the admin's Pending Verification queue, so the reply shows up as work.
+    if vendor.status == VendorStatus.INFO_REQUESTED:
+        what = label or doc_type.value.replace("_", " ")
+        set_status(db, vendor, VendorStatus.PENDING_VERIFICATION, None, f"Vendor responded to the information request (uploaded: {what})")
     db.commit()
     db.refresh(doc)
     return doc

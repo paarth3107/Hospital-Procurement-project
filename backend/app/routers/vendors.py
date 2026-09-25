@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -20,17 +21,21 @@ from app.schemas.vendor import (
     VendorCreate,
     VendorInfoRequest,
     VendorLookupOut,
+    VendorMaskedOut,
     VendorOut,
+    VendorRevealOut,
+    VendorRevealRequest,
     VendorReinstatement,
     VendorRejection,
     VendorStatusHistoryOut,
 )
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
 from app.routers.vendor_documents import store_document
-from app.security import get_current_user, hash_password, require_role
+from app.security import get_current_user, hash_password, require_role, verify_password
 from app.services.expiry import reinstate_if_cleared
 from app.services.vendor_status import set_status
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
 # Category Manager now shares vendor-decision access with Procurement Admin
@@ -161,11 +166,11 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
     return vendor
 
 
-@router.get("", response_model=list[VendorOut])
+@router.get("", response_model=list[VendorMaskedOut])
 def list_vendors(
     status_filter: VendorStatus | None = None,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
     query = db.query(Vendor)
     if status_filter is not None:
@@ -193,11 +198,11 @@ def lookup_vendors(
     return query.order_by(Vendor.legal_name).all()
 
 
-@router.get("/{vendor_id}", response_model=VendorOut)
+@router.get("/{vendor_id}", response_model=VendorMaskedOut)
 def get_vendor(
     vendor_id: int,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
     vendor = db.get(Vendor, vendor_id)
     if not vendor:
@@ -228,7 +233,7 @@ def _unverified_mandatory_docs(vendor_id: int, db: Session) -> list[str]:
     ]
 
 
-@router.post("/{vendor_id}/approve", response_model=VendorOut)
+@router.post("/{vendor_id}/approve", response_model=VendorMaskedOut)
 def approve_vendor(
     vendor_id: int,
     db: Session = Depends(get_db),
@@ -253,7 +258,7 @@ def approve_vendor(
     return vendor
 
 
-@router.post("/{vendor_id}/reject", response_model=VendorOut)
+@router.post("/{vendor_id}/reject", response_model=VendorMaskedOut)
 def reject_vendor(
     vendor_id: int,
     payload: VendorRejection,
@@ -267,7 +272,7 @@ def reject_vendor(
     return vendor
 
 
-@router.post("/{vendor_id}/request-info", response_model=VendorOut)
+@router.post("/{vendor_id}/request-info", response_model=VendorMaskedOut)
 def request_info(
     vendor_id: int,
     payload: VendorInfoRequest,
@@ -296,7 +301,7 @@ def _load_vendor(vendor_id: int, db: Session) -> Vendor:
     return vendor
 
 
-@router.post("/{vendor_id}/suspend", response_model=VendorOut)
+@router.post("/{vendor_id}/suspend", response_model=VendorMaskedOut)
 def suspend_vendor(
     vendor_id: int,
     payload: VendorRejection,
@@ -316,36 +321,33 @@ def suspend_vendor(
     return vendor
 
 
-# The Procurement Officer is in charge of bringing a blacklisted vendor back
-# (System Admin as the usual catch-all); every other decision role handles
-# ordinary suspensions.
-BLACKLIST_REINSTATERS = (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN)
+# Bringing a blacklisted vendor back is the vendor-decision roles' job
+# (Procurement Admin and Category Manager are one job; System Admin catch-all).
+BLACKLIST_REINSTATERS = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 
 
-@router.post("/{vendor_id}/reinstate", response_model=VendorOut)
+@router.post("/{vendor_id}/reinstate", response_model=VendorMaskedOut)
 def reinstate_vendor(
     vendor_id: int,
     payload: VendorReinstatement,
     db: Session = Depends(get_db),
-    user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
+    user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
     """Suspended -> Active, or Blacklisted -> Active.
 
-    A blacklisted vendor can only be reinstated by the Procurement Officer
-    (or System Admin), and only with an explicit reason, which is written to
+    A blacklisted vendor is reinstated by Procurement Admin / Category
+    Manager (or System Admin), and only with an explicit reason, which is written to
     the vendor's status history. A suspension can be lifted by the usual
     decision roles."""
 
     vendor = _load_vendor(vendor_id, db)
     if vendor.status == VendorStatus.BLACKLISTED:
         if user.role not in BLACKLIST_REINSTATERS:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the Procurement Officer can reinstate a blacklisted vendor")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Procurement Admin / Category Manager can reinstate a blacklisted vendor")
         if not (payload.reason and payload.reason.strip()):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An explicit reason is required to reinstate a blacklisted vendor")
         set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {payload.reason.strip()}")
     elif vendor.status == VendorStatus.SUSPENDED:
-        if user.role == Role.PROCUREMENT_OFFICER:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="A suspension is lifted by Procurement Admin or Category Manager")
         set_status(db, vendor, VendorStatus.ACTIVE, user.id, (payload.reason or "").strip() or "Reinstated")
     else:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Only a Suspended or Blacklisted vendor can be reinstated (this one is '{vendor.status.value}')")
@@ -354,7 +356,7 @@ def reinstate_vendor(
     return vendor
 
 
-@router.post("/{vendor_id}/blacklist", response_model=VendorOut)
+@router.post("/{vendor_id}/blacklist", response_model=VendorMaskedOut)
 def blacklist_vendor(
     vendor_id: int,
     payload: VendorRejection,
@@ -363,7 +365,7 @@ def blacklist_vendor(
 ):
     """Bars an Active or Suspended vendor (spec 3.4 "Rejected / Blacklisted"):
     they can no longer log in, bid, be mapped or be invited. The way back is
-    reinstate (Procurement Officer, with an explicit reason)."""
+    reinstate (Procurement Admin / Category Manager, with an explicit reason)."""
 
     vendor = _load_vendor(vendor_id, db)
     if vendor.status not in (VendorStatus.ACTIVE, VendorStatus.SUSPENDED):
@@ -378,7 +380,7 @@ def blacklist_vendor(
 def vendor_status_history(
     vendor_id: int,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES, Role.PROCUREMENT_OFFICER)),
+    _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
     _load_vendor(vendor_id, db)
     rows = db.query(VendorStatusHistory).filter(VendorStatusHistory.vendor_id == vendor_id).order_by(VendorStatusHistory.at).all()
@@ -468,3 +470,21 @@ def reject_vendor_document(
     db.commit()
     db.refresh(doc)
     return doc
+
+
+@router.post("/{vendor_id}/reveal", response_model=VendorRevealOut)
+def reveal_sensitive_field(
+    vendor_id: int,
+    payload: VendorRevealRequest,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
+):
+    """Shows one masked identifier (GSTIN, PAN, bank account...) after the
+    staff member re-enters their own password. Wrong password -> 403 (not
+    401, which the UI treats as an expired session)."""
+
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password")
+    vendor = _load_vendor(vendor_id, db)
+    logger.info("staff %s revealed %s of vendor %s", user.email, payload.field, vendor.id)
+    return VendorRevealOut(field=payload.field, value=getattr(vendor, payload.field))
