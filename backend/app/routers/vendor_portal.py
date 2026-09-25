@@ -13,6 +13,7 @@ from app.models.vendor_mapping import VendorMapping
 from app.schemas.mapping import MappingOut, VendorMappingRequest
 from app.schemas.vendor_portal import BidCreate, BidOut, PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
+from app.services.audit import record
 from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
 
@@ -112,7 +113,7 @@ def request_my_mapping(
     """A vendor requests a category mapping or an item mapping for
     themselves -- the vendor is always the logged-in one."""
 
-    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, require_uploaded_documents=True)
+    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, require_uploaded_documents=True, requested_by=vendor)
 
 
 @router.get("/bids", response_model=list[BidOut])
@@ -160,6 +161,11 @@ def submit_bid(payload: BidCreate, vendor: Vendor = Depends(get_current_vendor),
 
     bid = Bid(tender_line_item_id=line_item.id, vendor_id=vendor.id, unit_price=payload.unit_price)
     db.add(bid)
+    db.flush()
+    record(
+        db, "bid.submitted", "bid", bid.id, actor=vendor, entity_label=f"#{tender.id} {tender.title} - {line_item.product.name}",
+        facility_id=tender.facility_id, meta={"tender_id": tender.id, "line_item_id": line_item.id},
+    )
     db.commit()
     db.refresh(bid)
     return _bid_out(bid)

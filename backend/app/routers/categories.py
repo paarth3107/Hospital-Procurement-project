@@ -6,7 +6,10 @@ from app.models.product_master import ProcurementType, ProductCategory
 from app.models.user_account import UserAccount
 from app.routers.products import CATALOG_MANAGERS
 from app.schemas.product import CategoryCreate, CategoryOut
+from app.services.audit import changed, record, snapshot
 from app.security import require_role
+
+CATEGORY_FIELDS = ("name", "procurement_type", "min_mapping_rating", "required_documents")
 
 router = APIRouter(prefix="/api/v1/categories", tags=["categories"])
 
@@ -36,6 +39,8 @@ def create_category(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This category already exists for that type")
     category = ProductCategory(**payload.model_dump(mode="json"))
     db.add(category)
+    db.flush()
+    record(db, "category.created", "category", category.id, actor=_user, entity_label=category.name, after=snapshot(category, CATEGORY_FIELDS))
     db.commit()
     db.refresh(category)
     return category
@@ -53,9 +58,13 @@ def update_category(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
     if payload.procurement_type != category.procurement_type:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A category's procurement type can't be changed")
+    old = snapshot(category, CATEGORY_FIELDS)
     category.name = payload.name
     category.min_mapping_rating = payload.min_mapping_rating
     category.required_documents = payload.required_documents
+    before, after = changed(old, snapshot(category, CATEGORY_FIELDS))
+    if after:
+        record(db, "category.updated", "category", category.id, actor=_user, entity_label=category.name, before=before, after=after)
     db.commit()
     db.refresh(category)
     return category

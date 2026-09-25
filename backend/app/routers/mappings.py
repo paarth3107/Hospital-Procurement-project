@@ -46,7 +46,7 @@ def request_mapping(
     vendor = db.get(Vendor, payload.vendor_id)
     if not vendor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
-    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id)
+    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, requested_by=_user)
 
 
 @router.get("", response_model=list[MappingOut])

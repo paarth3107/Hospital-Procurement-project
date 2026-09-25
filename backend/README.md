@@ -216,3 +216,28 @@ deactivate or change the role of your own account; at least one active System Ad
 remain. The admin sets the initial password and shares it directly (no email adapter yet;
 no forced change-on-first-login). Accounts are deactivated, never deleted, so past work
 keeps its author. UI: "Staff accounts" tab (`frontend/js/pages/staff/`).
+
+## Audit log (spec §12.6 / §14)
+
+One insert-only `audit_log` table. A database trigger rejects UPDATE, DELETE and TRUNCATE
+(so no application code path can change history); each row copies the actor's name and role
+at write time. Rows are written by `app/services/audit.py`'s `record()` from inside the
+service/router that makes the change, in the same transaction, so a rolled-back change leaves
+no audit row. Never recorded, whatever a caller passes: passwords, GSTIN/PAN/bank details/phones
+(masked elsewhere too) and bid prices (sealed until the deadline, spec §9.6).
+
+Recorded: vendor registration/status changes/document upload-verify-reject-view/sensitive-field
+reveals (and failed reveal attempts); mapping requested/approved/rejected/suspended/reinstated;
+catalog category and item create/update/(de)activate; manual rating entries; staff account
+create/update/deactivate/reactivate/password reset; tender create/update/line items/submit/
+approve/reject/withdraw/line publish, plus the eligibility computation at submission and approval
+(spec §6.5); bid submitted (no price); staff and vendor logins, failed and blocked logins.
+The pre-existing history tables (vendor status, mapping, rating, approval rounds) were copied in
+once by the migration, marked `imported`; the per-area history tables still drive their own screens.
+
+API (System Admin only, read-only): `GET /api/v1/audit-log` (filters: entity_type, entity_id,
+action, actor_type, actor_id, facility_id, date_from, date_to, search; paginated),
+`GET /audit-log/filters`, `GET /audit-log/export` (CSV). UI: "Audit log" tab
+(`frontend/js/pages/audit/`). Not yet audited: reading the log itself, and things not built yet
+(L1 selection/approval, PO export, override engine, notifications) -- add a `record()` call when
+each is built.

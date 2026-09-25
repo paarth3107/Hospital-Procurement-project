@@ -8,6 +8,7 @@ from app.models.user_account import Role, UserAccount
 from app.models.product_master import ProcurementType
 from app.models.vendor_rating import MATERIAL_CHANGE_THRESHOLD, RatingHistory, VendorRating
 from app.schemas.rating import RatingHistoryOut, RatingManualUpdate, RatingOut
+from app.services.audit import record
 from app.security import get_current_user, require_role
 from app.services.ratings import get_or_create_rating
 
@@ -72,8 +73,10 @@ def update_rating(
     if not changes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No manual rating fields were provided")
 
+    before, after = {}, {}
     for field, new_value in changes.items():
         old_value = getattr(rating, field)
+        before[field], after[field] = old_value, new_value
         material = old_value is not None and abs(new_value - old_value) >= MATERIAL_CHANGE_THRESHOLD
         if material and not (payload.comment and payload.comment.strip()):
             raise HTTPException(
@@ -94,7 +97,14 @@ def update_rating(
         setattr(rating, field, new_value)
 
     rating.last_manual_update_at = datetime.now(timezone.utc)
+    old_overall = rating.overall_score
     rating.recompute_overall()
+    record(
+        db, "rating.manual_entry", "rating", rating.id, actor=user,
+        entity_label=f"{rating.vendor.legal_name} — {rating.procurement_type.value}",
+        before={**before, "overall_score": old_overall}, after={**after, "overall_score": rating.overall_score},
+        reason=payload.comment.strip() if payload.comment else None, meta={"vendor_id": rating.vendor_id},
+    )
     db.commit()
     db.refresh(rating)
     return rating

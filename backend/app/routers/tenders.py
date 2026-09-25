@@ -23,6 +23,7 @@ from app.schemas.tender import (
     TenderOut,
 )
 from app.security import get_current_user, require_role
+from app.services.audit import changed, record, snapshot
 from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, escalate, resolve_required_tier
 from app.services.eligibility import resolve_eligible_vendors
 
@@ -48,6 +49,13 @@ def _total_estimated_value(tender: Tender) -> float:
     return sum((li.estimated_price or 0.0) * li.qty for li in tender.line_items)
 
 
+HEADER_KEYS = ("title", "department", "facility_id", "status", "bid_due_date", "tender_type")
+
+
+def _audit_label(tender: Tender) -> str:
+    return f"#{tender.id} {tender.title}"
+
+
 @router.post("", response_model=TenderOut, status_code=status.HTTP_201_CREATED)
 def create_tender(
     payload: TenderCreate,
@@ -58,6 +66,10 @@ def create_tender(
     db.add(tender)
     db.flush()
     _set_line_items(tender, payload.line_items, db)
+    record(
+        db, "tender.created", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        after={**snapshot(tender, HEADER_KEYS), "line_items": len(payload.line_items)},
+    )
     db.commit()
     db.refresh(tender)
     return tender
@@ -123,7 +135,7 @@ def update_draft_tender(
     tender_id: int,
     payload: TenderCreate,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
     """"Save as Draft" on an existing tender: every header field and the
     full line-item list are editable, but only while Draft."""
@@ -134,9 +146,16 @@ def update_draft_tender(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Tender is in status '{tender.status.value}'; it can only be edited while Draft",
         )
+    header_keys = list(payload.model_dump(exclude={"line_items"}).keys())
+    old = snapshot(tender, header_keys)
+    old_lines = len(tender.line_items)
     for field, value in payload.model_dump(exclude={"line_items"}).items():
         setattr(tender, field, value)
     _set_line_items(tender, payload.line_items, db)
+    before, after = changed(old, snapshot(tender, header_keys))
+    if old_lines != len(payload.line_items):
+        before["line_items"], after["line_items"] = old_lines, len(payload.line_items)
+    record(db, "tender.updated", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id, before=before, after=after)
     db.commit()
     db.refresh(tender)
     return tender
@@ -147,7 +166,7 @@ def add_line_item(
     tender_id: int,
     payload: LineItemCreate,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
     tender = _load_tender(tender_id, db)
     _require_draft(tender)
@@ -163,6 +182,11 @@ def add_line_item(
 
     line_item = TenderLineItem(tender_id=tender_id, **payload.model_dump())
     db.add(line_item)
+    db.flush()
+    record(
+        db, "tender.line_item_added", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        after={"line_item_id": line_item.id, "product": product.name, "qty": line_item.qty},
+    )
     db.commit()
     db.refresh(line_item)
     return line_item
@@ -210,15 +234,23 @@ def _persist_invites(tender: Tender, db: Session) -> list[str]:
     Phase 7's override engine), so this phase's block is unconditional."""
 
     zero_eligible: list[str] = []
+    resolution: list[dict] = []  # spec 6.5: the computation is kept as an audit record
     for li in tender.line_items:
         db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id).delete()
         eligible = resolve_eligible_vendors(li, db)
+        resolution.append(
+            {
+                "line_item_id": li.id,
+                "product": li.product.name,
+                "eligible": [{"vendor_id": e.vendor.id, "vendor": e.vendor.legal_name, "rating": e.rating_score} for e in eligible],
+            }
+        )
         if not eligible:
             zero_eligible.append(li.product.name)
             continue
         for e in eligible:
             db.add(TenderInvite(tender_line_item_id=li.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
-    return zero_eligible
+    return zero_eligible, resolution
 
 
 @router.post("/{tender_id}/submit-for-approval", response_model=TenderOut)
@@ -238,7 +270,7 @@ def submit_for_approval(
     # A line with zero eligible vendors doesn't block the tender: it is held
     # back (not published) while the other lines proceed. Only a tender where
     # NO line has an eligible vendor is refused.
-    zero_eligible = _persist_invites(tender, db)
+    zero_eligible, resolution = _persist_invites(tender, db)
     if len(zero_eligible) == len(tender.line_items):
         db.rollback()
         raise HTTPException(
@@ -261,6 +293,16 @@ def submit_for_approval(
             required_tier=required_tier,
             submitted_by_id=user.id,
         )
+    )
+    label = _audit_label(tender)
+    record(
+        db, "tender.eligibility_resolved", "tender", tender.id, actor=user, entity_label=label, facility_id=tender.facility_id,
+        after={"lines": resolution}, meta={"at": "submission", "round_number": tender.round_number},
+    )
+    record(
+        db, "tender.submitted_for_approval", "tender", tender.id, actor=user, entity_label=label, facility_id=tender.facility_id,
+        before={"status": TenderStatus.DRAFT}, after={"status": TenderStatus.PENDING_APPROVAL},
+        meta={"round_number": tender.round_number, "required_tier": required_tier, "total_estimated_value": total_value, "escalated": escalated},
     )
     db.commit()
     db.refresh(tender)
@@ -311,7 +353,7 @@ def approve_tender(
 
     # Spec §5.9 "approval-time re-check" — vendor/mapping/rating state may
     # have moved since submission.
-    zero_eligible = _persist_invites(tender, db)
+    zero_eligible, resolution = _persist_invites(tender, db)
     if len(zero_eligible) == len(tender.line_items):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -335,6 +377,19 @@ def approve_tender(
     tender.status = TenderStatus.PUBLISHED
     tender.published_at = datetime.now(timezone.utc)
     tender.consecutive_rejections = 0
+    label = _audit_label(tender)
+    record(
+        db, "tender.eligibility_resolved", "tender", tender.id, actor=user, entity_label=label, facility_id=tender.facility_id,
+        after={"lines": resolution}, meta={"at": "approval", "round_number": round_.round_number},
+    )
+    record(
+        db, "tender.approved", "tender", tender.id, actor=user, entity_label=label, facility_id=tender.facility_id,
+        before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": TenderStatus.PUBLISHED},
+        meta={
+            "round_number": round_.round_number, "required_tier": round_.required_tier,
+            "lines_published": len(invited_line_ids), "lines_held": len(tender.line_items) - len(invited_line_ids),
+        },
+    )
     db.commit()
     db.refresh(tender)
     return tender
@@ -360,6 +415,11 @@ def reject_tender(
     round_.decided_at = datetime.now(timezone.utc)
     tender.status = TenderStatus.DRAFT
     tender.consecutive_rejections += 1
+    record(
+        db, "tender.rejected", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": TenderStatus.DRAFT}, reason=payload.comments,
+        meta={"round_number": round_.round_number, "required_tier": round_.required_tier, "consecutive_rejections": tender.consecutive_rejections},
+    )
     db.commit()
     db.refresh(tender)
     return tender
@@ -369,7 +429,7 @@ def reject_tender(
 def withdraw_to_draft(
     tender_id: int,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
     """Lets a Published tender be pulled back to Draft for editing --
     line items can only be added/changed while Draft (see
@@ -396,6 +456,10 @@ def withdraw_to_draft(
     tender.published_at = None
     for li in tender.line_items:
         li.published = False
+    record(
+        db, "tender.withdrawn_to_draft", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        before={"status": TenderStatus.PUBLISHED}, after={"status": TenderStatus.DRAFT},
+    )
     db.commit()
     db.refresh(tender)
     return tender
@@ -406,7 +470,7 @@ def publish_held_line(
     tender_id: int,
     line_item_id: int,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
     """Publishes a line that was held back at approval time (it had no
     eligible vendor then) once vendors qualify. The tender itself was already
@@ -433,6 +497,11 @@ def publish_held_line(
     for e in eligible:
         db.add(TenderInvite(tender_line_item_id=line.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
     line.published = True
+    record(
+        db, "tender.line_published", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        before={"line_item_id": line.id, "published": False}, after={"line_item_id": line.id, "published": True, "product": line.product.name},
+        meta={"eligible_vendors": [{"vendor_id": e.vendor.id, "vendor": e.vendor.legal_name} for e in eligible]},
+    )
     db.commit()
     db.refresh(line)
     return line

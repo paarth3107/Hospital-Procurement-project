@@ -7,6 +7,7 @@ from app.models.vendor import Vendor, VendorStatus
 from app.schemas.auth import TokenResponse
 from app.schemas.vendor import VendorOut
 from app.security import create_access_token, get_current_vendor, verify_password
+from app.services.audit import record
 
 router = APIRouter(prefix="/api/v1/vendor-auth", tags=["vendor-auth"])
 
@@ -20,9 +21,15 @@ def vendor_login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depe
     email = form.username.strip().lower()
     vendor = db.query(Vendor).filter(Vendor.email == email).first()
     if not vendor or not vendor.hashed_password or not verify_password(form.password, vendor.hashed_password):
+        record(db, "auth.login_failed", "auth", vendor.id if vendor else None, actor_label=email, entity_label=email, meta={"kind": "vendor", "known_account": vendor is not None})
+        db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
     if vendor.status == VendorStatus.BLACKLISTED:
+        record(db, "auth.login_blocked", "auth", vendor.id, actor=vendor, entity_label=email, reason="Vendor is blacklisted", meta={"kind": "vendor"})
+        db.commit()
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This vendor account has been barred")
+    record(db, "auth.login", "auth", vendor.id, actor=vendor, entity_label=email, meta={"kind": "vendor"})
+    db.commit()
     return TokenResponse(access_token=create_access_token(subject=vendor.email, token_type="vendor"))
 
 

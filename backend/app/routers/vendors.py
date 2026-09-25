@@ -32,10 +32,15 @@ from app.schemas.vendor import (
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
 from app.routers.vendor_documents import store_document
 from app.security import get_current_user, hash_password, require_role, verify_password
+from app.services.audit import record
 from app.services.expiry import reinstate_if_cleared
 from app.services.vendor_status import set_status
 
 logger = logging.getLogger(__name__)
+
+
+def doc_label(doc: VendorDocument) -> str:
+    return doc.custom_label if doc.doc_type.value == "other" else doc.doc_type.value.replace("_", " ")
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
 # Category Manager now shares vendor-decision access with Procurement Admin
@@ -154,6 +159,10 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
     db.add(vendor)
     db.flush()
     db.add(VendorStatusHistory(vendor_id=vendor.id, from_status=None, to_status=VendorStatus.PENDING_VERIFICATION, reason="Registered"))
+    record(
+        db, "vendor.registered", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
+        after={"status": VendorStatus.PENDING_VERIFICATION}, reason="Registered",
+    )
     for doc_type, (field, upload) in uploads.items():
         raw_date = (text_fields.get(f"valid_till_{field}") or "").strip()
         try:
@@ -416,6 +425,11 @@ def download_vendor_document_for_review(
     doc = db.get(VendorDocument, doc_id)
     if not doc or doc.vendor_id != vendor_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    record(
+        db, "vendor.document_viewed", "vendor", vendor_id, actor=_user, entity_label=doc.vendor.legal_name,
+        after={"document": doc_label(doc), "file": doc.original_filename},
+    )
+    db.commit()
     return Response(
         content=doc.content,
         media_type=doc.content_type,
@@ -443,6 +457,10 @@ def verify_vendor_document(
     doc.reviewed_by_id = user.id
     doc.reviewed_at = datetime.now(timezone.utc)
     db.flush()
+    record(
+        db, "vendor.document_verified", "vendor", vendor_id, actor=user, entity_label=doc.vendor.legal_name,
+        before={"status": DocumentStatus.PENDING}, after={"status": DocumentStatus.VERIFIED}, meta={"document": doc_label(doc)},
+    )
     reinstate_if_cleared(db, doc.vendor, user.id)
     db.commit()
     db.refresh(doc)
@@ -467,6 +485,10 @@ def reject_vendor_document(
     doc.rejection_reason = payload.reason
     doc.reviewed_by_id = user.id
     doc.reviewed_at = datetime.now(timezone.utc)
+    record(
+        db, "vendor.document_rejected", "vendor", vendor_id, actor=user, entity_label=doc.vendor.legal_name,
+        after={"status": DocumentStatus.REJECTED}, reason=payload.reason, meta={"document": doc_label(doc)},
+    )
     db.commit()
     db.refresh(doc)
     return doc
@@ -483,8 +505,11 @@ def reveal_sensitive_field(
     staff member re-enters their own password. Wrong password -> 403 (not
     401, which the UI treats as an expired session)."""
 
-    if not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password")
     vendor = _load_vendor(vendor_id, db)
-    logger.info("staff %s revealed %s of vendor %s", user.email, payload.field, vendor.id)
+    if not verify_password(payload.password, user.hashed_password):
+        record(db, "vendor.reveal_failed", "vendor", vendor.id, actor=user, entity_label=vendor.legal_name, meta={"field": payload.field})
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password")
+    record(db, "vendor.sensitive_revealed", "vendor", vendor.id, actor=user, entity_label=vendor.legal_name, meta={"field": payload.field})
+    db.commit()
     return VendorRevealOut(field=payload.field, value=getattr(vendor, payload.field))

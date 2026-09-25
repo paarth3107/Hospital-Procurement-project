@@ -12,6 +12,7 @@ import { loadVendorProfile } from "./pages/vendorProfilePage.js";
 import { loadTenders } from "./pages/tenders/tendersPage.js";
 import { loadApprovals } from "./pages/approvalsPage.js";
 import { loadStaff } from "./pages/staff/staffPage.js";
+import { loadAuditLog } from "./pages/audit/auditPage.js";
 
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
@@ -23,6 +24,7 @@ const PAGE_TITLES = {
   tenders: ["Module 4", "E-tender creation"],
   approvals: ["Module 4B", "E-tender approval"],
   staff: ["Administration", "Staff accounts"],
+  audit: ["Administration", "Audit log"],
   "vendor-dashboard": ["Vendor portal", "Tender invitations"],
   "vendor-profile": ["Module 1", "Company profile & documents"],
 };
@@ -71,6 +73,7 @@ export function switchView(view) {
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
   if (view === "staff") loadStaff();
+  if (view === "audit") loadAuditLog();
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -87,7 +90,7 @@ export const ROLE_TABS = {
   category_manager: ["dashboard", "queue", "catalog", "mappings", "ratings"],
   procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings"],
   approving_authority: ["dashboard", "approvals"],
-  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals", "staff"],
+  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals", "staff", "audit"],
 };
 export const DEFAULT_VIEW_BY_ROLE = {
   procurement_officer: "dashboard",
@@ -96,7 +99,7 @@ export const DEFAULT_VIEW_BY_ROLE = {
   approving_authority: "dashboard",
   system_admin: "dashboard",
 };
-export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals", "staff"];
+export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "approvals", "staff", "audit"];
 
 // Vendor Registration/Login and Staff Login are reached only through the
 // landing page now (view-landing's two panels, plus a "back to home" link

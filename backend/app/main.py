@@ -10,6 +10,7 @@ from app.database import SessionLocal
 from app.services.expiry import sweep_all
 
 from app.routers import (
+    audit_log,
     auth,
     categories,
     dashboard,
@@ -67,6 +68,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(audit_log.router)
 app.include_router(staff.router)
 app.include_router(vendors.router)
 app.include_router(facilities.router)

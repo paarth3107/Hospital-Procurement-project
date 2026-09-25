@@ -1,4 +1,5 @@
 from app.models.approval_band import ApprovalBand
+from app.models.audit_log import AuditLog
 from app.models.bid import Bid, BidStatus
 from app.models.facility import Facility
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
@@ -20,6 +21,7 @@ from app.models.vendor_mapping import MappingState, VendorMapping, VendorMapping
 from app.models.vendor_rating import RatingHistory, VendorRating
 
 __all__ = [
+    "AuditLog",
     "Facility",
     "UserAccount",
     "Role",

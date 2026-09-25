@@ -5,7 +5,14 @@ from app.database import get_db
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.user_account import Role, UserAccount
 from app.schemas.product import ProductCreate, ProductOut
+from app.services.audit import changed, record, snapshot
 from app.security import get_current_user, require_role
+
+PRODUCT_AUDIT_FIELDS = (
+    "code", "name", "description", "procurement_type", "category_id", "sub_category", "unit_of_measure", "regulatory_class",
+    "approved_brands", "reorder_level", "price_band_min", "price_band_max", "min_mapping_rating", "required_documents",
+    "type_specific_attrs", "active",
+)
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
 
@@ -38,6 +45,8 @@ def create_product(
     _check_category(payload, db)
     product = ProductMaster(**payload.model_dump(mode="json"))
     db.add(product)
+    db.flush()
+    record(db, "product.created", "product", product.id, actor=_user, entity_label=f"{product.code} {product.name}", after=snapshot(product, PRODUCT_AUDIT_FIELDS))
     db.commit()
     db.refresh(product)
     return product
@@ -92,8 +101,12 @@ def update_product(
     if clash:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A catalog entry with this code already exists")
     _check_category(payload, db)
+    old = snapshot(product, PRODUCT_AUDIT_FIELDS)
     for field, value in payload.model_dump(mode="json").items():
         setattr(product, field, value)
+    before, after = changed(old, snapshot(product, PRODUCT_AUDIT_FIELDS))
+    if after:
+        record(db, "product.updated", "product", product.id, actor=_user, entity_label=f"{product.code} {product.name}", before=before, after=after)
     db.commit()
     db.refresh(product)
     return product
@@ -113,6 +126,7 @@ def deactivate_product(
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
     product.active = False
+    record(db, "product.deactivated", "product", product.id, actor=_user, entity_label=f"{product.code} {product.name}", before={"active": True}, after={"active": False})
     db.commit()
     db.refresh(product)
     return product
@@ -128,6 +142,7 @@ def activate_product(
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
     product.active = True
+    record(db, "product.activated", "product", product.id, actor=_user, entity_label=f"{product.code} {product.name}", before={"active": False}, after={"active": True})
     db.commit()
     db.refresh(product)
     return product

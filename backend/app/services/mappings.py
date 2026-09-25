@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, requirement_key, requirement_label
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
+from app.models.user_account import UserAccount
+from app.services.audit import record, staff_actor
 from app.services.expiry import expired_documents
 from app.services.ratings import rating_score
 
@@ -68,6 +70,7 @@ def create_pending_mapping(
     product_master_id: int | None,
     category_id: int | None,
     require_uploaded_documents: bool = False,
+    requested_by: UserAccount | Vendor | None = None,
 ) -> VendorMapping:
     """Creates a Pending mapping request for exactly one of item / category.
 
@@ -125,6 +128,11 @@ def create_pending_mapping(
     db.add(mapping)
     db.flush()
     db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=None, to_state=MappingState.PENDING))
+    db.refresh(mapping)
+    record(
+        db, "mapping.requested", "mapping", mapping.id, actor=requested_by or vendor, entity_label=_mapping_label(mapping),
+        after={"state": MappingState.PENDING}, meta={"vendor_id": vendor.id, "item_id": product_master_id, "category_id": category_id},
+    )
     db.commit()
     db.refresh(mapping)
     return mapping
@@ -217,13 +225,23 @@ def close_covered_item_requests(db: Session, category_mapping: VendorMapping, ac
     return closed
 
 
+def _mapping_label(mapping: VendorMapping) -> str:
+    target = mapping.product.name if mapping.product is not None else mapping.category.name
+    return f"{mapping.vendor.legal_name} — {target}"
+
+
 def log_transition(db: Session, mapping: VendorMapping, to_state: MappingState, actor_id: int | None, reason: str | None) -> None:
     """One state change, with its history row. Every transition goes through here."""
 
-    db.add(
-        VendorMappingHistory(
-            mapping_id=mapping.id, from_state=mapping.state, to_state=to_state, reason=reason, actor_id=actor_id
-        )
+    old_state = mapping.state
+    db.add(VendorMappingHistory(mapping_id=mapping.id, from_state=old_state, to_state=to_state, reason=reason, actor_id=actor_id))
+    if old_state == MappingState.SUSPENDED and to_state == MappingState.APPROVED:
+        action = "mapping.reinstated"
+    else:
+        action = f"mapping.{to_state.value}"
+    record(
+        db, action, "mapping", mapping.id, actor=staff_actor(db, actor_id), entity_label=_mapping_label(mapping),
+        before={"state": old_state}, after={"state": to_state}, reason=reason, meta={"version": mapping.version + 1},
     )
     mapping.state = to_state
     mapping.version += 1

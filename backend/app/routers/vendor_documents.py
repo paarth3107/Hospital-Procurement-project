@@ -10,6 +10,7 @@ from app.models.vendor import DocumentStatus, Vendor, VendorDocType, VendorDocum
 from app.schemas.vendor_document import VendorDocumentOut
 from app.security import get_current_vendor
 from app.services import document_store
+from app.services.audit import record
 from app.services.vendor_status import set_status
 
 router = APIRouter(prefix="/api/v1/vendor-portal/documents", tags=["vendor-documents"])
@@ -41,11 +42,16 @@ async def upload_document(
         label = ""
     content = await file.read()
     doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label)
+    record(
+        db, "vendor.document_uploaded", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
+        after={"status": DocumentStatus.PENDING},
+        meta={"document": label or doc_type.value.replace("_", " "), "file": file.filename, "valid_till": valid_till},
+    )
     # Spec 3.3 step 4: a vendor answering an "Info Requested" goes back into
     # the admin's Pending Verification queue, so the reply shows up as work.
     if vendor.status == VendorStatus.INFO_REQUESTED:
         what = label or doc_type.value.replace("_", " ")
-        set_status(db, vendor, VendorStatus.PENDING_VERIFICATION, None, f"Vendor responded to the information request (uploaded: {what})")
+        set_status(db, vendor, VendorStatus.PENDING_VERIFICATION, None, f"Vendor responded to the information request (uploaded: {what})", actor=vendor)
     db.commit()
     db.refresh(doc)
     return doc
