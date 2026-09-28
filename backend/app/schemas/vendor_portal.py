@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.models.bid import BidStatus
-from app.models.tender import TenderType
+from app.models.tender import TenderStatus, TenderType
 
 
 class PortalLineItemOut(BaseModel):
@@ -18,6 +18,7 @@ class PortalTenderOut(BaseModel):
     tender_id: int
     title: str
     tender_type: TenderType
+    status: TenderStatus
     bid_due_date: datetime | None
     can_bid: bool
     line_items: list[PortalLineItemOut]

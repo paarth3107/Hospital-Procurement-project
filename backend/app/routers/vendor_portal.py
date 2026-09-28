@@ -68,6 +68,7 @@ def list_open_tenders(vendor: Vendor = Depends(get_current_vendor), db: Session 
                 tender_id=tender.id,
                 title=tender.title,
                 tender_type=tender.tender_type,
+                status=tender.status,
                 bid_due_date=tender.bid_due_date,
                 can_bid=can_bid,
                 line_items=line_items_out,

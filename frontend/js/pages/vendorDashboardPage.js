@@ -12,6 +12,12 @@ import { esc, tag, stateTag, th, emptyRow, fmtDateTime, inr } from "../kit.js";
 const root = () => document.getElementById("vendor-dashboard-root");
 const resultEl = () => document.getElementById("vendor-dashboard-result");
 
+// Tenders in one of these statuses are done -- nothing left to act on. Kept
+// out of "Open invitations" by default (they pile up forever otherwise);
+// a checkbox reveals them again without a refetch.
+const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
+let showClosed = false;
+
 const NOTES = {
   pending_verification: "Verification pending: your registration and documents are with our team for review. You'll be able to request categories once they're approved.",
   info_requested: "More information requested: check the note on your profile and re-upload any rejected documents under Company profile.",
@@ -55,69 +61,86 @@ function timeRemaining(iso) {
   return d > 0 ? `${d}d ${String(h).padStart(2, "0")}h` : `${h}h ${Math.floor((ms % 3600000) / 60000)}m`;
 }
 
+function render(note, tenders, bids, notes) {
+  const allLineRows = tenders.flatMap((t) => t.line_items.map((li) => ({ t, li })));
+  const closedCount = allLineRows.filter(({ t }) => CLOSED_TENDER_STATUSES.has(t.status)).length;
+  const lineRows = showClosed ? allLineRows : allLineRows.filter(({ t }) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const openLines = lineRows.filter(({ t }) => t.can_bid);
+  const soonest = tenders.filter((t) => t.can_bid && t.bid_due_date).map((t) => t.bid_due_date).sort()[0];
+
+  const banner = `<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center;border-left:3px solid #ec3013">
+    <div style="flex:1"><div style="font-size:14px;font-weight:800">${
+      lineRows.length ? `You have been invited to ${lineRows.length} line item(s) across ${new Set(lineRows.map(({ t }) => t.tender_id)).size} tender(s)` : "You have no open invitations yet"
+    }</div>
+      <div class="hint" style="margin-top:3px">You see only the lines you individually qualified for. Lines you are not mapped or rated for are not visible or biddable.</div></div>
+    <div style="text-align:right;flex:none">${'<div class="ep-k">Time remaining</div>'}<div style="font-size:22px;font-weight:800;color:#ae1800">${soonest ? timeRemaining(soonest) : "—"}</div></div>
+  </div>`;
+
+  const invitations = `<div class="ep-pane">
+    <div class="ep-pane-head"><span>Open invitations</span>
+      <div style="display:flex;align-items:center;gap:14px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
+          <input type="checkbox" id="show-closed-invites" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
+        </label>
+        <span class="ep-k">${openLines.length} biddable</span>
+      </div>
+    </div>
+    <table class="ep-table">${th("Tender", "Line item for you", "Type", "Closes", "Bid status", "")}<tbody>${
+      lineRows.length
+        ? lineRows
+            .map(({ t, li }) => {
+              const bs = li.bid_status;
+              const closed = CLOSED_TENDER_STATUSES.has(t.status);
+              const status = bs === "submitted" ? tag("Bid submitted", "pos") : bs === "draft" ? tag("Draft saved", "esc") : bs === "withdrawn" ? tag("Withdrawn", "neg") : t.can_bid ? tag("Not submitted", "att") : closed ? tag(t.status === "awarded" ? "Tender awarded" : "Closed, no award", "neg") : tag("Deadline passed", "neg");
+              const action = t.can_bid
+                ? `<button class="ep-b" ${bs ? "" : 'data-v="p"'} data-line="${li.line_item_id}">${bs === "submitted" ? "View / amend" : bs === "draft" ? "Continue bid" : bs === "withdrawn" ? "Reopen" : "Prepare bid"}</button>`
+                : bs
+                ? `<button class="ep-b" data-line="${li.line_item_id}">View</button>`
+                : "";
+              return `<tr>
+                <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
+                <td class="ep-cell" style="font-size:12.5px">${esc(li.product_name)} · ${li.qty}</td>
+                <td class="ep-cell" style="font-size:12px">${esc(t.tender_type)}</td>
+                <td class="ep-cell" style="font-size:12.5px">${fmtDateTime(t.bid_due_date)}</td>
+                <td class="ep-cell">${status}</td>
+                <td class="ep-cell" style="text-align:right">${action}</td></tr>`;
+            })
+            .join("")
+        : emptyRow(6, showClosed ? "No tenders you're invited to." : "No open tenders you're currently invited to.")
+    }</tbody></table>
+  </div>`;
+
+  const bidsPane = `<div class="ep-pane">
+    <div class="ep-pane-head"><span>Your bids</span><span class="ep-k">sealed until the deadline</span></div>
+    <table class="ep-table">${th("Tender", "Line item", "Qty", "Your unit price", "Status", "Outcome")}<tbody>${
+      bids.length
+        ? bids
+            .map(
+              (b) => `<tr><td class="ep-cell">${esc(b.tender_title)}</td><td class="ep-cell">${esc(b.product_name)}</td><td class="ep-cell">${b.qty}</td>
+                <td class="ep-cell" style="font-weight:700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px;font-weight:600">${b.outcome ? esc(b.outcome) : `<span class="ep-sub">${b.submitted_at ? "Awaiting result" : "—"}</span>`}</td></tr>`
+            )
+            .join("")
+        : emptyRow(6, "No bids yet.")
+    }</tbody></table>
+  </div>`;
+
+  root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${notificationsHtml(notes)}${banner}${invitations}${bidsPane}</div>`;
+  wireNotifications(root(), () => { loadVendorDashboard(); refreshChrome(); });
+  root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-profile"));
+  root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-profile"));
+  root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => openBid(Number(b.dataset.line))));
+  root().querySelector("#show-closed-invites")?.addEventListener("change", (e) => {
+    showClosed = e.target.checked;
+    render(note, tenders, bids, notes);
+  });
+}
+
 export async function loadVendorDashboard() {
   try {
     const vendor = await api("/vendor-auth/me");
     state.vendor = vendor;
     const [note, tenders, bids, notes] = await Promise.all([statusNote(vendor), api("/vendor-portal/tenders"), api("/vendor-portal/bids"), api("/vendor-portal/notifications")]);
-
-    const lineRows = tenders.flatMap((t) => t.line_items.map((li) => ({ t, li })));
-    const openLines = lineRows.filter(({ t }) => t.can_bid);
-    const soonest = tenders.filter((t) => t.can_bid && t.bid_due_date).map((t) => t.bid_due_date).sort()[0];
-
-    const banner = `<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center;border-left:3px solid #ec3013">
-      <div style="flex:1"><div style="font-size:14px;font-weight:800">${
-        lineRows.length ? `You have been invited to ${lineRows.length} line item(s) across ${tenders.length} tender(s)` : "You have no open invitations yet"
-      }</div>
-        <div class="hint" style="margin-top:3px">You see only the lines you individually qualified for. Lines you are not mapped or rated for are not visible or biddable.</div></div>
-      <div style="text-align:right;flex:none">${'<div class="ep-k">Time remaining</div>'}<div style="font-size:22px;font-weight:800;color:#ae1800">${soonest ? timeRemaining(soonest) : "—"}</div></div>
-    </div>`;
-
-    const invitations = `<div class="ep-pane">
-      <div class="ep-pane-head"><span>Open invitations</span><span class="ep-k">${openLines.length} biddable</span></div>
-      <table class="ep-table">${th("Tender", "Line item for you", "Type", "Closes", "Bid status", "")}<tbody>${
-        lineRows.length
-          ? lineRows
-              .map(({ t, li }) => {
-                const bs = li.bid_status;
-                const status = bs === "submitted" ? tag("Bid submitted", "pos") : bs === "draft" ? tag("Draft saved", "esc") : bs === "withdrawn" ? tag("Withdrawn", "neg") : t.can_bid ? tag("Not submitted", "att") : tag("Deadline passed", "neg");
-                const action = t.can_bid
-                  ? `<button class="ep-b" ${bs ? "" : 'data-v="p"'} data-line="${li.line_item_id}">${bs === "submitted" ? "View / amend" : bs === "draft" ? "Continue bid" : bs === "withdrawn" ? "Reopen" : "Prepare bid"}</button>`
-                  : bs
-                  ? `<button class="ep-b" data-line="${li.line_item_id}">View</button>`
-                  : "";
-                return `<tr>
-                  <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
-                  <td class="ep-cell" style="font-size:12.5px">${esc(li.product_name)} · ${li.qty}</td>
-                  <td class="ep-cell" style="font-size:12px">${esc(t.tender_type)}</td>
-                  <td class="ep-cell" style="font-size:12.5px">${fmtDateTime(t.bid_due_date)}</td>
-                  <td class="ep-cell">${status}</td>
-                  <td class="ep-cell" style="text-align:right">${action}</td></tr>`;
-              })
-              .join("")
-          : emptyRow(6, "No open tenders you're currently invited to.")
-      }</tbody></table>
-    </div>`;
-
-    const bidsPane = `<div class="ep-pane">
-      <div class="ep-pane-head"><span>Your bids</span><span class="ep-k">sealed until the deadline</span></div>
-      <table class="ep-table">${th("Tender", "Line item", "Qty", "Your unit price", "Status", "Outcome")}<tbody>${
-        bids.length
-          ? bids
-              .map(
-                (b) => `<tr><td class="ep-cell">${esc(b.tender_title)}</td><td class="ep-cell">${esc(b.product_name)}</td><td class="ep-cell">${b.qty}</td>
-                  <td class="ep-cell" style="font-weight:700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px;font-weight:600">${b.outcome ? esc(b.outcome) : `<span class="ep-sub">${b.submitted_at ? "Awaiting result" : "—"}</span>`}</td></tr>`
-              )
-              .join("")
-          : emptyRow(6, "No bids yet.")
-      }</tbody></table>
-    </div>`;
-
-    root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${notificationsHtml(notes)}${banner}${invitations}${bidsPane}</div>`;
-    wireNotifications(root(), () => { loadVendorDashboard(); refreshChrome(); });
-    root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-profile"));
-    root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-profile"));
-    root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => openBid(Number(b.dataset.line))));
+    render(note, tenders, bids, notes);
     resultEl().textContent = "";
     if (state.flash) {
       showResult(resultEl(), state.flash, true);
