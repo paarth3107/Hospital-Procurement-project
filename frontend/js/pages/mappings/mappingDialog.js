@@ -1,7 +1,7 @@
 import { api } from "../../api.js";
 import { esc, kicker, stateTag, typeTag, fmtDateTime, tag } from "../../kit.js";
 import { docLabel, entryKey, docKey } from "../../constants.js";
-import { mapAndApprove, approveMapping, rejectMapping, suspendMapping, reinstateMapping } from "./mappingActions.js";
+import { approveMapping, rejectMapping, suspendMapping, reinstateMapping } from "./mappingActions.js";
 
 // The detail dialog behind every matrix cell: facts, scope, versioned
 // history, and the one set of actions valid for the mapping's current state.
@@ -90,7 +90,10 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
   const state = mapping ? mapping.state : null;
   const b = (label, act, primary) => `<button class="ep-b"${primary ? ' data-v="p"' : ""} data-act="${act}">${label}</button>`;
   const actions = {
-    none: b("Map &amp; approve", "map", true),
+    // No "map & approve" from scratch here: a mapping only starts from the
+    // vendor's own request (Company profile → Category declaration). Staff
+    // review, they don't originate a request on the vendor's behalf.
+    none: "",
     pending: b("Reject", "reject") + b("Approve", "approve", true),
     approved: b("Suspend mapping", "suspend", true),
     suspended: b("Reinstate", "reinstate", true),
@@ -127,13 +130,16 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
       </div>
     </div>
     <div class="dlg-foot">
-      <div class="hint">This matrix is the single source of truth for who can be invited at tender time.</div>
+      <div class="hint">${
+        state
+          ? "This matrix is the single source of truth for who can be invited at tender time."
+          : `${esc(vendor.legal_name)} hasn't requested ${targetLabel}. There's nothing to approve until they do, from Company profile → Category declaration.`
+      }</div>
       <button class="ep-b" data-act="close">Close</button>${actions}
     </div>`;
   overlay.hidden = false;
 
   const run = {
-    map: () => mapAndApprove(vendor, isCategory ? { category_id: target.id } : { product_master_id: target.id }, targetLabel, { confirm: false }),
     approve: () => approveMapping(mapping),
     reject: () => rejectMapping(mapping),
     suspend: () => suspendMapping(mapping, vendor, targetLabel),
