@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.models.product_master import ProcurementType
 from app.models.tender import TenderStatus, TenderType
@@ -27,6 +27,16 @@ class LineItemCreate(BaseModel):
             raise ValueError("qty must be greater than zero")
         return v
 
+    @model_validator(mode="after")
+    def qcbs_needs_weights(self):
+        # Spec §9.4: QCBS's Technical/Price Weight is "configurable per line item" --
+        # caught here, at save time, rather than only at commercial-evaluation time
+        # (app/services/commercial_evaluation.py's own check) after bids have closed.
+        if self.technical_eval_method == TechnicalEvalMethod.QCBS:
+            if not self.technical_weight or not self.price_weight or self.technical_weight <= 0 or self.price_weight <= 0:
+                raise ValueError("A QCBS line needs a positive technical weight and price weight")
+        return self
+
 
 class TenderCreate(BaseModel):
     """Also the body of PUT (full replace of a Draft): line_items, when
@@ -43,6 +53,7 @@ class TenderCreate(BaseModel):
     max_invites: int | None = None
     publish_date: datetime | None = None
     bid_due_date: datetime | None = None
+    terms_and_conditions: str | None = None
     line_items: list[LineItemCreate] = []
 
 
@@ -59,6 +70,7 @@ class TenderOut(BaseModel):
     max_invites: int | None
     publish_date: datetime | None
     bid_due_date: datetime | None
+    terms_and_conditions: str | None
     published_at: datetime | None
     round_number: int
     created_at: datetime

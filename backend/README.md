@@ -393,3 +393,44 @@ own request (`POST /vendor-portal/mappings`, Company profile -> Category declara
 reject, suspend and reinstate an existing request exactly as before. `MappingCreate` (the now-unused staff-create schema)
 and `mapAndApprove` (frontend) were removed with it. The mapping dialog's "not mapped" cell shows an explanatory line
 instead of an action button.
+
+## Tender header/line fields exposed in the UI (spec §6.2-6.3.4, user-directed 2026-09-28)
+
+Backend fields that already existed but had no form control are now on the tender editor:
+- **Header:** Publish Date, Minimum vendors to invite, Maximum vendors to invite, and a new
+  **Terms & Conditions** free-text field (`Tender.terms_and_conditions`, migration `a3e6f0c2d9b4`) --
+  spec §6.2 names all four but none had a UI field before this. The E-Tender Approval review screen
+  shows Terms & Conditions and now warns (not blocks -- spec never describes Minimum's enforcement,
+  unlike Maximum's, §6.5 point 5) when a line's eligible-vendor count is below the configured minimum.
+- **Line item — new "Evaluation & award" row:** Technical evaluation method (Qualify/Disqualify /
+  Scored / QCBS, defaulted by procurement type per §9.2.1, editable), QCBS technical/price weights
+  (defaulted to the spec's 70/30 Asset / 60/40 Service starting points, §9.4), Split-Award allowed
+  (§6.3.4), and a per-line minimum rating threshold override (§6.3.4). These map onto
+  `TenderLineItem` columns that already drove Split-Award, QCBS and per-line-threshold behavior end
+  to end (evaluation, ranking, L1 award) but were previously only reachable by calling the API
+  directly -- there was no way for a real Procurement Officer to set any of them.
+- `LineItemCreate` now rejects a QCBS line with no positive technical/price weight at save time
+  (previously only failed later, at commercial-evaluation time, after bids had already closed).
+
+See `GAPS.md` for the fuller list this was pulled from and what's still open (the rest of the
+type-specific line fields, §6.3.1-6.3.3, are next -- planned as a generic per-type schema mirroring
+`app/schemas/product_attrs.py`'s existing pattern, not yet built).
+
+## Evaluation method locked after first publish (spec §9.4, tightened 2026-09-28)
+
+Spec §9.4: a line's technical evaluation method (and its QCBS weights / Split-Award flag) is "fixed
+per line item at tender creation... cannot change after publish without a governed override -- vendors
+always know upfront how they'll be evaluated." This was previously unenforced: since a Published
+tender with zero bids can be reverted to Draft (`withdraw-to-draft`, allowed when nothing has been
+protected yet) and freely re-edited, an Officer could revert, change a line's evaluation method,
+and republish -- exactly what §9.4 says shouldn't happen once vendors were told upfront.
+
+`app/routers/tenders.py`'s `_check_evaluation_lock()` now blocks that: once a tender has been
+**approved at least once** (checked against the permanent `tender_approval_rounds` history, not
+`Tender.published_at`, since `withdraw-to-draft` clears that field on every revert), a Draft-edit
+that changes `technical_eval_method`, `technical_weight`, `price_weight` or `split_award_allowed` on
+a line that already existed at that approval is refused (409), matched by catalog entry since line
+items have no stable id across saves. Unrelated edits (quantity, price, adding a brand-new line) are
+unaffected; a tender that was never approved stays freely editable. There's no governed-override path
+to lift this yet (spec §12's engine isn't built, see `GAPS.md`), so for now it's a hard block, not an
+override queue.

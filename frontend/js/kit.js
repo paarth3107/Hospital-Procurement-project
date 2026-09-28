@@ -10,10 +10,10 @@ export const kicker = (text) => `<div class="ep-k">${esc(text)}</div>`;
 export const tag = (text, tone = "") => `<span class="ep-tag"${tone ? ` data-t="${tone}"` : ""}>${esc(text)}</span>`;
 
 const STATE_TONE = {
-  active: "pos", approved: "pos", verified: "pos", published: "pos", accepted: "pos",
+  active: "pos", approved: "pos", verified: "pos", published: "pos", accepted: "pos", awarded: "pos",
   pending: "", pending_verification: "", draft: "", submitted: "",
   pending_approval: "att", info_requested: "esc", escalated: "esc",
-  rejected: "neg", suspended: "neg", blacklisted: "neg", withdrawn: "neg", expired: "neg", disqualified: "neg",
+  rejected: "neg", suspended: "neg", blacklisted: "neg", withdrawn: "neg", expired: "neg", disqualified: "neg", no_award: "neg",
 };
 export const stateTag = (state) => tag(String(state || "—").replace(/_/g, " "), STATE_TONE[state] ?? "");
 

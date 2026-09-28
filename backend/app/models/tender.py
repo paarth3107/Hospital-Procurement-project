@@ -41,6 +41,9 @@ class Tender(Base):
     status = Column(Enum(TenderStatus), nullable=False, default=TenderStatus.DRAFT)
     department = Column(String, nullable=True)
     awarded_at = Column(DateTime(timezone=True), nullable=True)
+    # Spec §6.2: payment terms, delivery terms, penalty clauses, validity period.
+    # Free text for now -- the spec lists these as prose terms, not a fixed field set.
+    terms_and_conditions = Column(Text, nullable=True)
 
     # Spec §6.2 — tender-wide defaults, overridable per line item.
     min_rating_threshold = Column(Float, nullable=False, default=0.0)

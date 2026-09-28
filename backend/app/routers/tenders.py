@@ -115,6 +115,48 @@ def _validate_line_item(payload: LineItemCreate, db: Session) -> None:
         )
 
 
+# Spec §9.4: a line's evaluation method (and its QCBS weights / Split-Award
+# flag) is "fixed per line item at tender creation... cannot change after
+# publish without a governed override" -- vendors are told upfront how
+# they'll be evaluated.
+LOCKED_EVAL_FIELDS = ("technical_eval_method", "technical_weight", "price_weight", "split_award_allowed")
+
+
+def _check_evaluation_lock(tender: Tender, items: list[LineItemCreate], db: Session) -> None:
+    """Once a tender has been approved/published at least once (invites were
+    sent), refuses a Draft-edit that changes one of LOCKED_EVAL_FIELDS on a
+    line that already existed then. Checked against approval-round history,
+    not Tender.published_at -- withdraw_to_draft clears that field on every
+    revert, but round history is permanent (spec §7.3: a round is never
+    overwritten), so it survives a revert-then-edit the way this rule needs
+    to. Matched by catalog entry, since a line item has no stable id across
+    saves (_set_line_items replaces the whole list every time) -- so this
+    also blocks the "remove and re-add the same item" way around it, which
+    is the point: there's no unapproved path, per spec §12."""
+
+    ever_published = (
+        db.query(TenderApprovalRound)
+        .filter(TenderApprovalRound.tender_id == tender.id, TenderApprovalRound.decision == RoundDecision.APPROVED)
+        .first()
+        is not None
+    )
+    if not ever_published:
+        return
+    old_by_product = {li.product_master_id: li for li in tender.line_items}
+    for item in items:
+        old = old_by_product.get(item.product_master_id)
+        if old is None or all(getattr(old, f) == getattr(item, f) for f in LOCKED_EVAL_FIELDS):
+            continue
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"'{old.product.name}': the technical evaluation method, its QCBS weights, and Split-Award allowed "
+                "can't change once this tender has been published -- vendors were already told how this line would "
+                "be evaluated. Changing it needs a governed override (spec §12), which isn't built yet."
+            ),
+        )
+
+
 def _set_line_items(tender: Tender, items: list[LineItemCreate], db: Session) -> None:
     """Replaces the tender's whole line-item list (Draft only -- callers
     check). Old rows go through the ORM so their persisted invites cascade
@@ -122,6 +164,7 @@ def _set_line_items(tender: Tender, items: list[LineItemCreate], db: Session) ->
 
     for item in items:
         _validate_line_item(item, db)
+    _check_evaluation_lock(tender, items, db)
     for old in list(tender.line_items):
         db.delete(old)
     db.flush()

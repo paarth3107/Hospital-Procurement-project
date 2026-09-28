@@ -173,11 +173,14 @@
                 <option value="rate_contract">Rate contract</option>
               </select></div>
             <div class="ep-field"><div class="ep-k">Department</div><input class="input" name="department"></div>
+            <div class="ep-field"><div class="ep-k">Publish date (optional)</div><input class="input" name="publish_date" type="datetime-local"></div>
             <div class="ep-field"><div class="ep-k">Bid due date</div><input class="input" name="bid_due_date" type="datetime-local"></div>
-            <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Title</div><input class="input" name="title" required></div>
-            <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Description</div><input class="input" name="description"></div>
             <div class="ep-field"><div class="ep-k">Default rating threshold</div><input class="input" name="min_rating_threshold" type="number" step="0.1" value="0"></div>
-            <div class="ep-field"><div class="ep-k">Max vendors to invite (optional)</div><input class="input" name="max_invites" type="number"></div>
+            <div class="ep-field"><div class="ep-k">Min vendors to invite (optional)</div><input class="input" name="min_invites" type="number" min="1"></div>
+            <div class="ep-field"><div class="ep-k">Max vendors to invite (optional)</div><input class="input" name="max_invites" type="number" min="1"></div>
+            <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Title</div><input class="input" name="title" required></div>
+            <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Description</div><input class="input" name="description"></div>
+            <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Terms &amp; conditions (optional)</div><textarea class="input" name="terms_and_conditions" rows="2" style="resize:vertical" placeholder="Payment terms, delivery terms, penalty clauses, validity period"></textarea></div>
           </div>
         </fieldset>
       </div>

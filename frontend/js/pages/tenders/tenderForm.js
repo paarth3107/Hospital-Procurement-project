@@ -90,10 +90,24 @@ export async function openTenderForm(tender) {
     el.tender_type.value = tender.tender_type;
     el.department.value = tender.department || "";
     el.min_rating_threshold.value = tender.min_rating_threshold;
+    el.min_invites.value = tender.min_invites ?? "";
     el.max_invites.value = tender.max_invites ?? "";
+    el.terms_and_conditions.value = tender.terms_and_conditions || "";
     el.bid_due_date.value = tender.bid_due_date ? toLocalInputValue(tender.bid_due_date) : "";
+    el.publish_date.value = tender.publish_date ? toLocalInputValue(tender.publish_date) : "";
     const items = await api(`/tenders/${tender.id}/line-items`);
-    setRows(items.map((li) => ({ product_master_id: li.product_master_id, qty: li.qty, estimated_price: li.estimated_price })));
+    setRows(
+      items.map((li) => ({
+        product_master_id: li.product_master_id,
+        qty: li.qty,
+        estimated_price: li.estimated_price,
+        technical_eval_method: li.technical_eval_method,
+        technical_weight: li.technical_weight,
+        price_weight: li.price_weight,
+        split_award_allowed: li.split_award_allowed,
+        min_rating_threshold_override: li.min_rating_threshold_override,
+      }))
+    );
     showTenderDetail(tender.id, tender.status);
   } else {
     startWithOneBlankRow();
@@ -164,7 +178,10 @@ function buildPayload() {
     tender_type: data.tender_type,
     department: data.department || null,
     min_rating_threshold: data.min_rating_threshold ? Number(data.min_rating_threshold) : 0,
+    min_invites: data.min_invites ? Number(data.min_invites) : null,
     max_invites: data.max_invites ? Number(data.max_invites) : null,
+    terms_and_conditions: data.terms_and_conditions?.trim() || null,
+    publish_date: data.publish_date ? new Date(data.publish_date).toISOString() : null,
     bid_due_date: data.bid_due_date ? new Date(data.bid_due_date).toISOString() : null,
     line_items: rowsForPayload(),
   };

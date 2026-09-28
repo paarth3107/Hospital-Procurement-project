@@ -2,22 +2,32 @@ import { esc, typeTag, inr } from "../../kit.js";
 
 // The line items inside the tender form, one prototype-style panel each:
 // header (L01, type tag, name, qty · budget), an editable attribute grid on
-// the left and the mandatory-attachment checklist for the line's type on the
-// right. Every field of every row is editable; rows live in an array that the
+// the left, the mandatory-attachment checklist for the line's type on the
+// right, and an "Evaluation & award" row below (spec §9.2.1, §9.4, §6.3.4).
+// Every field of every row is editable; rows live in an array that the
 // form module reads on save.
 let products = [];
-let rows = []; // [{ product_master_id, qty, estimated_price }]
+let rows = []; // see blankRow() for shape
 let onChange = () => {};
 
 const container = () => document.getElementById("tender-line-items");
-const blankRow = () => ({ product_master_id: null, qty: null, estimated_price: null });
+const blankRow = () => ({
+  product_master_id: null,
+  qty: null,
+  estimated_price: null,
+  technical_eval_method: null, // null = not chosen yet; defaulted by type once a catalog entry is picked
+  technical_weight: null,
+  price_weight: null,
+  split_award_allowed: false,
+  min_rating_threshold_override: null,
+});
 
 export const setCatalog = (list) => (products = list);
 export const getRows = () => rows;
 export const onLinesChanged = (fn) => (onChange = fn);
 
 export function setRows(newRows) {
-  rows = newRows;
+  rows = newRows.map((r) => ({ ...blankRow(), ...r }));
   render();
 }
 export function startWithOneBlankRow() {
@@ -33,9 +43,37 @@ const CHECKLIST = {
   service: ["Scope of Work (SOW) document", "Existing asset list for scope"],
 };
 
+// Spec §9.2.1: Item lines default to Qualify/Disqualify; Asset and Service
+// lines default to Scored Technical Ranking. Either can be changed freely --
+// this only picks a sensible starting point the first time a catalog entry
+// is chosen on a line.
+const DEFAULT_EVAL_METHOD = { item: "qualify_disqualify", asset: "scored", service: "scored" };
+// Spec §9.4's own suggested starting points.
+const DEFAULT_QCBS_WEIGHTS = { item: [70, 30], asset: [70, 30], service: [60, 40] };
+const EVAL_METHOD_LABEL = { qualify_disqualify: "Qualify / disqualify, then lowest price (L1)", scored: "Scored technical ranking, then lowest price (L1)", qcbs: "QCBS — combined technical + price score (C1)" };
+
 const productOf = (row) => products.find((p) => p.id === row.product_master_id);
 export const lineBudget = (row) => (row.qty && row.estimated_price ? row.qty * row.estimated_price : 0);
 export const totalBudget = () => rows.reduce((n, r) => n + lineBudget(r), 0);
+
+function evaluationBlock(row, i) {
+  const method = row.technical_eval_method || "qualify_disqualify";
+  const qcbs = method === "qcbs";
+  return `<div style="padding:14px;border-top:2px solid rgba(32,30,29,.4);display:grid;grid-template-columns:repeat(4,1fr);gap:12px 16px">
+    <div class="ep-field"><div class="ep-k">Technical evaluation</div>
+      <select class="input" data-field="technical_eval_method">${Object.entries(EVAL_METHOD_LABEL)
+        .map(([v, l]) => `<option value="${v}" ${method === v ? "selected" : ""}>${l}</option>`)
+        .join("")}</select></div>
+    ${
+      qcbs
+        ? `<div class="ep-field"><div class="ep-k">Technical weight</div><input class="input" data-field="technical_weight" type="number" min="0" step="1" value="${row.technical_weight ?? ""}"></div>
+           <div class="ep-field"><div class="ep-k">Price weight</div><input class="input" data-field="price_weight" type="number" min="0" step="1" value="${row.price_weight ?? ""}"></div>`
+        : `<div class="ep-field" style="grid-column:span 2"></div>`
+    }
+    <div class="ep-field"><div class="ep-k">Min. rating for this line (optional)</div><input class="input" data-field="min_rating_threshold_override" type="number" min="0" max="100" step="0.1" value="${row.min_rating_threshold_override ?? ""}" placeholder="tender default"></div>
+    <div class="ep-field" style="grid-column:span 4;display:flex;align-items:center"><label class="ep-check"><input type="checkbox" data-field="split_award_allowed" ${row.split_award_allowed ? "checked" : ""}> Split-Award allowed — this line's quantity may be divided across more than one vendor at L1 approval</label></div>
+  </div>`;
+}
 
 function panel(row, i) {
   const p = productOf(row);
@@ -74,6 +112,7 @@ function panel(row, i) {
         <div style="display:flex;flex-direction:column;gap:7px">${checklist}</div>
       </div>
     </div>
+    ${evaluationBlock(row, i)}
   </div>`;
 }
 
@@ -89,6 +128,11 @@ export function rowsForPayload() {
     procurement_type: productOf(li)?.procurement_type,
     qty: li.qty,
     estimated_price: li.estimated_price,
+    technical_eval_method: li.technical_eval_method || "qualify_disqualify",
+    technical_weight: li.technical_weight,
+    price_weight: li.price_weight,
+    split_award_allowed: !!li.split_award_allowed,
+    min_rating_threshold_override: li.min_rating_threshold_override,
   }));
 }
 
@@ -96,26 +140,51 @@ export function firstRowProblem() {
   for (const li of rows) {
     if (!li.product_master_id) return "Every line item needs a catalog entry (or remove the empty row).";
     if (!(li.qty > 0)) return "Every line item needs a quantity greater than zero.";
+    if (li.technical_eval_method === "qcbs" && (!(li.technical_weight > 0) || !(li.price_weight > 0))) {
+      return "A QCBS line needs both a technical weight and a price weight, greater than zero.";
+    }
   }
   return null;
 }
 
 // Typing updates the array and the panel's budget text without re-rendering
-// (which would steal focus); changing the catalog entry re-renders the panel
-// so its type tag and checklist follow.
+// (which would steal focus); changing the catalog entry, eval method or the
+// split-award checkbox re-renders the panel since those change what else is shown.
+const NUMERIC_FIELDS = new Set(["qty", "estimated_price", "technical_weight", "price_weight", "min_rating_threshold_override"]);
 container().addEventListener("input", (e) => {
   const panelEl = e.target.closest(".line-panel");
-  if (!panelEl || e.target.dataset.field === "product_master_id") return;
+  const field = e.target.dataset.field;
+  if (!panelEl || !field || !NUMERIC_FIELDS.has(field)) return;
   const i = Number(panelEl.dataset.index);
-  rows[i][e.target.dataset.field] = e.target.value === "" ? null : Number(e.target.value);
+  rows[i][field] = e.target.value === "" ? null : Number(e.target.value);
   panelEl.querySelector(".line-budget").textContent = `${rows[i].qty ? rows[i].qty : "—"} · budget ${lineBudget(rows[i]) ? inr(lineBudget(rows[i])) : "—"}`;
   onChange();
 });
 container().addEventListener("change", (e) => {
   const panelEl = e.target.closest(".line-panel");
-  if (!panelEl || e.target.dataset.field !== "product_master_id") return;
-  rows[Number(panelEl.dataset.index)].product_master_id = e.target.value === "" ? null : Number(e.target.value);
-  render();
+  const field = e.target.dataset.field;
+  if (!panelEl || !field) return;
+  const i = Number(panelEl.dataset.index);
+  if (field === "product_master_id") {
+    rows[i].product_master_id = e.target.value === "" ? null : Number(e.target.value);
+    const p = productOf(rows[i]);
+    if (p && !rows[i].technical_eval_method) {
+      rows[i].technical_eval_method = DEFAULT_EVAL_METHOD[p.procurement_type];
+    }
+    render();
+  } else if (field === "technical_eval_method") {
+    rows[i].technical_eval_method = e.target.value;
+    if (e.target.value === "qcbs" && !rows[i].technical_weight && !rows[i].price_weight) {
+      const p = productOf(rows[i]);
+      const [tw, pw] = DEFAULT_QCBS_WEIGHTS[p?.procurement_type || "item"];
+      rows[i].technical_weight = tw;
+      rows[i].price_weight = pw;
+    }
+    render();
+  } else if (field === "split_award_allowed") {
+    rows[i].split_award_allowed = e.target.checked;
+  }
+  onChange();
 });
 container().addEventListener("click", (e) => {
   const btn = e.target.closest(".remove-line-btn");

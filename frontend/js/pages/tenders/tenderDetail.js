@@ -73,17 +73,24 @@ async function loadRounds() {
 // Filter-chain style preview: one block per line with its eligible vendors.
 document.getElementById("preview-eligibility-btn").addEventListener("click", async () => {
   const el = document.getElementById("eligibility-preview");
+  // Read the saved tender's own min_invites -- spec §6.2 names the field but never
+  // describes enforcement (only Maximum has one, §6.5 point 5), so this is shown as
+  // a soft heads-up, not a block.
+  const minInvitesField = document.querySelector('#tender-form [name="min_invites"]');
+  const minInvites = minInvitesField?.value ? Number(minInvitesField.value) : null;
   try {
     const preview = await api(`/tenders/${tenderId}/eligibility-preview`);
     el.innerHTML = preview
       .map((p) => {
         const none = p.eligible_vendors.length === 0;
-        return `<div style="border-left:3px solid ${none ? "#ec3013" : "rgba(32,30,29,.4)"};padding:8px 12px;margin-bottom:10px;background:${none ? "rgba(236,48,19,.08)" : "rgba(32,30,29,.04)"}">
+        const short = !none && minInvites && p.eligible_vendors.length < minInvites;
+        return `<div style="border-left:3px solid ${none ? "#ec3013" : short ? "#ae7a00" : "rgba(32,30,29,.4)"};padding:8px 12px;margin-bottom:10px;background:${none ? "rgba(236,48,19,.08)" : "rgba(32,30,29,.04)"}">
           <div style="display:flex;justify-content:space-between;gap:12px"><b style="font-size:13px">${esc(p.product_name)}</b><span class="ep-sub">threshold ${p.threshold_applied}</span></div>
           ${
             none
               ? '<div style="font-size:12px;color:#ae1800;margin-top:3px">Zero vendors qualified — this line would be held back while the others go live.</div>'
-              : `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${p.eligible_vendors.map((v) => `<span class="ep-tag">${esc(v.legal_name)} · ${v.rating_score.toFixed(0)}</span>`).join("")}</div>`
+              : `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${p.eligible_vendors.map((v) => `<span class="ep-tag">${esc(v.legal_name)} · ${v.rating_score.toFixed(0)}</span>`).join("")}</div>
+                 ${short ? `<div style="font-size:12px;color:#ae7a00;margin-top:5px">Below the configured minimum of ${minInvites} vendor(s).</div>` : ""}`
           }
         </div>`;
       })

@@ -71,6 +71,12 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
         warnings.append(f"{head} no eligible vendor and would not be published: " + ", ".join(held))
     if unpriced:
         warnings.append(f"{unpriced} line(s) have no estimated price, so the total value used for the approval tier may be understated")
+    if tender.min_invites:
+        # Spec §6.2 names this field but never describes enforcement (only Maximum has
+        # described behavior, §6.5 point 5); treated as a visibility-only warning, not a block.
+        short = [l.product_name for l in lines if not l.held_back and len(l.eligible_vendors) < tender.min_invites]
+        if short:
+            warnings.append(f"{len(short)} line(s) have fewer eligible vendors than the configured minimum of {tender.min_invites}: " + ", ".join(short))
     if tender.bid_due_date is None:
         warnings.append("No bid due date is set")
     elif tender.bid_due_date < datetime.now(timezone.utc):
@@ -83,7 +89,8 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
         id=tender.id, title=tender.title, description=tender.description, tender_type=tender.tender_type, status=tender.status,
         department=tender.department, facility_name=facility.name, facility_code=getattr(facility, "legal_entity_code", None),
         min_rating_threshold=tender.min_rating_threshold, min_invites=tender.min_invites, max_invites=tender.max_invites,
-        publish_date=tender.publish_date, bid_due_date=tender.bid_due_date, created_by=names.get(tender.created_by_id), created_at=tender.created_at,
+        publish_date=tender.publish_date, bid_due_date=tender.bid_due_date, terms_and_conditions=tender.terms_and_conditions,
+        created_by=names.get(tender.created_by_id), created_at=tender.created_at,
         round_number=tender.round_number, consecutive_rejections=tender.consecutive_rejections, total_estimated_value=total, lines_without_price=unpriced,
         required_tier=required_tier, tier_label=tier_label, escalated=escalated,
         can_decide=bool(pending and can_approve_tier(user, required_tier)), warnings=warnings,
