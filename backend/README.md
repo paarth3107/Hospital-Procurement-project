@@ -467,3 +467,93 @@ request) naming the affected vendors.
 Not built: a floor/staleness flag when a vendor has zero records ever (spec §5.3 point 5 covers the
 manual sub-scores' "Stale -- Manual Update Due" state; Price Competitiveness instead just keeps the
 50.0 provisional default indefinitely until the first qualifying line closes).
+
+## Manual Override & Exception Approval Workflow Engine (spec §12) -- engine only, not wired yet
+
+Spec §12.1/§12.2: every manual override anywhere in this app (rating override, invite-list add, guest
+invite, technical score correction, late-submission exception, due-date extension, non-L1/C1 award
+override, PO re-export) is supposed to run through **one** common, configurable approval workflow
+rather than bespoke logic per module, and none of them takes effect on the record it modifies until
+that workflow reaches Approved. Until now none of this existed -- the handful of places that already
+anticipated it (e.g. `evaluation.py`'s technical-evaluation-lock message, `ratings.py`'s comment on why
+Price Competitiveness isn't in the manual-update endpoint, `po_files.py`'s re-export) just said so in a
+comment and hard-blocked or let the action through unconditionally instead.
+
+This pass builds the generic engine end-to-end and proves it works, but deliberately does not wire it
+into any of the 8 override types yet (user-directed 2026-09-28) -- see "What's not done" below.
+
+**Model** (`app/models/override.py`):
+- `OverrideType` -- the 8 types spec §12.3 names.
+- `OverrideTypeConfig` -- one configurable row per type: default approver role (+ tier, for
+  Approving Authority -- see below), whether that default is self-attested, the escalate-to role (+
+  tier), an optional escalation value/count threshold, and an SLA window in hours. Seeded in
+  `app/seed.py` with spec §12.3's own illustrative values (still to be finalized against the
+  hospital's real delegation-of-authority policy, same as `ApprovalBand` -- CLAUDE.md open question 2
+  names §12.3 explicitly). "Department Head" and "Finance/Management Committee" aren't separate roles
+  in this system (`user_account.py`'s Role enum has just one Approving Authority role); they map onto
+  `APPROVING_AUTHORITY` at tiers 2 and 3, the same tiers `DEFAULT_APPROVAL_BANDS` already uses for
+  E-Tender/L1 approval, so the two configurable matrices agree with each other.
+- `OverrideRequest` -- one workflow instance. `entity_type`/`entity_id` point at whatever record the
+  override concerns (a `VendorRating`, a `BidTechnicalResult`, a `PoDataFile`...) without an FK -- the
+  same polymorphic-reference pattern `AuditLog` already uses, so this is one table for every override
+  type rather than one per module. `proposed_change` is a free-form JSON before/after for
+  record-keeping/display only in this pass (see "What's not done").
+
+**Service** (`app/services/overrides.py`) implements spec §12.4's state machine:
+- `create_override()` -- validates a mandatory reason code + justification (§12.4 step 1), resolves
+  the required approver (§12.5: type → value/count band, where an optional `trigger_value` crosses
+  the configured `escalation_threshold` → resolves straight to the escalate-to role instead of the
+  default one, rather than starting low and escalating after the fact), and either lands in Pending
+  Approval or, for a self-attested type requested by someone who already holds the default approver's
+  own role/tier, auto-approves immediately -- still recorded as its own distinct Approved step (§12.5:
+  "auto-approved within that authority, not skipped"), not silently bypassed.
+- `approve_override()` / `reject_override()` -- gated by `_can_decide()` (same shape as
+  `approval_matrix.py`'s `can_approve_tier`: System Admin is a catch-all, otherwise the decider must
+  hold the currently-resolved role at least at the currently-resolved tier); rejection requires a
+  reason (§12.4 step 4), approval doesn't touch the target record (§12.1 -- see "What's not done").
+- `escalate_override()` -- manual escalation to the configured next role (§12.4 step 5's "value/count
+  crosses a trigger" side, exercised by a human since no override type is wired to real business data
+  yet to trigger it automatically); this engine models one escalation tier per type (matching spec
+  §12.3's table, which never lists more than one "Escalates To" per type), so an already-escalated
+  request can't be escalated again.
+- `_apply_sla()` -- the other half of step 5 plus step 6 (Expired): lazily evaluated whenever an
+  override is read or listed, since this app has no scheduler/cron. A request left past its
+  `sla_due_at` auto-escalates once if there's somewhere to escalate to, or auto-expires (logged,
+  discarded) if there isn't or it's already been escalated.
+- Every transition is written to the existing audit log (`override.requested/.approved/.rejected/
+  .escalated/.expired`), not a separate log -- spec §12.6 says the override trail "feeds the same
+  audit log referenced under Auditability."
+
+**API** (`app/routers/overrides.py`, `/api/v1/overrides`): `POST` to request (any authenticated staff
+role -- which roles typically request which type is left to whichever module eventually wires a type
+in, not hardcoded in this generic engine, per CLAUDE.md "one reusable... engine, not bespoke logic per
+module"), `GET`/`GET /{id}` to list/inspect (filterable by status/type), `POST /{id}/approve`,
+`/reject`, `/escalate`. No module's own screens surface these yet, so this endpoint is currently the
+only way to see one.
+
+Verified end-to-end (temp script, cleaned up after): ordinary request → role-gated approve; rejection
+without a reason blocked; a self-attested guest-invite request auto-approving under the requester's
+own authority; a large `trigger_value` resolving a late-submission-exception request straight to the
+escalated tier at creation time; manual escalation, blocking a second escalation, and the escalated
+tier's approver (but not a lower tier) being able to decide it; System Admin approving regardless of
+the resolved role; validation on blank reason code/justification; and every transition landing in the
+audit log.
+
+**What's not done (deliberate, this pass):**
+- **None of the 8 override types is wired to actually change its target record on Approved.** The
+  workflow completes, but e.g. approving a Price Competitiveness override doesn't touch
+  `vendor_ratings.price_competitiveness`, and approving a technical score correction doesn't re-open
+  the line or update `BidTechnicalResult`. Per spec §12.1 the target record is untouched until Approved
+  regardless, so this is the same workflow either way -- what's missing is the small "on Approved, do
+  X" adapter per type, each against a feature that mostly already exists (rating override, technical
+  score correction, PO re-export) or doesn't yet (guest invite, invite-list add, late-submission
+  exception, due-date extension). Tracked in `GAPS.md`.
+- **Non-L1/Non-C1 award override is a special case, not just unwired.** L1 Approval already lets the
+  Approving Authority pick the Officer's recommended alternate over the system's L1 as a direct,
+  one-step decision with a mandatory reason -- built and tested before this engine existed. Routing
+  that through here instead would change an already-shipped flow's behavior, not just add a hook, so
+  it's flagged in `GAPS.md` rather than done silently.
+- No staff-facing "My Overrides" / "Pending My Approval" screen -- the dashboard (`dashboard.py`)
+  isn't touched by this pass, since there's nothing real for it to surface yet with no type wired in.
+- The SLA sweep is lazy (evaluated on read), not a background job -- consistent with how this app has
+  no scheduler anywhere else yet either.

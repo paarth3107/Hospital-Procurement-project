@@ -37,12 +37,23 @@ always-blank "Delivery / Service Terms" field.
 
 ## 2. Whole modules not started
 
-- **Manual Override & Exception Approval Workflow Engine (spec §12).** The one reusable
-  Requested -> Pending Approval -> Approved/Rejected/Escalated/Expired workflow every override in
-  the spec is supposed to route through (rating override, non-L1 award, late bid, PO re-export,
-  technical score correction, due-date extension, guest invite). Today those spots take a mandatory
-  *reason* inline and go straight through, with no separate approver, no queue, no escalation state
-  machine. Largest structural piece missing.
+- ~~Manual Override & Exception Approval Workflow Engine (spec §12)~~ → **ENGINE BUILT, not yet
+  wired into any of the 8 override types' target records.** `app/models/override.py`,
+  `app/services/overrides.py`, `app/routers/overrides.py` (`/api/v1/overrides`) implement the full
+  generic Requested → Pending Approval → Approved/Rejected/Escalated/Expired state machine (spec
+  §12.4), role/tier resolution + value-band escalation-at-request-time + manual escalation + lazy
+  SLA-breach auto-escalate/expire (spec §12.5), and audit logging (spec §12.6) — see `backend/README.md`
+  for the full writeup and what "not wired" means concretely. `OverrideTypeConfig` (seeded in
+  `app/seed.py`) holds spec §12.3's table as hospital-configurable data. Still to do, per override
+  type: the actual "apply this to the target record on Approved" adapter (e.g. technical score
+  correction should re-open a closed line's score; PO re-export should require approval before
+  `po_files.re_export()` runs instead of after) — each is its own small piece of wiring against an
+  already-built feature, deferred as a deliberately separate pass (user-directed 2026-09-28: build the
+  engine first, wire types in one at a time later). Non-L1/Non-C1 award override is a special case —
+  it's *already* a working, tested direct-decision flow (Approving Authority picks L1 or the
+  Officer's alternate at L1 Approval) that predates this engine; retrofitting it to route through here
+  instead would be a behavior change to a shipped flow, not just wiring, so it needs its own
+  conversation before touching it.
 - **Guest Invite (spec §6.7).** Not started. CLAUDE.md already records the user's override decision
   (follow the reference prototype: guest may bid, PO blocked until KYC) — decision made, not built.
 - **Open Tender (spec §6.8).** Public self-registration link/QR, not started. Open question: whether

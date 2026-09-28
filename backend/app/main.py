@@ -19,6 +19,7 @@ from app.routers import (
     facilities,
     health,
     mappings,
+    overrides,
     products,
     po_files,
     ratings,
@@ -93,6 +94,7 @@ app.include_router(po_files.router)
 app.include_router(vendor_notifications.router)
 app.include_router(vendor_documents.router)
 app.include_router(dashboard.router)
+app.include_router(overrides.router)
 
 frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
 if frontend_dir.exists():

@@ -5,8 +5,10 @@ Run with: venv/Scripts/python.exe -m app.seed
 from app.database import SessionLocal
 from app.models.approval_band import ApprovalBand
 from app.models.facility import Facility
+from app.models.override import OverrideType, OverrideTypeConfig
 from app.models.user_account import Role, UserAccount
 from app.security import hash_password
+from app.services.overrides import DEFAULT_SLA_HOURS
 
 ADMIN_EMAIL = "admin@medsource.local"
 ADMIN_PASSWORD = "changeme123"
@@ -30,6 +32,67 @@ DEFAULT_APPROVAL_BANDS = [
     {"min_value": 0.0, "max_value": 100_000.0, "tier": 1, "label": "Approving Authority (tier 1)"},
     {"min_value": 100_000.0, "max_value": 1_000_000.0, "tier": 2, "label": "Department Head"},
     {"min_value": 1_000_000.0, "max_value": None, "tier": 3, "label": "Department Head + Finance/Management Committee"},
+]
+
+# Spec §12.3's table, as hospital-configurable data (CLAUDE.md: "model as
+# config"). "Department Head" and "Finance/Management Committee" aren't
+# separate roles here (see user_account.py's own note) -- they map onto
+# APPROVING_AUTHORITY at the same tiers DEFAULT_APPROVAL_BANDS already uses
+# (tier 2 = Department Head, tier 3 = + Finance/Management Committee), so the
+# two configurable matrices stay consistent with each other. Thresholds are
+# illustrative starting points (spec's own footnote, CLAUDE.md open question
+# 2) — trigger_value's meaning is per-type and documented per row; a few
+# types (score-correction changing the qualification outcome, PO re-export
+# changing price/qty) are pass/fail, not a scalar band, so they have no
+# numeric threshold and rely on whichever module wires them in calling
+# escalate_override() explicitly instead.
+DEFAULT_OVERRIDE_CONFIGS = [
+    {
+        "override_type": OverrideType.PRICE_COMPETITIVENESS_OVERRIDE,
+        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
+        "escalation_threshold": 15.0,  # score-point range the adjustment must not exceed
+    },
+    {
+        "override_type": OverrideType.INVITE_LIST_MANUAL_ADD,
+        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
+        "escalation_threshold": 200_000.0,  # cumulative override value on the tender
+    },
+    {
+        "override_type": OverrideType.GUEST_VENDOR_INVITE,
+        "default_approver_role": Role.PROCUREMENT_OFFICER, "self_attested": True,
+        "escalate_to_role": Role.PROCUREMENT_ADMIN,
+        "escalation_threshold": 3.0,  # guest count per tender
+    },
+    {
+        "override_type": OverrideType.TECHNICAL_SCORE_CORRECTION,
+        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
+    },
+    {
+        "override_type": OverrideType.LATE_SUBMISSION_EXCEPTION,
+        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
+        "escalation_threshold": 1_000_000.0,  # tender value
+    },
+    {
+        "override_type": OverrideType.DUE_DATE_EXTENSION,
+        "default_approver_role": Role.PROCUREMENT_OFFICER, "self_attested": True,
+        "escalate_to_role": Role.PROCUREMENT_ADMIN,
+        "escalation_threshold": 7.0,  # cumulative extension days requested
+    },
+    {
+        "override_type": OverrideType.NON_L1_AWARD_OVERRIDE,
+        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 3,
+        "escalation_threshold": 1_000_000.0,  # award value
+    },
+    {
+        "override_type": OverrideType.PO_REEXPORT,
+        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
+    },
 ]
 
 
@@ -85,6 +148,14 @@ def run():
             print(f"Seeded {len(DEFAULT_APPROVAL_BANDS)} group-wide approval bands")
         else:
             print("Approval bands already exist")
+
+        if db.query(OverrideTypeConfig).count() == 0:
+            for config in DEFAULT_OVERRIDE_CONFIGS:
+                db.add(OverrideTypeConfig(sla_hours=DEFAULT_SLA_HOURS, **config))
+            db.commit()
+            print(f"Seeded {len(DEFAULT_OVERRIDE_CONFIGS)} override type configs")
+        else:
+            print("Override type configs already exist")
     finally:
         db.close()
 

@@ -4,6 +4,7 @@ from app.models.bid_evaluation import BidAttachmentView, BidEvaluation, BidTechn
 from app.models.award import AwardAllocation, AwardRound, Notification, PoDataFile
 from app.models.bid import Bid, BidAttachment, BidAttachmentKind, BidStatus
 from app.models.facility import Facility
+from app.models.override import OverrideRequest, OverrideStatus, OverrideType, OverrideTypeConfig
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
 from app.models.tender import Tender, TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
@@ -25,6 +26,10 @@ from app.models.vendor_rating import PriceCompetitivenessRecord, RatingHistory, 
 __all__ = [
     "AuditLog",
     "Facility",
+    "OverrideRequest",
+    "OverrideStatus",
+    "OverrideType",
+    "OverrideTypeConfig",
     "UserAccount",
     "Role",
     "Vendor",
