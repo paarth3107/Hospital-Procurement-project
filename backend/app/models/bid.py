@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import JSON, Column, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -53,8 +53,10 @@ class Bid(Base):
     quote_validity_days = Column(Integer, nullable=True)
     payment_terms = Column(Text, nullable=True)
 
-    # Technical
-    technical_compliance = Column(Text, nullable=True)  # compliance statement
+    # Technical (spec §8.2 "Technical Compliance Statement" — captured here as a
+    # tickbox plus, only when unticked, the specific deviations from the spec).
+    compliant_full = Column(Boolean, nullable=False, default=False)  # vendor confirms full compliance, no deviations
+    technical_compliance = Column(Text, nullable=True)  # deviations / what is not compliant, when compliant_full is False
     brand_offered = Column(String, nullable=True)
     # Type-specific answers (shelf life for Items, warranty/installation/
     # training/spares for Assets, method statement/manpower/SLA for Services);

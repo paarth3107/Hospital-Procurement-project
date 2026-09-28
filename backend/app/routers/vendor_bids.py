@@ -20,7 +20,7 @@ from app.services.audit import record
 
 router = APIRouter(prefix="/api/v1/vendor-portal/bids", tags=["vendor-bids"])
 
-BID_FIELDS = ("unit_price", "gst_percent", "other_duties", "delivery_lead_days", "quote_validity_days", "payment_terms", "technical_compliance", "brand_offered")
+BID_FIELDS = ("unit_price", "gst_percent", "other_duties", "delivery_lead_days", "quote_validity_days", "payment_terms", "compliant_full", "technical_compliance", "brand_offered")
 MAX_ATTACHMENTS_PER_BID = 20
 
 
@@ -141,6 +141,8 @@ def save_bid(line_item_id: int, payload: BidSave, vendor: Vendor = Depends(get_c
     changed += [f"details.{k}" for k in sorted(set(bid.details or {}) | set(new_details)) if (bid.details or {}).get(k) != new_details.get(k)]
     for f in BID_FIELDS:
         setattr(bid, f, getattr(payload, f))
+    if bid.compliant_full:  # fully compliant: no deviations text to keep
+        bid.technical_compliance = None
     bid.details = new_details
 
     was_submitted = bid.status == BidStatus.SUBMITTED

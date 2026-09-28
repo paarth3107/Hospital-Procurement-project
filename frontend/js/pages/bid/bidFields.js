@@ -54,13 +54,19 @@ export function technicalHtml(ctx, bid, req, locked) {
           field("Manpower deployment plan", area("details.manpower_plan", d.manpower_plan, locked, 3), { span: 3 }),
           field("SLA commitment", area("details.sla_commitment", d.sla_commitment, locked, 3), { span: 3 }),
         ];
+  const compliantFull = bid?.compliant_full ?? false;
   return `<div class="ep-form-grid" style="grid-template-columns:repeat(3,1fr)">
     ${typeFields.join("")}
-    ${field(
-      "Technical compliance statement",
-      area("technical_compliance", bid?.technical_compliance, locked),
-      { required: need("technical_compliance"), span: 3, hint: req.compliance_required ? "Required for this line (RFP or technically scored). Attach the supporting document below." : "Optional for this line." }
-    )}
+    <div class="ep-field" style="grid-column:span 3">
+      ${kicker("Technical compliance" + (req.compliance_required ? " *" : ""))}
+      ${check("compliant_full", "Meets the specification fully — no deviations", compliantFull, locked)}
+      <div class="hint" style="margin-top:4px">${req.compliance_required ? "Required for this line (RFP or technically scored)." : "Optional for this line."} Attach the supporting document below.</div>
+    </div>
+    <div class="ep-field" id="compliance-deviation-field" style="grid-column:span 3" ${compliantFull ? "hidden" : ""}>
+      ${kicker("What is not compliant / deviations from the specification" + (need("technical_compliance") ? " *" : ""))}
+      ${area("technical_compliance", bid?.technical_compliance, locked)}
+      <div class="hint" style="margin-top:4px">Describe every point where your bid deviates from the specification. Leave the box above ticked if there are none.</div>
+    </div>
   </div>`;
 }
 
@@ -85,10 +91,23 @@ export function readBid(form) {
     delivery_lead_days: num(v("delivery_lead_days")),
     quote_validity_days: num(v("quote_validity_days")),
     payment_terms: v("payment_terms").trim() || null,
-    technical_compliance: v("technical_compliance").trim() || null,
+    compliant_full: !!on("compliant_full"),
+    technical_compliance: on("compliant_full") ? null : v("technical_compliance").trim() || null,
     brand_offered: form.elements["brand_offered"] ? v("brand_offered").trim() || null : null,
     details,
   };
+}
+
+// Toggling "meets the specification fully" shows/hides the deviations box.
+export function wireCompliance(form) {
+  const box = form.elements["compliant_full"];
+  const devField = form.querySelector("#compliance-deviation-field");
+  if (!box || !devField) return;
+  const sync = () => {
+    devField.hidden = box.checked;
+    if (box.checked) form.elements["technical_compliance"].value = "";
+  };
+  box.addEventListener("change", sync);
 }
 
 // Live total / landed price beside the form (the vendor's own numbers only).

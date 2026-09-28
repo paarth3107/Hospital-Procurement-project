@@ -167,7 +167,7 @@ def review_bid(bid_id: int, db: Session = Depends(get_db), user: UserAccount = D
     ]
     return BidReviewOut(
         bid_id=bid.id, vendor_name=bid.vendor.legal_name, rating=rating_score(bid.vendor_id, line.procurement_type, db),
-        brand_offered=bid.brand_offered, technical_compliance=bid.technical_compliance, details=bid.details or {},
+        brand_offered=bid.brand_offered, compliant_full=bid.compliant_full, technical_compliance=bid.technical_compliance, details=bid.details or {},
         attachments=attachments, all_opened=all(a.opened for a in attachments),
         criteria=[CriterionOut(key=c.key, label=c.label, weight=c.weight, auto=c.auto, optional=c.optional) for c in tech.CRITERIA[line.procurement_type]],
         min_technical_score=tech.DEFAULT_MIN_TECHNICAL_SCORE, scored=tech.is_scored(line),

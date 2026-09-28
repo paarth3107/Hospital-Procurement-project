@@ -49,6 +49,7 @@ class BidSave(BaseModel):
     delivery_lead_days: int | None = None
     quote_validity_days: int | None = None
     payment_terms: str | None = None
+    compliant_full: bool = False
     technical_compliance: str | None = None
     brand_offered: str | None = None
     details: dict = {}
@@ -112,6 +113,7 @@ class BidOut(BaseModel):
     delivery_lead_days: int | None
     quote_validity_days: int | None
     payment_terms: str | None
+    compliant_full: bool
     technical_compliance: str | None
     brand_offered: str | None
     details: dict

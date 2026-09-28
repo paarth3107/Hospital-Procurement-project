@@ -64,6 +64,7 @@ class TechnicalContentOut(BaseModel):
     terms (the commercial envelope) are never included (spec 9.2.4, 9.6)."""
 
     brand_offered: str | None
+    compliant_full: bool
     technical_compliance: str | None
     details: dict
     attachments: list[AttachmentMetaOut]
@@ -82,6 +83,7 @@ class BidReviewOut(BaseModel):
     vendor_name: str
     rating: float
     brand_offered: str | None
+    compliant_full: bool
     technical_compliance: str | None
     details: dict
     attachments: list[ReviewAttachmentOut]

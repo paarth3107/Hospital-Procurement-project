@@ -4,7 +4,7 @@ import { showResult } from "../../ui.js";
 import { esc, kicker, stateTag, tag, fmtDateTime } from "../../kit.js";
 import { modalConfirm } from "../../modal.js";
 import { switchView } from "../../nav.js";
-import { commercialHtml, technicalHtml, readBid, wireTotals } from "./bidFields.js";
+import { commercialHtml, technicalHtml, readBid, wireTotals, wireCompliance } from "./bidFields.js";
 import { attachmentsHtml, wireAttachments } from "./bidAttachments.js";
 
 // ---- Bid form for one tender line (vendor, spec 8): commercial part,
@@ -62,6 +62,7 @@ function render() {
   const formEl = root().querySelector("#bid-form");
   formEl.addEventListener("submit", (e) => e.preventDefault());
   wireTotals(formEl, ctx.qty);
+  wireCompliance(formEl);
   root().querySelector("#bid-back").addEventListener("click", () => switchView("vendor-dashboard"));
   const inline = (msg, ok = false) => showResult(root().querySelector("#bid-inline-result"), msg, ok);
 

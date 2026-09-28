@@ -56,6 +56,7 @@ def requirements(line: TenderLineItem, bid: Bid | None) -> RequirementsOut:
     required = dict(COMMON_REQUIRED)
     slots: list[tuple[BidAttachmentKind, bool]] = []
     need_compliance = compliance_required(line)
+    compliant_full = bool(bid.compliant_full) if bid else False
 
     if ptype == ProcurementType.ITEM:
         if shelf_life_tracked(line):
@@ -83,8 +84,8 @@ def requirements(line: TenderLineItem, bid: Bid | None) -> RequirementsOut:
         if line.tender.tender_type == TenderType.RFP:
             slots.insert(1, (BidAttachmentKind.DATASHEET, True))
 
-    if need_compliance:
-        required["technical_compliance"] = "Technical compliance statement"
+    if need_compliance and not compliant_full:
+        required["technical_compliance"] = "What is not compliant / deviations from the specification"
     return RequirementsOut(
         required_fields=list(required.keys()),
         compliance_required=need_compliance,
@@ -112,7 +113,7 @@ def submit_problems(bid: Bid, line: TenderLineItem) -> list[str]:
             "details.shelf_life_months": "Shelf life remaining at delivery (months)",
             "details.warranty_months": "Warranty (months)",
             "details.sow_response": "Proposed SOW / method statement",
-            "technical_compliance": "Technical compliance statement",
+            "technical_compliance": "What is not compliant / deviations from the specification",
         }
     )
     problems = [labels[f] for f in req.required_fields if _blank(_field_value(bid, f))]
@@ -184,6 +185,7 @@ def bid_out(bid: Bid) -> BidOut:
         delivery_lead_days=bid.delivery_lead_days,
         quote_validity_days=bid.quote_validity_days,
         payment_terms=bid.payment_terms,
+        compliant_full=bid.compliant_full,
         technical_compliance=bid.technical_compliance,
         brand_offered=bid.brand_offered,
         details=bid.details or {},

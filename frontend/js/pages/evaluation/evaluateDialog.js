@@ -52,7 +52,13 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
       <div>${kicker("1 · Review the bid")}
         <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
           ${review.brand_offered ? `<div class="ep-sub">Brand / make: <b>${esc(review.brand_offered)}</b></div>` : ""}${detailsHtml(review.details)}
-          ${review.technical_compliance ? `<div style="white-space:pre-wrap;font-size:13px;padding:8px 10px;border:1px solid rgba(32,30,29,.2)"><div class="ep-sub" style="margin-bottom:4px">Compliance statement</div>${esc(review.technical_compliance)}</div>` : '<div class="ep-sub">No compliance statement was written.</div>'}
+          ${
+            review.compliant_full
+              ? '<div class="ep-sub">Vendor confirms full compliance — no deviations declared.</div>'
+              : review.technical_compliance
+              ? `<div style="white-space:pre-wrap;font-size:13px;padding:8px 10px;border:1px solid rgba(32,30,29,.2)"><div class="ep-sub" style="margin-bottom:4px">Deviations from the specification</div>${esc(review.technical_compliance)}</div>`
+              : '<div class="ep-sub">No compliance statement was given.</div>'
+          }
         </div>
         <div style="margin-top:10px" class="ep-k">Attached documents — open each one before scoring</div>
         <div id="eval-docs" style="margin-top:6px"></div>
