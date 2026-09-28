@@ -126,6 +126,23 @@ class EvaluationSave(BaseModel):
         return (v or "").strip() or None
 
 
+class EvaluationCorrectionIn(BaseModel):
+    """Spec §9.2.4 / §12.3 — a change to a bid's evaluation after the line's
+    technical evaluation is closed. Same content as EvaluationSave, plus the
+    reason code + justification a governed override requires."""
+
+    decision: TechnicalDecision
+    scores: dict[str, float | None] = {}
+    comments: str | None = None
+    reason_code: str
+    justification: str
+
+    @field_validator("comments")
+    @classmethod
+    def strip(cls, v):
+        return (v or "").strip() or None
+
+
 class CommercialRowOut(BaseModel):
     """One bid in the comparative statement. For a technically disqualified
     bid every price field is None: its price is never opened (spec 9.2.4)."""

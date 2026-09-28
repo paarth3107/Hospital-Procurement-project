@@ -4,12 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.override import OverrideRequest, OverrideStatus, OverrideType
 from app.models.user_account import Role, UserAccount
 from app.models.product_master import ProcurementType
 from app.models.vendor_rating import MATERIAL_CHANGE_THRESHOLD, RatingHistory, VendorRating
-from app.schemas.rating import RatingHistoryOut, RatingManualUpdate, RatingOut
+from app.schemas.override import OverrideDecision
+from app.schemas.rating import RatingHistoryOut, RatingManualUpdate, RatingOut, RatingOverrideCreate
 from app.services.audit import record
 from app.security import get_current_user, require_role
+from app.services import overrides
 from app.services.ratings import get_or_create_rating
 
 router = APIRouter(prefix="/api/v1/ratings", tags=["ratings"])
@@ -108,3 +111,88 @@ def update_rating(
     db.commit()
     db.refresh(rating)
     return rating
+
+
+def _pending_price_override(db: Session, rating_id: int) -> OverrideRequest | None:
+    return (
+        db.query(OverrideRequest)
+        .filter(
+            OverrideRequest.override_type == OverrideType.PRICE_COMPETITIVENESS_OVERRIDE,
+            OverrideRequest.entity_type == "vendor_rating",
+            OverrideRequest.entity_id == rating_id,
+            OverrideRequest.status.in_([OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED]),
+        )
+        .order_by(OverrideRequest.created_at.desc())
+        .first()
+    )
+
+
+def _get_price_override(db: Session, override_id: int) -> OverrideRequest:
+    override = overrides.get_override(db, override_id)
+    if override.override_type != OverrideType.PRICE_COMPETITIVENESS_OVERRIDE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not a price competitiveness override")
+    return override
+
+
+@router.post("/{vendor_id}/price-competitiveness-override", status_code=201)
+def request_price_override(
+    vendor_id: int,
+    payload: RatingOverrideCreate,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER)),
+):
+    """Spec §5.3.1 point 4 / §12.3: overriding the system-computed score is a
+    governed override -- unlike update_rating() above, this never touches the
+    rating directly; it only takes effect once approved (see
+    approve_price_override), matching CLAUDE.md's "overrides don't touch the
+    underlying record until Approved"."""
+
+    if not 0 <= payload.new_score <= 100:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Score must be 0 to 100")
+    rating = get_or_create_rating(vendor_id, payload.procurement_type, db)
+    if _pending_price_override(db, rating.id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A price competitiveness override is already pending approval for this vendor/type")
+    override = overrides.create_override(
+        db, override_type=OverrideType.PRICE_COMPETITIVENESS_OVERRIDE, initiator=user, entity_type="vendor_rating", entity_id=rating.id,
+        entity_label=f"{rating.vendor.legal_name} — {rating.procurement_type.value}", reason_code=payload.reason_code, justification=payload.justification,
+        proposed_change={"before": rating.price_competitiveness, "after": payload.new_score},
+        trigger_value=abs(payload.new_score - rating.price_competitiveness),
+    )
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
+
+
+@router.post("/price-competitiveness-overrides/{override_id}/approve", response_model=RatingOut)
+def approve_price_override(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_price_override(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+
+    rating = db.get(VendorRating, override.entity_id)
+    old_value, new_value = rating.price_competitiveness, override.proposed_change["after"]
+    rating.price_competitiveness = new_value
+    old_overall = rating.overall_score
+    rating.recompute_overall()
+    db.add(
+        RatingHistory(
+            rating_id=rating.id, field="price_competitiveness", old_value=old_value, new_value=new_value,
+            comment=override.justification, entered_by_id=user.id,
+        )
+    )
+    record(
+        db, "rating.override_applied", "rating", rating.id, actor=user, entity_label=f"{rating.vendor.legal_name} — {rating.procurement_type.value}",
+        before={"price_competitiveness": old_value, "overall_score": old_overall},
+        after={"price_competitiveness": new_value, "overall_score": rating.overall_score},
+        reason=override.justification, meta={"vendor_id": rating.vendor_id, "override_id": override.id},
+    )
+    db.commit()
+    db.refresh(rating)
+    return rating
+
+
+@router.post("/price-competitiveness-overrides/{override_id}/reject")
+def reject_price_override(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_price_override(db, override_id)
+    overrides.reject_override(db, override, user, payload.reason or "")
+    db.commit()
+    return {"override_id": override.id, "status": override.status}

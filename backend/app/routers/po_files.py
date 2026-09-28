@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.award import PoDataFile
+from app.models.override import OverrideRequest, OverrideStatus, OverrideType
 from app.models.user_account import Role, UserAccount
-from app.security import require_role
+from app.security import get_current_user, require_role
+from app.services import overrides
 from app.services import po_files
 from app.services.audit import record
 
@@ -113,17 +115,66 @@ def mark_failed(po_id: int, payload: ReasonIn, db: Session = Depends(get_db), us
     return _brief(po)
 
 
-@router.post("/{po_id}/re-export")
-def re_export(po_id: int, payload: ReasonIn, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*MANAGERS))):
-    """Spec 10.5 point 5 / 10.7: a corrected file is a new version that
-    supersedes the failed one. Spec 12 makes this a governed override; the
-    override engine is not built yet, so it is recorded as an audited action
-    that cannot change any approved price or quantity."""
+def _pending_reexport(db: Session, po: PoDataFile):
+    return (
+        db.query(OverrideRequest)
+        .filter(
+            OverrideRequest.override_type == OverrideType.PO_REEXPORT,
+            OverrideRequest.entity_type == "po_data_file",
+            OverrideRequest.entity_id == po.id,
+            OverrideRequest.status.in_([OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED]),
+        )
+        .order_by(OverrideRequest.created_at.desc())
+        .first()
+    )
+
+
+@router.post("/{po_id}/re-export", status_code=201)
+def request_re_export(po_id: int, payload: ReasonIn, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*MANAGERS))):
+    """Spec 10.5 point 5 / 10.7 / §12.3: re-export is a governed override, not
+    a direct action -- the corrected file is only generated once the request
+    is Approved (see approve_re_export below). Re-export can never change an
+    already-approved price or quantity (po_files.re_export() re-derives values
+    from the same approved award), so this type's spec §12.3 escalation
+    trigger ("changes price/quantity") can never fire automatically here; an
+    approver can still escalate it manually via the generic /overrides API."""
     po = _get(db, po_id)
-    new = po_files.re_export(db, po, user, payload.reason)
+    if po.status != "import_failed":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a file whose ERP import failed can be re-exported")
+    if _pending_reexport(db, po):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A re-export request for this file is already pending approval")
+    override = overrides.create_override(
+        db, override_type=OverrideType.PO_REEXPORT, initiator=user, entity_type="po_data_file", entity_id=po.id,
+        entity_label=po.batch_id, facility_id=po.tender.facility_id, reason_code="erp_import_failed",
+        justification=payload.reason, proposed_change={"supersedes": po.batch_id, "status": "import_failed -> pending_upload"},
+    )
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
+
+
+@router.post("/{po_id}/re-export/approve")
+def approve_re_export(po_id: int, payload: ReasonIn, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    po = _get(db, po_id)
+    override = _pending_reexport(db, po)
+    if not override:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No re-export request is pending approval for this file")
+    overrides.approve_override(db, override, user, payload.reason)
+    new = po_files.re_export(db, po, user, override.justification)
     record(
-        db, "po_file.re_exported", "po_file", new.id, actor=user, entity_label=new.batch_id, facility_id=po.tender.facility_id, reason=payload.reason.strip(),
-        before={"status": "import_failed"}, after={"status": "pending_upload"}, meta={"supersedes": po.batch_id, "version": new.version},
+        db, "po_file.re_exported", "po_file", new.id, actor=user, entity_label=new.batch_id, facility_id=po.tender.facility_id, reason=override.justification,
+        before={"status": "import_failed"}, after={"status": "pending_upload"}, meta={"supersedes": po.batch_id, "version": new.version, "override_id": override.id},
     )
     db.commit()
     return _brief(new)
+
+
+@router.post("/{po_id}/re-export/reject")
+def reject_re_export(po_id: int, payload: ReasonIn, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    po = _get(db, po_id)
+    override = _pending_reexport(db, po)
+    if not override:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No re-export request is pending approval for this file")
+    overrides.reject_override(db, override, user, payload.reason)
+    db.commit()
+    return {"override_id": override.id, "status": override.status}

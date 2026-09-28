@@ -23,6 +23,17 @@ class RatingOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RatingOverrideCreate(BaseModel):
+    """Spec §5.3.1 point 4 / §12.3 — overriding the system-computed Price
+    Competitiveness score is a governed override, unlike the four manual
+    fields above."""
+
+    procurement_type: ProcurementType
+    new_score: float
+    reason_code: str
+    justification: str
+
+
 class RatingManualUpdate(BaseModel):
     """Spec §5.3.1 — routine manual entry of the four non-computed
     parameters, not a governed override. `comment` is optional at the schema

@@ -539,21 +539,66 @@ tier's approver (but not a lower tier) being able to decide it; System Admin app
 the resolved role; validation on blank reason code/justification; and every transition landing in the
 audit log.
 
-**What's not done (deliberate, this pass):**
-- **None of the 8 override types is wired to actually change its target record on Approved.** The
-  workflow completes, but e.g. approving a Price Competitiveness override doesn't touch
-  `vendor_ratings.price_competitiveness`, and approving a technical score correction doesn't re-open
-  the line or update `BidTechnicalResult`. Per spec §12.1 the target record is untouched until Approved
-  regardless, so this is the same workflow either way -- what's missing is the small "on Approved, do
-  X" adapter per type, each against a feature that mostly already exists (rating override, technical
-  score correction, PO re-export) or doesn't yet (guest invite, invite-list add, late-submission
-  exception, due-date extension). Tracked in `GAPS.md`.
-- **Non-L1/Non-C1 award override is a special case, not just unwired.** L1 Approval already lets the
-  Approving Authority pick the Officer's recommended alternate over the system's L1 as a direct,
-  one-step decision with a mandatory reason -- built and tested before this engine existed. Routing
-  that through here instead would change an already-shipped flow's behavior, not just add a hook, so
-  it's flagged in `GAPS.md` rather than done silently.
-- No staff-facing "My Overrides" / "Pending My Approval" screen -- the dashboard (`dashboard.py`)
-  isn't touched by this pass, since there's nothing real for it to surface yet with no type wired in.
-- The SLA sweep is lazy (evaluated on read), not a background job -- consistent with how this app has
-  no scheduler anywhere else yet either.
+**What's not done (deliberate, this pass):** no staff-facing "My Overrides" / "Pending My Approval"
+screen (the dashboard isn't touched by this pass); the SLA sweep is lazy (evaluated on read), not a
+background job, consistent with how this app has no scheduler anywhere else either.
+
+## Wiring the 3 override types that already had a target record (spec §12, follow-up pass)
+
+Three of the 8 override types already had a real feature to hook into -- each had previously either
+hard-blocked with a "this needs the override engine" comment, or (PO re-export) run unconditionally
+with a comment saying it should be gated. All three now actually apply their effect on Approved rather
+than completing an inert workflow:
+
+- **Price Competitiveness override (spec §5.3.1 point 4)** -- `POST
+  /ratings/{vendor_id}/price-competitiveness-override` (Category Manager / Procurement Admin) creates
+  the request with `trigger_value = abs(new_score - current_score)`, which spec §12.3's seeded 15-point
+  band can route straight to the escalated tier for a large adjustment. `POST
+  /ratings/price-competitiveness-overrides/{id}/approve` (`ratings.py`) sets
+  `vendor_ratings.price_competitiveness` to the proposed value, recomputes the overall score, and adds
+  a `RatingHistory` row -- same trail the four routine manual fields already get, just via the governed
+  path instead of `update_rating()`.
+- **PO data file re-export (spec §10.5 point 5 / §10.7)** -- `POST /po-files/{po_id}/re-export` no
+  longer calls `po_files.re_export()` directly; it only requests the override now. `POST
+  /po-files/{po_id}/re-export/approve` approves it and then performs the actual re-export (a new
+  PO file version superseding the failed one, exactly as before); `.../reject` leaves the failed file
+  untouched. Re-export can never change an approved price/quantity by construction, so spec §12.3's
+  escalation trigger for this type can never fire automatically -- it's still escalatable by hand via
+  the generic `/overrides` API.
+- **Technical evaluation score correction (spec §9.2.4)** -- `PUT
+  /evaluation/bids/{bid_id}/evaluation-correction` is the governed path `save_evaluation()`'s 409
+  ("a change now is a governed override") already pointed to. It dry-runs the proposed correction in
+  memory (this app's session has autoflush off, so nothing is written) through a new
+  `technical_evaluation.consolidate_line()` -- refactored out of `close_technical()` so both share one
+  consolidation implementation -- to check spec §12.3's literal trigger: does the correction change any
+  bid's recorded outcome or T-rank on the line. If so it escalates immediately, no numeric band needed
+  for a pass/fail condition. `POST /evaluation/evaluation-corrections/{id}/approve` applies the
+  corrected `BidEvaluation`, re-consolidates the whole line, and updates every bid's existing
+  `BidTechnicalResult` row in place (ranks are relative across the line, so one bid's correction can
+  reorder others). Because the qualified set and/or relative pricing may have changed, it also deletes
+  and recomputes this line's `PriceCompetitivenessRecord` rows from scratch and refreshes
+  `vendor_ratings.price_competitiveness` for every vendor who had a record before OR after the
+  correction (not just the new set -- a vendor dropped from "qualified" needs their average
+  recalculated without the now-deleted record too, not left stale).
+  **Guardrail:** only usable before the line's L1 recommendation has started (an `AwardRound` row
+  already existing for the line means the Officer has begun acting on the current outcome; correcting
+  under that isn't supported and is refused with a 409) -- deliberately narrower than "any time before
+  award," since the spec doesn't address what a mid-recommendation correction should do to an
+  in-progress `AwardRound`.
+
+Verified end-to-end (temp script, cleaned up + ratings restored to baseline after): all three requests
+create and resolve correctly; the rating override applies and appears in rating history; the PO
+re-export approval actually produces a new file version and marks the old one superseded; the
+technical correction auto-escalates on a qualification flip, applies the flip to
+`bid_technical_results`, empties this line's now-under-2-qualified price-competitiveness records, and
+correctly resets both affected vendors' `price_competitiveness` back to their prior value.
+
+**Still not done:** Non-L1/Non-C1 award override (a different, already-shipped direct-decision flow --
+see below) and the remaining 4 types that need a feature built first (guest invite, invite-list add,
+late-submission exception, due-date extension) -- tracked in `GAPS.md`.
+
+**Non-L1/Non-C1 award override remains a special case, not just unwired.** L1 Approval already lets
+the Approving Authority pick the Officer's recommended alternate over the system's L1 as a direct,
+one-step decision with a mandatory reason -- built and tested before this engine existed. Routing that
+through here instead would change an already-shipped flow's behavior, not just add a hook, so it's
+flagged in `GAPS.md` rather than done silently.

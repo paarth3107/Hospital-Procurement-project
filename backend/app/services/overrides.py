@@ -175,11 +175,13 @@ def list_overrides(db: Session, *, status_filter: OverrideStatus | None = None, 
     return rows
 
 
-def escalate_override(db: Session, override: OverrideRequest, actor: UserAccount, reason: str) -> OverrideRequest:
-    """Manual escalation (spec §12.4 state 5's other trigger: "value/count
-    crosses an escalation trigger" -- with no override type wired to real
-    business data yet, an approver raising it manually is the only way to
-    exercise this path today besides the automatic SLA sweep)."""
+def escalate_override(db: Session, override: OverrideRequest, actor: UserAccount | None, reason: str) -> OverrideRequest:
+    """Escalation outside the request-time value-band routing in
+    create_override(): either a human raising it manually (spec §12.4 state
+    5's "value/count crosses a trigger", for a type with no numeric band --
+    see the technical-score-correction wiring, which detects the
+    qualification-outcome change itself and passes actor=None here, same as
+    the automatic SLA sweep) or an approver's own judgment call."""
 
     if override.status != OverrideStatus.PENDING_APPROVAL:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Override is '{override.status.value}', not pending approval")

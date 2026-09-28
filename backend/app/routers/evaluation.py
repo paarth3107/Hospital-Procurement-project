@@ -3,12 +3,15 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.award import AwardRound
 from app.models.bid import Bid, BidStatus
 from app.models.bid_evaluation import BidAttachmentView, BidEvaluation, BidTechnicalResult, TechnicalDecision
+from app.models.override import OverrideRequest, OverrideStatus, OverrideType
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
 from app.models.user_account import Role, UserAccount
+from app.models.vendor_rating import PriceCompetitivenessRecord
 from app.schemas.evaluation import (
     AttachmentMetaOut,
     BidReviewOut,
@@ -16,6 +19,7 @@ from app.schemas.evaluation import (
     CommercialRowOut,
     CommercialStatementOut,
     CriterionOut,
+    EvaluationCorrectionIn,
     EvaluationOut,
     EvaluationSave,
     LineDetailOut,
@@ -23,8 +27,10 @@ from app.schemas.evaluation import (
     ResultOut,
     VendorBidRow,
 )
-from app.security import require_role
+from app.schemas.override import OverrideDecision
+from app.security import get_current_user, require_role
 from app.services import commercial_evaluation as commercial
+from app.services import overrides
 from app.services import technical_evaluation as tech
 from app.services.audit import record
 from app.services.notifier import notify_vendor
@@ -269,6 +275,134 @@ def close_technical_evaluation(line_id: int, db: Session = Depends(get_db), user
             )
     db.commit()
     return line_detail(line_id, db, user)
+
+
+def _pending_correction(db: Session, evaluation_id: int) -> OverrideRequest | None:
+    return (
+        db.query(OverrideRequest)
+        .filter(
+            OverrideRequest.override_type == OverrideType.TECHNICAL_SCORE_CORRECTION,
+            OverrideRequest.entity_type == "bid_evaluation",
+            OverrideRequest.entity_id == evaluation_id,
+            OverrideRequest.status.in_([OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED]),
+        )
+        .order_by(OverrideRequest.created_at.desc())
+        .first()
+    )
+
+
+def _get_correction(db: Session, override_id: int) -> OverrideRequest:
+    override = overrides.get_override(db, override_id)
+    if override.override_type != OverrideType.TECHNICAL_SCORE_CORRECTION:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not a technical score correction")
+    return override
+
+
+@router.put("/bids/{bid_id}/evaluation-correction")
+def request_evaluation_correction(bid_id: int, payload: EvaluationCorrectionIn, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*EVALUATORS))):
+    """Spec §9.2.4: changing a bid's evaluation after the line's technical
+    evaluation is closed is a governed override -- this is the path
+    save_evaluation()'s 409 ("a change now is a governed override") points
+    to. Only usable before the line's L1 recommendation has started (an
+    AwardRound already existing means the Officer has begun acting on the
+    current outcome; correcting under that isn't supported)."""
+
+    bid = db.get(Bid, bid_id)
+    if not bid or bid.status != BidStatus.SUBMITTED:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submitted bid not found")
+    line = bid.line_item
+    _line(db, line.id)
+    if line.technical_closed_at is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Technical evaluation isn't closed yet for this line — save it directly instead")
+    if db.query(AwardRound).filter(AwardRound.line_item_id == line.id).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This line's L1 recommendation has already started; a correction this late isn't supported yet")
+    ev = db.query(BidEvaluation).filter(BidEvaluation.bid_id == bid.id, BidEvaluation.evaluator_id == user.id).first()
+    if not ev:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="You have no recorded evaluation on this bid to correct")
+    if _pending_correction(db, ev.id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A correction for this evaluation is already pending approval")
+    if payload.decision == TechnicalDecision.DISQUALIFIED and not payload.comments:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A reason is required to disqualify a bid")
+    unopened = _unopened_attachments(db, bid, user)
+    if unopened:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Open every attachment before evaluating — not yet opened: " + ", ".join(unopened))
+
+    new_scores, new_weighted = {}, None
+    if payload.decision == TechnicalDecision.QUALIFIED:
+        new_scores = tech.clean_scores(line.procurement_type, payload.scores)
+        new_weighted = tech.weighted_score(line.procurement_type, new_scores, rating_score(bid.vendor_id, line.procurement_type, db))
+
+    before = {"decision": ev.decision, "scores": ev.scores, "weighted_score": ev.weighted_score, "comments": ev.comments}
+    after = {"decision": payload.decision, "scores": new_scores, "weighted_score": new_weighted, "comments": payload.comments}
+
+    # Dry run: temporarily substitute the hypothetical values in memory (this
+    # session has autoflush off, so nothing is written) to see whether the
+    # correction would change any bid's recorded outcome or T-rank on this
+    # line -- spec §12.3's literal escalation trigger for this override type.
+    current = {r.bid_id: (r.outcome, r.t_rank) for r in db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id.in_([b.id for b in tech.submitted_bids(line, db)])).all()}
+    ev.decision, ev.scores, ev.weighted_score, ev.comments = after["decision"], after["scores"], after["weighted_score"], after["comments"]
+    hypothetical = tech.consolidate_line(line, db)
+    ev.decision, ev.scores, ev.weighted_score, ev.comments = before["decision"], before["scores"], before["weighted_score"], before["comments"]
+    changes_outcome = any(current.get(r.bid.id) != (r.outcome, r.t_rank) for r in hypothetical)
+
+    override = overrides.create_override(
+        db, override_type=OverrideType.TECHNICAL_SCORE_CORRECTION, initiator=user, entity_type="bid_evaluation", entity_id=ev.id,
+        entity_label=f"#{line.tender.id} {line.tender.title} - {line.product.name} - {bid.vendor.legal_name}", facility_id=line.tender.facility_id,
+        reason_code=payload.reason_code, justification=payload.justification, proposed_change={"before": before, "after": after},
+    )
+    if changes_outcome:
+        overrides.escalate_override(db, override, actor=None, reason="Correction changes the technical qualification/T-rank outcome for this line (spec §12.3)")
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role, "escalated": changes_outcome}
+
+
+@router.post("/evaluation-corrections/{override_id}/approve")
+def approve_evaluation_correction(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_correction(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+
+    ev = db.get(BidEvaluation, override.entity_id)
+    bid = db.get(Bid, ev.bid_id)
+    line = bid.line_item
+    after = override.proposed_change["after"]
+    ev.decision, ev.scores, ev.weighted_score, ev.comments = after["decision"], after["scores"], after["weighted_score"], after["comments"]
+    db.flush()
+
+    results = tech.consolidate_line(line, db)
+    existing = {r.bid_id: r for r in db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id.in_([r.bid.id for r in results])).all()}
+    for r in results:
+        row = existing[r.bid.id]
+        row.outcome, row.consolidated_score, row.t_rank, row.reason = r.outcome, r.score, r.t_rank, r.reason
+    db.flush()
+
+    t = line.tender
+    record(
+        db, "evaluation.corrected", "bid", bid.id, actor=user, entity_label=f"#{t.id} {t.title} - {line.product.name} - {bid.vendor.legal_name}",
+        facility_id=t.facility_id, before=override.proposed_change["before"], after=after, reason=override.justification,
+        meta={"override_id": override.id, "tender_id": t.id, "line_item_id": line.id},
+    )
+
+    # The qualified set and/or its relative pricing may have changed --
+    # recompute Price Competitiveness for this line from scratch rather than
+    # leaving stale records (spec §5.2/§5.3 -- see _update_price_competitiveness).
+    old_vendor_ids = {vid for (vid,) in db.query(PriceCompetitivenessRecord.vendor_id).filter(PriceCompetitivenessRecord.tender_line_item_id == line.id).all()}
+    db.query(PriceCompetitivenessRecord).filter(PriceCompetitivenessRecord.tender_line_item_id == line.id).delete()
+    _update_price_competitiveness(db, line, list(existing.values()))
+    new_vendor_ids = {vid for (vid,) in db.query(PriceCompetitivenessRecord.vendor_id).filter(PriceCompetitivenessRecord.tender_line_item_id == line.id).all()}
+    for vendor_id in old_vendor_ids - new_vendor_ids:
+        refresh_price_competitiveness(db, vendor_id, line.procurement_type)
+
+    db.commit()
+    return {"override_id": override.id, "status": override.status}
+
+
+@router.post("/evaluation-corrections/{override_id}/reject")
+def reject_evaluation_correction(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_correction(db, override_id)
+    overrides.reject_override(db, override, user, payload.reason or "")
+    db.commit()
+    return {"override_id": override.id, "status": override.status}
 
 
 @router.get("/bids/{bid_id}/attachments/{attachment_id}/download")

@@ -103,6 +103,7 @@ class Consolidated:
     score: float | None
     reason: str | None
     rating: float
+    t_rank: int | None = None
 
 
 def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], db: Session) -> Consolidated:
@@ -131,6 +132,30 @@ def deadline_passed(line: TenderLineItem) -> bool:
     return due is not None and datetime.now(timezone.utc) > due
 
 
+def consolidate_line(line: TenderLineItem, db: Session) -> list[Consolidated]:
+    """Full consolidation + T-ranking across every submitted, evaluated bid on
+    the line, read fresh from the current BidEvaluation rows. Shared by
+    close_technical() (first close) and a spec §9.2.4 correction's recompute
+    (already closed, see evaluation.py's evaluation-correction endpoint,
+    which also uses this as a dry run on an unflushed, temporarily-mutated
+    evaluation to decide whether a correction would change any bid's outcome
+    or T-rank before deciding whether it must escalate)."""
+
+    results: list[Consolidated] = []
+    for bid in submitted_bids(line, db):
+        evals = db.query(BidEvaluation).filter(BidEvaluation.bid_id == bid.id).all()
+        if not evals:
+            continue
+        results.append(consolidate(line, bid, evals, db))
+    if is_scored(line):
+        qualified = [r for r in results if r.outcome == TechnicalDecision.QUALIFIED]
+        qualified.sort(key=lambda r: (-(r.score or 0), -r.rating, r.bid.submitted_at))
+        ranked = {r.bid.id: i + 1 for i, r in enumerate(qualified)}
+        for r in results:
+            r.t_rank = ranked.get(r.bid.id)
+    return results
+
+
 def close_technical(line: TenderLineItem, closer_id: int, db: Session) -> list[BidTechnicalResult]:
     """Records qualification for every submitted bid, T-ranks the qualified
     ones (scored lines), and marks the line's technical evaluation closed.
@@ -140,28 +165,15 @@ def close_technical(line: TenderLineItem, closer_id: int, db: Session) -> list[B
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Technical evaluation is already closed for this line")
     if not deadline_passed(line):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Technical evaluation opens only after the bid due date")
-    bids = submitted_bids(line, db)
-    results: list[Consolidated] = []
-    unevaluated = []
-    for bid in bids:
-        evals = db.query(BidEvaluation).filter(BidEvaluation.bid_id == bid.id).all()
-        if not evals:
-            unevaluated.append(bid.vendor.legal_name)
-            continue
-        results.append(consolidate(line, bid, evals, db))
+    unevaluated = [
+        b.vendor.legal_name for b in submitted_bids(line, db)
+        if not db.query(BidEvaluation).filter(BidEvaluation.bid_id == b.id).first()
+    ]
     if unevaluated:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Evaluate every submitted bid first — not yet evaluated: " + ", ".join(unevaluated))
 
-    ranked = []
-    if is_scored(line):
-        qualified = [r for r in results if r.outcome == TechnicalDecision.QUALIFIED]
-        qualified.sort(key=lambda r: (-(r.score or 0), -r.rating, r.bid.submitted_at))
-        ranked = {r.bid.id: i + 1 for i, r in enumerate(qualified)}
-    rows = []
-    for r in results:
-        rows.append(
-            BidTechnicalResult(bid_id=r.bid.id, outcome=r.outcome, consolidated_score=r.score, t_rank=(ranked or {}).get(r.bid.id) if ranked else None, reason=r.reason)
-        )
+    results = consolidate_line(line, db)
+    rows = [BidTechnicalResult(bid_id=r.bid.id, outcome=r.outcome, consolidated_score=r.score, t_rank=r.t_rank, reason=r.reason) for r in results]
     db.add_all(rows)
     line.technical_closed_at = datetime.now(timezone.utc)
     line.technical_closed_by_id = closer_id
