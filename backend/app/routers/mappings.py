@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user_account import Role, UserAccount
+from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
-from app.schemas.mapping import MappingDecisionReason, MappingHistoryOut, MappingOut
+from app.schemas.mapping import MappingCreate, MappingDecisionReason, MappingHistoryOut, MappingOut
 from app.security import require_role
 from app.services.mappings import (
     after_item_reinstated,
@@ -14,6 +15,7 @@ from app.services.mappings import (
     check_document_gate,
     check_rating_gate,
     close_covered_item_requests,
+    create_pending_mapping,
     log_transition,
 )
 
@@ -29,12 +31,22 @@ MAPPING_REVIEWERS = (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN, Role.SYSTEM_
 _log_transition = log_transition
 
 
-# There is deliberately no staff-side "create a mapping from scratch" endpoint
-# (user-directed 2026-09-28): a mapping only ever starts from the vendor's own
-# request (POST /vendor-portal/mappings). Staff review, approve, reject,
-# suspend and reinstate an existing request below, but never originate one --
-# that keeps every mapping's document/eligibility trail starting from a real
-# vendor action instead of a staff shortcut that skipped it.
+@router.post("", response_model=MappingOut, status_code=status.HTTP_201_CREATED)
+def request_mapping(
+    payload: MappingCreate,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(require_role(*MAPPING_REVIEWERS)),
+):
+    """Staff-side creation (the Vendor Mapping matrix). Vendors request their
+    own mappings through POST /vendor-portal/mappings instead -- this route
+    used to be unauthenticated and trusted a vendor_id in the body. Item and
+    category mappings are separate rows (spec 4.3); either way only an
+    Active vendor qualifies (CLAUDE.md PROJECT OVERRIDE)."""
+
+    vendor = db.get(Vendor, payload.vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
+    return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, requested_by=_user)
 
 
 @router.get("", response_model=list[MappingOut])

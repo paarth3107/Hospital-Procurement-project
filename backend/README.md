@@ -384,16 +384,6 @@ Audit: `award.recommendation_saved`, `award.submitted_for_l1_approval`, `award.a
 Not built: governed-override engine for a non-L1 award and for re-export, per-line configurable minimum split, SLA-based escalation,
 ERP API/SFTP push and return channel, guest-vendor PO block.
 
-## Vendor Mapping: staff can no longer create a mapping from scratch (user-directed 2026-09-28)
-
-Removed `POST /api/v1/mappings` (the "Map & approve" action on a "not mapped" matrix cell), which let staff originate a
-mapping the vendor never asked for -- doing so skipped the document-request path (a vendor never got asked for an item's
-required documents) and made the matrix's state harder to reason about. A mapping now only ever starts from the vendor's
-own request (`POST /vendor-portal/mappings`, Company profile -> Category declaration); staff still review, approve,
-reject, suspend and reinstate an existing request exactly as before. `MappingCreate` (the now-unused staff-create schema)
-and `mapAndApprove` (frontend) were removed with it. The mapping dialog's "not mapped" cell shows an explanatory line
-instead of an action button.
-
 ## Tender header/line fields exposed in the UI (spec §6.2-6.3.4, user-directed 2026-09-28)
 
 Backend fields that already existed but had no form control are now on the tender editor:
