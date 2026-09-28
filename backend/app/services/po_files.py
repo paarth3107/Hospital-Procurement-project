@@ -10,7 +10,6 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.award import FINAL, PoDataFile
@@ -127,45 +126,3 @@ def generate_for_tender(db: Session, tender: Tender, approver: UserAccount, fina
         files.append(po)
     db.flush()
     return files
-
-
-def re_export(db: Session, po: PoDataFile, user: UserAccount, reason: str) -> PoDataFile:
-    """A new version of a file whose import failed. The values come from the
-    approved award again, so price and quantity cannot change; what may change
-    is vendor master data the ERP rejected (name, GSTIN). The old version is
-    kept and marked superseded (spec 10.7)."""
-    if po.status != "import_failed":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a file whose ERP import failed can be re-exported")
-    if not reason or not reason.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A reason is required to re-export")
-    from app.models.award import AwardRound
-
-    tender, vendor = po.tender, po.vendor
-    rounds = (
-        db.query(AwardRound)
-        .filter(AwardRound.status == "approved", AwardRound.line_item_id.in_([li.id for li in tender.line_items]))
-        .order_by(AwardRound.round_number.desc())
-        .all()
-    )
-    latest = {}
-    for r in rounds:
-        latest.setdefault(r.line_item_id, r)
-    lines = []
-    for r in latest.values():
-        if r.kind != "award":
-            continue
-        for a in r.allocations:
-            if a.stage == FINAL and a.bid.vendor_id == po.vendor_id:
-                lines.append((r.line_item, a.bid, a.share_pct, r))
-    version = po.version + 1
-    base = po.batch_id.rsplit("-v", 1)[0]
-    new = PoDataFile(
-        batch_id=f"{base}-v{version}", tender_id=tender.id, vendor_id=vendor.id, version=version, status="pending_upload", generated_by_id=po.generated_by_id,
-        supersedes_id=po.id, status_reason=f"Re-export: {reason.strip()}", payload=build_payload(tender, vendor, lines, f"{base}-v{version}", version, po.generated_by or user),
-    )
-    po.status = "superseded"
-    po.status_changed_at = datetime.now(timezone.utc)
-    po.status_changed_by_id = user.id
-    db.add(new)
-    db.flush()
-    return new

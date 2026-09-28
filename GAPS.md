@@ -51,24 +51,27 @@ browser-automation tool available this session); JS syntax-checked with `node --
 
 ## 2. Whole modules not started
 
-- ~~Manual Override & Exception Approval Workflow Engine (spec §12)~~ → **ENGINE BUILT; 3 of 8 override
-  types wired to actually apply on Approved, 5 remain.** `app/models/override.py`,
+- ~~Manual Override & Exception Approval Workflow Engine (spec §12)~~ → **ENGINE BUILT; 2 of 8 override
+  types wired to actually apply on Approved, 6 remain.** `app/models/override.py`,
   `app/services/overrides.py`, `app/routers/overrides.py` (`/api/v1/overrides`) implement the full
   generic Requested → Pending Approval → Approved/Rejected/Escalated/Expired state machine (spec
   §12.4), role/tier resolution + value-band escalation-at-request-time + manual escalation + lazy
   SLA-breach auto-escalate/expire (spec §12.5), and audit logging (spec §12.6). `OverrideTypeConfig`
   (seeded in `app/seed.py`) holds spec §12.3's table as hospital-configurable data. **Wired** (see
-  `backend/README.md` for the full writeup): Price Competitiveness override (`ratings.py`), PO data
-  file re-export (`po_files.py`), Technical evaluation score correction (`evaluation.py` — also
-  refactored `technical_evaluation.py`'s consolidation into a reusable `consolidate_line()`, and
-  correctly recomputes/cleans up affected `price_competitiveness_records` when a correction changes the
-  qualified set). **Not wired yet** — each needs a feature built first, not just a hook: invite-list
-  manual add (§6.6), guest vendor invite (§6.7, decision already made — see below), late-submission
-  exception (§8.4), bid due-date extension (§9.6). **Non-L1/Non-C1 award override is a special case,
-  not just unwired** — it's *already* a working, tested direct-decision flow (Approving Authority
-  picks L1 or the Officer's alternate at L1 Approval) that predates this engine; retrofitting it to
-  route through here instead would be a behavior change to a shipped flow, not just wiring, so it needs
-  its own conversation before touching it.
+  `backend/README.md` for the full writeup): Price Competitiveness override (`ratings.py`), Technical
+  evaluation score correction (`evaluation.py` — also refactored `technical_evaluation.py`'s
+  consolidation into a reusable `consolidate_line()`, and correctly recomputes/cleans up affected
+  `price_competitiveness_records` when a correction changes the qualified set). **PO data file
+  re-export was wired, then removed 2026-09-28** (user-directed — `mark-imported`/`mark-failed`/
+  re-export are out of scope for now; see `backend/README.md`'s "PO data files" section). **Not wired
+  yet** — each needs a feature built first, not just a hook:
+  invite-list manual add (§6.6), guest vendor invite (§6.7, decision already made — see below),
+  late-submission exception (§8.4), bid due-date extension (§9.6), PO data file re-export (now back in
+  this bucket). **Non-L1/Non-C1 award override is a special case, not just unwired** — it's *already* a
+  working, tested direct-decision flow (Approving Authority picks L1 or the Officer's alternate at L1
+  Approval) that predates this engine; retrofitting it to route through here instead would be a
+  behavior change to a shipped flow, not just wiring, so it needs its own conversation before touching
+  it.
 - **Guest Invite (spec §6.7).** Not started. CLAUDE.md already records the user's override decision
   (follow the reference prototype: guest may bid, PO blocked until KYC) — decision made, not built.
 - **Open Tender (spec §6.8).** Public self-registration link/QR, not started. Open question: whether

@@ -73,9 +73,12 @@ class AwardAllocation(Base):
 class PoDataFile(Base):
     """One PO data file per awarded vendor per tender (spec 10.3). The content
     is a frozen snapshot (`payload`) taken from the approved award; CSV / XML are
-    rendered from it on download, so a file can never be edited by hand. A
-    re-export after a failed import makes a new version and supersedes (never
-    deletes) the old one (spec 10.7)."""
+    rendered from it on download, so a file can never be edited by hand.
+    `status`/`erp_po_number`/`status_reason`/`status_changed_*`/`supersedes_id`
+    support recording the ERP's import outcome and re-exporting a corrected file
+    (spec 10.5 points 3-5, 10.7) -- out of scope for now (user-directed,
+    2026-09-28), so in practice `status` stays 'pending_upload' and the rest
+    stay unset; the columns are left in place for when that's built."""
 
     __tablename__ = "po_data_files"
 

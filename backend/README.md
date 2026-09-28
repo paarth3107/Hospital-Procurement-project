@@ -369,10 +369,13 @@ that vendor's lines and shares, from the approved allocations only (`po_data_fil
 rendered from it on download, `?format=csv|xml`). Fields per spec 10.4: batch id, tender reference, facility/entity code,
 department, vendor code + GSTIN, item code, description, quantity, UOM, unit price, tax, line total, delivery lead time and
 location, payment terms, approver id/name/timestamp (budget code blank until the ERP template is known). Handoff is manual
-(user-directed): Procurement Admin / Category Manager downloads, loads it into the ERP, then `mark-imported` (ERP PO number) or
-`mark-failed` (reason); a failed file can be `re-export`ed as a new version (reason mandatory; the old one is kept as superseded;
-price and quantity cannot change). Re-export is meant to be a governed override (spec 12); the override engine isn't built, so it
-is an audited action for now. The Officer and Authority can list files but not download them (they carry GSTIN and prices).
+(user-directed): Procurement Admin / Category Manager downloads the file as CSV or XML and hands it to the ERP team. Recording the
+ERP's import outcome (`mark-imported`/`mark-failed`) and re-exporting a corrected file (spec 10.5 points 3-5, 10.7) were built and
+then **removed as out of scope for now** (user-directed, 2026-09-28) -- this app's responsibility ends at the generated file. The
+`PoDataFile` columns that supported that (`status` beyond `pending_upload`, `erp_po_number`, `status_reason`, `status_changed_*`,
+`supersedes_id`) and the `PO_REEXPORT` override type's config row are left in place, unused, for when this comes back; the
+`po_files.re_export()` service function and the `/po-files/{id}/mark-imported|mark-failed|re-export...` endpoints are gone. The
+Officer and Authority can list files but not download them (they carry GSTIN and prices).
 
 **Vendors are told at L1 approval** (user-directed, spec 10.6): awarded vendors (lines, quantities, prices), technically qualified
 vendors who did not win (regret), and technically disqualified vendors (sent when technical evaluation closes). Delivery is a
@@ -380,9 +383,9 @@ portal notification (`/vendor-portal/notifications`); there is no email/SMS gate
 an Outcome per bid (Awarded (qty) / Not selected / Technically disqualified).
 
 Audit: `award.recommendation_saved`, `award.submitted_for_l1_approval`, `award.approved`, `award.rejected`, `award.finalized`,
-`award.prices_viewed`, `po_file.downloaded|imported|import_failed|re_exported`.
-Not built: governed-override engine for a non-L1 award and for re-export, per-line configurable minimum split, SLA-based escalation,
-ERP API/SFTP push and return channel, guest-vendor PO block.
+`award.prices_viewed`, `po_file.downloaded`.
+Not built: per-line configurable minimum split, SLA-based escalation, ERP API/SFTP push and return channel, guest-vendor PO block.
+PO import-outcome tracking and re-export were built then descoped -- see "PO data files" above.
 
 ## Tender header/line fields exposed in the UI (spec §6.2-6.3.4, user-directed 2026-09-28)
 
@@ -596,13 +599,12 @@ than completing an inert workflow:
   `vendor_ratings.price_competitiveness` to the proposed value, recomputes the overall score, and adds
   a `RatingHistory` row -- same trail the four routine manual fields already get, just via the governed
   path instead of `update_rating()`.
-- **PO data file re-export (spec §10.5 point 5 / §10.7)** -- `POST /po-files/{po_id}/re-export` no
-  longer calls `po_files.re_export()` directly; it only requests the override now. `POST
-  /po-files/{po_id}/re-export/approve` approves it and then performs the actual re-export (a new
-  PO file version superseding the failed one, exactly as before); `.../reject` leaves the failed file
-  untouched. Re-export can never change an approved price/quantity by construction, so spec §12.3's
-  escalation trigger for this type can never fire automatically -- it's still escalatable by hand via
-  the generic `/overrides` API.
+- ~~**PO data file re-export (spec §10.5 point 5 / §10.7)**~~ -- was wired this pass (`POST
+  /po-files/{po_id}/re-export` requested the override; `.../approve` performed the actual re-export).
+  **Removed 2026-09-28** (user-directed, out of scope for now) along with `mark-imported`/`mark-failed`
+  entirely -- see "PO data files" earlier in this file. `OverrideType.PO_REEXPORT`'s config row is still
+  seeded (generic engine data, same as the 5 types that were never wired), it just has nothing to hook
+  into right now.
 - **Technical evaluation score correction (spec §9.2.4)** -- `PUT
   /evaluation/bids/{bid_id}/evaluation-correction` is the governed path `save_evaluation()`'s 409
   ("a change now is a governed override") already pointed to. It dry-runs the proposed correction in
