@@ -20,7 +20,7 @@ from app.models.vendor import (
     VendorStatusHistory,
 )
 from app.models.vendor_mapping import MappingState, VendorMapping, VendorMappingHistory
-from app.models.vendor_rating import RatingHistory, VendorRating
+from app.models.vendor_rating import PriceCompetitivenessRecord, RatingHistory, VendorRating
 
 __all__ = [
     "AuditLog",
@@ -38,6 +38,7 @@ __all__ = [
     "MappingState",
     "VendorRating",
     "RatingHistory",
+    "PriceCompetitivenessRecord",
     "ApprovalBand",
     "Tender",
     "TenderStatus",

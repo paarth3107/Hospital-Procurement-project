@@ -111,3 +111,32 @@ class RatingHistory(Base):
     entered_at = Column(DateTime(timezone=True), server_default=func.now())
 
     rating = relationship("VendorRating", back_populates="history")
+
+
+class PriceCompetitivenessRecord(Base):
+    """Spec §5.2/§5.3: one row per bid, feeding the *only* rating sub-score
+    the system computes itself. Written when a line's technical evaluation is
+    closed (spec §9.6 -- prices are sealed until then, so a bid's price can't
+    tell us anything about competitiveness before that moment) and at least
+    one other bid on the same line was also technically qualified (with only
+    one qualified bid there is nothing to compare against). The value is this
+    bid's price relative to the lowest qualified bid on its line -- the same
+    "lowest scores 100, others scored proportionally against it" formula spec
+    §9.4 already uses for QCBS price scoring, reused here for consistency
+    rather than inventing a second definition of "price competitive".
+
+    `recorded_at` is what ages a row out of the rolling window (spec §5.3:
+    "a rolling window (e.g., trailing 12 months)... so old bid history ages
+    out"); rows are never deleted, only excluded from the average once stale,
+    so the trail stays auditable."""
+
+    __tablename__ = "price_competitiveness_records"
+    __table_args__ = (UniqueConstraint("bid_id", name="uq_price_competitiveness_bid"),)
+
+    id = Column(Integer, primary_key=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    procurement_type = Column(Enum(ProcurementType), nullable=False)
+    bid_id = Column(Integer, ForeignKey("bids.id"), nullable=False)
+    tender_line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False)
+    price_score = Column(Float, nullable=False)  # 0-100: this bid vs. the lowest qualified bid on its line
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now())

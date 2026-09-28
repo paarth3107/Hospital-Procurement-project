@@ -65,10 +65,14 @@ always-blank "Delivery / Service Terms" field.
 
 ## 3. Real but smaller gaps
 
-- **Price Competitiveness is hardcoded to 50, permanently** (`app/services/ratings.py`). Spec
-  §5.1/§5.3 says this is the *one* rating sub-score the system computes itself, from its own bid
-  history. Real bid, technical-result and award data now exists to compute it from (it didn't when
-  Module 3 was first built) — nothing does yet.
+- ~~Price Competitiveness is hardcoded to 50, permanently~~ → **RESOLVED.** Now computed for real
+  (spec §5.1/§5.3) when a line's technical evaluation closes: each technically-qualified bid's landed
+  price is scored against the line's lowest landed price (same 0-100 formula as commercial L-ranking),
+  written to a new `price_competitiveness_records` row per bid, then averaged per vendor over a
+  rolling 12-month window into `vendor_ratings.price_competitiveness` (`app/services/ratings.py`,
+  called from `close_technical_evaluation()` in `app/routers/evaluation.py`). Lines with fewer than 2
+  qualified bids don't compute a score (nothing to compare against) and the vendor keeps the
+  provisional default. Audited as `rating.price_competitiveness_updated`.
 - No "vendor's rating falls below a critical floor -> auto-flag for suspension review" (spec §5.4).
 - Minimum qualifying technical score (60, `technical_evaluation.py`) and minimum split share (10%,
   `awards.py`'s `MIN_SPLIT_PCT`) are global constants, not per-line/hospital-configurable as the spec

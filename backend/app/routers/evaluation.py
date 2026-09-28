@@ -29,7 +29,7 @@ from app.services import technical_evaluation as tech
 from app.services.audit import record
 from app.services.notifier import notify_vendor
 from app.services.bids import KIND_LABELS
-from app.services.ratings import rating_score
+from app.services.ratings import rating_score, record_price_competitiveness, refresh_price_competitiveness
 
 router = APIRouter(prefix="/api/v1/evaluation", tags=["evaluation"])
 
@@ -209,6 +209,37 @@ def save_evaluation(bid_id: int, payload: EvaluationSave, db: Session = Depends(
     return EvaluationOut(evaluator=user.full_name, mine=True, decision=ev.decision, scores=ev.scores or {}, weighted_score=ev.weighted_score, comments=ev.comments)
 
 
+def _update_price_competitiveness(db: Session, line: TenderLineItem, results: list) -> None:
+    """Spec §5.2/§5.3: the only rating sub-score the system computes itself,
+    from this system's own historical bid data. Fires right here because this
+    is the first moment a line's prices are unsealed at all (spec §9.6) --
+    nothing before this point can legitimately be compared. Needs at least
+    two technically qualified bids on the line; with only one there is no
+    "vs. the field" to measure (an unchallenged bid isn't "competitive",
+    it's just unopposed), so a single-bid line contributes nothing."""
+
+    qualified = [r for r in results if r.outcome == TechnicalDecision.QUALIFIED]
+    if len(qualified) < 2:
+        return
+    bids = {b.id: b for b in db.query(Bid).filter(Bid.id.in_([r.bid_id for r in qualified])).all()}
+    landed = {bid_id: commercial.landed_unit_price(bids[bid_id]) for bid_id in bids}
+    lowest = min(landed.values())
+    touched: dict[int, str] = {}
+    for r in qualified:
+        bid = bids[r.bid_id]
+        price_score = round(lowest / landed[bid.id] * 100, 2)
+        record_price_competitiveness(db, bid.vendor_id, line.procurement_type, bid.id, line.id, price_score)
+        touched[bid.vendor_id] = bid.vendor.legal_name
+    db.flush()
+    for vendor_id in touched:
+        refresh_price_competitiveness(db, vendor_id, line.procurement_type)
+    t = line.tender
+    record(
+        db, "rating.price_competitiveness_updated", "tender", t.id, actor=None, entity_label=f"#{t.id} {t.title} - {line.product.name}",
+        facility_id=t.facility_id, after={"vendors": list(touched.values())}, meta={"line_item_id": line.id, "procurement_type": line.procurement_type.value},
+    )
+
+
 @router.post("/lines/{line_id}/close-technical", response_model=LineDetailOut)
 def close_technical_evaluation(line_id: int, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*EVALUATORS))):
     """Records qualification and T-ranks for the line. Only after this do
@@ -227,6 +258,7 @@ def close_technical_evaluation(line_id: int, db: Session = Depends(get_db), user
         },
         meta={"line_item_id": line.id, "scored": tech.is_scored(line)},
     )
+    _update_price_competitiveness(db, line, rows)
     for r in rows:
         if r.outcome == TechnicalDecision.DISQUALIFIED:
             bid = db.get(Bid, r.bid_id)

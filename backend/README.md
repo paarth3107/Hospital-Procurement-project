@@ -434,3 +434,36 @@ items have no stable id across saves. Unrelated edits (quantity, price, adding a
 unaffected; a tender that was never approved stays freely editable. There's no governed-override path
 to lift this yet (spec §12's engine isn't built, see `GAPS.md`), so for now it's a hard block, not an
 override queue.
+
+## Price Competitiveness — real computation (spec §5.1-§5.3)
+
+Vendor rating has five sub-scores (spec §5.2); four are manual entry, and Price Competitiveness was
+the one meant to be system-computed from this system's own bid history -- until now it was permanently
+hardcoded to 50.0, since no staff-facing bid-read endpoint existed yet to derive it from.
+
+It now computes for real, triggered the first moment prices are legitimately comparable: when a
+line's technical evaluation is closed (`close_technical_evaluation()` in `app/routers/evaluation.py`).
+For every bid marked technically Qualified on that line (Disqualified bids are excluded -- they never
+reach commercial ranking either), the landed price (`unit_price * (1 + gst_percent/100) + other_duties`,
+same helper `commercial.landed_unit_price()` used for the L1 price comparison) is compared against the
+line's lowest landed price using the same 0-100 formula as commercial L-ranking (spec §9.4):
+`price_score = lowest_landed_price / this_bid_landed_price * 100`. Reusing that exact formula keeps
+Price Competitiveness internally consistent with how L1 commercial ranking already scores the same
+bids.
+
+Each qualified bid's score is written once to a new `price_competitiveness_records` table
+(`app/models/vendor_rating.py`; one row per bid, never updated -- a bid's price and line don't change
+after the fact, and a line can't be re-closed). `refresh_price_competitiveness()`
+(`app/services/ratings.py`) then averages a vendor's records over a rolling 12-month window (spec §5.3:
+"so old bid history ages out") into `vendor_ratings.price_competitiveness`, and folds it into the
+overall score the same way the four manual sub-scores already do.
+
+A line with fewer than 2 technically-qualified bids computes nothing -- there's no competing price to
+score against, so the vendor's existing score (or the provisional default) is left alone rather than
+recording a meaningless 100. The update is audited as `rating.price_competitiveness_updated`
+(actor=None/system, since this runs automatically off the close-technical action, not a direct user
+request) naming the affected vendors.
+
+Not built: a floor/staleness flag when a vendor has zero records ever (spec §5.3 point 5 covers the
+manual sub-scores' "Stale -- Manual Update Due" state; Price Competitiveness instead just keeps the
+50.0 provisional default indefinitely until the first qualifying line closes).
