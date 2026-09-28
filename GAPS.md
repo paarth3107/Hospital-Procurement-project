@@ -21,17 +21,31 @@ Minimum). The line-item panel now has an "Evaluation & award" row exposing:
 - **Split-Award allowed** checkbox (spec §6.3.4).
 - **Per-line minimum rating threshold override** (spec §6.3.4), blank = tender default.
 
-**Still not reachable:** the rest of §6.3.1-6.3.3's type-specific line fields (required delivery
-date/location, HSN/SAC code, warranty/AMC requirement, installation/training/spares terms, SOW/SLA/
-billing basis, alternate-brand-allowed) still live only in the untyped `TenderLineItem.line_details`
-JSON bag with no UI to fill it. Plan (agreed, not yet built): mirror the catalog's
-`type_specific_attrs` / `ATTRS_BY_TYPE` pattern (`app/schemas/product_attrs.py`) with an
-analogous per-type schema for tender line details, rendered generically on the frontend from that
-schema, rather than hand-building each field. Lower urgency than the items above since nothing
-evaluates against this content programmatically today (the scoring criteria are fixed spec
-constants) -- it's descriptive/contractual text, not something the app acts on. Delivery
-date/location is the one exception worth doing early, since it feeds the PO data file's currently-
-always-blank "Delivery / Service Terms" field.
+~~**Still not reachable:** the rest of §6.3.1-6.3.3's type-specific line fields...~~ → **DONE
+(2026-09-28).** `app/schemas/line_details.py` mirrors `product_attrs.py`'s exact pattern
+(`ItemLineDetails` / `AssetLineDetails` / `ServiceLineDetails`, `LINE_DETAILS_BY_TYPE`, all fields
+optional, `extra="forbid"`), validated in `LineItemCreate.clean_line_details()`. Frontend:
+`frontend/js/pages/tenders/lineDetailFields.js` (the three field lists) rendered generically by
+`tenderLineItems.js` via the catalog form kit's `fieldHtml`/`readFields`/`wireConditionalFields`
+(`formKit.js`, which gained a `date` kind for this). Covers every field spec §6.3.1-6.3.3 names:
+Item — HSN/SAC code, alternate-brand-allowed, delivery date/location, technical-spec override notes.
+Asset — required certifications, brand restriction, warranty months, AMC/CMC arrangement,
+installation notes, training required/details, spares commitment, exchange/buy-back, delivery/
+installation date & location. Service — SOW, tenure, renewal terms, SLA response/uptime/resolution/
+penalty, billing basis, manpower deployment norms, background verification, insurance, exit/
+transition clause, service locations. `delivery_location` uses the exact same key
+`app/services/po_files.py` already read (previously always `None`) for both Item and Asset, so the PO
+data file's "Delivery / Service Terms" field is no longer always blank for those types. The E-Tender
+Approval review screen already rendered `line_details` generically (`reviewPanel.js`'s `kv()`), so no
+review-screen change was needed. **Simplification, not silently dropped:** spec §6.3.3's "License / IP
+Terms (Software lines)" bullet mostly repeats the catalog's existing per-product software sub-schema
+(license type/tenure, seats, escrow, IP assignment, data residency — `product_attrs.py`'s
+`ServiceAttrs`); re-modeling all of that again per tender line was judged disproportionate for the
+value, so it's one free-text `license_ip_terms_notes` field instead — this tender's own adjustment
+notes on top of the master record, same shape as Item's `technical_spec_override`.
+Verified end-to-end via API (all 3 types round-trip correctly, an unknown/wrong-type key is rejected
+422, the approval-review endpoint surfaces it) — **not visually verified in a browser** (no
+browser-automation tool available this session); JS syntax-checked with `node --check` only.
 
 ---
 

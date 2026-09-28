@@ -22,7 +22,7 @@ function evaluationCell(row, detail) {
   const others = detail.technical_closed_at ? row.evaluations.filter((e) => !e.mine) : [];
   const line = (e) => `<div style="font-size:12.5px">${esc(e.evaluator)}: ${tag(e.decision, e.decision === "qualified" ? "pos" : "neg")}${e.weighted_score != null ? ` <b>${e.weighted_score}</b><span class="ep-sub">/100</span>` : ""}${e.comments ? `<div class="ep-sub">${esc(e.comments)}</div>` : ""}</div>`;
   const shown = [...(mine ? [mine] : []), ...others].map(line).join("");
-  return `${shown || '<span class="ep-sub">Not evaluated by you</span>'}<div class="ep-sub">${row.evaluation_count} evaluator(s) have scored</div>`;
+  return `${shown || '<span class="ep-sub">Not evaluated by you</span>'}<div class="ep-sub">${row.evaluation_count} evaluator(s) have evaluated</div>`;
 }
 
 function resultCell(row) {
@@ -66,8 +66,10 @@ export async function renderLineDetail(container, lineId, { onBack, onReload, re
     ${s.phase === "bidding_open" ? '<div class="ep-note">Bids are sealed. Until the due date you can see only who has submitted; technical content and prices stay hidden from everyone.</div>' : ""}
     ${
       detail.can_see_evaluations
-        ? `<div class="ep-pane ep-pane-pad"><div class="ep-k">Scored out of 100 · minimum qualifying score ${detail.min_technical_score}${detail.scored ? " · qualified bids are T-ranked" : " · qualified bids stand on equal footing"}</div>
+        ? detail.scored
+          ? `<div class="ep-pane ep-pane-pad"><div class="ep-k">Scored out of 100 · minimum qualifying score ${detail.min_technical_score} · qualified bids are T-ranked</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:8px">${detail.criteria.map((c) => `<div class="ep-sub"><b>${c.weight}%</b> ${esc(c.label)}${c.auto ? " (from rating)" : c.optional ? " (optional)" : ""}</div>`).join("")}</div></div>`
+          : `<div class="ep-pane ep-pane-pad"><div class="ep-k">Qualify / disqualify — checked against mandatory technical compliance points, no score. Qualified bids stand on equal footing.</div></div>`
         : ""
     }
     <div class="ep-pane"><div class="ep-pane-head"><span>Invited vendors</span><span class="ep-k">${s.submitted_count} of ${s.invited_count} submitted</span></div>

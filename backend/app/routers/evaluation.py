@@ -194,7 +194,7 @@ def save_evaluation(bid_id: int, payload: EvaluationSave, db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Open every attachment before evaluating — not yet opened: " + ", ".join(unopened))
 
     scores, weighted = {}, None
-    if payload.decision == TechnicalDecision.QUALIFIED:
+    if payload.decision == TechnicalDecision.QUALIFIED and tech.is_scored(line):
         scores = tech.clean_scores(line.procurement_type, payload.scores)
         weighted = tech.weighted_score(line.procurement_type, scores, rating_score(bid.vendor_id, line.procurement_type, db))
 
@@ -328,7 +328,7 @@ def request_evaluation_correction(bid_id: int, payload: EvaluationCorrectionIn, 
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Open every attachment before evaluating — not yet opened: " + ", ".join(unopened))
 
     new_scores, new_weighted = {}, None
-    if payload.decision == TechnicalDecision.QUALIFIED:
+    if payload.decision == TechnicalDecision.QUALIFIED and tech.is_scored(line):
         new_scores = tech.clean_scores(line.procurement_type, payload.scores)
         new_weighted = tech.weighted_score(line.procurement_type, new_scores, rating_score(bid.vendor_id, line.procurement_type, db))
 

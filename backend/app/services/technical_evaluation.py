@@ -108,15 +108,22 @@ class Consolidated:
 
 def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], db: Session) -> Consolidated:
     """Spec 9.2.3 steps 3-5. Any evaluator disqualifying disqualifies the bid.
-    On every line the consolidated score is the simple average of the
-    evaluators' weighted scores (out of 100) and must reach the minimum. Only
-    technically scored lines (scored / QCBS) then get T1, T2... ranks; on a
-    standard line all qualified bids stand on equal footing (spec 9.2.1). (Exclude-outlier
-    averaging is the spec's other method; not built.)"""
+    On a Qualify/Disqualify line (spec 9.2.1: "checked against mandatory
+    technical compliance points; Qualifies or Disqualified, no numeric
+    ranking") that's the whole rule -- a genuine pass/fail toggle, no score
+    behind it, user-directed 2026-09-28 (a vendor's syringe is either the
+    right size or it isn't; there's no partial-credit number to give it).
+    Scored/QCBS lines instead average the evaluators' weighted scores (out of
+    100) and require it reach the minimum, then get T1, T2... ranks -- plain
+    lines never rank since all qualified bids stand on equal footing (spec
+    9.2.1). (Exclude-outlier averaging is the spec's other named method for
+    scored lines; not built.)"""
     rating = rating_score(bid.vendor_id, line.procurement_type, db)
     disq = [e for e in evals if e.decision == TechnicalDecision.DISQUALIFIED]
     if disq:
         return Consolidated(bid, TechnicalDecision.DISQUALIFIED, None, "; ".join(e.comments for e in disq if e.comments) or "Disqualified by evaluator", rating)
+    if not is_scored(line):
+        return Consolidated(bid, TechnicalDecision.QUALIFIED, None, None, rating)
     score = round(sum(e.weighted_score or 0 for e in evals) / len(evals), 2)
     if score < DEFAULT_MIN_TECHNICAL_SCORE:
         return Consolidated(bid, TechnicalDecision.DISQUALIFIED, score, f"Score {score:g} out of 100 is below the minimum qualifying score of {DEFAULT_MIN_TECHNICAL_SCORE:g}", rating)

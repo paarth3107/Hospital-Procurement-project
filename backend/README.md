@@ -402,6 +402,54 @@ Backend fields that already existed but had no form control are now on the tende
 - `LineItemCreate` now rejects a QCBS line with no positive technical/price weight at save time
   (previously only failed later, at commercial-evaluation time, after bids had already closed).
 
+## Type-specific tender line-item fields (spec §6.3.1-6.3.3, 2026-09-28)
+
+The rest of §6.3's per-type line fields -- previously real backend data (`TenderLineItem.line_details`,
+an untyped JSON bag) with no UI to fill it -- are now on the tender editor, following the plan already
+agreed in `GAPS.md`: mirror the catalog's `type_specific_attrs` / `ATTRS_BY_TYPE` pattern exactly rather
+than hand-building each field.
+
+`app/schemas/line_details.py` defines `ItemLineDetails` / `AssetLineDetails` / `ServiceLineDetails`
+(all fields optional, `extra="forbid"` so an Item line can't carry Service-only keys) and
+`LINE_DETAILS_BY_TYPE`, the same shape as `app/schemas/product_attrs.py`. `LineItemCreate` gained a
+`clean_line_details()` model validator (mirrors `ProductCreate.check_rules()`) that validates
+`line_details` against the line's own type and drops anything unset -- `mode="json"` on the dump so a
+`date` field validates to an ISO string, not a raw `date` object the JSON column can't serialize.
+
+Frontend: `frontend/js/pages/tenders/lineDetailFields.js` holds the three field-description lists
+(same `{name, label, kind, showWhen}` shape the catalog forms already use), rendered by
+`tenderLineItems.js` through the catalog's own generic kit (`fieldHtml`/`readFields`/
+`wireConditionalFields` from `js/pages/catalog/formKit.js`, reused across modules rather than
+reimplemented) -- which gained one new field `kind`, `date`, for this. Since typing into these fields
+doesn't drive any other live UI (unlike quantity/price, which update the visible budget), they're read
+straight from the DOM at save time rather than synced into the row's JS state on every keystroke; the
+one place that still needed an explicit flush is changing a line's technical evaluation method, which
+re-renders the whole panel and would otherwise discard whatever was already typed. Changing the line's
+catalog entry instead resets its `line_details` to empty, since a different item/asset/service's
+specifics don't carry over.
+
+`delivery_date`/`delivery_location` are the same field names on both Item and Asset (spec calls them
+"delivery date/location" and "delivery/installation date & location" respectively, same concept) --
+`app/services/po_files.py` already read `line_details["delivery_location"]` for the PO data file's
+"Delivery / Service Terms" field and got `None` every time, since nothing ever wrote it; it now
+resolves for real once a line has this filled in. The E-Tender Approval review screen already rendered
+arbitrary `line_details` keys generically (`js/pages/approvals/reviewPanel.js`'s `kv()` helper), so no
+review-screen change was needed for these to show up there.
+
+**Deliberate simplification:** spec §6.3.3's "License / IP Terms (Software lines)" bullet
+(license type/tenure, seats/usage tier, source-code escrow, IP assignment, data residency) largely
+repeats the catalog's own per-product software sub-schema (`ServiceAttrs` in `product_attrs.py`).
+Re-modeling all of that again per tender line for marginal benefit wasn't proportionate, so it's
+collapsed into one `license_ip_terms_notes` free-text field -- this tender's own adjustments on top of
+the master record, the same "master spec + line-specific notes" shape as Item's
+`technical_spec_override`.
+
+Verified end-to-end via API: all three types' fields round-trip through create -> line-item read ->
+approval review correctly; an unknown or wrong-type key is rejected with 422
+(`extra_forbidden`). **Not verified visually in a browser** -- no browser-automation tool was available
+this session; the frontend changes were JS-syntax-checked (`node --check`) and reviewed by hand against
+the existing, already-proven catalog-form pattern they reuse.
+
 See `GAPS.md` for the fuller list this was pulled from and what's still open (the rest of the
 type-specific line fields, §6.3.1-6.3.3, are next -- planned as a generic per-type schema mirroring
 `app/schemas/product_attrs.py`'s existing pattern, not yet built).
@@ -592,3 +640,29 @@ the Approving Authority pick the Officer's recommended alternate over the system
 one-step decision with a mandatory reason -- built and tested before this engine existed. Routing that
 through here instead would change an already-shipped flow's behavior, not just add a hook, so it's
 flagged in `GAPS.md` rather than done silently.
+
+## Qualify/Disqualify is a genuine toggle again, not a hidden numeric score (spec §9.2.1, reverted 2026-09-28)
+
+Spec §9.2.1 describes Qualify/Disqualify as "bids checked against mandatory technical compliance
+points; Qualifies or Disqualified, **no numeric ranking**." An earlier change (made when technical
+scoring was unified to a 0-100 scale across every line) had every line -- including plain
+Qualify/Disqualify ones -- go through the same `spec_compliance` score + 60-point weighted-average
+threshold as Scored/QCBS lines; a Qualify/Disqualify line just skipped the T-rank step afterward. In
+practice that meant an evaluator still had to type a number to qualify a bid even when there was
+nothing to score (a vendor's syringe is either the size ordered or it isn't).
+
+Reverted: `technical_evaluation.py`'s `consolidate()` now branches on `is_scored(line)` --
+Qualify/Disqualify lines skip the score/weighting/threshold entirely and are a plain "any evaluator
+disqualified it? then disqualified; otherwise qualified" rule, with `consolidated_score` and `t_rank`
+both `None`. `evaluation.py`'s `save_evaluation()` and the technical-score-correction override
+endpoint only call `clean_scores()`/`weighted_score()` when the line is actually scored. Scored/QCBS
+lines are unchanged -- still require every non-optional criterion and the 60-point minimum, exactly as
+before (regression-tested). The evaluate dialog (`evaluateDialog.js`) now renders a plain
+Qualify/Disqualify radio choice with no score inputs at all for a non-scored line, instead of always
+showing the full scoring grid; `lineDetail.js`'s line-summary panel and per-evaluator rows updated to
+match (no "scored out of 100" language, no score number, for a non-scored line).
+
+Disqualifying still requires a mandatory reason either way (spec's own rule, unrelated to scoring).
+Verified end-to-end via API: a Qualify/Disqualify line now qualifies with an empty `scores: {}` payload
+and records `consolidated_score`/`t_rank` as `None`; a Scored line still rejects an empty `scores`
+payload with the same 422 as before.

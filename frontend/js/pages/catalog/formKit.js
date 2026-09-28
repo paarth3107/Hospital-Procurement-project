@@ -2,7 +2,7 @@
 //
 // A field description looks like:
 //   { name: "warranty_months", label: "Warranty (months)", kind: "number" }
-// kinds: text | textarea | number | bool | select (needs options) | list (comma-separated)
+// kinds: text | textarea | number | bool | select (needs options) | list (comma-separated) | date
 // Optional: showWhen: { otherFieldName: "value" } -> only shown while that field has that value.
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -12,6 +12,7 @@ export function fieldHtml(f, value) {
   let input;
   if (f.kind === "textarea") input = `<textarea class="input" ${attrs} rows="2">${esc(value)}</textarea>`;
   else if (f.kind === "number") input = `<input class="input" ${attrs} type="number" step="any" value="${esc(value)}">`;
+  else if (f.kind === "date") input = `<input class="input" ${attrs} type="date" value="${esc(value)}">`;
   else if (f.kind === "list") input = `<input class="input" ${attrs} value="${esc(Array.isArray(value) ? value.join(", ") : "")}" placeholder="comma separated">`;
   else if (f.kind === "bool")
     input = `<select class="input" ${attrs}><option value="">—</option><option value="true" ${value === true ? "selected" : ""}>Yes</option><option value="false" ${value === false ? "selected" : ""}>No</option></select>`;

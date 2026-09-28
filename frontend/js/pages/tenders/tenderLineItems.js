@@ -1,4 +1,6 @@
 import { esc, typeTag, inr } from "../../kit.js";
+import { fieldHtml, readFields, wireConditionalFields } from "../catalog/formKit.js";
+import { LINE_DETAIL_FIELDS_BY_TYPE } from "./lineDetailFields.js";
 
 // The line items inside the tender form, one prototype-style panel each:
 // header (L01, type tag, name, qty · budget), an editable attribute grid on
@@ -20,6 +22,7 @@ const blankRow = () => ({
   price_weight: null,
   split_award_allowed: false,
   min_rating_threshold_override: null,
+  line_details: {},
 });
 
 export const setCatalog = (list) => (products = list);
@@ -75,6 +78,28 @@ function evaluationBlock(row, i) {
   </div>`;
 }
 
+function lineDetailsBlock(row) {
+  const p = productOf(row);
+  if (!p) return "";
+  const fields = LINE_DETAIL_FIELDS_BY_TYPE[p.procurement_type] || [];
+  if (!fields.length) return "";
+  return `<div style="padding:14px;border-top:2px solid rgba(32,30,29,.4)">
+    <div class="ep-k" style="margin-bottom:8px">${esc(typeTagLabel(p.procurement_type))} details (spec §6.3)</div>
+    <div class="line-details-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">${fields.map((f) => fieldHtml(f, row.line_details?.[f.name])).join("")}</div>
+  </div>`;
+}
+const typeTagLabel = (t) => (t === "item" ? "Item" : t === "asset" ? "Asset" : "Service");
+
+// Reads the currently-rendered type-specific fields for row i back into its
+// state before something (catalog entry / eval method change) re-renders the
+// panel and would otherwise discard whatever was typed.
+function flushLineDetails(i) {
+  const panelEl = container().querySelector(`.line-panel[data-index="${i}"]`);
+  const detailsEl = panelEl?.querySelector(".line-details-fields");
+  const p = productOf(rows[i]);
+  if (detailsEl && p) rows[i].line_details = readFields(detailsEl, LINE_DETAIL_FIELDS_BY_TYPE[p.procurement_type] || []);
+}
+
 function panel(row, i) {
   const p = productOf(row);
   const options =
@@ -112,17 +137,20 @@ function panel(row, i) {
         <div style="display:flex;flex-direction:column;gap:7px">${checklist}</div>
       </div>
     </div>
+    ${lineDetailsBlock(row, i)}
     ${evaluationBlock(row, i)}
   </div>`;
 }
 
 function render() {
   container().innerHTML = rows.length ? rows.map(panel).join("") : '<div class="ep-pane ep-pane-pad hint">No line items yet — add at least one.</div>';
+  container().querySelectorAll(".line-details-fields").forEach(wireConditionalFields);
   onChange();
 }
 
 // What the backend needs for each row (procurement type comes from the catalog entry).
 export function rowsForPayload() {
+  rows.forEach((_, i) => flushLineDetails(i));
   return rows.map((li) => ({
     product_master_id: li.product_master_id,
     procurement_type: productOf(li)?.procurement_type,
@@ -133,6 +161,7 @@ export function rowsForPayload() {
     price_weight: li.price_weight,
     split_award_allowed: !!li.split_award_allowed,
     min_rating_threshold_override: li.min_rating_threshold_override,
+    line_details: li.line_details || {},
   }));
 }
 
@@ -167,12 +196,14 @@ container().addEventListener("change", (e) => {
   const i = Number(panelEl.dataset.index);
   if (field === "product_master_id") {
     rows[i].product_master_id = e.target.value === "" ? null : Number(e.target.value);
+    rows[i].line_details = {}; // fresh catalog entry -> its own type-specific details, not the old entry's
     const p = productOf(rows[i]);
     if (p && !rows[i].technical_eval_method) {
       rows[i].technical_eval_method = DEFAULT_EVAL_METHOD[p.procurement_type];
     }
     render();
   } else if (field === "technical_eval_method") {
+    flushLineDetails(i); // same catalog entry/type -- keep whatever was typed before this re-renders the panel
     rows[i].technical_eval_method = e.target.value;
     if (e.target.value === "qcbs" && !rows[i].technical_weight && !rows[i].price_weight) {
       const p = productOf(rows[i]);

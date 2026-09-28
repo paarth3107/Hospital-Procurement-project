@@ -4,9 +4,12 @@ import { esc, kicker, tag } from "../../kit.js";
 // The evaluator's pop-up for one bid. Nothing about the bid is visible in the
 // table behind it: the technical content appears only here. Step 1: read the
 // bid and open every attached document (the server records each opening and
-// refuses to save a score until all are opened). Step 2: score each criterion
-// out of 100; the system weights them, and the bid qualifies if the weighted
-// score reaches the minimum (or the evaluator disqualifies it outright).
+// refuses to save an evaluation until all are opened). Step 2 depends on the
+// line's evaluation method (spec §9.2.1): a Scored/QCBS line scores each
+// criterion out of 100 and the system weights them, qualifying if the
+// weighted score reaches the minimum; a plain Qualify/Disqualify line is a
+// genuine pass/fail toggle with no score behind it at all (user-directed
+// 2026-09-28 -- a vendor's syringe is either the right size or it isn't).
 const overlay = document.getElementById("app-dialog");
 const box = document.getElementById("app-dialog-box");
 const close = () => {
@@ -54,7 +57,9 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
         <div style="margin-top:10px" class="ep-k">Attached documents — open each one before scoring</div>
         <div id="eval-docs" style="margin-top:6px"></div>
       </div>
-      <div id="eval-score-block">${kicker("2 · Score each aspect out of 100")}
+      <div id="eval-score-block">${
+        review.scored
+          ? `${kicker("2 · Score each aspect out of 100")}
         <div id="eval-lock" class="hint" style="margin:6px 0"></div>
         <div class="ep-form-grid" style="grid-template-columns:1fr 1fr;margin-top:6px">
           ${review.criteria
@@ -66,7 +71,14 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
             .join("")}
         </div>
         <div id="eval-preview" style="margin-top:10px"></div>
-        <label class="ep-check" style="margin-top:10px"><input type="checkbox" name="disqualify" data-score ${mine?.decision === "disqualified" ? "checked" : ""}> Disqualify outright (regardless of score)</label>
+        <label class="ep-check" style="margin-top:10px"><input type="checkbox" name="disqualify" data-score ${mine?.decision === "disqualified" ? "checked" : ""}> Disqualify outright (regardless of score)</label>`
+          : `${kicker("2 · Decision")}
+        <div id="eval-lock" class="hint" style="margin:6px 0"></div>
+        <div style="display:flex;gap:20px;margin-top:8px">
+          <label class="ep-check"><input type="radio" name="qd_decision" value="qualified" data-score ${mine?.decision !== "disqualified" ? "checked" : ""}> Qualify — meets the mandatory technical compliance points</label>
+          <label class="ep-check"><input type="radio" name="qd_decision" value="disqualified" data-score ${mine?.decision === "disqualified" ? "checked" : ""}> Disqualify</label>
+        </div>`
+      }
         <div class="ep-field" style="margin-top:8px">${kicker("Comments (if any)")}<textarea class="input" name="comments" rows="3" style="width:100%" data-score>${esc(mine?.comments || "")}</textarea><div id="eval-comments-msg" class="hint" style="margin-top:4px;color:#ae1800" hidden>A reason is mandatory to disqualify a bid.</div></div>
       </div>
       <div id="eval-result" class="result"></div>
@@ -97,11 +109,16 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
     const ok = allOpened();
     form.querySelectorAll("[data-score]").forEach((el) => (el.disabled = !ok));
     box.querySelector("#eval-save").disabled = !ok;
-    box.querySelector("#eval-lock").textContent = ok ? "Enter a score for every aspect below. The bid qualifies if the weighted score reaches " + review.min_technical_score + " out of 100." : "Scoring is locked until you have opened every attached document above.";
+    box.querySelector("#eval-lock").textContent = ok
+      ? review.scored
+        ? "Enter a score for every aspect below. The bid qualifies if the weighted score reaches " + review.min_technical_score + " out of 100."
+        : "Check the bid against the mandatory technical compliance points and qualify or disqualify it — no score involved."
+      : "This is locked until you have opened every attached document above.";
     preview();
   };
 
   const preview = () => {
+    if (!review.scored) return;
     const typed = readScores();
     const required = manual.filter((c) => !c.optional);
     if (required.some((c) => typed[c.key] == null || Number.isNaN(typed[c.key]))) {
@@ -134,7 +151,7 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
   refresh();
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const disq = form.disqualify.checked;
+    const disq = review.scored ? form.disqualify.checked : form.qd_decision.value === "disqualified";
     const msg = box.querySelector("#eval-comments-msg");
     if (disq && !form.comments.value.trim()) {
       form.comments.classList.add("invalid");
@@ -146,7 +163,7 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
       await api(`/evaluation/bids/${review.bid_id}/evaluation`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: disq ? "disqualified" : "qualified", scores: disq ? {} : readScores(), comments: form.comments.value }),
+        body: JSON.stringify({ decision: disq ? "disqualified" : "qualified", scores: !disq && review.scored ? readScores() : {}, comments: form.comments.value }),
       });
       close();
       onSaved(`Evaluation saved for ${review.vendor_name}.`);

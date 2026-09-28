@@ -6,6 +6,7 @@ from app.models.product_master import ProcurementType
 from app.models.tender import TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision
 from app.models.tender_line_item import TechnicalEvalMethod
+from app.schemas.line_details import LINE_DETAILS_BY_TYPE
 
 
 class LineItemCreate(BaseModel):
@@ -35,6 +36,16 @@ class LineItemCreate(BaseModel):
         if self.technical_eval_method == TechnicalEvalMethod.QCBS:
             if not self.technical_weight or not self.price_weight or self.technical_weight <= 0 or self.price_weight <= 0:
                 raise ValueError("A QCBS line needs a positive technical weight and price weight")
+        return self
+
+    @model_validator(mode="after")
+    def clean_line_details(self):
+        # Spec §6.3.1-6.3.3 -- validated against the per-type field set
+        # (schemas/line_details.py), same pattern as ProductCreate's
+        # type_specific_attrs. mode="json" so a delivery_date validates to
+        # an ISO string, not a raw date object the JSON column can't store.
+        details_model = LINE_DETAILS_BY_TYPE[self.procurement_type]
+        self.line_details = details_model(**self.line_details).model_dump(mode="json", exclude_none=True)
         return self
 
 
