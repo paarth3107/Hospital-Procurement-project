@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -576,3 +576,31 @@ def list_approval_rounds(tender_id: int, db: Session = Depends(get_db), _user: U
         .order_by(TenderApprovalRound.round_number)
         .all()
     )
+
+
+@router.post("/{tender_id}/force-close-bidding", response_model=TenderOut)
+def force_close_bidding(tender_id: int, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(Role.SYSTEM_ADMIN))):
+    """TEMPORARY DEMO UTILITY -- not a spec feature (remove once no longer
+    needed). Lets System Admin skip the wait for a published tender's real
+    bid due date, so technical/commercial evaluation can be demoed without
+    sitting through the actual window. Every "is bidding still open" check in
+    the app (technical_evaluation.py's deadline_passed(), the vendor portal,
+    etc.) reads Tender.bid_due_date directly, so moving it into the past is
+    the one change that closes bidding everywhere at once -- no separate
+    "force closed" flag to keep in sync."""
+
+    tender = _load_tender(tender_id, db)
+    if tender.status != TenderStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Tender is '{tender.status.value}', not published")
+    now = datetime.now(timezone.utc)
+    if tender.bid_due_date is not None and tender.bid_due_date <= now:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bidding is already closed for this tender")
+    before = {"bid_due_date": tender.bid_due_date}
+    tender.bid_due_date = now - timedelta(seconds=1)
+    record(
+        db, "tender.bid_window_force_closed", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        before=before, after={"bid_due_date": tender.bid_due_date}, reason="Demo utility -- not a spec-backed action",
+    )
+    db.commit()
+    db.refresh(tender)
+    return tender

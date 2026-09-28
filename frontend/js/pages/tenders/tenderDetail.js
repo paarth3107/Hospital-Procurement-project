@@ -1,6 +1,7 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { esc, stateTag, emptyRow, tag } from "../../kit.js";
+import { state } from "../../state.js";
 
 // Below the form, for a saved tender: which lines are live vs held back, a
 // preview of who the system would currently invite per line, and the
@@ -29,6 +30,7 @@ export function hideTenderDetail() {
 async function loadPublishStatus() {
   const wrap = document.getElementById("tender-publish-status");
   wrap.hidden = tenderState !== "published";
+  document.getElementById("force-close-bidding-btn").hidden = wrap.hidden || state.user?.role !== "system_admin";
   if (wrap.hidden) return;
   const tbody = wrap.querySelector("tbody");
   const [lines, products] = await Promise.all([api(`/tenders/${tenderId}/line-items`), api("/products")]);
@@ -41,6 +43,17 @@ async function loadPublishStatus() {
     )
     .join("");
 }
+
+document.getElementById("force-close-bidding-btn").addEventListener("click", async () => {
+  const resultEl = document.getElementById("tender-result");
+  try {
+    await api(`/tenders/${tenderId}/force-close-bidding`, { method: "POST" });
+    showResult(resultEl, "Bidding force-closed for this tender (demo utility — not a real deadline pass).", true);
+    document.getElementById("force-close-bidding-btn").hidden = true;
+  } catch (err) {
+    showResult(resultEl, "Could not force-close bidding: " + err.message, false);
+  }
+});
 
 document.querySelector("#publish-status-table tbody").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-line-id]");
