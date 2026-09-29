@@ -14,7 +14,7 @@ export function vendorBase(s) {
     ["Blacklisted", v.blacklisted || 0, "#201e1d"],
   ];
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Vendor base</span></div>
+    <div class="ep-pane-head"><span>Vendor Base</span></div>
     <div style="padding:14px">
       ${rows
         .map(

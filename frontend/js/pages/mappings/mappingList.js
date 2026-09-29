@@ -1,15 +1,19 @@
-import { esc, stateTag, th, emptyRow } from "../../kit.js";
+import { esc, stateTag, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { approveMapping, rejectMapping, suspendMapping, reinstateMapping } from "./mappingActions.js";
 
 // "All mappings": every mapping row (category- and item-level), filtered by
 // state and level, with the actions valid for each row's state.
+let page = 0;
+
 export function renderMappingList(container, data, refresh, filters) {
-  const rows = data.mappings.filter((m) => {
+  const filtered = data.mappings.filter((m) => {
     if (filters.state && m.state !== filters.state) return false;
     if (filters.scope === "category" && m.category_id == null) return false;
     if (filters.scope === "item" && m.product_master_id == null) return false;
     return true;
   });
+  const { pageItems: rows, totalPages, page: clamped } = pageSlice(filtered, page);
+  page = clamped;
 
   container.innerHTML = `<table class="ep-table">${th("Vendor", "Level", "Target", "State", "")}<tbody>${
     rows.length
@@ -35,8 +39,13 @@ export function renderMappingList(container, data, refresh, filters) {
           })
           .join("")
       : emptyRow(5, "No mappings match.")
-  }</tbody></table>`;
+  }</tbody></table>
+  ${paginationBar(page, totalPages, "mapping-list-prev", "mapping-list-next")}`;
 
+  wirePagination(container, "mapping-list-prev", "mapping-list-next", page, (p) => {
+    page = p;
+    renderMappingList(container, data, refresh, filters);
+  });
   container.querySelectorAll("button[data-act]").forEach((b) =>
     b.addEventListener("click", async () => {
       const m = rows[Number(b.dataset.row)];

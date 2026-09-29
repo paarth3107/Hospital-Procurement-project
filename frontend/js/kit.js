@@ -45,3 +45,33 @@ export function inr(n) {
 // "Expired" / "Expiring <date>" tag for a document with a valid-till date ("" if none/ok).
 export const expiryTag = (doc) =>
   doc.expiry_state === "expired" ? tag("Expired", "neg") : doc.expiry_state === "expiring" ? tag(`Expiring ${fmtDate(doc.valid_till)}`, "att") : "";
+
+// ---- Pagination (2026-09-30): every list in the app is expected to grow
+// into the hundreds once this is live, so any list/log page uses this pair
+// instead of rendering everything at once. Usage: keep a module-level `page`
+// variable, call pageSlice(items, page) to get what to render plus how many
+// pages exist, render paginationBar(...) below the table, and wire its two
+// button ids to decrement/increment `page` and re-render. ----
+export const PAGE_SIZE = 20;
+
+export function pageSlice(items, page, pageSize = PAGE_SIZE) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const clamped = Math.min(Math.max(0, page), totalPages - 1);
+  return { pageItems: items.slice(clamped * pageSize, clamped * pageSize + pageSize), totalPages, page: clamped };
+}
+
+export function paginationBar(page, totalPages, prevId, nextId) {
+  if (totalPages <= 1) return "";
+  return `<div style="display:flex;justify-content:center;align-items:center;gap:14px;padding:12px 0">
+    <button class="ep-b" id="${prevId}" ${page <= 0 ? "disabled" : ""}>‹ Previous</button>
+    <span class="ep-sub">Page ${page + 1} of ${totalPages}</span>
+    <button class="ep-b" id="${nextId}" ${page >= totalPages - 1 ? "disabled" : ""}>Next ›</button>
+  </div>`;
+}
+
+// Wires a paginationBar()'s two buttons; `setPage` should update the module's
+// page variable and re-render (the same function the list's own filters use).
+export function wirePagination(root, prevId, nextId, page, setPage) {
+  root.querySelector(`#${prevId}`)?.addEventListener("click", () => setPage(page - 1));
+  root.querySelector(`#${nextId}`)?.addEventListener("click", () => setPage(page + 1));
+}

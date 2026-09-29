@@ -449,7 +449,7 @@ def list_vendor_documents_for_review(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
     return (
         db.query(VendorDocument)
-        .filter(VendorDocument.vendor_id == vendor_id)
+        .filter(VendorDocument.vendor_id == vendor_id, VendorDocument.status != DocumentStatus.DRAFT)
         .order_by(VendorDocument.doc_type)
         .all()
     )
@@ -462,9 +462,7 @@ def download_vendor_document_for_review(
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
-    doc = db.get(VendorDocument, doc_id)
-    if not doc or doc.vendor_id != vendor_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    doc = _load_reviewable_document(vendor_id, doc_id, db)
     record(
         db, "vendor.document_viewed", "vendor", vendor_id, actor=_user, entity_label=doc.vendor.legal_name,
         after={"document": doc_label(doc), "file": doc.original_filename},
@@ -479,7 +477,8 @@ def download_vendor_document_for_review(
 
 def _load_reviewable_document(vendor_id: int, doc_id: int, db: Session) -> VendorDocument:
     doc = db.get(VendorDocument, doc_id)
-    if not doc or doc.vendor_id != vendor_id:
+    # A Draft document hasn't been submitted -- staff can't see, download, verify or reject it.
+    if not doc or doc.vendor_id != vendor_id or doc.status == DocumentStatus.DRAFT:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return doc
 

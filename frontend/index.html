@@ -17,20 +17,21 @@
   </div>
   <div class="ep-navhead ep-k" id="nav-heading"></div>
   <nav class="ep-navlist" id="topnav">
-    <button class="tab-btn ep-nav" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden><span class="nav-label">Tender invitations</span><span class="nav-badge" id="badge-vendor-dashboard"></span></button>
-    <button class="tab-btn ep-nav" id="vendor-profile-tab" data-view="vendor-profile" hidden><span class="nav-label">Company profile</span><span class="nav-badge" id="badge-vendor-profile"></span></button>
+    <button class="tab-btn ep-nav" id="vendor-dashboard-tab" data-view="vendor-dashboard" hidden><span class="nav-label">Dashboard</span><span class="nav-badge" id="badge-vendor-dashboard"></span></button>
+    <button class="tab-btn ep-nav" id="vendor-profile-tab" data-view="vendor-profile" hidden><span class="nav-label">Company Profile</span></button>
+    <button class="tab-btn ep-nav" id="vendor-categories-tab" data-view="vendor-categories" hidden><span class="nav-label">Category Declaration</span><span class="nav-badge" id="badge-vendor-categories"></span></button>
     <button class="tab-btn ep-nav" id="dashboard-tab" data-view="dashboard" hidden><span class="nav-label">Dashboard</span></button>
     <button class="tab-btn ep-nav" id="queue-tab" data-view="queue" hidden><span class="nav-label">Vendors</span><span class="nav-badge" id="badge-queue"></span></button>
     <button class="tab-btn ep-nav" id="catalog-tab" data-view="catalog" hidden><span class="nav-label">Items</span></button>
-    <button class="tab-btn ep-nav" id="mappings-tab" data-view="mappings" hidden><span class="nav-label">Vendor mapping</span><span class="nav-badge" id="badge-mappings"></span></button>
-    <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" hidden><span class="nav-label">Ratings &amp; scorecards</span></button>
-    <button class="tab-btn ep-nav" id="tenders-tab" data-view="tenders" hidden><span class="nav-label">Tender creation</span></button>
-    <button class="tab-btn ep-nav" id="evaluation-tab" data-view="evaluation" hidden><span class="nav-label">Bid evaluation</span></button>
-    <button class="tab-btn ep-nav" id="awards-tab" data-view="awards" hidden><span class="nav-label">L1 award</span><span class="nav-badge" id="badge-awards"></span></button>
-    <button class="tab-btn ep-nav" id="pofiles-tab" data-view="pofiles" hidden><span class="nav-label">PO data files</span></button>
-    <button class="tab-btn ep-nav" id="approvals-tab" data-view="approvals" hidden><span class="nav-label">E-tender approval</span><span class="nav-badge" id="badge-approvals"></span></button>
-    <button class="tab-btn ep-nav" id="staff-tab" data-view="staff" hidden><span class="nav-label">Staff accounts</span></button>
-    <button class="tab-btn ep-nav" id="audit-tab" data-view="audit" hidden><span class="nav-label">Audit log</span></button>
+    <button class="tab-btn ep-nav" id="mappings-tab" data-view="mappings" hidden><span class="nav-label">Vendor Mapping</span><span class="nav-badge" id="badge-mappings"></span></button>
+    <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" hidden><span class="nav-label">Ratings &amp; Scorecards</span></button>
+    <button class="tab-btn ep-nav" id="tenders-tab" data-view="tenders" hidden><span class="nav-label">Tender Creation</span></button>
+    <button class="tab-btn ep-nav" id="evaluation-tab" data-view="evaluation" hidden><span class="nav-label">Bid Evaluation</span></button>
+    <button class="tab-btn ep-nav" id="awards-tab" data-view="awards" hidden><span class="nav-label">L1 Award</span><span class="nav-badge" id="badge-awards"></span></button>
+    <button class="tab-btn ep-nav" id="pofiles-tab" data-view="pofiles" hidden><span class="nav-label">PO Data Files</span></button>
+    <button class="tab-btn ep-nav" id="approvals-tab" data-view="approvals" hidden><span class="nav-label">E-Tender Approval</span><span class="nav-badge" id="badge-approvals"></span></button>
+    <button class="tab-btn ep-nav" id="staff-tab" data-view="staff" hidden><span class="nav-label">Staff Accounts</span></button>
+    <button class="tab-btn ep-nav" id="audit-tab" data-view="audit" hidden><span class="nav-label">Audit Log</span></button>
   </nav>
   <div class="ep-identity">
     <div class="ep-k">Signed in as</div>
@@ -88,7 +89,7 @@
     </div>
     <form id="register-form" class="ep-form" style="gap:18px" novalidate>
       <div id="register-step-1" style="display:flex;flex-direction:column;gap:18px">
-        <div class="ep-pane"><div class="ep-pane-head"><span>Company details</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
+        <div class="ep-pane"><div class="ep-pane-head"><span>Company Details</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
           <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Legal name</div><input class="input" name="legal_name" required></div>
           <div class="ep-field"><div class="ep-k">Trade name (optional)</div><input class="input" name="trade_name"></div>
           <div class="ep-field"><div class="ep-k">Entity type</div><select class="input" name="entity_type" required><option value="">— select —</option><option>Private Limited</option><option>Public Limited</option><option>LLP</option><option>Partnership</option><option>Proprietorship</option><option>Other</option></select></div>
@@ -98,16 +99,16 @@
           <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Alternate / correspondence address (optional)</div><textarea class="input" name="alternate_address" rows="2" placeholder="Only if different from the registered address above"></textarea></div>
           <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Branch locations (optional)</div><textarea class="input" name="branch_locations" rows="2"></textarea></div>
         </div></div></div>
-        <div class="ep-pane"><div class="ep-pane-head"><span>Statutory identifiers</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
+        <div class="ep-pane"><div class="ep-pane-head"><span>Statutory Identifiers</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
           <div class="ep-field" style="grid-column:span 2"><div class="ep-k">GSTIN (15 characters)</div><input class="input" name="gstin" required maxlength="15" minlength="15"></div>
           <div class="ep-field"><div class="ep-k">PAN</div><input class="input" name="pan" required maxlength="10"></div>
         </div></div></div>
-        <div class="ep-pane"><div class="ep-pane-head"><span>Banking details</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
+        <div class="ep-pane"><div class="ep-pane-head"><span>Banking Details</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
           <div class="ep-field"><div class="ep-k">Bank name</div><input class="input" name="bank_name" required></div>
           <div class="ep-field"><div class="ep-k">Account number</div><input class="input" name="bank_account_number" required inputmode="numeric"></div>
           <div class="ep-field"><div class="ep-k">IFSC</div><input class="input" name="bank_ifsc" required maxlength="11"></div>
         </div></div></div>
-        <div class="ep-pane"><div class="ep-pane-head"><span>Contact details</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
+        <div class="ep-pane"><div class="ep-pane-head"><span>Contact Details</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
           <div class="ep-field"><div class="ep-k">Primary contact person</div><input class="input" name="contact_person" required></div>
           <div class="ep-field"><div class="ep-k">Designation</div><input class="input" name="contact_designation" required></div>
           <div class="ep-field"><div class="ep-k">Phone</div><input class="input" name="phone" required></div>
@@ -116,7 +117,7 @@
           <div class="ep-field"><div class="ep-k">Escalation phone</div><input class="input" name="escalation_contact_phone" required></div>
           <div class="ep-field"><div class="ep-k">Escalation email (optional)</div><input class="input" name="escalation_contact_email" type="email"></div>
         </div></div></div>
-        <div class="ep-pane"><div class="ep-pane-head"><span>Commercial terms (optional)</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
+        <div class="ep-pane"><div class="ep-pane-head"><span>Commercial Terms (Optional)</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
           <div class="ep-field"><div class="ep-k">Standard payment terms</div><input class="input" name="payment_terms"></div>
           <div class="ep-field"><div class="ep-k">Delivery lead time (days)</div><input class="input" name="delivery_lead_time_days" type="number" min="0"></div>
           <div class="ep-field"><div class="ep-k">Minimum order value (₹)</div><input class="input" name="min_order_value" type="number" min="0" step="any"></div>
@@ -130,7 +131,7 @@
       <div id="register-step-2" style="display:flex;flex-direction:column;gap:18px" hidden>
         <div class="ep-k">Documents · PDF, JPG or PNG, max 10 MB each (the catalogue may also be a spreadsheet)</div>
         <div id="register-doc-zones"></div>
-        <div class="ep-pane"><div class="ep-pane-head"><span>Other documents (optional)</span></div><div class="ep-pane-pad">
+        <div class="ep-pane"><div class="ep-pane-head"><span>Other Documents (Optional)</span></div><div class="ep-pane-pad">
           <p class="hint" style="margin:0 0 10px">Anything else you'd like to include — name it and attach the file. Add as many as you need.</p>
           <div id="register-other-docs" style="display:flex;flex-direction:column;gap:10px"></div>
           <button type="button" class="ep-b" id="register-add-other-doc-btn" style="margin-top:10px">+ Add another document</button>
@@ -255,18 +256,18 @@
 
     <div id="tender-detail" hidden style="display:flex;flex-direction:column;gap:18px">
       <div class="ep-pane" id="tender-publish-status" hidden>
-        <div class="ep-pane-head"><span>Line publishing</span><div style="display:flex;align-items:center;gap:12px"><button class="ep-b" id="force-close-bidding-btn" hidden>Force-close bidding now (demo)</button><span class="ep-k">held lines can be published later</span></div></div>
+        <div class="ep-pane-head"><span>Line Publishing</span><div style="display:flex;align-items:center;gap:12px"><button class="ep-b" id="force-close-bidding-btn" hidden>Force-close bidding now (demo)</button><span class="ep-k">held lines can be published later</span></div></div>
         <table class="ep-table" id="publish-status-table">
           <thead><tr><th class="ep-th">Line item</th><th class="ep-th">Status</th><th class="ep-th"></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
       <div class="ep-pane">
-        <div class="ep-pane-head"><span>Eligible vendors per line</span><button class="ep-b" id="preview-eligibility-btn">Preview eligibility</button></div>
+        <div class="ep-pane-head"><span>Eligible Vendors Per Line</span><button class="ep-b" id="preview-eligibility-btn">Preview eligibility</button></div>
         <div id="eligibility-preview" class="ep-pane-pad hint">Preview shows who would be invited for the saved version.</div>
       </div>
       <div class="ep-pane">
-        <div class="ep-pane-head"><span>Approval rounds</span></div>
+        <div class="ep-pane-head"><span>Approval Rounds</span></div>
         <table class="ep-table" id="round-table">
           <thead><tr><th class="ep-th">Round</th><th class="ep-th">Decision</th><th class="ep-th">Required tier</th><th class="ep-th">Comments</th></tr></thead>
           <tbody></tbody>
@@ -318,6 +319,10 @@
 
   <section id="view-vendor-profile" class="view" hidden>
     <div id="vendor-profile-root"></div>
+  </section>
+
+  <section id="view-vendor-categories" class="view" hidden>
+    <div id="vendor-categories-root"></div>
   </section>
 
   </div>

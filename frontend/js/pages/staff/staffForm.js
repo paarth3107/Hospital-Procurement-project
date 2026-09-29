@@ -23,7 +23,7 @@ export function openStaffForm(user, facilities, onSaved) {
   const editing = !!user;
   const opt = (value, label, selected) => `<option value="${value}" ${selected ? "selected" : ""}>${esc(label)}</option>`;
   box.innerHTML = `
-    <div class="dlg-head"><div style="flex:1">${kicker(editing ? "Edit staff account" : "New staff account")}<h4>${editing ? esc(user.full_name) : "Add hospital staff"}</h4></div></div>
+    <div class="dlg-head"><div style="flex:1">${kicker(editing ? "Edit staff account" : "New staff account")}<h4>${editing ? esc(user.full_name) : "Add Hospital Staff"}</h4></div></div>
     <form id="staff-form" class="ep-form" style="padding:16px 18px;background:transparent;border:0">
       <div class="ep-field">${kicker("Full name")}<input class="input" name="full_name" value="${editing ? esc(user.full_name) : ""}" required></div>
       <div class="ep-field">${kicker("Email (used to log in)")}<input class="input" name="email" type="email" value="${editing ? esc(user.email) : ""}" ${editing ? "disabled" : "required"}></div>

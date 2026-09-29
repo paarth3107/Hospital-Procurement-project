@@ -1,5 +1,6 @@
 import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
+import { modalConfirm } from "../modal.js";
 import { VENDOR_DOC_TYPES, acceptFor } from "../constants.js";
 import { esc, tag, stateTag, th, fmtDate, expiryTag } from "../kit.js";
 
@@ -18,8 +19,9 @@ export async function renderVendorDocuments(container, onChanged = () => {}) {
         .filter((d) => d.doc_type === "other")
         .map((d) => ({ key: "other:" + d.custom_label, type: "other", label: d.custom_label, mandatory: false, expires: true, accept: ".pdf,.jpg,.jpeg,.png", doc: d, custom: true })),
     ];
+    const draftCount = docs.filter((d) => d.status === "draft").length;
     container.innerHTML = `<div class="ep-pane">
-      <div class="ep-pane-head"><span>Document vault</span><span class="ep-k">PDF, JPG or PNG · max 10 MB · an expired document suspends bidding until renewed</span></div>
+      <div class="ep-pane-head"><span>Document Vault</span><span class="ep-k">PDF, JPG or PNG · max 10 MB · an expired document suspends bidding until renewed</span></div>
       <table class="ep-table">${th("Document", "File", "Valid till", "Status", "")}<tbody>${entries
         .map((e, i) => {
           const d = e.doc;
@@ -29,14 +31,20 @@ export async function renderVendorDocuments(container, onChanged = () => {}) {
             d ? `<span class="ep-mono">${esc(d.original_filename)}</span><div class="ep-sub">${(d.size_bytes / 1024).toFixed(0)} KB · uploaded ${fmtDate(d.uploaded_at)} · <a href="#" data-view="${d.id}">View</a></div>` : '<span class="ep-sub">Not uploaded</span>'
           }</td>
           <td class="ep-cell" style="font-size:12.5px">${d && d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
-          <td class="ep-cell">${d ? stateTag(d.status) : tag("Missing", e.mandatory ? "att" : "")}${d && d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
+          <td class="ep-cell">${d ? stateTag(d.status) : tag("Missing", e.mandatory ? "att" : "")}${d && d.status === "draft" ? '<div class="ep-sub">Not submitted yet</div>' : ""}${d && d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
           <td class="ep-cell" style="text-align:right">
             ${e.expires ? `<input class="input" type="date" data-date="${i}" value="${d?.valid_till || ""}" title="Valid till — set before uploading" style="width:150px;display:inline-block;margin-right:6px">` : ""}
             <button class="ep-b" data-upload="${i}">${d ? "Replace" : "Upload"}</button>
+            ${d && d.status !== "verified" ? `<button class="ep-b" data-delete="${d.id}">Delete</button>` : ""}
             <input type="file" accept="${e.accept}" hidden data-input="${i}">
           </td></tr>`;
         })
         .join("")}</tbody></table>
+      ${
+        draftCount
+          ? `<div class="ep-note"><span>You have ${draftCount} document(s) saved as drafts. They stay private until you submit -- the category manager only sees what you submit.</span><button class="ep-b" data-v="p" id="submit-documents-btn">Submit documents (${draftCount})</button></div>`
+          : ""
+      }
       <div id="vendor-documents-result" class="result"></div>
     </div>`;
     wire(container, entries, onChanged);
@@ -81,4 +89,26 @@ function wire(container, entries, onChanged) {
       }
     })
   );
+  container.querySelectorAll("[data-delete]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      if (!(await modalConfirm("Delete this attachment? You'll need to upload a replacement before it counts toward any requirement.", { title: "Delete Document", confirmLabel: "Delete", danger: true }))) return;
+      try {
+        await api(`/vendor-portal/documents/${b.dataset.delete}`, { method: "DELETE" });
+        renderVendorDocuments(container, onChanged);
+        onChanged();
+      } catch (err) {
+        showResult(result, "Could not delete: " + err.message, false);
+      }
+    })
+  );
+  container.querySelector("#submit-documents-btn")?.addEventListener("click", async () => {
+    try {
+      await api("/vendor-portal/documents/submit", { method: "POST" });
+      await renderVendorDocuments(container, onChanged);
+      showResult(container.querySelector("#vendor-documents-result"), "Your documents were submitted for review.", true);
+      onChanged();
+    } catch (err) {
+      showResult(result, "Could not submit: " + err.message, false);
+    }
+  });
 }

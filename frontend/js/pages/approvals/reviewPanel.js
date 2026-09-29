@@ -52,14 +52,14 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
       <div>${kicker("Approval required from")}<div style="margin-top:5px">${tag(r.required_tier ? "Tier " + r.required_tier : "—", "att")}</div><div class="ep-sub">${esc(r.tier_label || "")}</div></div>
     </div>
     ${r.warnings.map((w) => `<div class="ep-note warn">${esc(w)}</div>`).join("")}
-    ${pane("Tender details", "", facts([
+    ${pane("Tender Details", "", facts([
       fact("Type", esc(r.tender_type.replace("_", " "))), fact("Facility / entity", esc(r.facility_name) + (r.facility_code ? ` (${esc(r.facility_code)})` : "")), fact("Department", esc(r.department || "")), fact("Prepared by", esc(r.created_by || "")),
       fact("Publish date", r.publish_date ? fmtDateTime(r.publish_date) : "On approval"), fact("Bids close", fmtDateTime(r.bid_due_date)), fact("Default minimum vendor rating", r.min_rating_threshold), fact("Vendors per line (min / max)", `${r.min_invites ?? "—"} / ${r.max_invites ?? "—"}`),
       ...(r.description ? [fact("Description", `<span style="white-space:pre-wrap;font-weight:400">${esc(r.description)}</span>`, 4)] : []),
       ...(r.terms_and_conditions ? [fact("Terms &amp; conditions", `<span style="white-space:pre-wrap;font-weight:400">${esc(r.terms_and_conditions)}</span>`, 4)] : []),
     ]))}
     ${pane(`Line items (${r.lines.length})`, `<span class="ep-k">${r.lines.filter((l) => l.held_back).length} would be held back</span>`, r.lines.map(lineHtml).join(""))}
-    ${pane("Approval history", "", rounds)}
+    ${pane("Approval History", "", rounds)}
     <div class="ep-pane ep-pane-pad">
       ${
         r.can_decide

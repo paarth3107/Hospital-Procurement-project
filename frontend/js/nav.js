@@ -9,6 +9,7 @@ import { loadMappingsPage } from "./pages/mappings/mappingsPage.js";
 import { loadRatingsPage } from "./pages/ratings/ratingsPage.js";
 import { loadVendorDashboard } from "./pages/vendorDashboardPage.js";
 import { loadVendorProfile } from "./pages/vendorProfilePage.js";
+import { loadVendorCategoriesTab } from "./pages/vendorCategories/vendorCategoriesPage.js";
 import { loadTenders } from "./pages/tenders/tendersPage.js";
 import { loadApprovals } from "./pages/approvalsPage.js";
 import { loadStaff } from "./pages/staff/staffPage.js";
@@ -20,21 +21,22 @@ import { loadPoFiles } from "./pages/po/poFilesPage.js";
 
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
-  dashboard: ["Overview", "Procurement command centre"],
-  queue: ["Module 1", "Vendor registration & onboarding"],
+  dashboard: ["Overview", "Procurement Command Centre"],
+  queue: ["Module 1", "Vendor Registration & Onboarding"],
   catalog: ["Module 2", "Items"],
-  mappings: ["Module 2", "Vendor–product eligibility matrix"],
-  ratings: ["Module 3", "Vendor rating & scorecard"],
-  tenders: ["Module 4", "E-tender creation"],
-  approvals: ["Module 4B", "E-tender approval"],
-  staff: ["Administration", "Staff accounts"],
-  audit: ["Administration", "Audit log"],
-  bid: ["Vendor portal", "Prepare bid"],
-  evaluation: ["Module 6", "Bid evaluation"],
-  awards: ["Module 6-7", "L1 recommendation & approval"],
-  pofiles: ["Module 7", "PO data files for the ERP"],
-  "vendor-dashboard": ["Vendor portal", "Tender invitations"],
-  "vendor-profile": ["Module 1", "Company profile & documents"],
+  mappings: ["Module 2", "Vendor–Product Eligibility Matrix"],
+  ratings: ["Module 3", "Vendor Rating & Scorecard"],
+  tenders: ["Module 4", "E-Tender Creation"],
+  approvals: ["Module 4B", "E-Tender Approval"],
+  staff: ["Administration", "Staff Accounts"],
+  audit: ["Administration", "Audit Log"],
+  bid: ["Vendor Portal", "Prepare Bid"],
+  evaluation: ["Module 6", "Bid Evaluation"],
+  awards: ["Module 6-7", "L1 Recommendation & Approval"],
+  pofiles: ["Module 7", "PO Data Files For The ERP"],
+  "vendor-dashboard": ["Vendor Portal", "Dashboard"],
+  "vendor-profile": ["Module 1", "Company Profile & Documents"],
+  "vendor-categories": ["Module 1", "Category Declaration"],
 };
 
 function setPageHead(view) {
@@ -55,7 +57,7 @@ export async function refreshChrome() {
     // items whose catalog entry asks for documents the vendor still owes
     try {
       const reqs = await api("/vendor-portal/documents/requirements");
-      badge("badge-vendor-profile", reqs.filter((r) => r.summary === "documents_needed").length);
+      badge("badge-vendor-categories", reqs.filter((r) => r.summary === "documents_needed").length);
       const notes = await api("/vendor-portal/notifications");
       badge("badge-vendor-dashboard", notes.filter((n) => !n.read).length);
     } catch (err) {
@@ -91,6 +93,7 @@ export function switchView(view) {
   if (view === "ratings") loadRatingsPage();
   if (view === "vendor-dashboard") loadVendorDashboard();
   if (view === "vendor-profile") loadVendorProfile();
+  if (view === "vendor-categories") loadVendorCategoriesTab();
   if (view === "tenders") loadTenders();
   if (view === "approvals") loadApprovals();
   if (view === "staff") loadStaff();
@@ -141,6 +144,7 @@ export function showStaffTabsForRole(role) {
   document.getElementById("page-facts").innerHTML = "";
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-profile-tab").hidden = true;
+  document.getElementById("vendor-categories-tab").hidden = true;
   document.getElementById("logout-btn").hidden = false;
   const allowed = new Set(ROLE_TABS[role] || []);
   for (const view of ALL_STAFF_TAB_VIEWS) {
@@ -160,6 +164,7 @@ export function showVendorDashboardTab() {
   }
   document.getElementById("vendor-dashboard-tab").hidden = false;
   document.getElementById("vendor-profile-tab").hidden = false;
+  document.getElementById("vendor-categories-tab").hidden = false;
   document.getElementById("logout-btn").hidden = false;
 }
 
@@ -167,6 +172,7 @@ export function resetToLoggedOutNav() {
   document.getElementById("topbar").hidden = true;
   document.getElementById("vendor-dashboard-tab").hidden = true;
   document.getElementById("vendor-profile-tab").hidden = true;
+  document.getElementById("vendor-categories-tab").hidden = true;
   document.getElementById("logout-btn").hidden = true;
   for (const view of ALL_STAFF_TAB_VIEWS) {
     document.getElementById(`${view}-tab`).hidden = true;

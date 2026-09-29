@@ -59,6 +59,9 @@ def _doc_states(db: Session, vendor_id: int, entries: list[str]) -> list[DocStat
         doc = docs.get(key)
         if doc is None:
             state, reason = "missing", None
+        elif doc.status == DocumentStatus.DRAFT:
+            # Not yet submitted -- staff can't see it, so it's effectively still missing.
+            state, reason = "missing", "Saved as a draft — submit it in Company Profile to send it for review"
         elif key in expired:
             state, reason = "expired", "This document has expired; upload the renewed one"
         elif doc.status == DocumentStatus.REJECTED:

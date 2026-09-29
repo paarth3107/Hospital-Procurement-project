@@ -72,7 +72,7 @@ export async function renderLineDetail(container, lineId, { onBack, onReload, re
           : `<div class="ep-pane ep-pane-pad"><div class="ep-k">Qualify / disqualify — checked against mandatory technical compliance points, no score. Qualified bids stand on equal footing.</div></div>`
         : ""
     }
-    <div class="ep-pane"><div class="ep-pane-head"><span>Invited vendors</span><span class="ep-k">${s.submitted_count} of ${s.invited_count} submitted</span></div>
+    <div class="ep-pane"><div class="ep-pane-head"><span>Invited Vendors</span><span class="ep-k">${s.submitted_count} of ${s.invited_count} submitted</span></div>
       <table class="ep-table">${th("Vendor", "Submission", "Your evaluation", "Result", "")}<tbody>${rows}</tbody></table></div>
     ${
       s.phase === "technical_closed"
@@ -94,7 +94,7 @@ export async function renderLineDetail(container, lineId, { onBack, onReload, re
     )
   );
   container.querySelector("#ev-close")?.addEventListener("click", async () => {
-    if (!(await modalConfirm("Record qualification and rank the qualified bids for this line? After this, scores can't be changed without a governed override.", { title: "Close technical evaluation", confirmLabel: "Close evaluation" }))) return;
+    if (!(await modalConfirm("Record qualification and rank the qualified bids for this line? After this, scores can't be changed without a governed override.", { title: "Close Technical Evaluation", confirmLabel: "Close evaluation" }))) return;
     try {
       await api(`/evaluation/lines/${lineId}/close-technical`, { method: "POST" });
       onReload();

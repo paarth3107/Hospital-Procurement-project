@@ -27,7 +27,7 @@ document.getElementById("vendor-login-form").addEventListener("submit", async (e
     state.vendor = await api("/vendor-auth/me");
 
     showResult(resultEl, `Logged in as ${state.vendor.legal_name}`, true);
-    setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`);
+    setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`, state.vendor.status === "active");
     showVendorDashboardTab();
     await routeVendorAfterAuth();
   } catch (err) {

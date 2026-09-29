@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { showResult } from "../ui.js";
-import { esc, th, emptyRow, tag, fmtDateTime, inr } from "../kit.js";
+import { esc, th, emptyRow, tag, fmtDateTime, inr, pageSlice, paginationBar, wirePagination } from "../kit.js";
 import { refreshChrome } from "../nav.js";
 import { renderReview } from "./approvals/reviewPanel.js";
 
@@ -11,20 +11,16 @@ import { renderReview } from "./approvals/reviewPanel.js";
 // so nothing is approved or rejected without being looked at. ----
 const root = () => document.getElementById("approvals-root");
 const resultEl = () => document.getElementById("approval-result");
+let allRows = [];
+let page = 0;
 
-async function showInbox(message) {
-  try {
-    const tenders = await api("/tenders?status_filter=pending_approval");
-    const rows = await Promise.all(
-      tenders.map(async (t) => {
-        const [rounds, review] = await Promise.all([api(`/tenders/${t.id}/approval-rounds`), api(`/tenders/${t.id}/approval-review`)]);
-        return { t, round: rounds.find((r) => r.round_number === t.round_number), review };
-      })
-    );
-    root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">
+function renderInbox() {
+  const { pageItems: rows, totalPages, page: clamped } = pageSlice(allRows, page);
+  page = clamped;
+  root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">
       <div class="hint" style="max-width:900px;line-height:1.5">The gate that actually publishes a tender and notifies vendors. Open a tender to review all of its details before deciding. Each submission is a numbered round; a rejection returns it to Draft with mandatory comments, and repeated rejections escalate to the next approving tier.</div>
       <div class="ep-pane">
-        <div class="ep-pane-head"><span>Approval inbox</span><span class="ep-k">${rows.length} pending</span></div>
+        <div class="ep-pane-head"><span>Approval Inbox</span><span class="ep-k">${allRows.length} pending</span></div>
         <table class="ep-table">${th("Tender", "Round", "Value", "Required tier", "Bids close", "")}<tbody>${
           rows.length
             ? rows
@@ -40,9 +36,26 @@ async function showInbox(message) {
                 .join("")
             : emptyRow(6, "Nothing is waiting for approval.")
         }</tbody></table>
+        ${paginationBar(page, totalPages, "approvals-prev", "approvals-next")}
       </div>
     </div>`;
-    root().querySelectorAll("[data-review]").forEach((b) => b.addEventListener("click", () => showReview(Number(b.dataset.review))));
+  wirePagination(root(), "approvals-prev", "approvals-next", page, (p) => {
+    page = p;
+    renderInbox();
+  });
+  root().querySelectorAll("[data-review]").forEach((b) => b.addEventListener("click", () => showReview(Number(b.dataset.review))));
+}
+
+async function showInbox(message) {
+  try {
+    const tenders = await api("/tenders?status_filter=pending_approval");
+    allRows = await Promise.all(
+      tenders.map(async (t) => {
+        const [rounds, review] = await Promise.all([api(`/tenders/${t.id}/approval-rounds`), api(`/tenders/${t.id}/approval-review`)]);
+        return { t, round: rounds.find((r) => r.round_number === t.round_number), review };
+      })
+    );
+    renderInbox();
     if (message) showResult(resultEl(), message, true);
     else resultEl().textContent = "";
   } catch (err) {

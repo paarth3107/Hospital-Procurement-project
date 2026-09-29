@@ -8,10 +8,15 @@ import { renderCategoryRequestSection, submitCategoryRequests } from "./category
 import { renderItemRequestSection, submitItemRequests } from "./itemRequests.js";
 import { renderItemRequirements } from "./coveredItems.js";
 
-// ---- Category declaration pane (in Company profile): chips showing each
-// category/item the vendor has requested and its approval state, plus a
-// "Request additional category" button that opens the request panel. ----
+// ---- Category Declaration: its own tab (2026-09-30, previously a pane
+// embedded in Company profile) -- chips showing each category/item the
+// vendor has requested and its approval state, plus a "Request additional
+// category" button that opens the request panel. ----
 let requesting = false;
+
+export function loadVendorCategoriesTab() {
+  renderVendorCategories(document.getElementById("vendor-categories-root"));
+}
 
 const CHIP = {
   approved: ["#d6eddc", "#14532d", "approved"],
@@ -83,6 +88,7 @@ export async function renderVendorCategories(container) {
           formData.append("doc_type", "other");
           formData.append("custom_label", btn.dataset.uploadOther);
           formData.append("file", input.files[0]);
+          formData.append("for_requirement", "true");
           try {
             await api("/vendor-portal/documents", { method: "POST", body: formData });
             renderVendorCategories(container);
@@ -107,6 +113,7 @@ export async function renderVendorCategories(container) {
           formData.append("doc_type", isOther ? "other" : entry);
           if (isOther) formData.append("custom_label", entry.slice(6).trim());
           formData.append("file", input.files[0]);
+          formData.append("for_requirement", "true");
           try {
             await api("/vendor-portal/documents", { method: "POST", body: formData });
             renderVendorCategories(container);

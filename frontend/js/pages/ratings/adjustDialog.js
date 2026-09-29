@@ -27,7 +27,7 @@ export async function openAdjustDialog(vendor, type, rating, onSaved) {
     history = [];
   }
   box.innerHTML = `
-    <div class="dlg-head"><div style="flex:1">${kicker(`Manual override · ${type} rating`)}<h4>Adjust rating — ${esc(vendor.legal_name)}</h4></div></div>
+    <div class="dlg-head"><div style="flex:1">${kicker(`Manual override · ${type} rating`)}<h4>Adjust Rating — ${esc(vendor.legal_name)}</h4></div></div>
     <form id="adjust-form" class="ep-form" style="padding:16px 18px;gap:14px;background:transparent;border:0">
       <div class="hint">Enter only what changed. A change of more than 5 points from the previous value needs a comment; every entry is kept in the history below. Price competitiveness is system-computed and can't be edited here.</div>
       <div class="ep-form-grid" style="grid-template-columns:1fr 1fr">${FIELDS.map(

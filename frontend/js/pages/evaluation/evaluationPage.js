@@ -1,6 +1,6 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, tag, th, emptyRow, fmtDateTime } from "../../kit.js";
+import { esc, tag, th, emptyRow, fmtDateTime, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { renderLineDetail } from "./lineDetail.js";
 
 // ---- Bid evaluation (Officer, Category Manager, Procurement Admin): every
@@ -24,10 +24,13 @@ let selected = null;
 const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
 let allLines = [];
 let showClosed = false;
+let page = 0;
 
 function render() {
   const closedCount = allLines.filter((l) => CLOSED_TENDER_STATUSES.has(l.tender_status)).length;
-  const lines = showClosed ? allLines : allLines.filter((l) => !CLOSED_TENDER_STATUSES.has(l.tender_status));
+  const filtered = showClosed ? allLines : allLines.filter((l) => !CLOSED_TENDER_STATUSES.has(l.tender_status));
+  const { pageItems: lines, totalPages, page: clamped } = pageSlice(filtered, page);
+  page = clamped;
   const rows = lines.length
     ? lines
         .map((l) => {
@@ -42,17 +45,23 @@ function render() {
         })
         .join("")
     : emptyRow(6, showClosed ? "No published tender lines yet." : "Nothing in progress. Closed tenders are hidden -- tick the box above to see them.");
-  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Published lines</span>
+  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Published Lines</span>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
       <input type="checkbox" id="show-closed-eval" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
     </label></div>
-    <table class="ep-table">${th("Tender", "Line item", "Bids close", "Stage", "Bids", "")}<tbody>${rows}</tbody></table></div>`;
+    <table class="ep-table">${th("Tender", "Line item", "Bids close", "Stage", "Bids", "")}<tbody>${rows}</tbody></table>
+    ${paginationBar(page, totalPages, "eval-prev", "eval-next")}</div>`;
   root()
     .querySelector("#show-closed-eval")
     .addEventListener("change", (e) => {
       showClosed = e.target.checked;
+      page = 0;
       render();
     });
+  wirePagination(root(), "eval-prev", "eval-next", page, (p) => {
+    page = p;
+    render();
+  });
   root().querySelectorAll("[data-line]").forEach((b) =>
     b.addEventListener("click", () => {
       selected = Number(b.dataset.line);

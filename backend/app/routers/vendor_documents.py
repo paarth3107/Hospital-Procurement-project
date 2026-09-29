@@ -37,13 +37,20 @@ async def upload_document(
     custom_label: str | None = Form(None),
     file: UploadFile = File(...),
     valid_till: date | None = Form(None),
+    for_requirement: bool = Form(False),
     vendor: Vendor = Depends(get_current_vendor),
     db: Session = Depends(get_db),
 ):
     """One row per (vendor, doc_type) -- uploading again replaces the
-    previous file and resets it to Pending, since a changed file needs a
-    fresh review rather than inheriting the old one's verified/rejected
-    status."""
+    previous file, since a changed file needs a fresh review rather than
+    inheriting the old one's verified/rejected status.
+
+    Drafted unless it's clearly meant for staff right now (2026-09-30):
+    responding to an Info Requested note, or `for_requirement` -- set by the
+    Category Declaration tab when this upload is satisfying a specific
+    category/item's document requirement as part of that request. The
+    general Company Profile vault leaves for_requirement unset, so it stays
+    a Draft until "Submit documents"."""
 
     label = (custom_label or "").strip()
     if doc_type == VendorDocType.OTHER and not label:
@@ -51,10 +58,11 @@ async def upload_document(
     if doc_type != VendorDocType.OTHER:
         label = ""
     content = await file.read()
-    doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label)
+    immediate = for_requirement or vendor.status == VendorStatus.INFO_REQUESTED
+    doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label, draft=not immediate)
     record(
         db, "vendor.document_uploaded", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
-        after={"status": DocumentStatus.PENDING},
+        after={"status": doc.status},
         meta={"document": label or doc_type.value.replace("_", " "), "file": file.filename, "valid_till": valid_till},
     )
     # Spec 3.3 step 4: a vendor answering an "Info Requested" goes back into
@@ -67,6 +75,44 @@ async def upload_document(
     return doc
 
 
+@router.post("/submit", response_model=list[VendorDocumentOut])
+def submit_documents(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Promotes every Draft document in the vendor's vault to Pending in one
+    shot -- this is the moment they actually reach the category manager."""
+
+    drafts = db.query(VendorDocument).filter(VendorDocument.vendor_id == vendor.id, VendorDocument.status == DocumentStatus.DRAFT).all()
+    if not drafts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No draft documents to submit")
+    for d in drafts:
+        d.status = DocumentStatus.PENDING
+    record(
+        db, "vendor.documents_submitted", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
+        meta={"documents": [d.custom_label or d.doc_type.value.replace("_", " ") for d in drafts]},
+    )
+    db.commit()
+    for d in drafts:
+        db.refresh(d)
+    return drafts
+
+
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_my_document(doc_id: int, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Lets the vendor remove a mistaken attachment (wrong file, and they
+    don't have the right one on hand yet) instead of being stuck with it
+    until they can replace it. A document staff has already Verified can't
+    be pulled out from under an approved decision this way."""
+
+    doc = db.get(VendorDocument, doc_id)
+    if not doc or doc.vendor_id != vendor.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    if doc.status == DocumentStatus.VERIFIED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A Verified document can't be deleted -- replace it instead")
+    label = doc.custom_label or doc.doc_type.value.replace("_", " ")
+    db.delete(doc)
+    record(db, "vendor.document_deleted", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name, meta={"document": label})
+    db.commit()
+
+
 def store_document(
     db: Session,
     vendor_id: int,
@@ -76,15 +122,23 @@ def store_document(
     content: bytes,
     valid_till: date | None = None,
     custom_label: str = "",
+    draft: bool = False,
 ) -> VendorDocument:
     """Validate + scan + upsert one document row, without committing, so
-    registration can store several files atomically with the vendor row."""
+    registration can store several files atomically with the vendor row.
+
+    `draft` (2026-09-30): registration and anything responding to a specific
+    ask (an Info Requested note, a category/item document requirement) pass
+    draft=False -- the document is meant for staff right away. The Company
+    Profile document vault's general upload/replace passes draft=True: it
+    stays invisible to staff until the vendor explicitly submits it."""
 
     try:
         document_store.validate(content_type, len(content), allow_spreadsheets=doc_type == VendorDocType.SAMPLE_CATALOG)
     except document_store.DocumentValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{doc_type.value}: {e}")
     document_store.scan(content)
+    new_status = DocumentStatus.DRAFT if draft else DocumentStatus.PENDING
 
     existing = (
         db.query(VendorDocument)
@@ -100,7 +154,7 @@ def store_document(
         existing.content_type = content_type
         existing.size_bytes = len(content)
         existing.content = content
-        existing.status = DocumentStatus.PENDING
+        existing.status = new_status
         existing.rejection_reason = None
         existing.reviewed_by_id = None
         existing.reviewed_at = None
@@ -115,6 +169,7 @@ def store_document(
         size_bytes=len(content),
         content=content,
         valid_till=valid_till,
+        status=new_status,
     )
     db.add(doc)
     return doc

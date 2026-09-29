@@ -31,7 +31,7 @@ import { routeVendorAfterAuth } from "./pages/vendorLoginPage.js";
   try {
     if (state.actorType === "vendor") {
       state.vendor = await api("/vendor-auth/me");
-      setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`);
+      setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`, state.vendor.status === "active");
       showVendorDashboardTab();
       const deepLink = new URLSearchParams(location.search).get("view");
       if (deepLink && document.getElementById("view-" + deepLink)) switchView(deepLink);

@@ -48,7 +48,7 @@ export function actionQueue(s) {
     : emptyRow(4, "Nothing needs your attention right now.");
   return {
     html: `<div class="ep-pane">
-      <div class="ep-pane-head"><span>My action queue</span><span class="ep-k">${tasks.length} open</span></div>
+      <div class="ep-pane-head"><span>My Action Queue</span><span class="ep-k">${tasks.length} open</span></div>
       <table class="ep-table">${th("Task", "Ref", "Due", "")}<tbody>${rows}</tbody></table>
     </div>`,
     tasks,

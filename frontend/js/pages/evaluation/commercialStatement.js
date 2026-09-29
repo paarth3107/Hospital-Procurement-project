@@ -32,7 +32,7 @@ export async function renderCommercial(container, lineId, resultEl) {
     const s = await api(`/evaluation/lines/${lineId}/commercial`);
     const qcbs = s.method === "QCBS";
     container.innerHTML = `<div class="ep-pane">
-      <div class="ep-pane-head"><span>Commercial comparison · ${qcbs ? `QCBS (technical ${s.technical_weight} / price ${s.price_weight})` : "lowest landed price (L1)"}</span><span class="ep-k">prices opened · access is logged</span></div>
+      <div class="ep-pane-head"><span>Commercial Comparison · ${qcbs ? `QCBS (technical ${s.technical_weight} / price ${s.price_weight})` : "lowest landed price (L1)"}</span><span class="ep-k">prices opened · access is logged</span></div>
       <div style="padding:10px 16px" class="hint">Only technically qualified bids are ranked. Landed price = unit price + GST + duties.${qcbs ? " On QCBS lines the lowest bid scores 100 on price and the rest are scored against it." : ""}${s.estimated_price != null ? ` Internal estimate: ${inr(s.estimated_price)} per unit (never shown to vendors).` : ""}</div>
       <table class="ep-table">${th("Rank", "Vendor", "Technical", "Quoted price", "Landed price", ...(qcbs ? ["QCBS"] : []), "Delivery / terms", "Checks")}<tbody>${s.rows.map((r) => row(r, qcbs)).join("")}</tbody></table>
       <div style="padding:10px 16px" class="ep-sub">Confirming the recommendation (L1 confirmation) and any split-award proposal come next; this statement does not award anything.</div>

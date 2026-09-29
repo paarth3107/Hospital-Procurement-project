@@ -41,13 +41,15 @@ def _vendor_docs_by_key(db: Session, vendor_id: int) -> dict[str, VendorDocument
 
 
 def missing_uploaded_documents(db: Session, vendor_id: int, doc_types: list[str]) -> list[str]:
-    """Required documents the vendor hasn't uploaded (or whose upload was rejected / has expired)."""
+    """Required documents the vendor hasn't uploaded (or whose upload was
+    rejected / has expired / is still a Draft they haven't submitted yet --
+    the category manager can't see a Draft, so it doesn't count as supplied)."""
     docs = _vendor_docs_by_key(db, vendor_id)
     expired = {d.requirement_key for d in expired_documents(db, vendor_id)}
     out = []
     for entry in doc_types:
         k = requirement_key(entry)
-        if k not in docs or docs[k].status == DocumentStatus.REJECTED or k in expired:
+        if k not in docs or docs[k].status in (DocumentStatus.REJECTED, DocumentStatus.DRAFT) or k in expired:
             out.append(requirement_label(entry))
     return out
 

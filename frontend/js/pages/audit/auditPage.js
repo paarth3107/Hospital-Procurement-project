@@ -49,7 +49,7 @@ function render() {
         .join("")
     : emptyRow(6, "No entries match these filters.");
   root().innerHTML = `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Audit log</span><span class="ep-k">${data.total} entries · read-only</span></div>
+    <div class="ep-pane-head"><span>Audit Log</span><span class="ep-k">${data.total} entries · read-only</span></div>
     <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(32,30,29,.18)">
       ${select("entity_type", "All record types", options.entity_types.map((v) => [v, v]), filters.entity_type)}
       ${select("action", "All actions", options.actions.map((v) => [v, actionLabel(v)]), filters.action)}

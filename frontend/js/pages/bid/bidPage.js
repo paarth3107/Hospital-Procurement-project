@@ -103,7 +103,7 @@ function render() {
     }
   });
   root().querySelector("#bid-submit")?.addEventListener("click", async () => {
-    if (!submitted && !(await modalConfirm("Submit this bid? You can amend or withdraw it until the deadline.", { title: "Submit bid", confirmLabel: "Submit" }))) return;
+    if (!submitted && !(await modalConfirm("Submit this bid? You can amend or withdraw it until the deadline.", { title: "Submit Bid", confirmLabel: "Submit" }))) return;
     try {
       await save(true);
       state.flash = submitted ? "Your amended bid was saved." : "Your bid was submitted.";
@@ -113,7 +113,7 @@ function render() {
     }
   });
   root().querySelector("#bid-withdraw")?.addEventListener("click", async () => {
-    if (!(await modalConfirm("Withdraw this bid? You can reopen it as a draft and submit again before the deadline.", { title: "Withdraw bid", confirmLabel: "Withdraw", danger: true }))) return;
+    if (!(await modalConfirm("Withdraw this bid? You can reopen it as a draft and submit again before the deadline.", { title: "Withdraw Bid", confirmLabel: "Withdraw", danger: true }))) return;
     try {
       form = await api(`/vendor-portal/bids/${form.bid.id}/withdraw`, { method: "POST" });
       render();

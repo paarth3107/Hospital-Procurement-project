@@ -31,8 +31,8 @@ export function renderProductForm({ host, procurementType, typeLabel, typeFields
           <div class="ep-field"><div class="ep-k">Sub-category (optional)</div><input class="input" name="sub_category" value="${esc(product?.sub_category ?? "")}"></div>
         </div>
       </div>
-      ${group(`Core details — tick the ones that apply to this ${typeLabel.toLowerCase()}`, `<div class="core-details">${coreDetailsHtml(product)}</div>`)}
-      ${group(`${typeLabel} details`, `<div class="type-details" style="display:flex;flex-direction:column;gap:12px;padding-top:10px">${typeFields.map((f) => fieldHtml(f, attrs[f.name])).join("")}</div>`)}
+      ${group(`Core Details — tick the ones that apply to this ${typeLabel.toLowerCase()}`, `<div class="core-details">${coreDetailsHtml(product)}</div>`)}
+      ${group(`${typeLabel} Details`, `<div class="type-details" style="display:flex;flex-direction:column;gap:12px;padding-top:10px">${typeFields.map((f) => fieldHtml(f, attrs[f.name])).join("")}</div>`)}
       <div style="display:flex;gap:8px">
         <button type="submit" class="ep-b" data-v="p">${product ? "Save changes" : "Add to catalog"}</button>
         <button type="button" class="ep-b cancel-btn">Cancel</button>

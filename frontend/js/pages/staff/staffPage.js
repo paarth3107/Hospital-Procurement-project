@@ -1,7 +1,7 @@
 import { api } from "../../api.js";
 import { state } from "../../state.js";
 import { showResult } from "../../ui.js";
-import { esc, tag, stateTag, th, emptyRow, fmtDate } from "../../kit.js";
+import { esc, tag, stateTag, th, emptyRow, fmtDate, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { modalConfirm } from "../../modal.js";
 import { openStaffForm, ROLE_LABELS } from "./staffForm.js";
 import { openPasswordDialog } from "./passwordDialog.js";
@@ -13,11 +13,14 @@ const resultEl = () => document.getElementById("staff-result-msg");
 
 let staff = [];
 let facilities = [];
+let page = 0;
 
 function render() {
   const facilityName = new Map(facilities.map((f) => [f.id, f.name]));
-  const rows = staff.length
-    ? staff
+  const { pageItems, totalPages, page: clamped } = pageSlice(staff, page);
+  page = clamped;
+  const rows = pageItems.length
+    ? pageItems
         .map((u) => {
           const me = u.id === state.user?.id;
           return `<tr>
@@ -35,9 +38,14 @@ function render() {
         .join("")
     : emptyRow(6, "No staff accounts.");
   root().innerHTML = `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Hospital staff</span><button class="ep-b" data-v="p" id="add-staff">Add staff</button></div>
+    <div class="ep-pane-head"><span>Hospital Staff</span><button class="ep-b" data-v="p" id="add-staff">Add staff</button></div>
     <table class="ep-table">${th("Name", "Role", "Facility", "Status", "Created", "")}<tbody>${rows}</tbody></table>
+    ${paginationBar(page, totalPages, "staff-prev", "staff-next")}
   </div>`;
+  wirePagination(root(), "staff-prev", "staff-next", page, (p) => {
+    page = p;
+    render();
+  });
 
   const done = (msg) => load(msg);
   root().querySelector("#add-staff").addEventListener("click", () => openStaffForm(null, facilities, done));
@@ -47,7 +55,7 @@ function render() {
     b.addEventListener("click", async () => {
       const u = staff.find((x) => x.id === Number(b.dataset.toggle));
       const off = u.is_active;
-      if (off && !(await modalConfirm(`${u.full_name} will no longer be able to log in. Their past work stays on record.`, { title: "Deactivate account?", confirmLabel: "Deactivate", danger: true }))) return;
+      if (off && !(await modalConfirm(`${u.full_name} will no longer be able to log in. Their past work stays on record.`, { title: "Deactivate Account?", confirmLabel: "Deactivate", danger: true }))) return;
       try {
         await api(`/staff/${u.id}/${off ? "deactivate" : "reactivate"}`, { method: "POST" });
         done(`${u.full_name} ${off ? "deactivated" : "reactivated"}.`);

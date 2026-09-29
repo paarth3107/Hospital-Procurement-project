@@ -1,6 +1,6 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, typeTag, stateTag, th, emptyRow } from "../../kit.js";
+import { esc, typeTag, stateTag, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { openItemForm } from "./itemForm.js";
 import { openAssetForm } from "./assetForm.js";
 import { openServiceForm } from "./serviceForm.js";
@@ -18,6 +18,7 @@ let categories = [];
 let products = [];
 let mappings = [];
 let typeFilter = "all";
+let productPage = 0;
 
 const FORM_BY_TYPE = { item: openItemForm, asset: openAssetForm, service: openServiceForm };
 
@@ -55,11 +56,14 @@ function vendorCount(p) {
 }
 
 function productRows() {
-  const shown = products.filter((p) => typeFilter === "all" || p.procurement_type === typeFilter);
-  if (!shown.length) return emptyRow(8, "No catalog entries of this type yet.");
-  return shown
-    .map(
-      (p) => `<tr>
+  const filtered = products.filter((p) => typeFilter === "all" || p.procurement_type === typeFilter);
+  const { pageItems: shown, totalPages, page } = pageSlice(filtered, productPage);
+  productPage = page;
+  const rows = !shown.length
+    ? emptyRow(8, "No catalog entries of this type yet.")
+    : shown
+        .map(
+          (p) => `<tr>
         <td class="ep-cell ep-mono" style="font-size:12px">${esc(p.code)}</td>
         <td class="ep-cell"><div style="font-weight:600">${esc(p.name)}</div><div class="ep-sub">${esc(p.description || "")}</div></td>
         <td class="ep-cell">${typeTag(p.procurement_type)}</td>
@@ -72,13 +76,15 @@ function productRows() {
           <button class="ep-b" data-edit="${p.id}">Edit</button>
           <button class="ep-b" data-toggle="${p.id}" data-action="${p.active ? "deactivate" : "activate"}">${p.active ? "Deactivate" : "Activate"}</button>
         </td></tr>`
-    )
-    .join("");
+        )
+        .join("");
+  return { rows, totalPages, page };
 }
 
 function render() {
   const count = products.filter((p) => typeFilter === "all" || p.procurement_type === typeFilter).length;
   const seg = [["all", "All types"], ["item", "Item"], ["asset", "Asset"], ["service", "Service"]];
+  const { rows: productRowsHtml, totalPages: productTotalPages, page: productPageClamped } = productRows();
   root().innerHTML = `<div style="display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
       <div class="ep-seg">${seg.map(([k, l]) => `<button data-type="${k}" class="${k === typeFilter ? "on" : ""}">${l}</button>`).join("")}</div>
@@ -89,7 +95,8 @@ function render() {
       <button class="ep-b" data-new="category">+ New category</button>
     </div>
     <div class="ep-pane">
-      <table class="ep-table">${th("Code", "Name &amp; specification", "Type", "Category", "Type-specific attributes", "Price band", "Vendors", "")}<tbody>${productRows()}</tbody></table>
+      <table class="ep-table">${th("Code", "Name &amp; specification", "Type", "Category", "Type-specific attributes", "Price band", "Vendors", "")}<tbody>${productRowsHtml}</tbody></table>
+      ${paginationBar(productPageClamped, productTotalPages, "catalog-prev", "catalog-next")}
     </div>
     <div class="ep-pane">
       <div class="ep-pane-head"><span>Categories</span><span class="ep-k">restricted categories need a minimum vendor rating to map</span></div>
@@ -111,7 +118,11 @@ function render() {
 
 function wire() {
   const r = root();
-  r.querySelectorAll("[data-type]").forEach((b) => b.addEventListener("click", () => ((typeFilter = b.dataset.type), render())));
+  wirePagination(r, "catalog-prev", "catalog-next", productPage, (p) => {
+    productPage = p;
+    render();
+  });
+  r.querySelectorAll("[data-type]").forEach((b) => b.addEventListener("click", () => ((typeFilter = b.dataset.type), (productPage = 0), render())));
   r.querySelectorAll("[data-new]").forEach((b) =>
     b.addEventListener("click", () => {
       const kind = b.dataset.new;

@@ -1,12 +1,12 @@
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { esc, stateTag } from "../kit.js";
-import { renderVendorCategories } from "./vendorCategories/vendorCategoriesPage.js";
 import { renderVendorDocuments } from "./vendorDocumentsPage.js";
+import { refreshChrome } from "../nav.js";
 
-// ---- Company profile & documents (the prototype's vendor profile): the
-// read-only company details on the left; document vault and category
-// declaration on the right. ----
+// ---- Company profile & documents: read-only company details on the left,
+// the document vault on the right. Category declaration moved to its own
+// tab (2026-09-30) -- it's a different concern from KYC document review. ----
 export async function loadVendorProfile() {
   const root = document.getElementById("vendor-profile-root");
   try {
@@ -36,13 +36,9 @@ export async function loadVendorProfile() {
       </div>
       <div style="display:flex;flex-direction:column;gap:18px">
         <div id="vendor-documents-list"></div>
-        <div id="vendor-category-picker"></div>
       </div>
     </div>`;
-    const categoriesEl = document.getElementById("vendor-category-picker");
-    // Uploading a document can unlock a category/item request, so refresh that pane too.
-    renderVendorDocuments(document.getElementById("vendor-documents-list"), () => renderVendorCategories(categoriesEl));
-    renderVendorCategories(categoriesEl);
+    renderVendorDocuments(document.getElementById("vendor-documents-list"), refreshChrome);
   } catch (err) {
     root.innerHTML = `<div class="result err">Could not load profile: ${esc(err.message)}</div>`;
   }

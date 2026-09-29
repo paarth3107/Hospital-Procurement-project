@@ -1,6 +1,6 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, tag, th, emptyRow, inr } from "../../kit.js";
+import { esc, tag, th, emptyRow, inr, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { STATE } from "./awardHelpers.js";
 import { renderTenderAward } from "./tenderAward.js";
 
@@ -19,10 +19,13 @@ let selected = null;
 const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
 let allTenders = [];
 let showClosed = false;
+let page = 0;
 
 function render() {
   const closedCount = allTenders.filter((t) => CLOSED_TENDER_STATUSES.has(t.status)).length;
-  const tenders = showClosed ? allTenders : allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const filtered = showClosed ? allTenders : allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const { pageItems: tenders, totalPages, page: clamped } = pageSlice(filtered, page);
+  page = clamped;
   const rows = tenders.length
     ? tenders
         .map((t) => {
@@ -39,17 +42,23 @@ function render() {
         })
         .join("")
     : emptyRow(6, showClosed ? "No tender has reached the award stage yet." : "Nothing in progress. Closed tenders are hidden -- tick the box above to see them.");
-  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders at the award stage</span>
+  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders At The Award Stage</span>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
       <input type="checkbox" id="show-closed-awards" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
     </label></div>
-    <table class="ep-table">${th("Tender", "Status", "Lines", "Award value", "", "")}<tbody>${rows}</tbody></table></div>`;
+    <table class="ep-table">${th("Tender", "Status", "Lines", "Award value", "", "")}<tbody>${rows}</tbody></table>
+    ${paginationBar(page, totalPages, "awards-prev", "awards-next")}</div>`;
   root()
     .querySelector("#show-closed-awards")
     .addEventListener("change", (e) => {
       showClosed = e.target.checked;
+      page = 0;
       render();
     });
+  wirePagination(root(), "awards-prev", "awards-next", page, (p) => {
+    page = p;
+    render();
+  });
   root().querySelectorAll("[data-tender]").forEach((b) =>
     b.addEventListener("click", () => {
       selected = Number(b.dataset.tender);

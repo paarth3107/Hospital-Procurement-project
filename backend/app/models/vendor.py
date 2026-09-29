@@ -158,8 +158,18 @@ class DocumentStatus(str, enum.Enum):
     """Independent of VendorStatus -- a vendor can be Pending Verification
     while individual documents are Verified/Rejected one at a time. Vendor
     approval itself is gated on every mandatory doc being Verified (see
-    routers/vendors.py once that gate is built)."""
+    routers/vendors.py once that gate is built).
 
+    DRAFT (2026-09-30, user-directed): a document sitting in the vendor's own
+    Company Profile document vault that they've uploaded/replaced but not yet
+    submitted -- invisible to staff (docs_to_verify, the Vendors tab review
+    screen, every mandatory-document gate) until a "Submit documents" action
+    promotes it to Pending. A document uploaded to satisfy a specific
+    category/item requirement, or in direct response to an Info Requested
+    note, skips Draft and goes straight to Pending -- the vendor is
+    delivering something specific right then, not staging for later."""
+
+    DRAFT = "draft"
     PENDING = "pending"
     VERIFIED = "verified"
     REJECTED = "rejected"

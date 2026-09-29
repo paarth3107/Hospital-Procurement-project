@@ -3,7 +3,7 @@ import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
 import { modalPrompt, modalConfirm } from "../modal.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
-import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn, expiryTag } from "../kit.js";
+import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn, expiryTag, pageSlice, paginationBar, wirePagination } from "../kit.js";
 import { refreshChrome } from "../nav.js";
 import { state } from "../state.js";
 
@@ -15,6 +15,7 @@ const resultEl = () => document.getElementById("queue-result");
 let statusFilter = null; // set on first load, by role
 let vendors = [];
 let selectedId = null;
+let queuePage = 0;
 // Verify/Reject on a document stay disabled until the reviewer has opened
 // the file in this review session, so nobody rubber-stamps unseen documents.
 let reviewedDocIds = new Set();
@@ -51,8 +52,10 @@ export async function loadVendors() {
 }
 
 function queuePane() {
-  const list = vendors.length
-    ? vendors
+  const { pageItems, totalPages, page } = pageSlice(vendors, queuePage);
+  queuePage = page;
+  const list = pageItems.length
+    ? pageItems
         .map(
           (v) => `<button class="ep-row-btn${v.id === selectedId ? " sel" : ""}" data-vendor="${v.id}">
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
@@ -65,11 +68,12 @@ function queuePane() {
         .join("")
     : `<div class="ep-pane-pad hint">No vendors in this status.</div>`;
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Vendors</span></div>
+    <div class="ep-pane-head"><span>Vendors</span><span class="ep-k">${vendors.length}</span></div>
     <div style="padding:10px 12px;border-bottom:1px solid rgba(32,30,29,.18)">
       <select class="input" id="queue-filter">${FILTERS.map(([v, l]) => `<option value="${v}" ${v === statusFilter ? "selected" : ""}>${l}</option>`).join("")}</select>
     </div>
     ${list}
+    ${paginationBar(page, totalPages, "queue-prev", "queue-next")}
   </div>`;
 }
 
@@ -133,7 +137,7 @@ function docsPane(vendor, docs) {
     })
     .join("");
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>KYC &amp; statutory documents</span></div>
+    <div class="ep-pane-head"><span>KYC &amp; Statutory Documents</span></div>
     <table class="ep-table">${th("Document", "File", "Uploaded", "Valid till", "Verification", "")}<tbody>${rows}</tbody></table>
   </div>`;
 }
@@ -143,40 +147,49 @@ const canReinstateBlacklisted = () => ["procurement_admin", "category_manager", 
 function decisionBar(vendor, docs) {
   const decidable = ["pending_verification", "info_requested"].includes(vendor.status);
   const byType = new Map(docs.map((d) => [d.doc_type, d]));
-  const mandatoryRejected = VENDOR_DOC_TYPES.filter((t) => t.mandatory).some((t) => byType.get(t.value)?.status === "rejected");
+  // A mandatory document that's Rejected or Expired is "an issue" everywhere
+  // below -- it hides/de-emphasizes the positive action and makes Request
+  // info the encouraged next move instead.
+  const mandatoryIssue = VENDOR_DOC_TYPES.filter((t) => t.mandatory).some((t) => {
+    const d = byType.get(t.value);
+    return d?.status === "rejected" || d?.expiry_state === "expired";
+  });
   const bar = (text, buttons, banner = "") =>
     `${banner}<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:12px">
       <div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.68);line-height:1.45">${text}</div>${buttons}</div>`;
-  const rejectedBanner = (text) => (mandatoryRejected ? `<div class="ep-note warn">${text}</div>` : "");
+  const issueBanner = (text) => (mandatoryIssue ? `<div class="ep-note warn">${text}</div>` : "");
 
   if (decidable) {
     return bar(
       "Every mandatory document must be Verified before approval. Approval activates the vendor and opens category mapping.",
-      (mandatoryRejected ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' })) +
-        btn("Request info", { primary: mandatoryRejected, attrs: 'data-decision="info"' }) +
+      (mandatoryIssue ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' })) +
+        btn("Request info", { primary: mandatoryIssue, attrs: 'data-decision="info"' }) +
         btn("Reject candidate", { attrs: 'data-decision="reject"' }),
-      rejectedBanner("A mandatory document has been rejected. Either reject this registration outright, or request the documents again with a note explaining what's needed.")
+      issueBanner("A mandatory document has been rejected or has expired. Either reject this registration outright, or request the documents again with a note explaining what's needed.")
     );
   }
   if (vendor.status === "active") {
-    // Same law as the candidate screen (2026-09-30): a rejected mandatory
-    // document gets a lighter first move (Request info) instead of jumping
-    // straight to Suspend -- both block bidding, but Request info recovers
-    // on its own the moment the vendor uploads a replacement.
+    // Same law as the candidate screen (2026-09-30): none of these is "the
+    // default" while nothing's wrong -- all three stay neutral. Only a
+    // rejected or expired mandatory document makes Request info the
+    // encouraged next move (a lighter first step than jumping straight to
+    // Suspend; both block bidding, but Request info recovers on its own the
+    // moment the vendor uploads a replacement).
     return bar(
       "Suspending blocks bidding, new mappings and new invitations, and keeps history and mappings. Blacklisting also blocks login; reinstating a blacklisted vendor needs an explicit reason.",
-      btn("Request info", { attrs: 'data-decision="info"' }) +
-        btn("Suspend vendor", { primary: true, attrs: 'data-decision="suspend"' }) +
-        btn("Blacklist", { attrs: 'data-decision="blacklist"' })
+      btn("Request info", { primary: mandatoryIssue, attrs: 'data-decision="info"' }) +
+        btn("Suspend vendor", { attrs: 'data-decision="suspend"' }) +
+        btn("Blacklist", { attrs: 'data-decision="blacklist"' }),
+      issueBanner("A mandatory document has been rejected or has expired.")
     );
   }
   if (vendor.status === "suspended") {
     return bar(
       "This vendor is suspended and can't bid or be invited. Reinstate once the issue is resolved.",
-      (mandatoryRejected ? "" : btn("Reinstate", { primary: true, attrs: 'data-decision="reinstate"' })) +
-        btn("Request info", { primary: mandatoryRejected, attrs: 'data-decision="info"' }) +
+      (mandatoryIssue ? "" : btn("Reinstate", { primary: true, attrs: 'data-decision="reinstate"' })) +
+        btn("Request info", { primary: mandatoryIssue, attrs: 'data-decision="info"' }) +
         btn("Blacklist", { attrs: 'data-decision="blacklist"' }),
-      rejectedBanner("A mandatory document has been rejected. The vendor must resubmit it and you must verify it before this vendor can be reinstated.")
+      issueBanner("A mandatory document has been rejected or has expired. The vendor must resubmit it and you must verify it before this vendor can be reinstated.")
     );
   }
   if (vendor.status === "blacklisted") {
@@ -207,7 +220,7 @@ function requirementsPane(reqs) {
         <td class="ep-cell">${tag(sl, st)}</td></tr>`;
     })
     .join("");
-  return `<div class="ep-pane"><div class="ep-pane-head"><span>Item document requirements</span><span class="ep-k">verify uploaded documents above</span></div>
+  return `<div class="ep-pane"><div class="ep-pane-head"><span>Item Document Requirements</span><span class="ep-k">verify uploaded documents above</span></div>
     <table class="ep-table">${th("Item", "Held through", "Required documents", "Status")}<tbody>${rows}</tbody></table></div>`;
 }
 
@@ -216,7 +229,7 @@ function historyPane(history) {
     return `<div style="display:flex"><button class="ep-b" id="toggle-history">Show status history (${history.length})</button></div>`;
   }
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Status history</span><button class="ep-b" id="toggle-history">Hide</button></div>
+    <div class="ep-pane-head"><span>Status History</span><button class="ep-b" id="toggle-history">Hide</button></div>
     <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">${history
       .slice()
       .reverse()
@@ -270,7 +283,12 @@ function wire(vendor) {
   const r = root();
   r.querySelector("#queue-filter")?.addEventListener("change", (e) => {
     statusFilter = e.target.value;
+    queuePage = 0;
     loadVendors();
+  });
+  wirePagination(r, "queue-prev", "queue-next", queuePage, (p) => {
+    queuePage = p;
+    render();
   });
   r.querySelectorAll("[data-vendor]").forEach((b) =>
     b.addEventListener("click", () => {
@@ -309,7 +327,7 @@ function wire(vendor) {
         if (b.dataset.act === "reject") {
           const reason = await modalPrompt("Reason for rejecting this document (required):");
           if (!reason) return;
-          if (!(await modalConfirm(`Reject this document? Reason: "${reason}"`, { title: "Reject document", confirmLabel: "Reject document", danger: true }))) return;
+          if (!(await modalConfirm(`Reject this document? Reason: "${reason}"`, { title: "Reject Document", confirmLabel: "Reject document", danger: true }))) return;
           await post(`/vendors/${selectedId}/documents/${b.dataset.doc}/reject`, { reason });
         } else {
           await post(`/vendors/${selectedId}/documents/${b.dataset.doc}/verify`);
@@ -332,7 +350,7 @@ async function decide(kind, vendor) {
     } else if (kind === "reject") {
       const reason = await modalPrompt("Reason for rejecting this registration (required):");
       if (!reason) return;
-      if (!(await modalConfirm(`Reject this candidate's registration? Reason: "${reason}"`, { title: "Reject candidate", confirmLabel: "Reject candidate", danger: true }))) return;
+      if (!(await modalConfirm(`Reject this candidate's registration? Reason: "${reason}"`, { title: "Reject Candidate", confirmLabel: "Reject candidate", danger: true }))) return;
       await post(`/vendors/${vendor.id}/reject`, { reason });
       showResult(resultEl(), "Registration rejected.", true);
     } else if (kind === "suspend") {

@@ -68,7 +68,7 @@ export async function renderTenderAward(container, tenderId, { onBack, resultEl 
       </div>
       ${
         t.status === "awarded" && t.po_files.length
-          ? `<div class="ep-pane"><div class="ep-pane-head"><span>PO data files</span></div><table class="ep-table"><tbody>${t.po_files.map((f) => `<tr><td class="ep-cell" style="font-weight:600">${esc(f.batch_id)}</td><td class="ep-cell">${esc(f.vendor_name)}</td><td class="ep-cell">${stateTag(f.status)}</td></tr>`).join("")}</tbody></table></div>`
+          ? `<div class="ep-pane"><div class="ep-pane-head"><span>PO Data Files</span></div><table class="ep-table"><tbody>${t.po_files.map((f) => `<tr><td class="ep-cell" style="font-weight:600">${esc(f.batch_id)}</td><td class="ep-cell">${esc(f.vendor_name)}</td><td class="ep-cell">${stateTag(f.status)}</td></tr>`).join("")}</tbody></table></div>`
           : t.submit_blockers.length
           ? `<div class="ep-note">${t.submit_blockers.map(esc).join("<br>")}</div>`
           : ""
@@ -111,7 +111,7 @@ export async function renderTenderAward(container, tenderId, { onBack, resultEl 
       });
     });
     container.querySelector("#aw-submit")?.addEventListener("click", async () => {
-      if (!(await modalConfirm("Submit every line's recommendation to the Approving Authority for L1 approval?", { title: "Submit for L1 approval", confirmLabel: "Submit" }))) return;
+      if (!(await modalConfirm("Submit every line's recommendation to the Approving Authority for L1 approval?", { title: "Submit For L1 Approval", confirmLabel: "Submit" }))) return;
       run(() => api(`/awards/tenders/${tenderId}/submit`, { method: "POST" }), "Submitted for L1 approval.");
     });
   };

@@ -76,7 +76,7 @@ export function openModal({ title, message, type = "confirm", placeholder = "", 
   });
 }
 
-export const modalPrompt = (message, placeholder = "") => openModal({ title: "Input required", message, type: "text", placeholder });
-export const modalConfirm = (message, opts = {}) => openModal({ title: opts.title || "Please confirm", message, type: "confirm", confirmLabel: opts.confirmLabel || "Confirm", danger: opts.danger });
+export const modalPrompt = (message, placeholder = "") => openModal({ title: "Input Required", message, type: "text", placeholder });
+export const modalConfirm = (message, opts = {}) => openModal({ title: opts.title || "Please Confirm", message, type: "confirm", confirmLabel: opts.confirmLabel || "Confirm", danger: opts.danger });
 export const modalAlert = (message, title = "Notice") => openModal({ title, message, type: "alert", confirmLabel: "OK" });
-export const modalChoose = (message, options, title = "Choose one") => openModal({ title, message, type: "choice", options });
+export const modalChoose = (message, options, title = "Choose One") => openModal({ title, message, type: "choice", options });

@@ -10,7 +10,9 @@ from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
 from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import VendorMapping
+from app.models.vendor_rating import VendorRating
 from app.schemas.mapping import MappingOut, VendorMappingRequest
+from app.schemas.rating import RatingOut
 from app.schemas.vendor_portal import PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
 from app.services.audit import record
@@ -18,6 +20,16 @@ from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
+
+
+@router.get("/ratings", response_model=list[RatingOut])
+def my_ratings(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Spec §5: a vendor's own rating, so it isn't a black box -- it's what
+    the eligibility resolver actually filters invitations on. Unlike the
+    staff endpoint (get_or_create_rating), this never lazily creates a row:
+    a procurement type the vendor has never been rated in just doesn't
+    appear, rather than fabricating a provisional one on the fly."""
+    return db.query(VendorRating).filter(VendorRating.vendor_id == vendor.id).order_by(VendorRating.procurement_type).all()
 
 
 @router.get("/tenders", response_model=list[PortalTenderOut])

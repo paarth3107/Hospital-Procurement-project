@@ -1,6 +1,6 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, stateTag, th, emptyRow, fmtDateTime } from "../../kit.js";
+import { esc, stateTag, th, emptyRow, fmtDateTime, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { initTenderForm, openTenderForm, closeTenderForm, isFormOpen } from "./tenderForm.js";
 
 // ---- Tenders: the list, with "+ New tender" and Manage opening the editor
@@ -16,10 +16,13 @@ const TYPE_LABEL = { rfq: "RFQ", rfp: "RFP", rate_contract: "Rate contract" };
 const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
 let allTenders = [];
 let showClosed = false;
+let page = 0;
 
 function render() {
   const closedCount = allTenders.filter((t) => CLOSED_TENDER_STATUSES.has(t.status)).length;
-  const tenders = showClosed ? allTenders : allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const filtered = showClosed ? allTenders : allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const { pageItems, totalPages, page: clamped } = pageSlice(filtered, page);
+  page = clamped;
   root().innerHTML = `<div class="ep-pane">
     <div class="ep-pane-head"><span>Tenders</span>
       <div style="display:flex;align-items:center;gap:14px">
@@ -30,8 +33,8 @@ function render() {
       </div>
     </div>
     <table class="ep-table">${th("ID", "Title", "Type", "Status", "Bids close", "Round", "")}<tbody>${
-      tenders.length
-        ? tenders
+      pageItems.length
+        ? pageItems
             .map(
               (t) => `<tr>
                 <td class="ep-cell ep-mono" style="font-size:12px">#${t.id}</td>
@@ -46,10 +49,16 @@ function render() {
             .join("")
         : emptyRow(7, showClosed ? "No tenders yet." : "No open tenders. Closed/awarded tenders are hidden -- tick the box above to see them.")
     }</tbody></table>
+    ${paginationBar(page, totalPages, "tenders-prev", "tenders-next")}
   </div>`;
   root().querySelector("#add-tender-btn").addEventListener("click", () => (isFormOpen() ? closeTenderForm() : openTenderForm(null)));
   root().querySelector("#show-closed-tenders").addEventListener("change", (e) => {
     showClosed = e.target.checked;
+    page = 0;
+    render();
+  });
+  wirePagination(root(), "tenders-prev", "tenders-next", page, (p) => {
+    page = p;
     render();
   });
   root().querySelectorAll("[data-manage]").forEach((b) => b.addEventListener("click", () => openTenderById(b.dataset.manage)));
