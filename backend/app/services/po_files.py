@@ -30,7 +30,7 @@ def _r(x):
     return round(x, 2) if x is not None else None
 
 
-def build_payload(tender: Tender, vendor, lines: list, batch_id: str, version: int, approver: UserAccount) -> dict:
+def build_payload(tender: Tender, vendor, lines: list, batch_id: str, version: int, approver: UserAccount | None) -> dict:
     """`lines` = [(line_item, bid, share_pct, award_round)] for one vendor."""
     out_lines = []
     for n, (li, bid, share, rnd) in enumerate(sorted(lines, key=lambda x: x[0].id), start=1):
@@ -54,7 +54,7 @@ def build_payload(tender: Tender, vendor, lines: list, batch_id: str, version: i
         "tender": {"id": tender.id, "reference": f"TND-{tender.id}", "title": tender.title, "department": tender.department},
         "facility_code": tender.facility.legal_entity_code, "facility_name": tender.facility.name, "budget_code": None,
         "vendor": {"code": f"V-{vendor.id}", "name": vendor.legal_name, "gstin": vendor.gstin},
-        "approval": {"approver_id": approver.id, "approver_name": approver.full_name, "approved_at": datetime.now(timezone.utc).isoformat()},
+        "approval": {"approver_id": approver.id if approver else None, "approver_name": approver.full_name if approver else "System (automatic close-out)", "approved_at": datetime.now(timezone.utc).isoformat()},
         "lines": out_lines,
     }
 
@@ -103,10 +103,13 @@ def render_xml(payload: dict) -> str:
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
 
-def generate_for_tender(db: Session, tender: Tender, approver: UserAccount, final_rounds: list) -> list[PoDataFile]:
+def generate_for_tender(db: Session, tender: Tender, approver: UserAccount | None, final_rounds: list) -> list[PoDataFile]:
     """One file per awarded vendor, consolidating every line (or share of a
     line) awarded to them. `final_rounds` are the tender's approved award
-    rounds. Every value comes from the approved allocation and the bid it points at."""
+    rounds. Every value comes from the approved allocation and the bid it
+    points at. `approver` is only None when nothing here was actually
+    awarded (a tender closed automatically with zero bids on every line) --
+    `per_vendor` is then empty and this loop never runs."""
     per_vendor: dict[int, list] = defaultdict(list)
     for rnd in final_rounds:
         if rnd.kind != "award":
@@ -119,7 +122,7 @@ def generate_for_tender(db: Session, tender: Tender, approver: UserAccount, fina
         vendor = lines[0][1].vendor
         batch_id = f"POB-{tender.id}-{vendor_id}-v1"
         po = PoDataFile(
-            batch_id=batch_id, tender_id=tender.id, vendor_id=vendor_id, version=1, status="pending_upload", generated_by_id=approver.id,
+            batch_id=batch_id, tender_id=tender.id, vendor_id=vendor_id, version=1, status="pending_upload", generated_by_id=approver.id if approver else None,
             payload=build_payload(tender, vendor, lines, batch_id, 1, approver),
         )
         db.add(po)

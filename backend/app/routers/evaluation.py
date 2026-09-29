@@ -29,6 +29,7 @@ from app.schemas.evaluation import (
 )
 from app.schemas.override import OverrideDecision
 from app.security import get_current_user, require_role
+from app.services import awards as award_rules
 from app.services import commercial_evaluation as commercial
 from app.services import overrides
 from app.services import technical_evaluation as tech
@@ -80,6 +81,7 @@ def _summary(line: TenderLineItem, db: Session) -> LineSummaryOut:
 
 @router.get("/lines", response_model=list[LineSummaryOut])
 def list_lines(db: Session = Depends(get_db), _user: UserAccount = Depends(require_role(*VIEWERS))):
+    award_rules.sweep_no_bid_lines(db)  # at the moment it matters: this screen is what "still Published" claims are read from
     lines = (
         db.query(TenderLineItem)
         .join(Tender, TenderLineItem.tender_id == Tender.id)

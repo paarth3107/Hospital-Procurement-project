@@ -11,6 +11,8 @@ AWARD, EXCLUDE = "award", "exclude"
 PROPOSED, FINAL = "proposed", "final"
 # Decision kinds
 APPROVED_RECOMMENDATION, AWARDED_SYSTEM_L1, APPROVED_ADJUSTED, REJECTED_DECISION = "approved_recommendation", "awarded_system_l1", "approved_adjusted", "rejected"
+# No human recommended or decided this one -- the deadline passed with zero bids (user-directed, 2026-09-30).
+AUTO_NO_BIDS = "auto_no_bids"
 
 
 class AwardRound(Base):

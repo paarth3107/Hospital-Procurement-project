@@ -15,6 +15,7 @@ export const DECISION_LABEL = {
   awarded_system_l1: "Awarded to the system's L1/C1 instead",
   approved_adjusted: "Approved with an adjusted split",
   rejected: "Rejected",
+  auto_no_bids: "Closed automatically — no bids received",
 };
 
 export const qualifiedRows = (line) => (line.statement || []).filter((r) => r.rank != null);

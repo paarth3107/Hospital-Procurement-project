@@ -16,7 +16,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.award import (
-    APPROVED, APPROVED_ADJUSTED, APPROVED_RECOMMENDATION, AWARD, AWARDED_SYSTEM_L1, DRAFT, EXCLUDE, FINAL, PENDING, PROPOSED, REJECTED,
+    APPROVED, APPROVED_ADJUSTED, APPROVED_RECOMMENDATION, AUTO_NO_BIDS, AWARD, AWARDED_SYSTEM_L1, DRAFT, EXCLUDE, FINAL, PENDING, PROPOSED, REJECTED,
     REJECTED_DECISION, AwardAllocation, AwardRound,
 )
 from app.models.bid import Bid, BidStatus
@@ -26,6 +26,7 @@ from app.models.tender_line_item import TenderLineItem
 from app.models.user_account import UserAccount
 from app.services import commercial_evaluation as commercial
 from app.services import po_files
+from app.services import technical_evaluation as tech
 from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, escalate, resolve_required_tier
 from app.services.audit import record
 from app.services.notifier import notify_vendor
@@ -272,7 +273,7 @@ def decide(db: Session, line: TenderLineItem, user: UserAccount, decision: str, 
     return rnd
 
 
-def maybe_finalize(db: Session, tender: Tender, user: UserAccount) -> bool:
+def maybe_finalize(db: Session, tender: Tender, user: UserAccount | None) -> bool:
     """Every published line approved (or left out) -> Awarded: PO data files are
     generated (one per awarded vendor) and vendors are notified."""
     lines = published_lines(tender)
@@ -357,3 +358,86 @@ def tasks_for(db: Session, user: UserAccount) -> list[dict]:
             if pend:
                 out.append({"tender_id": t.id, "title": t.title, "kind": "decide", "lines": len(pend), "tier": pend[0].required_tier, "detail": f"{len(pend)} line(s) waiting for L1 approval"})
     return out
+
+
+def awaiting_decision(db: Session) -> list[tuple[Tender, TenderLineItem]]:
+    """Lines with a recommendation already submitted and not yet decided.
+    Pure tracking, not an action item: there's nothing for the Officer to do
+    here -- either the Approving Authority approves it and the tender
+    auto-finalizes (maybe_finalize), or rejects it and it returns to
+    tasks_for()'s "recommend" bucket as the next round."""
+    out = []
+    tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+    for t in tenders:
+        for li in published_lines(t):
+            if li.technical_closed_at is None:
+                continue
+            rnd = latest_round(db, li)
+            if rnd is not None and rnd.status == PENDING:
+                out.append((t, li))
+    return out
+
+
+def _fallback_approver(db: Session, tender: Tender) -> UserAccount | None:
+    """Who to credit an automatic finalize to, for the PO data file's own
+    record-keeping, when the finalize itself has no human actor (see
+    sweep_no_bid_lines): the most recent person who actually decided
+    something on this tender, if anyone ever did. None if nothing on this
+    tender was ever decided by a human either (every line had zero bids)."""
+    rnd = (
+        db.query(AwardRound)
+        .join(TenderLineItem, AwardRound.line_item_id == TenderLineItem.id)
+        .filter(TenderLineItem.tender_id == tender.id, AwardRound.decided_by_id.isnot(None))
+        .order_by(AwardRound.decided_at.desc())
+        .first()
+    )
+    return rnd.decided_by if rnd else None
+
+
+def auto_close_no_bid_line(db: Session, line: TenderLineItem) -> bool:
+    """User-directed (2026-09-30): a published line whose bid deadline has
+    passed with zero submitted bids has no vendor to evaluate, recommend, or
+    approve -- nothing a human decision could add -- so it's excluded from
+    the award immediately instead of sitting Published forever until someone
+    manually walks a dead line through technical-close -> recommend ->
+    L1-approve for nothing. Idempotent: a no-op once the line has already
+    been closed one way or another. Returns True if it just closed this line."""
+    if line.technical_closed_at is not None or not tech.deadline_passed(line):
+        return False
+    if tech.submitted_bids(line, db):
+        return False  # real bids exist -- needs a human to evaluate them
+    now = datetime.now(timezone.utc)
+    line.technical_closed_at = now
+    db.add(
+        AwardRound(
+            line_item_id=line.id, round_number=1, status=APPROVED, kind=EXCLUDE, decision_kind=AUTO_NO_BIDS,
+            officer_reason="No bids were received before the bid deadline.", submitted_at=now, decided_at=now,
+        )
+    )
+    tender = line.tender
+    db.flush()
+    record(
+        db, "award.auto_closed_no_bids", "tender", tender.id, actor=None, entity_label=f"#{tender.id} {tender.title} - {line.product.name}",
+        facility_id=tender.facility_id, reason="No bids were received before the deadline.", meta={"line_item_id": line.id},
+    )
+    return True
+
+
+def sweep_no_bid_lines(db: Session) -> int:
+    """Runs lazily (dashboard, evaluation screens) rather than on a schedule,
+    same pattern as app/services/expiry.py's vendor-document sweep. Closes
+    every eligible zero-bid line across every published tender, then lets
+    maybe_finalize close out any tender that's now fully resolved."""
+    closed = 0
+    tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+    for t in tenders:
+        any_closed = False
+        for li in published_lines(t):
+            if auto_close_no_bid_line(db, li):
+                closed += 1
+                any_closed = True
+        if any_closed:
+            maybe_finalize(db, t, _fallback_approver(db, t))
+    if closed:
+        db.commit()
+    return closed
