@@ -3,8 +3,9 @@ import { sendRequests } from "./categoryRequests.js";
 import { itemRequirements, requirementNote } from "./requirements.js";
 
 // Item-level requests: for a vendor who supplies only some items of a
-// category (or whose category request wasn't approved). Listed only for items
-// with no request yet and not already covered by an approved category.
+// category (or whose category request wasn't approved). Listed for items with
+// no request yet, a Rejected one (can be tried again), and not already
+// covered by an approved category.
 export function renderItemRequestSection({ products, categories, mappingByCategory, mappingByProduct, docsByKey }) {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   // An item under an approved category is hidden only when the category truly
@@ -12,7 +13,8 @@ export function renderItemRequestSection({ products, categories, mappingByCatego
   // rating) the vendor isn't eligible yet, so it stays requestable.
   const covered = (p) => mappingByCategory.get(p.category_id)?.state === "approved";
   const fullyCovered = (p) => covered(p) && !(p.required_documents || []).length && p.min_mapping_rating == null;
-  const candidates = products.filter((p) => !mappingByProduct.has(p.id) && !fullyCovered(p));
+  const rejected = (p) => mappingByProduct.get(p.id)?.state === "rejected";
+  const candidates = products.filter((p) => (!mappingByProduct.has(p.id) || rejected(p)) && !fullyCovered(p));
   if (candidates.length === 0) return "";
 
   const byCategory = new Map();
@@ -31,6 +33,8 @@ export function renderItemRequestSection({ products, categories, mappingByCatego
               const req = itemRequirements(p, categoryById.get(p.category_id), docsByKey);
               const note = covered(p)
                 ? `<div class="ep-sub" style="margin-left:22px">Your category is approved, but this item has its own requirements${p.min_mapping_rating != null ? ` (minimum rating ${p.min_mapping_rating})` : ""}.</div>`
+                : rejected(p)
+                ? '<div class="ep-sub" style="margin-left:22px;color:#ae1800">Previously rejected — you can request it again</div>'
                 : "";
               return `<div><label class="ep-check"><input type="checkbox" data-product-id="${p.id}" ${req.missing.length ? "disabled" : ""}> ${esc(p.name)}</label>${note}${requirementNote(req)}</div>`;
             })

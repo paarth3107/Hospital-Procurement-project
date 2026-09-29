@@ -8,6 +8,8 @@ eligibility (services/eligibility.py) treats an approved category mapping as
 covering its items unless an item-level mapping says otherwise.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -110,7 +112,7 @@ def create_pending_mapping(
             .filter(VendorMapping.vendor_id == vendor.id, VendorMapping.category_id == category_id)
             .first()
         )
-    if existing:
+    if existing and existing.state != MappingState.REJECTED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"A mapping between this vendor and this {'item' if product_master_id else 'category'} already exists "
@@ -125,6 +127,25 @@ def create_pending_mapping(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Upload these documents first (Company profile → Document vault): {', '.join(missing)}",
             )
+
+    # A Rejected request can be tried again -- same "fix it and resubmit"
+    # pattern already used for a rejected document -- rather than leaving it a
+    # permanent dead end with nothing the vendor can do about it. The prior
+    # decision stays on record in mapping history either way (spec 4.3 pt 3).
+    if existing:
+        db.add(VendorMappingHistory(mapping_id=existing.id, from_state=MappingState.REJECTED, to_state=MappingState.PENDING))
+        record(
+            db, "mapping.requested", "mapping", existing.id, actor=requested_by or vendor, entity_label=_mapping_label(existing),
+            before={"state": MappingState.REJECTED}, after={"state": MappingState.PENDING}, meta={"version": existing.version + 1},
+        )
+        existing.state = MappingState.PENDING
+        existing.requested_at = datetime.now(timezone.utc)
+        existing.decided_by_id = None
+        existing.decided_at = None
+        existing.version += 1
+        db.commit()
+        db.refresh(existing)
+        return existing
 
     mapping = VendorMapping(vendor_id=vendor.id, product_master_id=product_master_id, category_id=category_id)
     db.add(mapping)

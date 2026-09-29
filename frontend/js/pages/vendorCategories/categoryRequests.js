@@ -4,9 +4,13 @@ import { categoryRequirements, requirementNote } from "./requirements.js";
 
 // Category-level requests: the vendor asks to supply a whole category. A
 // Category Manager approves each category separately from any items in it.
-// Only categories with no request yet can be picked.
+// A category with no request yet, or one that was Rejected, can be picked --
+// Rejected isn't a dead end, it can be tried again (same as a rejected document).
 export function renderCategoryRequestSection({ categories, mappingByCategory, docsByKey }) {
-  const open = categories.filter((c) => !mappingByCategory.has(c.id));
+  const open = categories.filter((c) => {
+    const m = mappingByCategory.get(c.id);
+    return !m || m.state === "rejected";
+  });
   return `<div>
     <div class="ep-k" style="margin-bottom:8px">Categories</div>
     ${
@@ -14,7 +18,8 @@ export function renderCategoryRequestSection({ categories, mappingByCategory, do
         ? `<div style="display:flex;flex-wrap:wrap;gap:10px 22px">${open
             .map((c) => {
               const req = categoryRequirements(c, docsByKey);
-              return `<div><label class="ep-check"><input type="checkbox" data-category-id="${c.id}" ${req.missing.length ? "disabled" : ""}> ${esc(c.name)} <span class="ep-sub">${esc(c.procurement_type)}</span></label>${requirementNote(req)}</div>`;
+              const rejected = mappingByCategory.get(c.id)?.state === "rejected";
+              return `<div><label class="ep-check"><input type="checkbox" data-category-id="${c.id}" ${req.missing.length ? "disabled" : ""}> ${esc(c.name)} <span class="ep-sub">${esc(c.procurement_type)}</span></label>${rejected ? '<div class="ep-sub" style="color:#ae1800">Previously rejected — you can request it again</div>' : ""}${requirementNote(req)}</div>`;
             })
             .join("")}</div>
           <div style="margin-top:12px"><button class="ep-b" data-v="p" id="request-categories-btn">Request selected categories</button></div>`

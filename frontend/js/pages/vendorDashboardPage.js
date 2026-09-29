@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
-import { openBid } from "./bid/bidPage.js";
+import { openTenderBid } from "./bid/bidPage.js";
 import { notificationsHtml, wireNotifications } from "./vendorNotifications.js";
 import { scorecardHtml } from "./ratings/scorecard.js";
 import { switchView, refreshChrome } from "../nav.js";
@@ -43,12 +43,13 @@ async function statusNote(vendor) {
     const owed = reqs.filter((r) => r.summary === "documents_needed");
     const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0 };
     for (const m of mappings) counts[m.state]++;
-    // Only say something while there is something to do: nothing requested yet, or a request was
-    // rejected / suspended. Approved or pending requests need no message.
+    // A Rejected request is requestable again in Category Declaration, same as
+    // one never requested at all -- it's not a dead end needing a nudge here.
+    // Suspended still needs a nudge: only staff can reinstate it.
     const message = !mappings.length
       ? "Your documents are approved! Pick which categories (or individual items) you can supply to become eligible for tenders."
-      : counts.rejected || counts.suspended
-      ? `${[counts.rejected ? `${counts.rejected} request(s) rejected` : "", counts.suspended ? `${counts.suspended} suspended` : ""].filter(Boolean).join(", ")} — see Category Declaration.`
+      : counts.suspended
+      ? `${counts.suspended} request(s) suspended — see Category Declaration.`
       : null;
     const owedNote = owed.length
       ? `<div class="ep-note warn"><span>New documents are required for ${owed.length} of your items (${esc(owed.slice(0, 3).map((r) => r.product_name).join(", "))}${owed.length > 3 ? "…" : ""}). Upload them in Category Declaration; you can bid on those items once they are verified.</span><button class="ep-b" data-v="p" id="goto-profile-docs">Upload documents</button></div>`
@@ -138,14 +139,19 @@ function tenderRow(group) {
     : submitted > 0
     ? tag(`${submitted} of ${lines.length} submitted`, "att")
     : tag("Not started", "att");
-  const closesIn = t.can_bid && t.bid_due_date ? `<div class="ep-sub">${timeRemaining(t.bid_due_date)} left</div>` : "";
+  const timeCell = t.bid_due_date
+    ? `<div style="font-weight:600">${t.can_bid ? timeRemaining(t.bid_due_date) : "closed"}</div><div class="ep-sub">${fmtDateTime(t.bid_due_date)}</div>`
+    : "—";
   return `<tr>
     <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
     <td class="ep-cell" style="font-size:12px">${esc(t.tender_type)}</td>
     <td class="ep-cell" style="font-size:12.5px">${lines.length}</td>
-    <td class="ep-cell" style="font-size:12.5px">${fmtDateTime(t.bid_due_date)}${closesIn}</td>
+    <td class="ep-cell" style="font-size:12.5px">${timeCell}</td>
     <td class="ep-cell">${statusTag}</td>
-    <td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="p" data-view-tender="${t.tender_id}">View lines</button></td>
+    <td class="ep-cell" style="text-align:right;white-space:nowrap">
+      <button class="ep-b" data-view-tender="${t.tender_id}">View lines</button>
+      ${t.can_bid ? `<button class="ep-b" data-v="p" data-prepare-bid="${t.tender_id}">Prepare Bid</button>` : ""}
+    </td>
   </tr>`;
 }
 
@@ -165,7 +171,7 @@ function renderTenderList(lineRows, closedCount, openLinesCount) {
           <span class="ep-k">${openLinesCount} biddable</span>
         </div>
       </div>
-      <table class="ep-table">${th("Tender", "Type", "Line Items", "Closes", "Status", "")}<tbody>${
+      <table class="ep-table">${th("Tender", "Type", "Line Items", "Time Remaining", "Status", "")}<tbody>${
         pageItems.length ? pageItems.map(tenderRow).join("") : emptyRow(6, showClosed ? "No tenders you're invited to." : "No open tenders you're currently invited to.")
       }</tbody></table>
       ${paginationBar(page, totalPages, "invites-prev", "invites-next")}
@@ -176,24 +182,24 @@ function renderTenderList(lineRows, closedCount, openLinesCount) {
 function renderTenderLines(selectedGroup) {
   const t = selectedGroup[0]?.t;
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>${t ? esc(t.title) : "Tender"}</span><button class="ep-b" id="back-to-tenders">← All invitations</button></div>
-    ${t ? `<div style="padding:10px 16px 0" class="ep-sub">#${t.tender_id} · ${esc(t.tender_type)} · Closes ${fmtDateTime(t.bid_due_date)}</div>` : ""}
-    <table class="ep-table">${th("Item", "Bid Status", "")}<tbody>${
+    <div class="ep-pane-head"><span>${t ? esc(t.title) : "Tender"}</span>
+      <div style="display:flex;gap:10px">
+        ${t && t.can_bid ? `<button class="ep-b" data-v="p" data-prepare-bid="${t.tender_id}">Prepare Bid</button>` : ""}
+        <button class="ep-b" id="back-to-tenders">← All invitations</button>
+      </div>
+    </div>
+    ${t ? `<div style="padding:10px 16px 0" class="ep-sub">#${t.tender_id} · ${esc(t.tender_type)} · ${t.can_bid && t.bid_due_date ? `${timeRemaining(t.bid_due_date)} remaining` : "closed"} (${fmtDateTime(t.bid_due_date)})</div>` : ""}
+    <table class="ep-table">${th("Item", "Bid Status")}<tbody>${
       selectedGroup.length
         ? selectedGroup
             .map(({ t, li }) => {
               const bs = li.bid_status;
               const closed = CLOSED_TENDER_STATUSES.has(t.status);
               const status = bs === "submitted" ? tag("Bid submitted", "pos") : bs === "draft" ? tag("Draft saved", "esc") : bs === "withdrawn" ? tag("Withdrawn", "neg") : t.can_bid ? tag("Not submitted", "att") : closed ? tag(t.status === "awarded" ? "Tender awarded" : "Closed, no award", "neg") : tag("Deadline passed", "neg");
-              const action = t.can_bid
-                ? `<button class="ep-b" ${bs ? "" : 'data-v="p"'} data-line="${li.line_item_id}">${bs === "submitted" ? "View / amend" : bs === "draft" ? "Continue bid" : bs === "withdrawn" ? "Reopen" : "Prepare bid"}</button>`
-                : bs
-                ? `<button class="ep-b" data-line="${li.line_item_id}">View</button>`
-                : "";
-              return `<tr><td class="ep-cell"><div style="font-weight:600">${esc(li.product_name)}</div><div class="ep-sub">${li.qty}</div></td><td class="ep-cell">${status}</td><td class="ep-cell" style="text-align:right">${action}</td></tr>`;
+              return `<tr><td class="ep-cell"><div style="font-weight:600">${esc(li.product_name)}</div><div class="ep-sub">${li.qty}</div></td><td class="ep-cell">${status}</td></tr>`;
             })
             .join("")
-        : emptyRow(3, "No lines.")
+        : emptyRow(2, "No lines.")
     }</tbody></table>
   </div>`;
 }
@@ -246,7 +252,7 @@ function render(note, tenders, bids, notes, ratings, docs) {
   root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-categories"));
   root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-categories"));
   root().querySelector("#goto-profile-expiry")?.addEventListener("click", () => switchView("vendor-profile"));
-  root().querySelectorAll("button[data-line]").forEach((b) => b.addEventListener("click", () => openBid(Number(b.dataset.line))));
+  root().querySelectorAll("[data-prepare-bid]").forEach((b) => b.addEventListener("click", () => openTenderBid(Number(b.dataset.prepareBid))));
   const rerender = () => render(note, tenders, bids, notes, ratings, docs);
   root().querySelector("#show-closed-invites")?.addEventListener("change", (e) => {
     showClosed = e.target.checked;
