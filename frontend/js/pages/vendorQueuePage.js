@@ -18,6 +18,9 @@ let selectedId = null;
 // Verify/Reject on a document stay disabled until the reviewer has opened
 // the file in this review session, so nobody rubber-stamps unseen documents.
 let reviewedDocIds = new Set();
+// Status history is closed by default -- it's a record, not something that
+// needs reviewing every time a vendor is opened.
+let historyOpen = false;
 
 const FILTERS = [
   ["pending_verification", "Pending"],
@@ -36,7 +39,7 @@ export function preselectVendor(id, filter = "pending_verification") {
 }
 
 export async function loadVendors() {
-  if (statusFilter === null) statusFilter = "pending_verification";
+  if (statusFilter === null) statusFilter = "";
   try {
     vendors = await api("/vendors" + (statusFilter ? `?status_filter=${statusFilter}` : ""));
     if (!vendors.some((v) => v.id === selectedId)) selectedId = vendors[0]?.id ?? null;
@@ -151,9 +154,9 @@ function decisionBar(vendor, docs) {
   if (decidable) {
     return bar(
       "Every mandatory document must be Verified before approval. Approval activates the vendor and opens category mapping.",
-      btn("Request info", { attrs: 'data-decision="info"' }) +
-        btn("Reject", { attrs: 'data-decision="reject"' }) +
-        (mandatoryRejected ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' }))
+      (mandatoryRejected ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' })) +
+        btn("Request info", { primary: mandatoryRejected, attrs: 'data-decision="info"' }) +
+        btn("Reject candidate", { attrs: 'data-decision="reject"' })
     );
   }
   if (vendor.status === "active") {
@@ -201,8 +204,11 @@ function requirementsPane(reqs) {
 }
 
 function historyPane(history) {
+  if (!historyOpen) {
+    return `<div style="display:flex"><button class="ep-b" id="toggle-history">Show status history (${history.length})</button></div>`;
+  }
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Status history</span></div>
+    <div class="ep-pane-head"><span>Status history</span><button class="ep-b" id="toggle-history">Hide</button></div>
     <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">${history
       .slice()
       .reverse()
@@ -262,9 +268,14 @@ function wire(vendor) {
     b.addEventListener("click", () => {
       selectedId = Number(b.dataset.vendor);
       reviewedDocIds = new Set();
+      historyOpen = false;
       render();
     })
   );
+  r.querySelector("#toggle-history")?.addEventListener("click", () => {
+    historyOpen = !historyOpen;
+    render();
+  });
   r.querySelectorAll("[data-reveal]").forEach((b) =>
     b.addEventListener("click", async () => {
       const span = b.parentElement.querySelector("[data-secret]");
@@ -290,6 +301,7 @@ function wire(vendor) {
         if (b.dataset.act === "reject") {
           const reason = await modalPrompt("Reason for rejecting this document (required):");
           if (!reason) return;
+          if (!(await modalConfirm(`Reject this document? Reason: "${reason}"`, { title: "Reject document", confirmLabel: "Reject document", danger: true }))) return;
           await post(`/vendors/${selectedId}/documents/${b.dataset.doc}/reject`, { reason });
         } else {
           await post(`/vendors/${selectedId}/documents/${b.dataset.doc}/verify`);
@@ -312,6 +324,7 @@ async function decide(kind, vendor) {
     } else if (kind === "reject") {
       const reason = await modalPrompt("Reason for rejecting this registration (required):");
       if (!reason) return;
+      if (!(await modalConfirm(`Reject this candidate's registration? Reason: "${reason}"`, { title: "Reject candidate", confirmLabel: "Reject candidate", danger: true }))) return;
       await post(`/vendors/${vendor.id}/reject`, { reason });
       showResult(resultEl(), "Registration rejected.", true);
     } else if (kind === "suspend") {
