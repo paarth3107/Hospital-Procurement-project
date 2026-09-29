@@ -71,7 +71,7 @@ def _summary(line: TenderLineItem, db: Session) -> LineSummaryOut:
         if db.query(BidEvaluation).filter(BidEvaluation.bid_id == b.id).first():
             evaluated += 1
     return LineSummaryOut(
-        line_item_id=line.id, tender_id=t.id, tender_title=t.title, tender_type=t.tender_type, product_name=line.product.name,
+        line_item_id=line.id, tender_id=t.id, tender_title=t.title, tender_type=t.tender_type, tender_status=t.status, product_name=line.product.name,
         procurement_type=line.procurement_type, qty=line.qty, bid_due_date=t.bid_due_date,
         technical_eval_method=line.technical_eval_method, phase=_phase(line),
         invited_count=db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id).count(),

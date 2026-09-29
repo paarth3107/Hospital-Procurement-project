@@ -18,15 +18,18 @@ import { actionQueue, wireActionQueue } from "./actionQueue.js";
 // still out for a decision, and it folds back into "Ready to recommend" if
 // the Approving Authority sends it back instead. ----
 
+// Each card jumps to where that work actually happens: Draft -> Tenders (to
+// keep editing/submit it), Pending approval / Live -> Bid evaluation (where
+// their progress is tracked), Ready to recommend -> L1 award.
 function kpiStrip(o) {
   const cells = [
-    ["Draft tenders", o.draft_count, "not yet submitted for approval"],
-    ["Pending approval", o.pending_approval_count, "sent, waiting on the Approving Authority"],
-    ["Live tenders", o.live_count, o.awaiting_evaluation_close_count ? `bidding open · ${o.awaiting_evaluation_close_count} more closed, awaiting evaluation` : "bidding open"],
-    ["Ready to recommend", o.ready_to_recommend_lines, `${o.ready_to_recommend_count} tender(s)`],
+    ["Draft tenders", o.draft_count, "not yet submitted for approval", "tenders"],
+    ["Pending approval", o.pending_approval_count, "sent, waiting on the Approving Authority", "evaluation"],
+    ["Live tenders", o.live_count, o.awaiting_evaluation_close_count ? `bidding open · ${o.awaiting_evaluation_close_count} more closed, awaiting evaluation` : "bidding open", "evaluation"],
+    ["Ready to recommend", o.ready_to_recommend_lines, `${o.ready_to_recommend_count} tender(s)`, "awards"],
   ];
   return `<div class="ep-kpis">${cells
-    .map(([label, value, sub]) => `<div class="ep-kpi">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></div>`)
+    .map(([label, value, sub, view]) => `<button type="button" class="ep-kpi" data-view="${view}">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></button>`)
     .join("")}</div>`;
 }
 
@@ -101,6 +104,7 @@ export function renderOfficerDashboard(root, s) {
     <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${tendersTable(o)}</div>
   </div>`;
   wireActionQueue(root, queue);
+  root.querySelectorAll(".ep-kpi[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
   root.querySelectorAll("[data-open]").forEach((b) =>
     b.addEventListener("click", () => {
       switchView("tenders");

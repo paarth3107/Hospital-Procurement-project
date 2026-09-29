@@ -12,34 +12,57 @@ const root = () => document.getElementById("awards-root");
 const resultEl = () => document.getElementById("awards-result");
 let selected = null;
 
+// Awarded / No award are done -- nothing left to act on. Kept out of the
+// list by default (they pile up forever otherwise); a checkbox reveals them
+// again without a refetch (same pattern as the Tenders tab / vendor's Open
+// Invitations, 2026-09-29).
+const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
+let allTenders = [];
+let showClosed = false;
+
+function render() {
+  const closedCount = allTenders.filter((t) => CLOSED_TENDER_STATUSES.has(t.status)).length;
+  const tenders = showClosed ? allTenders : allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const rows = tenders.length
+    ? tenders
+        .map((t) => {
+          const chips = Object.entries(t.counts)
+            .map(([k, n]) => `${n} ${STATE[k] ? STATE[k][0].toLowerCase() : k}`)
+            .join(" · ");
+          return `<tr>
+            <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
+            <td class="ep-cell">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("In progress", "att")}</td>
+            <td class="ep-cell" style="font-size:12.5px">${chips}</td>
+            <td class="ep-cell" style="font-size:12.5px">${t.required_tier ? `${inr(t.pending_value)}<div class="ep-sub">tier ${t.required_tier}</div>` : "—"}</td>
+            <td class="ep-cell">${t.waiting_for_you ? tag("Waiting for you", "att") : ""}</td>
+            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="p" data-tender="${t.tender_id}">Open</button></td></tr>`;
+        })
+        .join("")
+    : emptyRow(6, showClosed ? "No tender has reached the award stage yet." : "Nothing in progress. Closed tenders are hidden -- tick the box above to see them.");
+  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders at the award stage</span>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
+      <input type="checkbox" id="show-closed-awards" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
+    </label></div>
+    <table class="ep-table">${th("Tender", "Status", "Lines", "Award value", "", "")}<tbody>${rows}</tbody></table></div>`;
+  root()
+    .querySelector("#show-closed-awards")
+    .addEventListener("change", (e) => {
+      showClosed = e.target.checked;
+      render();
+    });
+  root().querySelectorAll("[data-tender]").forEach((b) =>
+    b.addEventListener("click", () => {
+      selected = Number(b.dataset.tender);
+      showTender();
+    })
+  );
+}
+
 async function showList() {
   selected = null;
   try {
-    const tenders = await api("/awards/tenders");
-    const rows = tenders.length
-      ? tenders
-          .map((t) => {
-            const chips = Object.entries(t.counts)
-              .map(([k, n]) => `${n} ${STATE[k] ? STATE[k][0].toLowerCase() : k}`)
-              .join(" · ");
-            return `<tr>
-              <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
-              <td class="ep-cell">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("In progress", "att")}</td>
-              <td class="ep-cell" style="font-size:12.5px">${chips}</td>
-              <td class="ep-cell" style="font-size:12.5px">${t.required_tier ? `${inr(t.pending_value)}<div class="ep-sub">tier ${t.required_tier}</div>` : "—"}</td>
-              <td class="ep-cell">${t.waiting_for_you ? tag("Waiting for you", "att") : ""}</td>
-              <td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="p" data-tender="${t.tender_id}">Open</button></td></tr>`;
-          })
-          .join("")
-      : emptyRow(6, "No tender has reached the award stage yet. It appears here once a line's technical evaluation is closed.");
-    root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders at the award stage</span><span class="ep-k">${tenders.length}</span></div>
-      <table class="ep-table">${th("Tender", "Status", "Lines", "Award value", "", "")}<tbody>${rows}</tbody></table></div>`;
-    root().querySelectorAll("[data-tender]").forEach((b) =>
-      b.addEventListener("click", () => {
-        selected = Number(b.dataset.tender);
-        showTender();
-      })
-    );
+    allTenders = await api("/awards/tenders");
+    render();
     resultEl().textContent = "";
   } catch (err) {
     showResult(resultEl(), "Could not load the award stage: " + err.message, false);

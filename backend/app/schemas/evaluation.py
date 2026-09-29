@@ -5,7 +5,7 @@ from pydantic import BaseModel, field_validator
 from app.models.bid import BidAttachmentKind
 from app.models.bid_evaluation import TechnicalDecision
 from app.models.product_master import ProcurementType
-from app.models.tender import TenderType
+from app.models.tender import TenderStatus, TenderType
 from app.models.tender_line_item import TechnicalEvalMethod
 
 
@@ -14,6 +14,7 @@ class LineSummaryOut(BaseModel):
     tender_id: int
     tender_title: str
     tender_type: TenderType
+    tender_status: TenderStatus  # lets the list hide lines on an awarded/no_award tender by default
     product_name: str
     procurement_type: ProcurementType
     qty: float
