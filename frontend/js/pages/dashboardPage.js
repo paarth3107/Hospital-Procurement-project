@@ -1,12 +1,15 @@
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
-import { switchView, ROLE_TABS } from "../nav.js";
-import { preselectVendor } from "./vendorQueuePage.js";
-import { esc, kicker, th, emptyRow, fmtDate, fmtDateTime } from "../kit.js";
+import { esc, kicker, fmtDate } from "../kit.js";
+import { actionQueue, wireActionQueue } from "./dashboard/actionQueue.js";
+import { renderOfficerDashboard } from "./dashboard/officerDashboard.js";
 
 // ---- Staff dashboard: the prototype's command-centre layout, fed by
-// GET /dashboard/stats (real counts only). ----
+// GET /dashboard/stats (real counts only). Role-specific dashboards live
+// under dashboard/ -- Procurement Officer was rebuilt 2026-09-29 into its own
+// tender-lifecycle pipeline (see officerDashboard.js); the other roles still
+// share this generic view below until they get the same treatment. ----
 
 function kpiStrip(s) {
   const v = s.vendors_by_status;
@@ -36,57 +39,15 @@ function pipeline(s) {
       .map(
         ([name, note, done], i) => `<div class="ep-stage">
           <div style="display:flex;align-items:center;gap:7px">
-            <span class="ep-stage-dot" style="background:${done ? "#ec3013" : "rgba(32,30,29,.18)"};color:${done ? "#f3f2f2" : "#201e1d"}">${i + 1}</span>
+            <span class="ep-stage-dot" style="background:${done ? "#1d4ed8" : "rgba(32,30,29,.18)"};color:${done ? "#f3f2f2" : "#201e1d"}">${i + 1}</span>
             <span style="font-size:12.5px;font-weight:800">${esc(name)}</span>
           </div>
           <div class="ep-sub" style="line-height:1.4">${esc(note)}</div>
-          <div style="height:3px;margin-top:auto;background:${done ? "#ec3013" : "rgba(32,30,29,.18)"}"></div>
+          <div style="height:3px;margin-top:auto;background:${done ? "#1d4ed8" : "rgba(32,30,29,.18)"}"></div>
         </div>`
       )
       .join("")}</div>
   </div>`;
-}
-
-// One task per thing that actually needs a human, limited to screens this role can open.
-function buildTasks(s) {
-  const allowed = new Set(ROLE_TABS[state.user?.role] || []);
-  const tasks = [];
-  const add = (view, task) => allowed.has(view) && tasks.push({ view, ...task });
-  for (const v of s.pending_vendors)
-    add("queue", { task: `${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`, detail: v.responded ? "Vendor answered your information request" : "New registration, documents awaiting review", ref: `Vendor #${v.id}`, due: "today", hot: true, vendorId: v.id });
-  for (const v of s.docs_to_verify)
-    add("queue", { task: `Verify documents — ${v.legal_name}`, detail: `${v.count} document(s) uploaded by an approved vendor`, ref: `Vendor #${v.vendor_id}`, due: "today", hot: true, vendorId: v.vendor_id, allStatuses: true });
-  for (const a of s.award_tasks)
-    add("awards", { task: a.kind === "decide" ? `L1 approval — ${a.title}` : `Recommend award — ${a.title}`, detail: a.detail + (a.tier ? ` · tier ${a.tier}` : ""), ref: `#${a.tender_id}`, due: "today", hot: true });
-  for (const f of s.po_files_pending) add("pofiles", { task: `Upload PO data file — ${f.vendor_name}`, detail: "Generated for the ERP; download and hand off", ref: f.batch_id, due: "open" });
-  for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
-  if (s.mappings_pending_count) add("mappings", { task: `Review ${s.mappings_pending_count} mapping request(s)`, detail: "Vendor category / item requests", ref: "Mapping", due: "open" });
-  for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
-  for (const t of s.open_tenders) add("tenders", { task: `Track bids — ${t.title}`, detail: `${t.bids_received} bid(s) received`, ref: `#${t.id}`, due: t.bid_due_date ? fmtDate(t.bid_due_date) : "—" });
-  return tasks;
-}
-
-function actionQueue(s) {
-  const tasks = buildTasks(s);
-  const rows = tasks.length
-    ? tasks
-        .map(
-          (t, i) => `<tr>
-            <td class="ep-cell"><div style="font-weight:600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
-            <td class="ep-cell" style="font-size:12px">${esc(t.ref)}</td>
-            <td class="ep-cell" style="font-size:12px;color:${t.hot ? "#ae1800" : "rgba(32,30,29,.7)"}">${esc(t.due)}</td>
-            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-task="${i}">Open</button></td>
-          </tr>`
-        )
-        .join("")
-    : emptyRow(4, "Nothing needs your attention right now.");
-  return {
-    html: `<div class="ep-pane">
-      <div class="ep-pane-head"><span>My action queue</span><span class="ep-k">${tasks.length} open</span></div>
-      <table class="ep-table">${th("Task", "Ref", "Due", "")}<tbody>${rows}</tbody></table>
-    </div>`,
-    tasks,
-  };
 }
 
 function vendorBase(s) {
@@ -115,23 +76,23 @@ function vendorBase(s) {
   </div>`;
 }
 
-function openTask(task) {
-  if (task.vendorId) preselectVendor(task.vendorId, task.allStatuses ? "" : "pending_verification");
-  switchView(task.view);
-}
-
 export async function loadDashboard() {
   const root = document.getElementById("dashboard-root");
   const resultEl = document.getElementById("dashboard-result");
   try {
     const s = await api("/dashboard/stats");
+    if (state.user?.role === "procurement_officer" && s.officer) {
+      renderOfficerDashboard(root, s);
+      resultEl.textContent = "";
+      return;
+    }
     const queue = actionQueue(s);
     root.innerHTML = `<div style="display:flex;flex-direction:column;gap:22px">
       ${kpiStrip(s)}
       ${pipeline(s)}
       <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${vendorBase(s)}</div>
     </div>`;
-    root.querySelectorAll("button[data-task]").forEach((b) => b.addEventListener("click", () => openTask(queue.tasks[Number(b.dataset.task)])));
+    wireActionQueue(root, queue);
     resultEl.textContent = "";
   } catch (err) {
     showResult(resultEl, "Could not load dashboard: " + err.message, false);

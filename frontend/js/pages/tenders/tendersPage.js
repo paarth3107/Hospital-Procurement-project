@@ -52,15 +52,17 @@ function render() {
     showClosed = e.target.checked;
     render();
   });
-  root().querySelectorAll("[data-manage]").forEach((b) =>
-    b.addEventListener("click", async () => {
-      try {
-        openTenderForm(await api(`/tenders/${b.dataset.manage}`));
-      } catch (err) {
-        showResult(resultEl(), "Could not load tender: " + err.message, false);
-      }
-    })
-  );
+  root().querySelectorAll("[data-manage]").forEach((b) => b.addEventListener("click", () => openTenderById(b.dataset.manage)));
+}
+
+// Opens a specific tender's editor directly -- used by the Manage button here
+// and by other pages (e.g. the Officer's dashboard) navigating in from a task.
+export async function openTenderById(id) {
+  try {
+    openTenderForm(await api(`/tenders/${id}`));
+  } catch (err) {
+    showResult(resultEl(), "Could not load tender: " + err.message, false);
+  }
 }
 
 export async function loadTenders() {

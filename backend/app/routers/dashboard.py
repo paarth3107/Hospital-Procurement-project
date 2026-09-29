@@ -12,21 +12,21 @@ from app.models.product_master import ProductMaster
 from app.models.tender_line_item import TenderLineItem
 from app.models.vendor_mapping import MappingState, VendorMapping
 from app.models.vendor_rating import VendorRating
-from app.models.user_account import UserAccount
+from app.models.user_account import Role, UserAccount
 from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, VendorStatusHistory
 from app.schemas.dashboard import (
     DashboardHeldLineOut,
+    DashboardOfficerOut,
+    DashboardOfficerTenderOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
     DashboardAwardTaskOut,
     DashboardDocsToVerifyOut,
-    DashboardPoFileOut,
     DashboardPendingVendorOut,
     DashboardRecentPublishedOut,
     DashboardStatsOut,
 )
 from app.security import get_current_user
-from app.models.award import PoDataFile
 from app.services import awards as award_rules
 from app.services.approval_matrix import can_approve_tier
 
@@ -47,6 +47,61 @@ def _live_expiry_docs(db: Session):
     )
 
 
+def _officer_stats(db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_approval_count: int, bid_counts: dict[int, int]) -> DashboardOfficerOut | None:
+    """Procurement Officer's own tender-lifecycle pipeline (product decision,
+    2026-09-29 -- the spec has no dashboard requirements). Deliberately
+    excludes Category Manager's stages (vendor registration, mapping, rating
+    refresh) and "technical evaluation in progress" -- the Officer has nothing
+    actionable there; a line shows up here once it lands in
+    ready_to_recommend."""
+    if user.role != Role.PROCUREMENT_OFFICER:
+        return None
+
+    draft_count = db.query(Tender).filter(Tender.status == TenderStatus.DRAFT).count()
+
+    recommend_by_tender = {t["tender_id"]: t["lines"] for t in award_tasks_raw if t["kind"] == "recommend"}
+    decision_by_tender: dict[int, int] = {}
+    for t, _li in award_rules.awaiting_decision(db):
+        decision_by_tender[t.id] = decision_by_tender.get(t.id, 0) + 1
+
+    tenders = (
+        db.query(Tender)
+        .filter(Tender.status.in_([TenderStatus.DRAFT, TenderStatus.PENDING_APPROVAL, TenderStatus.PUBLISHED]))
+        .order_by(Tender.id.desc())
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    # "Live" = still genuinely accepting bids. A Published tender whose
+    # deadline has passed but hasn't moved anywhere (Category Manager hasn't
+    # closed technical evaluation on it yet -- true whether it got 0 bids or
+    # 50) is neither live nor recommendable yet, so it's tracked separately
+    # rather than silently miscounted as "bidding open".
+    published = [t for t in tenders if t.status == TenderStatus.PUBLISHED]
+    live_count = sum(1 for t in published if t.bid_due_date is None or t.bid_due_date > now)
+    awaiting_evaluation_close_count = sum(
+        1 for t in published
+        if t.bid_due_date is not None and t.bid_due_date <= now and t.id not in recommend_by_tender and t.id not in decision_by_tender
+    )
+
+    return DashboardOfficerOut(
+        draft_count=draft_count,
+        pending_approval_count=pending_approval_count,
+        live_count=live_count,
+        awaiting_evaluation_close_count=awaiting_evaluation_close_count,
+        ready_to_recommend_count=len(recommend_by_tender),
+        ready_to_recommend_lines=sum(recommend_by_tender.values()),
+        awaiting_decision_count=len(decision_by_tender),
+        awaiting_decision_lines=sum(decision_by_tender.values()),
+        tenders=[
+            DashboardOfficerTenderOut(
+                id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
+                lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decision_by_tender.get(t.id, 0),
+            )
+            for t in tenders
+        ],
+    )
+
+
 @router.get("/stats", response_model=DashboardStatsOut)
 def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     """Real, computed-on-request numbers only -- no Award/PO phase exists
@@ -54,6 +109,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     would just be decoration pretending to be data); Bids Submitted stands
     in as the equivalent "recent activity" figure that's actually real."""
 
+    award_rules.sweep_no_bid_lines(db)  # at the moment it matters: this is what "still Published" claims are read from
     now = datetime.now(timezone.utc)
 
     open_tenders = (
@@ -127,7 +183,10 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     published_lines = [li for t in published_tenders for li in t.line_items]
     held_lines = [li for li in published_lines if not li.published]
 
+    award_tasks_raw = award_rules.tasks_for(db, user)
+
     return DashboardStatsOut(
+        officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts),
         vendors_by_status=vendors_by_status,
         catalog_entries_count=db.query(ProductMaster).filter(ProductMaster.active.is_(True)).count(),
         mappings_approved_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.APPROVED).count(),
@@ -139,13 +198,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         docs_expiring_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expiring"),
         docs_expired_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expired"),
         docs_to_verify=docs_to_verify,
-        award_tasks=[DashboardAwardTaskOut(**t) for t in award_rules.tasks_for(db, user)],
-        po_files_pending=[
-            DashboardPoFileOut(id=f.id, batch_id=f.batch_id, vendor_name=f.vendor.legal_name)
-            for f in db.query(PoDataFile).filter(PoDataFile.status == "pending_upload").order_by(PoDataFile.id).all()
-        ]
-        if user.role.value in ("procurement_admin", "category_manager", "system_admin")
-        else [],
+        award_tasks=[DashboardAwardTaskOut(**t) for t in award_tasks_raw],
         pending_vendors=[DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids) for v in pending_vendor_rows[:10]],
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)

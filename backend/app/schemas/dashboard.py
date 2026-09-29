@@ -54,10 +54,37 @@ class DashboardAwardTaskOut(BaseModel):
     detail: str
 
 
-class DashboardPoFileOut(BaseModel):
+class DashboardOfficerTenderOut(BaseModel):
+    """One row of the Officer's own "Tenders" table -- Draft/Pending Approval/
+    Published only; awarded/closed tenders drop off (nothing left to do)."""
+
     id: int
-    batch_id: str
-    vendor_name: str
+    title: str
+    status: TenderStatus
+    bids_received: int
+    bid_due_date: datetime | None
+    lines_ready_to_recommend: int
+    lines_awaiting_decision: int
+
+
+class DashboardOfficerOut(BaseModel):
+    """Procurement Officer's own pipeline: only stages the Officer can act on
+    or is directly waiting on (spec has no dashboard requirements -- this is a
+    product decision, 2026-09-29). Vendor registration/mapping/rating-refresh
+    (Category Manager's job) are deliberately absent, and "technical
+    evaluation in progress" is deliberately not a stage here -- there's
+    nothing for the Officer to do until it closes and lines show up in
+    ready_to_recommend."""
+
+    draft_count: int
+    pending_approval_count: int
+    live_count: int  # Published AND still before its bid due date
+    awaiting_evaluation_close_count: int  # Published, deadline passed, Category Manager hasn't closed technical evaluation yet (0 bids or not)
+    ready_to_recommend_count: int  # tenders with >=1 line ready
+    ready_to_recommend_lines: int
+    awaiting_decision_count: int  # tenders with >=1 line submitted, decision pending
+    awaiting_decision_lines: int
+    tenders: list[DashboardOfficerTenderOut]
 
 
 class DashboardStatsOut(BaseModel):
@@ -79,9 +106,9 @@ class DashboardStatsOut(BaseModel):
     pending_vendors: list[DashboardPendingVendorOut]
     docs_to_verify: list[DashboardDocsToVerifyOut]
     award_tasks: list[DashboardAwardTaskOut]
-    po_files_pending: list[DashboardPoFileOut]
     docs_expiring_count: int
     docs_expired_count: int
     open_tenders: list[DashboardOpenTenderOut]
     pending_approval: list[DashboardPendingApprovalOut]
     recently_published: list[DashboardRecentPublishedOut]
+    officer: DashboardOfficerOut | None = None  # populated for Role.PROCUREMENT_OFFICER only
