@@ -1,7 +1,8 @@
 import { state } from "../../state.js";
 import { switchView, ROLE_TABS } from "../../nav.js";
 import { preselectVendor } from "../vendorQueuePage.js";
-import { esc, th, emptyRow, fmtDate } from "../../kit.js";
+import { openTenderById } from "../tenders/tendersPage.js";
+import { esc, th, emptyRow } from "../../kit.js";
 
 // ---- "My action queue": one row per thing that actually needs a human,
 // limited to screens this role can open. Shared across every role's
@@ -21,7 +22,8 @@ function buildTasks(s) {
   for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
   if (s.mappings_pending_count) add("mappings", { task: `Review ${s.mappings_pending_count} mapping request(s)`, detail: "Vendor category / item requests", ref: "Mapping", due: "open" });
   for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
-  for (const t of s.open_tenders) add("tenders", { task: `Track bids — ${t.title}`, detail: `${t.bids_received} bid(s) received`, ref: `#${t.id}`, due: t.bid_due_date ? fmtDate(t.bid_due_date) : "—" });
+  for (const t of s.draft_tenders)
+    add("tenders", { task: `Complete and submit — ${t.title}`, detail: t.line_count ? `${t.line_count} line item(s) — not yet submitted for approval` : "No line items yet", ref: `#${t.id}`, due: "open", hot: true, tenderId: t.id });
   return tasks;
 }
 
@@ -51,6 +53,7 @@ export function actionQueue(s) {
 function openTask(task) {
   if (task.vendorId) preselectVendor(task.vendorId, task.allStatuses ? "" : "pending_verification");
   switchView(task.view);
+  if (task.tenderId) openTenderById(task.tenderId);
 }
 
 // Wires the "Open" buttons of an actionQueue() result already inserted into `root`.

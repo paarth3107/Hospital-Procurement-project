@@ -5,6 +5,13 @@ from pydantic import BaseModel
 from app.models.tender import TenderStatus
 
 
+class DashboardDraftTenderOut(BaseModel):
+    id: int
+    title: str
+    line_count: int
+    created_at: datetime
+
+
 class DashboardOpenTenderOut(BaseModel):
     id: int
     title: str
@@ -103,6 +110,7 @@ class DashboardStatsOut(BaseModel):
     last_rating_update: datetime | None
     next_bid_close: datetime | None
     held_lines: list[DashboardHeldLineOut]
+    draft_tenders: list[DashboardDraftTenderOut]  # need to be completed and submitted for approval -- real work, not just an FYI
     pending_vendors: list[DashboardPendingVendorOut]
     docs_to_verify: list[DashboardDocsToVerifyOut]
     award_tasks: list[DashboardAwardTaskOut]

@@ -15,6 +15,7 @@ from app.models.vendor_rating import VendorRating
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, VendorStatusHistory
 from app.schemas.dashboard import (
+    DashboardDraftTenderOut,
     DashboardHeldLineOut,
     DashboardOfficerOut,
     DashboardOfficerTenderOut,
@@ -47,7 +48,9 @@ def _live_expiry_docs(db: Session):
     )
 
 
-def _officer_stats(db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_approval_count: int, bid_counts: dict[int, int]) -> DashboardOfficerOut | None:
+def _officer_stats(
+    db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_approval_count: int, bid_counts: dict[int, int], draft_tenders: list[Tender]
+) -> DashboardOfficerOut | None:
     """Procurement Officer's own tender-lifecycle pipeline (product decision,
     2026-09-29 -- the spec has no dashboard requirements). Deliberately
     excludes Category Manager's stages (vendor registration, mapping, rating
@@ -57,7 +60,7 @@ def _officer_stats(db: Session, user: UserAccount, award_tasks_raw: list[dict], 
     if user.role != Role.PROCUREMENT_OFFICER:
         return None
 
-    draft_count = db.query(Tender).filter(Tender.status == TenderStatus.DRAFT).count()
+    draft_count = len(draft_tenders)
 
     recommend_by_tender = {t["tender_id"]: t["lines"] for t in award_tasks_raw if t["kind"] == "recommend"}
     decision_by_tender: dict[int, int] = {}
@@ -111,6 +114,8 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
 
     award_rules.sweep_no_bid_lines(db)  # at the moment it matters: this is what "still Published" claims are read from
     now = datetime.now(timezone.utc)
+
+    draft_tenders = db.query(Tender).filter(Tender.status == TenderStatus.DRAFT).order_by(Tender.created_at).all()
 
     open_tenders = (
         db.query(Tender)
@@ -186,7 +191,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     award_tasks_raw = award_rules.tasks_for(db, user)
 
     return DashboardStatsOut(
-        officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts),
+        officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts, draft_tenders),
         vendors_by_status=vendors_by_status,
         catalog_entries_count=db.query(ProductMaster).filter(ProductMaster.active.is_(True)).count(),
         mappings_approved_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.APPROVED).count(),
@@ -203,6 +208,9 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)
             for li in held_lines[:5]
+        ],
+        draft_tenders=[
+            DashboardDraftTenderOut(id=t.id, title=t.title, line_count=len(t.line_items), created_at=t.created_at) for t in draft_tenders
         ],
         open_tenders_count=len(open_tenders),
         pending_approval_count=len(pending_your_approval),
