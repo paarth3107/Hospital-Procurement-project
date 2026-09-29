@@ -1,4 +1,4 @@
-"""Creates one facility and one Procurement Admin login for local dev/testing.
+"""Creates facilities and demo staff logins for local dev/testing.
 Run with: venv/Scripts/python.exe -m app.seed
 """
 
@@ -15,13 +15,33 @@ ADMIN_PASSWORD = "changeme123"
 
 # One demo login per staff role beyond Procurement Admin, so the role-scoped
 # nav (frontend/js/nav.js ROLE_TABS) can actually be clicked through locally
-# instead of only ever being tested as the one super-role account.
+# instead of only ever being tested as the one super-role account. All of
+# these are scoped to the first (default) facility.
 DEMO_STAFF = [
     ("officer@medsource.local", "changeme123", "Priya Sharma (Procurement Officer)", Role.PROCUREMENT_OFFICER, None),
     ("category@medsource.local", "changeme123", "Ravi Kumar (Category Manager)", Role.CATEGORY_MANAGER, None),
     ("authority1@medsource.local", "changeme123", "Dr. Anjali Rao (Approving Authority, Tier 1)", Role.APPROVING_AUTHORITY, 1),
     ("authority3@medsource.local", "changeme123", "Dr. Vikram Singh (Approving Authority, Tier 3)", Role.APPROVING_AUTHORITY, 3),
     ("sysadmin@medsource.local", "changeme123", "System Admin (seed)", Role.SYSTEM_ADMIN, None),
+]
+
+# Spec §2.3: multi-facility from the start. Two more facilities plus staff
+# scoped to each, so the Staff Accounts facility picker (System Admin) has
+# something real to switch between locally instead of one facility only.
+DEMO_FACILITIES = [
+    ("Eastside Community Hospital", "ECH-002"),
+    ("Lakeview Specialty Clinic", "LSC-003"),
+]
+
+# (email, password, full_name, role, approval_tier, facility_code | None for group-wide)
+DEMO_FACILITY_STAFF = [
+    ("officer2@medsource.local", "changeme123", "Meena Pillai (Procurement Officer)", Role.PROCUREMENT_OFFICER, None, "ECH-002"),
+    ("category2@medsource.local", "changeme123", "Arjun Nair (Category Manager)", Role.CATEGORY_MANAGER, None, "ECH-002"),
+    ("authority2@medsource.local", "changeme123", "Dr. Farah Khan (Approving Authority, Tier 2)", Role.APPROVING_AUTHORITY, 2, "ECH-002"),
+    ("admin3@medsource.local", "changeme123", "Karan Mehta (Procurement Admin)", Role.PROCUREMENT_ADMIN, None, "LSC-003"),
+    ("officer3@medsource.local", "changeme123", "Sunita Verma (Procurement Officer)", Role.PROCUREMENT_OFFICER, None, "LSC-003"),
+    # facility_code None -- a group-wide login, so the "All facilities" case shows under every facility filter too.
+    ("groupadmin@medsource.local", "changeme123", "IT Admin (Group-wide)", Role.SYSTEM_ADMIN, None, None),
 ]
 
 # Spec §11.2's illustrative value bands (CLAUDE.md open question 2 — bands
@@ -135,6 +155,33 @@ def run():
                     full_name=full_name,
                     role=role,
                     facility_id=facility.id,
+                    approval_tier=approval_tier,
+                )
+            )
+            db.commit()
+            print(f"Created {role.value} login: {email} / {password}")
+
+        facility_by_code = {facility.legal_entity_code: facility}
+        for name, code in DEMO_FACILITIES:
+            f = db.query(Facility).filter(Facility.legal_entity_code == code).first()
+            if not f:
+                f = Facility(name=name, legal_entity_code=code)
+                db.add(f)
+                db.commit()
+                db.refresh(f)
+                print(f"Created facility: {f.name} (id={f.id})")
+            facility_by_code[code] = f
+
+        for email, password, full_name, role, approval_tier, facility_code in DEMO_FACILITY_STAFF:
+            if db.query(UserAccount).filter(UserAccount.email == email).first():
+                continue
+            db.add(
+                UserAccount(
+                    email=email,
+                    hashed_password=hash_password(password),
+                    full_name=full_name,
+                    role=role,
+                    facility_id=facility_by_code[facility_code].id if facility_code else None,
                     approval_tier=approval_tier,
                 )
             )

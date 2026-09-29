@@ -14,6 +14,7 @@ GSTIN_LENGTH = 15
 GSTIN_RE = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$")
 PAN_RE = re.compile(r"^[A-Z]{5}\d{4}[A-Z]$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z\d]{6}$")
+PINCODE_RE = re.compile(r"^\d{6}$")
 ENTITY_TYPES = ["Private Limited", "Public Limited", "LLP", "Partnership", "Proprietorship", "Other"]
 
 
@@ -25,6 +26,12 @@ class VendorCreate(BaseModel):
     entity_type: str
     year_of_incorporation: int
     registered_address: str
+    # Structured (2026-10-01), not buried in the free-text address line above --
+    # this is what makes "vendors in a given location" a real, queryable thing
+    # later rather than text someone would have to parse by hand.
+    city: str
+    state: str
+    pincode: str
     branch_locations: str | None = None
     alternate_address: str | None = None
     website: str | None = None
@@ -77,12 +84,20 @@ class VendorCreate(BaseModel):
             raise ValueError("IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits)")
         return v
 
-    @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person")
+    @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person", "city", "state")
     @classmethod
     def not_blank(cls, v: str) -> str:
         v = v.strip()
         if not v:
             raise ValueError("This field is required")
+        return v
+
+    @field_validator("pincode")
+    @classmethod
+    def pincode_format(cls, v: str) -> str:
+        v = v.strip()
+        if not PINCODE_RE.match(v):
+            raise ValueError("Pincode must be 6 digits")
         return v
 
     @field_validator("escalation_contact_phone")
@@ -136,6 +151,30 @@ class VendorLookupOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VendorCommercialTermsUpdate(BaseModel):
+    """Self-service update, spec §3.2's optional commercial terms -- no
+    longer collected at registration; a vendor can set/change these any time
+    from Company profile since they're informational, not a gate on anything."""
+
+    payment_terms: str | None = None
+    delivery_lead_time_days: int | None = None
+    min_order_value: float | None = None
+
+    @field_validator("delivery_lead_time_days")
+    @classmethod
+    def lead_time_non_negative(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError("Delivery lead time can't be negative")
+        return v
+
+    @field_validator("min_order_value")
+    @classmethod
+    def min_order_non_negative(cls, v: float | None) -> float | None:
+        if v is not None and v < 0:
+            raise ValueError("Minimum order value can't be negative")
+        return v
+
+
 class VendorOut(BaseModel):
     id: int
     status: VendorStatus
@@ -146,6 +185,9 @@ class VendorOut(BaseModel):
     entity_type: str | None
     year_of_incorporation: int | None
     registered_address: str | None
+    city: str | None
+    state: str | None
+    pincode: str | None
     branch_locations: str | None
     alternate_address: str | None
     website: str | None

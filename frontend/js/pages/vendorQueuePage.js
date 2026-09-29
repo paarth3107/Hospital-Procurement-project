@@ -81,7 +81,7 @@ const money = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-I
 
 function identityPane(v) {
   const groups = [
-    ["Company", [["Trade name", v.trade_name], ["Entity type", v.entity_type], ["Incorporated", v.year_of_incorporation], ["Vendor ID", `V-${v.id}`], ["Website", v.website], ["Registered address", v.registered_address, 2], ["Alternate / correspondence address", v.alternate_address, 2], ["Branch locations", v.branch_locations, 2]]],
+    ["Company", [["Trade name", v.trade_name], ["Entity type", v.entity_type], ["Incorporated", v.year_of_incorporation], ["Vendor ID", `V-${v.id}`], ["Website", v.website], ["Address line", v.registered_address, 2], ["City", v.city], ["State", v.state], ["Pincode", v.pincode], ["Alternate / correspondence address", v.alternate_address, 2], ["Branch locations", v.branch_locations, 2]]],
     ["Statutory & banking", [["GSTIN", v.gstin, 1, "gstin"], ["PAN", v.pan, 1, "pan"], ["Bank", v.bank_name], ["IFSC", v.bank_ifsc, 1, "bank_ifsc"], ["Account number", v.bank_account_number, 2, "bank_account_number"]]],
     ["Contact", [["Primary contact", v.contact_person], ["Designation", v.contact_designation], ["Phone", v.phone, 1, "phone"], ["Email", v.email], ["Escalation contact", [v.escalation_contact_name, v.escalation_contact_email].filter(Boolean).join(" · "), 1], ["Escalation phone", v.escalation_contact_phone, 1, "escalation_contact_phone"]]],
     ["Commercial terms", [["Payment terms", v.payment_terms], ["Lead time", v.delivery_lead_time_days != null ? `${v.delivery_lead_time_days} days` : null], ["Min. order value", v.min_order_value != null ? money(v.min_order_value) : null], ["Note on file", v.rejection_reason]]],

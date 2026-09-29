@@ -95,8 +95,12 @@
           <div class="ep-field"><div class="ep-k">Entity type</div><select class="input" name="entity_type" required><option value="">— select —</option><option>Private Limited</option><option>Public Limited</option><option>LLP</option><option>Partnership</option><option>Proprietorship</option><option>Other</option></select></div>
           <div class="ep-field"><div class="ep-k">Year of incorporation</div><input class="input" name="year_of_incorporation" type="number" min="1800" max="2100" required></div>
           <div class="ep-field"><div class="ep-k">Website (optional)</div><input class="input" name="website" type="text" placeholder="https://example.com"></div>
-          <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Registered address</div><textarea class="input" name="registered_address" rows="2" required></textarea></div>
-          <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Alternate / correspondence address (optional)</div><textarea class="input" name="alternate_address" rows="2" placeholder="Only if different from the registered address above"></textarea></div>
+          <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Address line</div><textarea class="input" name="registered_address" rows="2" required></textarea></div>
+          <div class="ep-field"><div class="ep-k">State</div><select class="input" name="state" id="register-state" required><option value="">— select —</option></select></div>
+          <div class="ep-field"><div class="ep-k">City</div><select class="input" name="city" id="register-city" required><option value="">— select state first —</option></select></div>
+          <div class="ep-field" id="register-city-other-field" hidden><div class="ep-k">City (type it in)</div><input class="input" name="city_other" id="register-city-other"></div>
+          <div class="ep-field"><div class="ep-k">Pincode</div><input class="input" name="pincode" maxlength="6" pattern="\d{6}" title="6 digits" placeholder="6 digits" required></div>
+          <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Alternate / correspondence address (optional)</div><textarea class="input" name="alternate_address" rows="2" placeholder="Only if different from the address above"></textarea></div>
           <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Branch locations (optional)</div><textarea class="input" name="branch_locations" rows="2"></textarea></div>
         </div></div></div>
         <div class="ep-pane"><div class="ep-pane-head"><span>Statutory Identifiers</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
@@ -116,11 +120,6 @@
           <div class="ep-field"><div class="ep-k">Escalation contact name</div><input class="input" name="escalation_contact_name" required></div>
           <div class="ep-field"><div class="ep-k">Escalation phone</div><input class="input" name="escalation_contact_phone" required></div>
           <div class="ep-field"><div class="ep-k">Escalation email (optional)</div><input class="input" name="escalation_contact_email" type="email"></div>
-        </div></div></div>
-        <div class="ep-pane"><div class="ep-pane-head"><span>Commercial Terms (Optional)</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
-          <div class="ep-field"><div class="ep-k">Standard payment terms</div><input class="input" name="payment_terms"></div>
-          <div class="ep-field"><div class="ep-k">Delivery lead time (days)</div><input class="input" name="delivery_lead_time_days" type="number" min="0"></div>
-          <div class="ep-field"><div class="ep-k">Minimum order value (₹)</div><input class="input" name="min_order_value" type="number" min="0" step="any"></div>
         </div></div></div>
         <div class="ep-pane"><div class="ep-pane-head"><span>Login</span></div><div class="ep-pane-pad"><div class="ep-form-grid">
           <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Password (8+ characters)</div><input class="input" name="password" type="password" required minlength="8"></div>
@@ -219,8 +218,15 @@
               <select class="input" name="tender_type" required>
                 <option value="rfq">RFQ — price only</option>
                 <option value="rfp">RFP — technical + commercial</option>
-                <option value="rate_contract">Rate contract</option>
               </select></div>
+            <div class="ep-field">
+              <label class="ep-check"><input type="checkbox" name="is_open_tender" id="tender-open-toggle"> Open tender</label>
+              <div class="hint" style="margin-top:4px">Not wired up yet.</div>
+            </div>
+            <div class="ep-field">
+              <label class="ep-check"><input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle"> Rate contract</label>
+              <div class="hint" style="margin-top:4px">Not wired up yet.</div>
+            </div>
             <div class="ep-field"><div class="ep-k">Department</div><input class="input" name="department"></div>
             <div class="ep-field"><div class="ep-k">Publish date (optional)</div><input class="input" name="publish_date" type="datetime-local"></div>
             <div class="ep-field"><div class="ep-k">Bid due date</div><input class="input" name="bid_due_date" type="datetime-local"></div>

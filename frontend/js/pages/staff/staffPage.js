@@ -5,6 +5,7 @@ import { esc, tag, stateTag, th, emptyRow, fmtDate, pageSlice, paginationBar, wi
 import { modalConfirm } from "../../modal.js";
 import { openStaffForm, ROLE_LABELS } from "./staffForm.js";
 import { openPasswordDialog } from "./passwordDialog.js";
+import { openFacilityForm } from "./facilityForm.js";
 
 // ---- Staff accounts (System Admin): every hospital staff login, with add /
 // edit / reset password / deactivate. ----
@@ -14,10 +15,14 @@ const resultEl = () => document.getElementById("staff-result-msg");
 let staff = [];
 let facilities = [];
 let page = 0;
+let facilityFilter = ""; // "" = every facility; a numeric facility id otherwise
 
 function render() {
   const facilityName = new Map(facilities.map((f) => [f.id, f.name]));
-  const { pageItems, totalPages, page: clamped } = pageSlice(staff, page);
+  // A facility-scoped filter still shows "All facilities" staff (group-wide
+  // roles apply everywhere) alongside that facility's own accounts.
+  const filtered = facilityFilter === "" ? staff : staff.filter((u) => u.facility_id == null || u.facility_id === Number(facilityFilter));
+  const { pageItems, totalPages, page: clamped } = pageSlice(filtered, page);
   page = clamped;
   const rows = pageItems.length
     ? pageItems
@@ -37,8 +42,18 @@ function render() {
         })
         .join("")
     : emptyRow(6, "No staff accounts.");
+  const title = facilityFilter === "" ? "All Facilities" : esc(facilityName.get(Number(facilityFilter)) || "Facility");
   root().innerHTML = `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Hospital Staff</span><button class="ep-b" data-v="p" id="add-staff">Add staff</button></div>
+    <div class="ep-pane-head"><span>${title}</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <select class="input" id="staff-facility-filter" style="width:auto">
+          <option value="">All facilities</option>
+          ${facilities.map((f) => `<option value="${f.id}" ${facilityFilter === String(f.id) ? "selected" : ""}>${esc(f.name)}</option>`).join("")}
+        </select>
+        <button class="ep-b" id="add-facility">Add facility</button>
+        <button class="ep-b" data-v="p" id="add-staff">Add staff</button>
+      </div>
+    </div>
     <table class="ep-table">${th("Name", "Role", "Facility", "Status", "Created", "")}<tbody>${rows}</tbody></table>
     ${paginationBar(page, totalPages, "staff-prev", "staff-next")}
   </div>`;
@@ -46,9 +61,21 @@ function render() {
     page = p;
     render();
   });
+  root().querySelector("#staff-facility-filter").addEventListener("change", (e) => {
+    facilityFilter = e.target.value;
+    page = 0;
+    render();
+  });
 
   const done = (msg) => load(msg);
   root().querySelector("#add-staff").addEventListener("click", () => openStaffForm(null, facilities, done));
+  root().querySelector("#add-facility").addEventListener("click", () =>
+    openFacilityForm((facility) => {
+      facilityFilter = String(facility.id);
+      page = 0;
+      load(`Created facility "${facility.name}".`);
+    })
+  );
   root().querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openStaffForm(staff.find((u) => u.id === Number(b.dataset.edit)), facilities, done)));
   root().querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => openPasswordDialog(staff.find((u) => u.id === Number(b.dataset.reset)), done)));
   root().querySelectorAll("[data-toggle]").forEach((b) =>

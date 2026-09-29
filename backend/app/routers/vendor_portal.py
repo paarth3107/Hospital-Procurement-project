@@ -13,6 +13,7 @@ from app.models.vendor_mapping import VendorMapping
 from app.models.vendor_rating import VendorRating
 from app.schemas.mapping import MappingOut, VendorMappingRequest
 from app.schemas.rating import RatingOut
+from app.schemas.vendor import VendorCommercialTermsUpdate, VendorOut
 from app.schemas.vendor_portal import PortalLineItemOut, PortalTenderOut
 from app.security import get_current_vendor
 from app.services.audit import record
@@ -20,6 +21,24 @@ from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
+
+
+@router.put("/commercial-terms", response_model=VendorOut)
+def update_commercial_terms(payload: VendorCommercialTermsUpdate, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """No longer collected at registration (optional, spec §3.2) -- a vendor
+    can set or change these any time from Company profile instead. Purely
+    informational (shown to staff, never gates anything), so no approval
+    needed, unlike everything document/mapping-related."""
+
+    before = {"payment_terms": vendor.payment_terms, "delivery_lead_time_days": vendor.delivery_lead_time_days, "min_order_value": vendor.min_order_value}
+    vendor.payment_terms = payload.payment_terms
+    vendor.delivery_lead_time_days = payload.delivery_lead_time_days
+    vendor.min_order_value = payload.min_order_value
+    after = {"payment_terms": vendor.payment_terms, "delivery_lead_time_days": vendor.delivery_lead_time_days, "min_order_value": vendor.min_order_value}
+    record(db, "vendor.commercial_terms_updated", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name, before=before, after=after)
+    db.commit()
+    db.refresh(vendor)
+    return vendor
 
 
 @router.get("/ratings", response_model=list[RatingOut])
@@ -79,6 +98,7 @@ def list_open_tenders(vendor: Vendor = Depends(get_current_vendor), db: Session 
             PortalTenderOut(
                 tender_id=tender.id,
                 title=tender.title,
+                facility_name=tender.facility.name,
                 tender_type=tender.tender_type,
                 status=tender.status,
                 bid_due_date=tender.bid_due_date,

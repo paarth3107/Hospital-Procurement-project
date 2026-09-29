@@ -143,7 +143,7 @@ function tenderRow(group) {
     ? `<div style="font-weight:600">${t.can_bid ? timeRemaining(t.bid_due_date) : "closed"}</div><div class="ep-sub">${fmtDateTime(t.bid_due_date)}</div>`
     : "—";
   return `<tr>
-    <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
+    <td class="ep-cell"><div style="font-weight:700">${esc(t.title)}</div><div class="ep-sub">#${t.tender_id} · ${esc(t.facility_name)}</div></td>
     <td class="ep-cell" style="font-size:12px">${esc(t.tender_type)}</td>
     <td class="ep-cell" style="font-size:12.5px">${lines.length}</td>
     <td class="ep-cell" style="font-size:12.5px">${timeCell}</td>
@@ -188,7 +188,7 @@ function renderTenderLines(selectedGroup) {
         <button class="ep-b" id="back-to-tenders">← All invitations</button>
       </div>
     </div>
-    ${t ? `<div style="padding:10px 16px 0" class="ep-sub">#${t.tender_id} · ${esc(t.tender_type)} · ${t.can_bid && t.bid_due_date ? `${timeRemaining(t.bid_due_date)} remaining` : "closed"} (${fmtDateTime(t.bid_due_date)})</div>` : ""}
+    ${t ? `<div style="padding:10px 16px 0" class="ep-sub">#${t.tender_id} · ${esc(t.facility_name)} · ${esc(t.tender_type)} · ${t.can_bid && t.bid_due_date ? `${timeRemaining(t.bid_due_date)} remaining` : "closed"} (${fmtDateTime(t.bid_due_date)})</div>` : ""}
     <table class="ep-table">${th("Item", "Bid Status")}<tbody>${
       selectedGroup.length
         ? selectedGroup
@@ -232,8 +232,9 @@ function render(note, tenders, bids, notes, ratings, docs) {
   const lineRows = (showClosed ? allLineRows : allLineRows.filter(({ t }) => !CLOSED_TENDER_STATUSES.has(t.status))).slice().sort(byDeadline);
   const openLines = lineRows.filter(({ t }) => t.can_bid);
   const closingSoon = openLines.filter(({ t }) => t.bid_due_date && new Date(t.bid_due_date) - Date.now() < 24 * 3600 * 1000);
-  const closingSoonNote = closingSoon.length
-    ? `<div class="ep-note warn"><span>${closingSoon.length} line item(s) close within 24 hours — submit soon or they'll pass without a bid.</span></div>`
+  const closingSoonTenders = new Set(closingSoon.map(({ t }) => t.tender_id)).size;
+  const closingSoonNote = closingSoonTenders
+    ? `<div class="ep-note warn"><span>${closingSoonTenders} tender(s) close within 24 hours — submit soon or they'll pass without a bid.</span></div>`
     : "";
 
   const selectedGroup = selectedTenderId != null ? lineRows.filter(({ t }) => t.tender_id === selectedTenderId) : null;

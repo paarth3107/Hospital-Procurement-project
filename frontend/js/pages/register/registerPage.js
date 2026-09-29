@@ -1,6 +1,8 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { switchView } from "../../nav.js";
+import { esc } from "../../kit.js";
+import { CITIES_BY_STATE, INDIAN_STATES, OTHER_CITY } from "../../constants.js";
 import { clearInvalid, getChosenFiles, highlightMissingDocuments, renderRegisterDropzones } from "./registerDocuments.js";
 import { addOtherDocRow, appendOtherDocsToFormData, resetOtherDocs } from "./registerOtherDocs.js";
 
@@ -13,6 +15,34 @@ const step2 = document.getElementById("register-step-2");
 const step1Tab = document.getElementById("register-step-1-tab");
 const step2Tab = document.getElementById("register-step-2-tab");
 const submitBtn = document.getElementById("register-submit-btn");
+const stateSelect = document.getElementById("register-state");
+const citySelect = document.getElementById("register-city");
+const cityOtherField = document.getElementById("register-city-other-field");
+const cityOtherInput = document.getElementById("register-city-other");
+
+// State -> City is a real cascade (city options depend on the chosen state);
+// "Other" always stays available since the city list is a convenience, not
+// an exhaustive gazetteer -- typing one in must never block registration.
+stateSelect.innerHTML += INDIAN_STATES.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+
+function syncCityOptions() {
+  const cities = CITIES_BY_STATE[stateSelect.value] || [];
+  citySelect.innerHTML =
+    `<option value="">— select —</option>` + cities.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("") + `<option value="${OTHER_CITY}">Other (type it in)</option>`;
+  citySelect.disabled = !stateSelect.value;
+  syncCityOtherField();
+}
+
+function syncCityOtherField() {
+  const isOther = citySelect.value === OTHER_CITY;
+  cityOtherField.hidden = !isOther;
+  cityOtherInput.required = isOther;
+  if (!isOther) cityOtherInput.value = "";
+}
+
+stateSelect.addEventListener("change", syncCityOptions);
+citySelect.addEventListener("change", syncCityOtherField);
+syncCityOptions();
 
 function validateStep1() {
   let firstBad = null;
@@ -69,6 +99,8 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!validateStep2()) return;
   const formData = new FormData(form);
+  if (formData.get("city") === OTHER_CITY) formData.set("city", formData.get("city_other"));
+  formData.delete("city_other");
   for (const [docType, file] of getChosenFiles()) formData.append(docType, file);
   form.querySelectorAll("[data-valid-till]").forEach((el) => {
     if (el.value) formData.append(`valid_till_${el.dataset.validTill}`, el.value);
@@ -79,6 +111,7 @@ form.addEventListener("submit", async (e) => {
     // multipart: fetch sets the boundary itself
     const vendor = await api("/vendors", { method: "POST", body: formData });
     form.reset();
+    syncCityOptions();
     getChosenFiles().clear();
     renderRegisterDropzones();
     resetOtherDocs();

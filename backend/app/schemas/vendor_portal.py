@@ -17,6 +17,7 @@ class PortalLineItemOut(BaseModel):
 class PortalTenderOut(BaseModel):
     tender_id: int
     title: str
+    facility_name: str
     tender_type: TenderType
     status: TenderStatus
     bid_due_date: datetime | None

@@ -39,6 +39,12 @@ class Vendor(Base):
     entity_type = Column(String, nullable=True)
     year_of_incorporation = Column(Integer, nullable=True)
     registered_address = Column(Text, nullable=True)
+    # Structured, not folded into registered_address's free text (2026-10-01):
+    # a vendor's city/state are how staff will eventually filter/report on
+    # "vendors in a location" -- unusable as buried text inside an address line.
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    pincode = Column(String, nullable=True)
     branch_locations = Column(Text, nullable=True)
     # Both optional, user-directed additions (2026-09-29): a second/alternate
     # address (correspondence, billing...) distinct from the registered
