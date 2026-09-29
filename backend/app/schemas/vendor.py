@@ -26,6 +26,8 @@ class VendorCreate(BaseModel):
     year_of_incorporation: int
     registered_address: str
     branch_locations: str | None = None
+    alternate_address: str | None = None
+    website: str | None = None
     bank_name: str
     bank_account_number: str
     bank_ifsc: str
@@ -145,6 +147,8 @@ class VendorOut(BaseModel):
     year_of_incorporation: int | None
     registered_address: str | None
     branch_locations: str | None
+    alternate_address: str | None
+    website: str | None
     bank_name: str | None
     bank_account_number: str | None
     bank_ifsc: str | None

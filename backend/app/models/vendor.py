@@ -40,6 +40,11 @@ class Vendor(Base):
     year_of_incorporation = Column(Integer, nullable=True)
     registered_address = Column(Text, nullable=True)
     branch_locations = Column(Text, nullable=True)
+    # Both optional, user-directed additions (2026-09-29): a second/alternate
+    # address (correspondence, billing...) distinct from the registered
+    # address, and the vendor's website.
+    alternate_address = Column(Text, nullable=True)
+    website = Column(String, nullable=True)
 
     # Spec 3.2 Banking Details (the cancelled cheque / bank letter is a document).
     bank_name = Column(String, nullable=True)

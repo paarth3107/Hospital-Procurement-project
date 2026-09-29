@@ -21,7 +21,9 @@ export async function loadVendorProfile() {
           ${field("Legal name", v.legal_name, 2)}
           ${field("Trade name", v.trade_name)}${field("Entity type", v.entity_type)}
           ${field("Year of incorporation", v.year_of_incorporation)}${field("GSTIN", v.gstin)}
-          ${field("PAN", v.pan)}${field("Registered address", v.registered_address, 2)}
+          ${field("PAN", v.pan)}${field("Website", v.website)}
+          ${field("Registered address", v.registered_address, 2)}
+          ${field("Alternate / correspondence address", v.alternate_address, 2)}
           ${field("Branch locations", v.branch_locations, 2)}
           ${field("Bank", [v.bank_name, v.bank_ifsc].filter(Boolean).join(" · "))}${field("Account number", v.bank_account_number)}
           ${field("Primary contact", [v.contact_person, v.contact_designation].filter(Boolean).join(", "))}${field("Phone", v.phone)}
