@@ -20,7 +20,12 @@ function buildTasks(s) {
   for (const a of s.award_tasks)
     add("awards", { task: a.kind === "decide" ? `L1 approval — ${a.title}` : `Recommend award — ${a.title}`, detail: a.detail + (a.tier ? ` · tier ${a.tier}` : ""), ref: `#${a.tender_id}`, due: "today", hot: true });
   for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
-  if (s.mappings_pending_count) add("mappings", { task: `Review ${s.mappings_pending_count} mapping request(s)`, detail: "Vendor category / item requests", ref: "Mapping", due: "open" });
+  for (const m of s.pending_mappings)
+    add("mappings", { task: `Category mapping — ${m.vendor_name}`, detail: `Requesting: ${m.target_name} (${m.target_kind})`, ref: `Vendor #${m.vendor_id}`, due: "open" });
+  for (const e of s.eval_workload)
+    add("evaluation", { task: `Evaluate — ${e.product_name}`, detail: `${e.tender_title} · ${e.submitted_count} bid(s) submitted, bidding closed`, ref: `#${e.tender_id}`, due: "open", hot: true });
+  for (const r of s.stale_ratings)
+    add("ratings", { task: `Refresh rating — ${r.vendor_name}`, detail: `${r.procurement_type} · last updated ${r.days_since_update} days ago`, ref: `Vendor #${r.vendor_id}`, due: "open" });
   for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
   for (const t of s.draft_tenders)
     add("tenders", { task: `Complete and submit — ${t.title}`, detail: t.line_count ? `${t.line_count} line item(s) — not yet submitted for approval` : "No line items yet", ref: `#${t.id}`, due: "open", hot: true, tenderId: t.id });

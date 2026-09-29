@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.product_master import ProcurementType
 from app.models.tender import TenderStatus
 
 
@@ -50,6 +51,42 @@ class DashboardDocsToVerifyOut(BaseModel):
     vendor_id: int
     legal_name: str
     count: int
+
+
+class DashboardPendingMappingOut(BaseModel):
+    """One pending vendor<->catalog eligibility request -- itemized (like the
+    KYC tasks) instead of a single "review N" aggregate line, 2026-09-30."""
+
+    id: int
+    vendor_id: int
+    vendor_name: str
+    target_kind: str  # "item" | "category"
+    target_name: str
+    requested_at: datetime
+
+
+class DashboardEvalWorkloadOut(BaseModel):
+    """A published line whose bidding closed but nobody's closed technical
+    evaluation yet. Only lines with real bids ever reach here -- a zero-bid
+    line auto-closes itself before this is computed (sweep_no_bid_lines)."""
+
+    line_item_id: int
+    tender_id: int
+    tender_title: str
+    product_name: str
+    submitted_count: int
+    bid_due_date: datetime
+
+
+class DashboardStaleRatingOut(BaseModel):
+    """Spec §5.3.1 point 5: a vendor's manually-entered rating parameters
+    haven't been refreshed in over 90 days (VendorRating.is_stale)."""
+
+    vendor_id: int
+    vendor_name: str
+    procurement_type: ProcurementType
+    last_manual_update_at: datetime
+    days_since_update: int
 
 
 class DashboardAwardTaskOut(BaseModel):
@@ -113,6 +150,9 @@ class DashboardStatsOut(BaseModel):
     draft_tenders: list[DashboardDraftTenderOut]  # need to be completed and submitted for approval -- real work, not just an FYI
     pending_vendors: list[DashboardPendingVendorOut]
     docs_to_verify: list[DashboardDocsToVerifyOut]
+    pending_mappings: list[DashboardPendingMappingOut]
+    eval_workload: list[DashboardEvalWorkloadOut]
+    stale_ratings: list[DashboardStaleRatingOut]
     award_tasks: list[DashboardAwardTaskOut]
     docs_expiring_count: int
     docs_expired_count: int

@@ -144,31 +144,39 @@ function decisionBar(vendor, docs) {
   const decidable = ["pending_verification", "info_requested"].includes(vendor.status);
   const byType = new Map(docs.map((d) => [d.doc_type, d]));
   const mandatoryRejected = VENDOR_DOC_TYPES.filter((t) => t.mandatory).some((t) => byType.get(t.value)?.status === "rejected");
-  const banner = decidable && mandatoryRejected
-    ? `<div class="ep-note warn">A mandatory document has been rejected. Either reject this registration outright, or request the documents again with a note explaining what's needed.</div>`
-    : "";
-  const bar = (text, buttons) =>
+  const bar = (text, buttons, banner = "") =>
     `${banner}<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:12px">
       <div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.68);line-height:1.45">${text}</div>${buttons}</div>`;
+  const rejectedBanner = (text) => (mandatoryRejected ? `<div class="ep-note warn">${text}</div>` : "");
 
   if (decidable) {
     return bar(
       "Every mandatory document must be Verified before approval. Approval activates the vendor and opens category mapping.",
       (mandatoryRejected ? "" : btn("Approve &amp; activate", { primary: true, attrs: 'data-decision="approve"' })) +
         btn("Request info", { primary: mandatoryRejected, attrs: 'data-decision="info"' }) +
-        btn("Reject candidate", { attrs: 'data-decision="reject"' })
+        btn("Reject candidate", { attrs: 'data-decision="reject"' }),
+      rejectedBanner("A mandatory document has been rejected. Either reject this registration outright, or request the documents again with a note explaining what's needed.")
     );
   }
   if (vendor.status === "active") {
+    // Same law as the candidate screen (2026-09-30): a rejected mandatory
+    // document gets a lighter first move (Request info) instead of jumping
+    // straight to Suspend -- both block bidding, but Request info recovers
+    // on its own the moment the vendor uploads a replacement.
     return bar(
       "Suspending blocks bidding, new mappings and new invitations, and keeps history and mappings. Blacklisting also blocks login; reinstating a blacklisted vendor needs an explicit reason.",
-      btn("Blacklist", { attrs: 'data-decision="blacklist"' }) + btn("Suspend vendor", { primary: true, attrs: 'data-decision="suspend"' })
+      btn("Request info", { attrs: 'data-decision="info"' }) +
+        btn("Suspend vendor", { primary: true, attrs: 'data-decision="suspend"' }) +
+        btn("Blacklist", { attrs: 'data-decision="blacklist"' })
     );
   }
   if (vendor.status === "suspended") {
     return bar(
       "This vendor is suspended and can't bid or be invited. Reinstate once the issue is resolved.",
-      btn("Blacklist", { attrs: 'data-decision="blacklist"' }) + btn("Reinstate", { primary: true, attrs: 'data-decision="reinstate"' })
+      (mandatoryRejected ? "" : btn("Reinstate", { primary: true, attrs: 'data-decision="reinstate"' })) +
+        btn("Request info", { primary: mandatoryRejected, attrs: 'data-decision="info"' }) +
+        btn("Blacklist", { attrs: 'data-decision="blacklist"' }),
+      rejectedBanner("A mandatory document has been rejected. The vendor must resubmit it and you must verify it before this vendor can be reinstated.")
     );
   }
   if (vendor.status === "blacklisted") {

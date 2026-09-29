@@ -16,15 +16,18 @@ from app.models.user_account import Role, UserAccount
 from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, VendorStatusHistory
 from app.schemas.dashboard import (
     DashboardDraftTenderOut,
+    DashboardEvalWorkloadOut,
     DashboardHeldLineOut,
     DashboardOfficerOut,
     DashboardOfficerTenderOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
+    DashboardPendingMappingOut,
     DashboardAwardTaskOut,
     DashboardDocsToVerifyOut,
     DashboardPendingVendorOut,
     DashboardRecentPublishedOut,
+    DashboardStaleRatingOut,
     DashboardStatsOut,
 )
 from app.security import get_current_user
@@ -190,12 +193,61 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
 
     award_tasks_raw = award_rules.tasks_for(db, user)
 
+    # Category Manager's own queues (product decision, 2026-09-30): itemized
+    # like the KYC tasks, instead of a single aggregate count each.
+    pending_mapping_rows = db.query(VendorMapping).filter(VendorMapping.state == MappingState.PENDING).order_by(VendorMapping.requested_at).all()
+    pending_mappings = [
+        DashboardPendingMappingOut(
+            id=m.id, vendor_id=m.vendor_id, vendor_name=m.vendor.legal_name,
+            target_kind="item" if m.product_master_id else "category",
+            target_name=m.product.name if m.product_master_id else m.category.name,
+            requested_at=m.requested_at,
+        )
+        for m in pending_mapping_rows
+    ]
+
+    # A line whose bidding closed but technical evaluation hasn't been closed
+    # yet -- a zero-bid line never reaches here, sweep_no_bid_lines() (above)
+    # already closed it out before this query runs.
+    eval_workload_lines = (
+        db.query(TenderLineItem)
+        .join(Tender, TenderLineItem.tender_id == Tender.id)
+        .filter(
+            Tender.status == TenderStatus.PUBLISHED, TenderLineItem.published.is_(True),
+            Tender.bid_due_date.isnot(None), Tender.bid_due_date <= now, TenderLineItem.technical_closed_at.is_(None),
+        )
+        .order_by(Tender.bid_due_date)
+        .all()
+    )
+    eval_bid_counts = dict(
+        db.query(Bid.tender_line_item_id, func.count(Bid.id))
+        .filter(Bid.tender_line_item_id.in_([li.id for li in eval_workload_lines]), Bid.status == BidStatus.SUBMITTED)
+        .group_by(Bid.tender_line_item_id)
+        .all()
+    ) if eval_workload_lines else {}
+    eval_workload = [
+        DashboardEvalWorkloadOut(
+            line_item_id=li.id, tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name,
+            submitted_count=eval_bid_counts.get(li.id, 0), bid_due_date=li.tender.bid_due_date,
+        )
+        for li in eval_workload_lines
+    ]
+
+    stale_rating_rows = [r for r in db.query(VendorRating).all() if r.is_stale]
+    stale_ratings = [
+        DashboardStaleRatingOut(
+            vendor_id=r.vendor_id, vendor_name=r.vendor.legal_name, procurement_type=r.procurement_type,
+            last_manual_update_at=r.last_manual_update_at, days_since_update=(now - r.last_manual_update_at).days,
+        )
+        for r in stale_rating_rows
+    ]
+
     return DashboardStatsOut(
         officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts, draft_tenders),
         vendors_by_status=vendors_by_status,
         catalog_entries_count=db.query(ProductMaster).filter(ProductMaster.active.is_(True)).count(),
         mappings_approved_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.APPROVED).count(),
-        mappings_pending_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.PENDING).count(),
+        mappings_pending_count=len(pending_mapping_rows),
         lines_total=len(published_lines),
         lines_published=len(published_lines) - len(held_lines),
         last_rating_update=db.query(func.max(VendorRating.last_manual_update_at)).scalar(),
@@ -212,6 +264,9 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         draft_tenders=[
             DashboardDraftTenderOut(id=t.id, title=t.title, line_count=len(t.line_items), created_at=t.created_at) for t in draft_tenders
         ],
+        pending_mappings=pending_mappings,
+        eval_workload=eval_workload,
+        stale_ratings=stale_ratings,
         open_tenders_count=len(open_tenders),
         pending_approval_count=len(pending_your_approval),
         vendors_pending_count=vendors_pending_count,

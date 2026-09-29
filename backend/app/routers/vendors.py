@@ -58,6 +58,14 @@ VENDOR_DECISION_ROLES = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYS
 # different workflow, e.g. suspension — not built in this pass).
 DECIDABLE_STATUSES = {VendorStatus.PENDING_VERIFICATION, VendorStatus.INFO_REQUESTED}
 
+# User-directed (2026-09-30): Request Info is also a lighter alternative to
+# outright Suspend for an Active vendor whose document gets rejected during
+# an ongoing review (e.g. a re-uploaded KYC document, or an item-specific
+# requirement), and an alternative recovery path for an already-Suspended
+# one -- either way it reuses the exact same "vendor uploads something ->
+# back to Pending Verification" mechanism as a fresh registration.
+INFO_REQUESTABLE_STATUSES = DECIDABLE_STATUSES | {VendorStatus.ACTIVE, VendorStatus.SUSPENDED}
+
 
 # Document slots on the registration form: (form field, doc type, mandatory).
 # Optional ones are the statutory "as applicable" licences / certificates.
@@ -308,9 +316,15 @@ def request_info(
     """User-directed: this is the path taken instead of outright rejection
     when a mandatory document is rejected but the vendor should get a
     chance to re-submit -- the note explains what's needed and why,
-    same requirement as an outright rejection's reason."""
+    same requirement as an outright rejection's reason. Also usable on an
+    Active or Suspended vendor (2026-09-30) as a lighter alternative to
+    Suspend/straight reinstatement -- uploading a document while Info
+    Requested already routes back to Pending Verification regardless of
+    what the vendor's status was before."""
 
-    vendor = _load_decidable_vendor(vendor_id, db)
+    vendor = _load_vendor(vendor_id, db)
+    if vendor.status not in INFO_REQUESTABLE_STATUSES:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Vendor is in status '{vendor.status.value}' and info can't be requested from here")
     set_status(db, vendor, VendorStatus.INFO_REQUESTED, user.id, payload.note)
     db.commit()
     db.refresh(vendor)
@@ -374,6 +388,15 @@ def reinstate_vendor(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An explicit reason is required to reinstate a blacklisted vendor")
         set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {payload.reason.strip()}")
     elif vendor.status == VendorStatus.SUSPENDED:
+        # User-directed (2026-09-30): same hard gate as first approval -- if
+        # the suspension involved a rejected document, reinstating needs that
+        # document re-submitted and Verified first, not just "resubmitted".
+        missing = _unverified_mandatory_docs(vendor_id, db)
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Cannot reinstate: mandatory document(s) not yet verified: {', '.join(missing)}",
+            )
         set_status(db, vendor, VendorStatus.ACTIVE, user.id, (payload.reason or "").strip() or "Reinstated")
     else:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Only a Suspended or Blacklisted vendor can be reinstated (this one is '{vendor.status.value}')")

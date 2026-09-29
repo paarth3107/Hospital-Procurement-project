@@ -4,12 +4,15 @@ import { showResult } from "../ui.js";
 import { esc, kicker, fmtDate } from "../kit.js";
 import { actionQueue, wireActionQueue } from "./dashboard/actionQueue.js";
 import { renderOfficerDashboard } from "./dashboard/officerDashboard.js";
+import { renderCategoryManagerDashboard } from "./dashboard/categoryManagerDashboard.js";
+import { vendorBase } from "./dashboard/vendorBase.js";
 
 // ---- Staff dashboard: the prototype's command-centre layout, fed by
 // GET /dashboard/stats (real counts only). Role-specific dashboards live
-// under dashboard/ -- Procurement Officer was rebuilt 2026-09-29 into its own
-// tender-lifecycle pipeline (see officerDashboard.js); the other roles still
-// share this generic view below until they get the same treatment. ----
+// under dashboard/ -- Procurement Officer (2026-09-29) and Category
+// Manager / Procurement Admin (2026-09-30) were rebuilt into their own
+// views; Approving Authority and System Admin still share this generic
+// view below until they get the same treatment. ----
 
 function kpiStrip(s) {
   const v = s.vendors_by_status;
@@ -50,32 +53,6 @@ function pipeline(s) {
   </div>`;
 }
 
-function vendorBase(s) {
-  const v = s.vendors_by_status;
-  const total = Object.values(v).reduce((a, b) => a + b, 0) || 1;
-  const rows = [
-    ["Active", v.active || 0, "#2f8f4e"],
-    ["Pending verification", v.pending_verification || 0, "#ff9783"],
-    ["Info requested", v.info_requested || 0, "#7d7979"],
-    ["Suspended", v.suspended || 0, "#201e1d"],
-    ["Rejected", v.rejected || 0, "rgba(32,30,29,.45)"],
-    ["Blacklisted", v.blacklisted || 0, "#201e1d"],
-  ];
-  return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Vendor base</span></div>
-    <div style="padding:14px">
-      ${rows
-        .map(
-          ([label, n, color]) => `<div style="margin-bottom:13px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>${label}</span><span>${n}</span></div>
-            <div class="ep-bar" style="margin-top:5px"><div style="width:${(n / total) * 100}%;background:${color}"></div></div>
-          </div>`
-        )
-        .join("")}
-    </div>
-  </div>`;
-}
-
 export async function loadDashboard() {
   const root = document.getElementById("dashboard-root");
   const resultEl = document.getElementById("dashboard-result");
@@ -83,6 +60,11 @@ export async function loadDashboard() {
     const s = await api("/dashboard/stats");
     if (state.user?.role === "procurement_officer" && s.officer) {
       renderOfficerDashboard(root, s);
+      resultEl.textContent = "";
+      return;
+    }
+    if (state.user?.role === "category_manager" || state.user?.role === "procurement_admin") {
+      renderCategoryManagerDashboard(root, s);
       resultEl.textContent = "";
       return;
     }
