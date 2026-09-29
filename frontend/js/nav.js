@@ -67,13 +67,12 @@ export async function refreshChrome() {
     const s = await api("/dashboard/stats");
     badge("badge-queue", s.vendors_pending_count + s.docs_to_verify.length);
     badge("badge-awards", s.award_tasks.length);
-    badge("badge-pofiles", s.po_files_pending.length);
     badge("badge-approvals", s.pending_approval_count);
     badge("badge-mappings", s.mappings_pending_count);
     document.getElementById("page-facts").innerHTML = `
       <div class="ep-fact"><div class="ep-k">Open tenders</div><div class="ep-fact-value">${esc(s.open_tenders_count)}</div></div>
       <div class="ep-fact-rule"></div>
-      <div class="ep-fact"><div class="ep-k">Next bid close</div><div class="ep-fact-value" style="color:#ae1800">${s.next_bid_close ? esc(fmtDateTime(s.next_bid_close)) : "—"}</div></div>`;
+      <div class="ep-fact"><div class="ep-k">Next bid close</div><div class="ep-fact-value" style="color:#12327f">${s.next_bid_close ? esc(fmtDateTime(s.next_bid_close)) : "—"}</div></div>`;
   } catch (err) {
     // chrome is decorative; a failed refresh must never block the screen
   }
@@ -103,6 +102,10 @@ export function switchView(view) {
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
+});
+
+document.querySelectorAll(".back-link").forEach((btn) => {
   btn.addEventListener("click", () => switchView(btn.dataset.view));
 });
 

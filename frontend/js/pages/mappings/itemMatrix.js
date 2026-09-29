@@ -21,7 +21,7 @@ export function renderItemMatrix(container, data, categoryId, refresh) {
   renderMatrixGrid(container, {
     vendors: data.vendors,
     columns,
-    legend: `<span><b style="color:#ae1800">MAPPED</b> — active, approved mapping</span>
+    legend: `<span><b style="color:#173fb0">MAPPED</b> — active, approved mapping</span>
       <span><b>PENDING</b> — vendor requested, review open</span>
       <span><b>SUSPENDED</b> / <b>REJECTED</b> — not eligible</span>
       <span>— not mapped. Click any cell for details.</span>`,

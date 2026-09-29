@@ -36,7 +36,7 @@ function noteOf(rating) {
 
 export function scorecardHtml(vendor, rating, type, canAdjust) {
   const score = rating ? rating.overall_score.toFixed(0) : "NR";
-  const scoreColor = !rating ? "rgba(32,30,29,.45)" : rating.overall_score >= 75 ? "#ec3013" : "#201e1d";
+  const scoreColor = !rating ? "rgba(32,30,29,.45)" : rating.overall_score >= 75 ? "#1d4ed8" : "#201e1d";
   return `<div class="ep-pane" style="padding:15px 16px;display:flex;flex-direction:column;gap:11px">
     <div style="display:flex;align-items:flex-start;gap:10px">
       <div style="flex:1"><div style="font-size:14.5px;font-weight:800;line-height:1.2">${esc(vendor.legal_name)}</div>${kicker(`V-${vendor.id} · ${type}`)}</div>
@@ -47,7 +47,7 @@ export function scorecardHtml(vendor, rating, type, canAdjust) {
       const has = v !== null && v !== undefined;
       return `<div>
         <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:rgba(32,30,29,.68)">${label}</span><span style="font-weight:600">${has ? Math.round(v) + "%" : "n/a"}</span></div>
-        <div class="ep-bar" style="height:5px;margin-top:3px"><div style="width:${has ? v : 0}%;background:${has && v >= 75 ? "#ec3013" : "rgba(32,30,29,.5)"}"></div></div>
+        <div class="ep-bar" style="height:5px;margin-top:3px"><div style="width:${has ? v : 0}%;background:${has && v >= 75 ? "#1d4ed8" : "rgba(32,30,29,.5)"}"></div></div>
       </div>`;
     }).join("")}</div>
     <div style="font-size:11.5px;color:rgba(32,30,29,.6);line-height:1.4">${esc(noteOf(rating))}</div>

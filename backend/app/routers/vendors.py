@@ -155,6 +155,17 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
     if missing:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Mandatory document(s) missing: {', '.join(sorted(missing))}")
 
+    # Anything else the vendor wants to attach, named by them (repeated
+    # other_doc_label/other_doc_file pairs, same order -- user-directed,
+    # 2026-09-29). A row only counts once both a label and a file are given.
+    other_labels = form.getlist("other_doc_label")
+    other_files = form.getlist("other_doc_file")
+    other_docs = [
+        (label.strip(), upload)
+        for label, upload in zip(other_labels, other_files)
+        if label.strip() and not isinstance(upload, str) and upload.filename
+    ]
+
     vendor = Vendor(
         **payload.model_dump(exclude={"password", "category_declaration"}),
         status=VendorStatus.PENDING_VERIFICATION,
@@ -174,6 +185,8 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
         except ValueError:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"valid_till_{field}: enter a valid date")
         store_document(db, vendor.id, doc_type, upload.filename, upload.content_type, await upload.read(), valid_till)
+    for label, upload in other_docs:
+        store_document(db, vendor.id, VendorDocType.OTHER, upload.filename, upload.content_type, await upload.read(), custom_label=label)
     db.commit()
     db.refresh(vendor)
     return vendor

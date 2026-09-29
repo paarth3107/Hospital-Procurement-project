@@ -68,7 +68,7 @@ function render(note, tenders, bids, notes) {
   const openLines = lineRows.filter(({ t }) => t.can_bid);
   const soonest = tenders.filter((t) => t.can_bid && t.bid_due_date).map((t) => t.bid_due_date).sort()[0];
 
-  const banner = `<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center;border-left:3px solid #ec3013">
+  const banner = `<div class="ep-pane" style="padding:15px 18px;display:flex;gap:22px;align-items:center;border-left:3px solid #1d4ed8">
     <div style="flex:1"><div style="font-size:14px;font-weight:800">${
       lineRows.length ? `You have been invited to ${lineRows.length} line item(s) across ${new Set(lineRows.map(({ t }) => t.tender_id)).size} tender(s)` : "You have no open invitations yet"
     }</div>

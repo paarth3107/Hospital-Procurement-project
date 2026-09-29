@@ -2,24 +2,42 @@ import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { switchView } from "../../nav.js";
 import { clearInvalid, getChosenFiles, highlightMissingDocuments, renderRegisterDropzones } from "./registerDocuments.js";
+import { addOtherDocRow, appendOtherDocsToFormData, resetOtherDocs } from "./registerOtherDocs.js";
 
-// ---- Vendor registration form ----
-// Submitting sends the details AND the mandatory documents together; the
-// backend refuses a registration without them, this just highlights what's
-// missing (after a submit attempt) instead of listing it.
+// ---- Vendor registration form, in two steps: basic info, then documents.
+// Nothing is sent to the server until Step 2's final submit -- Continue on
+// Step 1 only validates and advances, it never calls the API. ----
 const form = document.getElementById("register-form");
+const step1 = document.getElementById("register-step-1");
+const step2 = document.getElementById("register-step-2");
+const step1Tab = document.getElementById("register-step-1-tab");
+const step2Tab = document.getElementById("register-step-2-tab");
+const submitBtn = document.getElementById("register-submit-btn");
 
-function validate() {
+function validateStep1() {
   let firstBad = null;
-  form.querySelectorAll("input:not([type=file]), select, textarea").forEach((input) => {
+  step1.querySelectorAll("input:not([type=file]), select, textarea").forEach((input) => {
     const bad = !input.checkValidity();
     input.classList.toggle("invalid", bad);
     if (bad && !firstBad) firstBad = input;
   });
-  const missingDoc = highlightMissingDocuments(form);
-  firstBad = firstBad || missingDoc;
   if (firstBad) firstBad.scrollIntoView({ block: "center", behavior: "smooth" });
   return !firstBad;
+}
+
+function validateStep2() {
+  const missingDoc = highlightMissingDocuments(form);
+  if (missingDoc) missingDoc.scrollIntoView({ block: "center", behavior: "smooth" });
+  return !missingDoc;
+}
+
+function goToStep(n) {
+  step1.hidden = n !== 1;
+  step2.hidden = n !== 2;
+  step1Tab.classList.toggle("on", n === 1);
+  step2Tab.classList.toggle("on", n === 2);
+  submitBtn.disabled = n !== 2;
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function startReturnCountdown(resultEl, vendorId) {
@@ -41,14 +59,21 @@ function startReturnCountdown(resultEl, vendorId) {
 renderRegisterDropzones();
 form.addEventListener("input", (e) => clearInvalid(e.target));
 
+document.getElementById("register-continue-btn").addEventListener("click", () => {
+  if (validateStep1()) goToStep(2);
+});
+document.getElementById("register-back-btn").addEventListener("click", () => goToStep(1));
+document.getElementById("register-add-other-doc-btn").addEventListener("click", () => addOtherDocRow());
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!validate()) return;
+  if (!validateStep2()) return;
   const formData = new FormData(form);
   for (const [docType, file] of getChosenFiles()) formData.append(docType, file);
   form.querySelectorAll("[data-valid-till]").forEach((el) => {
     if (el.value) formData.append(`valid_till_${el.dataset.validTill}`, el.value);
   });
+  appendOtherDocsToFormData(formData);
   const resultEl = document.getElementById("register-result");
   try {
     // multipart: fetch sets the boundary itself
@@ -56,6 +81,8 @@ form.addEventListener("submit", async (e) => {
     form.reset();
     getChosenFiles().clear();
     renderRegisterDropzones();
+    resetOtherDocs();
+    goToStep(1);
     startReturnCountdown(resultEl, vendor.id);
   } catch (err) {
     showResult(resultEl, "Could not register: " + err.message, false);

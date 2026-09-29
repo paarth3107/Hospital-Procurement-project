@@ -377,6 +377,13 @@ then **removed as out of scope for now** (user-directed, 2026-09-28) -- this app
 `po_files.re_export()` service function and the `/po-files/{id}/mark-imported|mark-failed|re-export...` endpoints are gone. The
 Officer and Authority can list files but not download them (they carry GSTIN and prices).
 
+The dashboard's "Upload PO data file" action-queue task and `badge-pofiles` used to clear once a file was `mark-imported`/
+`mark-failed`; with that gone a file's `status` can never leave `pending_upload`, so the task would nag forever regardless of
+whether anyone had handled the file. Removed entirely (user-directed, 2026-09-28), same as the buttons that used to clear it:
+`DashboardStatsOut.po_files_pending`/`DashboardPoFileOut` (`schemas/dashboard.py`), the query building it (`dashboard.py`), the
+`badge-pofiles` element and its `nav.js` update, and the dashboard task line are all gone. The PO data files tab itself is
+unaffected -- staff still open it directly to download files, there's just no more "pending" nudge pointing at it.
+
 **Vendors are told at L1 approval** (user-directed, spec 10.6): awarded vendors (lines, quantities, prices), technically qualified
 vendors who did not win (regret), and technically disqualified vendors (sent when technical evaluation closes). Delivery is a
 portal notification (`/vendor-portal/notifications`); there is no email/SMS gateway, so that is logged, not sent. Vendors also see

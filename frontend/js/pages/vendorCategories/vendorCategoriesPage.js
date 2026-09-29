@@ -52,7 +52,7 @@ export async function renderVendorCategories(container) {
       .filter(Boolean);
 
     const owed = renderItemRequirements(requirements);
-    container.innerHTML = `${owed ? `<div class="ep-pane ep-pane-pad" style="margin-bottom:18px;border-left:3px solid #ec3013">${owed}</div>` : ""}<div class="ep-pane ep-pane-pad">
+    container.innerHTML = `${owed ? `<div class="ep-pane ep-pane-pad" style="margin-bottom:18px;border-left:3px solid #1d4ed8">${owed}</div>` : ""}<div class="ep-pane ep-pane-pad">
       <div class="ep-k">Category declaration</div>
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px">${chips.length ? chips.join("") : '<span class="hint">Nothing requested yet.</span>'}</div>
       <div class="hint" style="margin-top:12px">Category approval does not auto-approve every SKU within it. Requests are reviewed by the category manager and timestamped on approval.</div>

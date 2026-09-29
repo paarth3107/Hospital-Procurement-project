@@ -25,8 +25,11 @@ per explicit user instruction — not polished as we go.
   by FastAPI from `frontend/`. One module per page/tab under `frontend/js/pages/`
   (explicit user preference — never re-monolith this). `frontend/js/nav.js`'s
   `ROLE_TABS` is the single place staff role → visible tabs is defined.
-  UI is the "Modernist" design system (Archivo font, accent `#ec3013`, radius 0,
-  left sidebar) — see `DESIGN-REFERENCE.md`.
+  UI is the "Modernist" design system (Archivo font, radius 0, left sidebar) —
+  see `DESIGN-REFERENCE.md`. Accent is now blue (`#1d4ed8`/`#173fb0`/`#12327f`,
+  changed 2026-09-29 from the original orange `#ec3013`) — genuine error/
+  invalid/warning/urgency colors were deliberately left red so a success
+  message can never again look like an error.
 - Two entirely separate auth systems: staff JWT (`typ` unset) vs vendor JWT
   (`typ: "vendor"`) — each rejects the other's token at the dependency level
   (`app/security.py`).
@@ -54,9 +57,12 @@ before touching vendor eligibility, bidding gates, or Guest Invite/Open Tender:
    reference prototype, not the rule above — guest may bid and be L1, but
    PO/ERP export is blocked until KYC completes and a second override approves
    it. When building this, keep server-side PO export blocked for guests.
-3. **Open Tender (§6.8) is an open question** — not addressed by the Guest
-   Invite decision. Ask before building: does it get the same deferred-KYC
-   treatment, or does it keep full-registration-first?
+3. **Open Tender (§6.8) — decided 2026-09-29, NOT YET BUILT**: does *not* get
+   the Guest Invite deferred-KYC treatment — only an Active, approved vendor
+   may bid, same as everything else. What it still bypasses from the base
+   spec is eligibility filtering: no vendor↔catalog mapping, no rating
+   threshold, no per-tender invite list — any Active vendor can see and bid
+   on it once published.
 4. **Qualify/Disqualify is a genuine toggle, not a hidden score** (reverted
    2026-09-28, explicit user direction) — any evaluator disqualifies → line
    disqualified, else qualified, no `spec_compliance` number, no T-rank. Scored/
@@ -85,10 +91,11 @@ if the topic comes up, ask; don't decide.
   confirm/adjust, PO data file export (CSV/XML), vendor notifications.
 - Manual Override & Exception Approval Workflow Engine (spec §12): generic
   engine built (`app/models/override.py`, `app/services/overrides.py`,
-  `app/routers/overrides.py`). **3 of 8 override types wired** to actually
-  mutate a target record on approval: Price Competitiveness override, PO
-  re-export, Technical evaluation score correction. 5 remain unwired (each
-  needs its own feature built first — see GAPS.md §2).
+  `app/routers/overrides.py`). **2 of 8 override types wired** to actually
+  mutate a target record on approval: Price Competitiveness override,
+  Technical evaluation score correction. PO re-export was wired then removed
+  2026-09-29 (see below); 6 remain unwired (each needs its own feature built
+  first — see GAPS.md §2).
 - Audit logging: immutable, insert-only, on every state-changing action.
 
 **Two small temporary/demo additions (2026-09-28, both committed and pushed):**
@@ -105,9 +112,39 @@ if the topic comes up, ask; don't decide.
   migration `c1a2b3d4e5f6`) is the source of truth; server clears/re-requires
   the deviation text based on it.
 
+**2026-09-29 session — descoping + UI pass. Commits `d33bbda`/`344a201`/`a889de3`
+are pushed; everything else below is uncommitted in the working tree.**
+- **PO import-outcome tracking removed** (user-directed, out of scope for now):
+  `mark-imported`/`mark-failed`/re-export endpoints, `po_files.re_export()`,
+  and the dashboard's "Upload PO data file" task/badge (its "done" signal
+  disappeared along with the endpoints that set it) are all gone. `PoDataFile`
+  columns and the `PO_REEXPORT` override config are left in place, unused, for
+  if this comes back. *(Committed: the removal itself, `344a201`. Uncommitted:
+  the follow-up dashboard task/badge removal.)*
+- **Closed/awarded tenders hidden by default** (committed, `a889de3`): staff
+  Tenders tab and the vendor's Open Invitations both hid `awarded`/`no_award`
+  entries behind a "Show closed/awarded (N)" checkbox instead of listing them
+  forever. Needed a new `status` field on `PortalTenderOut`.
+- **Bug fix (uncommitted):** the "← Back to home" buttons on login/register
+  screens had no click handler at all (`.back-link` was never wired in
+  `nav.js`) — fixed.
+- **UI pass (uncommitted)**, on top of the accent-color change noted above:
+  - Registration form widened (1360px vs. the shared 980px auth column) and
+    switched to a two-step wizard — basic info → Continue (validates only,
+    no API call) → documents → Submit (the one real `POST /vendors`, still
+    atomic with its mandatory documents, per the existing hard rule).
+  - New optional `Vendor.website` / `Vendor.alternate_address` columns
+    (migration `d2e4f6a8b0c2`), on the registration form, vendor's own
+    Company Profile, and the staff KYC review panel.
+  - New repeatable "other documents" upload on registration (name + file,
+    add as many as you like) — `other_doc_label`/`other_doc_file` repeated
+    multipart fields, stored as `doc_type=other` with the given label (same
+    mechanism the staff document-review screen already understood).
+  - Unwired "Forgot password?" buttons added to both login forms.
+
 **Not started (see GAPS.md §2 for full detail):**
 - Guest Invite (§6.7) — decision made, not built.
-- Open Tender (§6.8) — blocked on the open question above.
+- Open Tender (§6.8) — decision made (see above), not built.
 - Tender-side attachments from Procurement Officer (§6.4) — upload buttons are
   present but disabled by design; mandatory-attachment gate at submission is
   therefore also not enforced yet.
@@ -135,18 +172,27 @@ if the topic comes up, ask; don't decide.
   deliberate deviation (same category as Guest Invite). Open questions: trigger
   point (at L1 approval vs. after ERP import confirms a real PO number) and
   format (styled HTML vs. a PDF-generation dependency).
+- **Vendor Mapping Matrix redesign** (raised 2026-09-29, user says "confusing").
+  Proposed but not built: fix color semantics (MAPPED no longer reads as
+  danger — already half-done by the accent→blue change), distinguish
+  Suspended from Rejected, show each vendor's rating in the matrix again (the
+  wireframe had it, the build dropped it), sticky header/column + filters for
+  scale, and give each cell room for future per-mapping facts (required-docs
+  status, expiry) instead of just one status word. User deferred all of it —
+  "we'll tackle this later."
 
 ## Immediate next steps
 
-Nothing is actively "in progress" as of the last session — the two demo/UX
-items above were completed, tested, committed, and pushed. Likely next work,
-in the order the user has been working through GAPS.md:
-1. Resolve the Open Tender vs. Guest-Invite-deviation question (ACTIVE
-   QUESTIONS in CLAUDE.md), then build whichever of Guest Invite / Open Tender
-   the user prioritizes.
+**First: the 2026-09-29 session's uncommitted work (see above) needs a commit
+decision** — nothing from that session has been pushed except `d33bbda`/
+`344a201`/`a889de3`. Review the working tree before starting anything new.
+
+Then, in the order the user has been working through GAPS.md:
+1. Build Guest Invite and/or Open Tender — both decisions are made (see
+   "Critical, user-directed deviations" above), neither is built.
 2. Tender-side attachments (§6.4) + the mandatory-attachment submission gate —
    currently the most visible "looks built but isn't reachable" gap.
-3. Wire the remaining 5 override types as their underlying features get built.
+3. Wire the remaining 6 override types as their underlying features get built.
 
 ## Working process reminder (see CLAUDE.md for full version)
 

@@ -28,8 +28,8 @@ export function requirementNote(req) {
       i.ok
         ? `<span style="font-weight:600">${esc(i.label)} ✓</span>`
         : i.other
-        ? `<span style="color:#ae1800;font-weight:600">${esc(i.label)}</span> <button type="button" class="ep-b" style="padding:1px 8px" data-upload-other="${esc(i.entry.slice(6).trim())}">Upload</button>`
-        : `<span style="color:#ae1800;font-weight:600">${esc(i.label)} — upload in the vault above</span>`
+        ? `<span style="color:#173fb0;font-weight:600">${esc(i.label)}</span> <button type="button" class="ep-b" style="padding:1px 8px" data-upload-other="${esc(i.entry.slice(6).trim())}">Upload</button>`
+        : `<span style="color:#173fb0;font-weight:600">${esc(i.label)} — upload in the vault above</span>`
     )
     .join(", ")}</div>`;
 }
