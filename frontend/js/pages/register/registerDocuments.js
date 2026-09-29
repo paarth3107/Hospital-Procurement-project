@@ -19,8 +19,9 @@ export function renderRegisterDropzones() {
         <span class="ep-tag"${t.mandatory ? ' data-t="att"' : ""}>${t.mandatory ? "Required" : "Optional"}</span></div>
       <div class="dropzone" data-doc-type="${t.value}"><span class="dz-text">Drop a file here, or click to browse</span>
         <input type="file" accept="${acceptFor(t)}"></div>
-      <div class="ep-field" style="margin-top:8px"><div class="ep-k">Valid till (only if this document expires)</div>
-        <input class="input" type="date" data-valid-till="${t.value}" style="max-width:220px"></div></div>`;
+      ${t.expires ? `<div class="ep-field" style="margin-top:8px"><div class="ep-k">Valid till</div>
+        <input class="input" type="date" data-valid-till="${t.value}" style="max-width:220px"></div>` : ""}
+    </div>`;
   const group = (title, types) =>
     `<div style="display:flex;flex-direction:column;gap:12px"><div class="ep-k">${title}</div>${types.map(card).join("")}</div>`;
   container.innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">

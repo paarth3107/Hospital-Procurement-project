@@ -13,10 +13,10 @@ export async function renderVendorDocuments(container, onChanged = () => {}) {
     const docs = await api("/vendor-portal/documents");
     const byType = new Map(docs.filter((d) => d.doc_type !== "other").map((d) => [d.doc_type, d]));
     const entries = [
-      ...VENDOR_DOC_TYPES.map((t) => ({ key: t.value, type: t.value, label: t.label, mandatory: t.mandatory, accept: acceptFor(t), doc: byType.get(t.value) })),
+      ...VENDOR_DOC_TYPES.map((t) => ({ key: t.value, type: t.value, label: t.label, mandatory: t.mandatory, expires: !!t.expires, accept: acceptFor(t), doc: byType.get(t.value) })),
       ...docs
         .filter((d) => d.doc_type === "other")
-        .map((d) => ({ key: "other:" + d.custom_label, type: "other", label: d.custom_label, mandatory: false, accept: ".pdf,.jpg,.jpeg,.png", doc: d, custom: true })),
+        .map((d) => ({ key: "other:" + d.custom_label, type: "other", label: d.custom_label, mandatory: false, expires: true, accept: ".pdf,.jpg,.jpeg,.png", doc: d, custom: true })),
     ];
     container.innerHTML = `<div class="ep-pane">
       <div class="ep-pane-head"><span>Document vault</span><span class="ep-k">PDF, JPG or PNG · max 10 MB · an expired document suspends bidding until renewed</span></div>
@@ -31,7 +31,7 @@ export async function renderVendorDocuments(container, onChanged = () => {}) {
           <td class="ep-cell" style="font-size:12.5px">${d && d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
           <td class="ep-cell">${d ? stateTag(d.status) : tag("Missing", e.mandatory ? "att" : "")}${d && d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
           <td class="ep-cell" style="text-align:right">
-            <input class="input" type="date" data-date="${i}" value="${d?.valid_till || ""}" title="Valid till (only if it expires) — set before uploading" style="width:150px;display:inline-block;margin-right:6px">
+            ${e.expires ? `<input class="input" type="date" data-date="${i}" value="${d?.valid_till || ""}" title="Valid till — set before uploading" style="width:150px;display:inline-block;margin-right:6px">` : ""}
             <button class="ep-b" data-upload="${i}">${d ? "Replace" : "Upload"}</button>
             <input type="file" accept="${e.accept}" hidden data-input="${i}">
           </td></tr>`;
@@ -57,7 +57,7 @@ function wire(container, entries, onChanged) {
       formData.append("doc_type", entry.type);
       if (entry.custom) formData.append("custom_label", entry.label);
       formData.append("file", input.files[0]);
-      const validTill = container.querySelector(`[data-date="${b.dataset.upload}"]`).value;
+      const validTill = container.querySelector(`[data-date="${b.dataset.upload}"]`)?.value;
       if (validTill) formData.append("valid_till", validTill);
       try {
         // no JSON Content-Type: fetch sets the multipart boundary itself

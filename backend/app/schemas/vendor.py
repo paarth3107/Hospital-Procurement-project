@@ -75,14 +75,6 @@ class VendorCreate(BaseModel):
             raise ValueError("IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits)")
         return v
 
-    @field_validator("bank_account_number")
-    @classmethod
-    def account_number(cls, v: str) -> str:
-        v = v.strip()
-        if not v.isdigit() or not 6 <= len(v) <= 20:
-            raise ValueError("Bank account number must be 6 to 20 digits")
-        return v
-
     @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person")
     @classmethod
     def not_blank(cls, v: str) -> str:

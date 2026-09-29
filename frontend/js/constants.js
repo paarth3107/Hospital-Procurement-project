@@ -3,17 +3,17 @@
 // move to a known set instead of free text. Shared by the vendor's own
 // document upload page, the staff review panel, and the post-login router.
 export const VENDOR_DOC_TYPES = [
-  // Mandatory (spec 3.2 rows marked plain "Yes")
+  // Mandatory (spec 3.2 rows marked plain "Yes") -- none of these expire.
   { value: "gst_certificate", label: "GST Certificate", mandatory: true },
   { value: "pan_card", label: "PAN Card", mandatory: true },
   { value: "incorporation_certificate", label: "Certificate of Incorporation", mandatory: true },
   { value: "bank_proof", label: "Cancelled Cheque / Bank Letter", mandatory: true },
   { value: "sample_catalog", label: "Sample Product Catalog / Price List", mandatory: true, spreadsheet: true },
-  // Statutory / compliance, "Yes (as applicable)": optional here, and they expire
-  { value: "business_license", label: "Business Licence", mandatory: false },
-  { value: "drug_license", label: "Drug Licence (pharma / consumables vendors)", mandatory: false },
-  { value: "msme_udyam", label: "MSME / Udyam Registration", mandatory: false },
-  { value: "iso_certificate", label: "ISO / Quality Certificate", mandatory: false },
+  // Statutory / compliance, "Yes (as applicable)": optional here, and these do expire.
+  { value: "business_license", label: "Business Licence", mandatory: false, expires: true },
+  { value: "drug_license", label: "Drug Licence (pharma / consumables vendors)", mandatory: false, expires: true },
+  { value: "msme_udyam", label: "MSME / Udyam Registration", mandatory: false, expires: true },
+  { value: "iso_certificate", label: "ISO / Quality Certificate", mandatory: false, expires: true },
 ];
 
 // File types a document accepts (a catalogue / price list may be a spreadsheet).
