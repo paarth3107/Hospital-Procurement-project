@@ -25,6 +25,7 @@ from app.routers import (
     po_files,
     ratings,
     staff,
+    subcategories,
     tender_review,
     tenders,
     vendor_auth,
@@ -124,6 +125,7 @@ app.include_router(staff.router)
 app.include_router(vendors.router)
 app.include_router(facilities.router)
 app.include_router(categories.router)
+app.include_router(subcategories.router)
 app.include_router(products.router)
 app.include_router(mappings.router)
 app.include_router(ratings.router)

@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
+from app.models.product_master import ProcurementType, ProductCategory, ProductMaster, ProductSubCategory
 from app.models.user_account import Role, UserAccount
 from app.schemas.product import ProductCreate, ProductOut
 from app.services.audit import changed, record, snapshot
 from app.security import get_current_user, require_role
 
 PRODUCT_AUDIT_FIELDS = (
-    "code", "name", "description", "procurement_type", "category_id", "sub_category", "unit_of_measure", "regulatory_class",
+    "code", "name", "description", "procurement_type", "category_id", "sub_category_id", "unit_of_measure", "regulatory_class",
     "approved_brands", "reorder_level", "price_band_min", "price_band_max", "min_mapping_rating", "required_documents",
     "type_specific_attrs", "active",
 )
@@ -30,6 +30,12 @@ def _check_category(payload: ProductCreate, db: Session) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Category '{category.name}' is for {category.procurement_type.value}s, not {payload.procurement_type.value}s",
         )
+    if payload.sub_category_id is not None:
+        sub_category = db.get(ProductSubCategory, payload.sub_category_id)
+        if not sub_category or not sub_category.active:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sub-category not found")
+        if sub_category.category_id != payload.category_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"'{sub_category.name}' is not a sub-category of '{category.name}'")
 
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
@@ -55,16 +61,27 @@ def create_product(
 @router.get("", response_model=list[ProductOut])
 def list_products(
     procurement_type: ProcurementType | None = None,
+    category_id: int | None = None,
+    sub_category_id: int | None = None,
     active: bool | None = None,
     db: Session = Depends(get_db),
 ):
     """Public/unauthenticated on purpose -- ProductOut carries nothing
     sensitive (no vendor data, no pricing), and the vendor-facing mapping
     request page (no vendor login exists yet, same as registration) needs
-    to browse the active catalog without a staff token."""
+    to browse the active catalog without a staff token.
+
+    category_id/sub_category_id let a caller (the vendor-mapping matrix)
+    fetch only the items actually in scope for one drill-down step instead of
+    the whole catalog -- the point of the category -> sub-category -> item
+    rework at 100s-of-categories/1000s-of-items scale (2026-10-01)."""
     query = db.query(ProductMaster)
     if procurement_type is not None:
         query = query.filter(ProductMaster.procurement_type == procurement_type)
+    if category_id is not None:
+        query = query.filter(ProductMaster.category_id == category_id)
+    if sub_category_id is not None:
+        query = query.filter(ProductMaster.sub_category_id == sub_category_id)
     if active is not None:
         query = query.filter(ProductMaster.active == active)
     return query.order_by(ProductMaster.code).all()

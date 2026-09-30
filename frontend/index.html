@@ -329,7 +329,30 @@
   </section>
 
   <section id="view-bid" class="view" hidden>
-    <div id="bid-root"></div>
+    <div><button class="ep-b" id="bid-back">← Back to invitations</button></div>
+    <div id="bid-tender-header"></div>
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px">
+      <span style="font-size:14px;font-weight:800">Your bid lines</span>
+      <span class="hint">fill in a line or mark it Skip · click Details for technical answers, compliance and attachments</span>
+      <div style="flex:1"></div>
+      <button type="button" class="ep-b" id="bid-download-template-btn">Download CSV template</button>
+      <button type="button" class="ep-b" id="bid-upload-csv-btn">Upload CSV</button>
+      <input type="file" id="bid-csv-file-input" accept=".csv" hidden>
+      <button type="button" class="ep-b" id="bid-save-all-btn">Save all drafts</button>
+    </div>
+    <div id="bid-import-errors" class="ep-note warn" hidden></div>
+    <div id="bid-line-items"></div>
+
+    <div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:14px;border-left:3px solid #ec3013;margin-top:14px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:#ae1800" id="bid-gate-title">Not ready to submit</div>
+        <div class="hint" style="margin-top:2px" id="bid-gate-body">Answer every line (bid or skip) before you can submit.</div>
+      </div>
+      <button type="button" class="ep-b" id="bid-reopen-btn" hidden>Reopen for editing</button>
+      <button type="button" class="ep-b" data-v="p" id="bid-submit-btn" disabled>Submit Bid</button>
+    </div>
+
     <div id="bid-result" class="result"></div>
   </section>
 

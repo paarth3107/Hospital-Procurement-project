@@ -1,8 +1,10 @@
 """Wipes business/domain data and reseeds a small, coherent demo dataset:
-5 vendors, 5 catalog entries, 5 vendor mappings, 5 vendor ratings, 5 draft
-tenders (each with one line item). Facilities, staff logins, and approval
-bands (infrastructure/config, not "test data") are left untouched -- wiping
-those would lock you out of the app you're trying to test.
+5 vendors, 17 catalog entries across 7 categories/11 sub-categories, 5 vendor
+mappings, 5 vendor ratings, 5 draft tenders (each with one line item).
+Facilities, staff logins, and approval bands (infrastructure/config, not
+"test data") are left untouched -- wiping those would lock you out of the app
+you're trying to test. A hand-registered test vendor (PRESERVED_VENDOR_NAME
+below) survives the wipe too, if one exists.
 
 Run with: venv/Scripts/python.exe -m app.seed_demo
 """
@@ -12,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
+from app.models.product_master import ProcurementType, ProductCategory, ProductMaster, ProductSubCategory
 from app.models.tender import Tender, TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
@@ -39,8 +41,40 @@ WIPE_TABLES = [
     "vendor_status_history",
     "vendors",
     "product_master",
+    "product_sub_categories",
     "product_categories",
 ]
+
+# A hand-registered vendor used for manual testing (2026-10-01, user-directed)
+# -- reseeding must never wipe it out. Tables with a direct vendor_id column
+# get a scoped DELETE instead of a full TRUNCATE when this vendor exists;
+# the two history tables key off their parent row instead. Everything else
+# (tender data, catalog) is still wiped unconditionally -- this vendor's bids/
+# invites against demo tenders reset along with those tenders, same as any
+# other vendor's, since the tenders themselves are always regenerated.
+PRESERVED_VENDOR_NAME = "Paarth PVT.Ltd"
+DIRECT_VENDOR_TABLES = {"vendor_mappings", "vendor_ratings", "vendor_documents", "vendor_status_history"}
+
+
+def _wipe_table(db, table: str, preserved_vendor_id: int | None) -> None:
+    if preserved_vendor_id is None:
+        db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+    elif table == "vendors":
+        db.execute(text("DELETE FROM vendors WHERE id != :id"), {"id": preserved_vendor_id})
+    elif table in DIRECT_VENDOR_TABLES:
+        db.execute(text(f"DELETE FROM {table} WHERE vendor_id != :id"), {"id": preserved_vendor_id})
+    elif table == "vendor_mapping_history":
+        db.execute(
+            text("DELETE FROM vendor_mapping_history WHERE mapping_id NOT IN (SELECT id FROM vendor_mappings WHERE vendor_id = :id)"),
+            {"id": preserved_vendor_id},
+        )
+    elif table == "rating_history":
+        db.execute(
+            text("DELETE FROM rating_history WHERE rating_id NOT IN (SELECT id FROM vendor_ratings WHERE vendor_id = :id)"),
+            {"id": preserved_vendor_id},
+        )
+    else:
+        db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
 
 VENDORS = [
     dict(
@@ -126,6 +160,12 @@ VENDOR_EXTRA = [
 for _vendor, _extra in zip(VENDORS, VENDOR_EXTRA):
     _vendor.update(_extra)
 
+# A moderately richer catalog than a single example of each type (2026-10-01,
+# user-directed) -- enough categories/sub-categories/items per type to
+# actually exercise the vendor-mapping matrix's Type -> Category ->
+# Sub-category drill-down, without pretending to be production scale
+# (100s of categories / 1000s of items is the matrix's *design target*, not
+# something a demo dataset needs to literally contain).
 PRODUCTS = [
     dict(
         code="SURG-GLOVES-001",
@@ -139,6 +179,93 @@ PRODUCTS = [
         price_band_min=6.0,
         price_band_max=12.0,
         type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True, "storage_condition": "Store below 30 C, dry", "hsn_sac_code": "4015", "alternate_brand_allowed": True},
+    ),
+    dict(
+        code="SURG-MASK-001",
+        name="Surgical Masks (3-ply)",
+        description="Single-use 3-ply surgical masks, box of 50",
+        procurement_type=ProcurementType.ITEM,
+        category="Consumables",
+        sub_category="PPE",
+        unit_of_measure="Box of 50",
+        price_band_min=2.0,
+        price_band_max=5.0,
+        type_specific_attrs={"pack_size": "50 pcs", "shelf_life_tracking": True, "storage_condition": "Store below 30 C, dry"},
+    ),
+    dict(
+        code="SURG-GOWN-001",
+        name="Surgical Gowns (Sterile, Disposable)",
+        description="Sterile single-use surgical gowns",
+        procurement_type=ProcurementType.ITEM,
+        category="Consumables",
+        sub_category="PPE",
+        unit_of_measure="Each",
+        type_specific_attrs={"shelf_life_tracking": True, "storage_condition": "Store below 30 C, dry"},
+    ),
+    dict(
+        code="MED-SYRINGE-001",
+        name="Disposable Syringes (10ml)",
+        description="Single-use disposable syringes, box of 100",
+        procurement_type=ProcurementType.ITEM,
+        category="Consumables",
+        sub_category="General Supplies",
+        unit_of_measure="Box of 100",
+        type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True},
+    ),
+    dict(
+        code="MED-BANDAGE-001",
+        name="Cotton Bandage Rolls",
+        description="Sterile cotton bandage rolls, 4 inch",
+        procurement_type=ProcurementType.ITEM,
+        category="Consumables",
+        sub_category="General Supplies",
+        unit_of_measure="Pack of 12",
+        type_specific_attrs={"pack_size": "12 rolls", "shelf_life_tracking": False},
+    ),
+    # A restricted entry: mapping needs a minimum item rating (spec 4.4).
+    dict(
+        code="IMPL-HIP-001",
+        name="Total Hip Implant (Cemented)",
+        description="Cemented total hip replacement implant set",
+        procurement_type=ProcurementType.ITEM,
+        category="Consumables",
+        sub_category="Implants",
+        regulatory_class="Class III implant",
+        approved_brands=["Zimmer Biomet", "Stryker"],
+        min_mapping_rating=80.0,
+        type_specific_attrs={"pack_size": "1 set", "shelf_life_tracking": True, "storage_condition": "Sterile, room temperature", "alternate_brand_allowed": False},
+    ),
+    dict(
+        code="IMPL-KNEE-001",
+        name="Total Knee Implant",
+        description="Total knee replacement implant set",
+        procurement_type=ProcurementType.ITEM,
+        category="Consumables",
+        sub_category="Implants",
+        regulatory_class="Class III implant",
+        approved_brands=["Zimmer Biomet", "Stryker", "Smith+Nephew"],
+        min_mapping_rating=80.0,
+        type_specific_attrs={"pack_size": "1 set", "shelf_life_tracking": True, "storage_condition": "Sterile, room temperature", "alternate_brand_allowed": False},
+    ),
+    dict(
+        code="PHARMA-AMOX-001",
+        name="Amoxicillin 500mg Capsules",
+        description="Amoxicillin 500mg, strip of 10",
+        procurement_type=ProcurementType.ITEM,
+        category="Pharmaceuticals",
+        sub_category="Antibiotics",
+        unit_of_measure="Strip of 10",
+        type_specific_attrs={"pack_size": "10 capsules", "shelf_life_tracking": True, "storage_condition": "Store below 25 C, protect from light"},
+    ),
+    dict(
+        code="PHARMA-PARA-001",
+        name="Paracetamol 650mg Tablets",
+        description="Paracetamol 650mg, strip of 15",
+        procurement_type=ProcurementType.ITEM,
+        category="Pharmaceuticals",
+        sub_category="Analgesics",
+        unit_of_measure="Strip of 15",
+        type_specific_attrs={"pack_size": "15 tablets", "shelf_life_tracking": True},
     ),
     dict(
         code="XRAY-MACH-001",
@@ -164,6 +291,50 @@ PRODUCTS = [
         },
     ),
     dict(
+        code="USG-SCAN-001",
+        name="Ultrasound Scanner",
+        description="Portable diagnostic ultrasound scanner",
+        procurement_type=ProcurementType.ASSET,
+        category="Imaging Equipment",
+        sub_category="Radiology",
+        regulatory_class="AERB licensed",
+        approved_brands=["GE", "Philips", "Samsung"],
+        type_specific_attrs={
+            "expected_useful_life_years": 8, "warranty_months": 24, "installation_required": True,
+            "amc_cmc_type": "amc", "amc_cmc_procurement": "separate_service_tender", "training_required": True,
+        },
+    ),
+    dict(
+        code="ICU-BED-001",
+        name="ICU Bed with Electric Adjustment",
+        description="Fowler-position electric ICU bed with side rails",
+        procurement_type=ProcurementType.ASSET,
+        category="Patient Care Equipment",
+        sub_category="Critical Care",
+        type_specific_attrs={
+            "warranty_months": 36, "installation_required": True, "compliance_certifications": ["ISO 13485"],
+            "amc_cmc_type": "cmc", "amc_cmc_procurement": "bundled_with_purchase",  # mechanical, frequent-use equipment -- prone to wear
+        },
+    ),
+    dict(
+        code="PT-MONITOR-001",
+        name="Multi-Parameter Patient Monitor",
+        description="Bedside patient monitor (ECG, SpO2, NIBP)",
+        procurement_type=ProcurementType.ASSET,
+        category="Patient Care Equipment",
+        sub_category="Critical Care",
+        type_specific_attrs={"warranty_months": 24, "installation_required": False, "amc_cmc_type": "amc", "amc_cmc_procurement": "separate_service_tender"},
+    ),
+    dict(
+        code="IT-DESKTOP-001",
+        name="Desktop Workstation",
+        description="Standard desktop workstation for administrative use",
+        procurement_type=ProcurementType.ASSET,
+        category="IT Equipment",
+        sub_category="Computing",
+        type_specific_attrs={"warranty_months": 36, "installation_required": False, "amc_cmc_type": "none"},
+    ),
+    dict(
         code="HKEEP-SVC-001",
         name="Housekeeping & Sanitation Service",
         description="Facility-wide housekeeping and sanitation, monthly contract",
@@ -185,47 +356,41 @@ PRODUCTS = [
         },
     ),
     dict(
-        code="ICU-BED-001",
-        name="ICU Bed with Electric Adjustment",
-        description="Fowler-position electric ICU bed with side rails",
-        procurement_type=ProcurementType.ASSET,
-        category="Patient Care Equipment",
-        sub_category="Critical Care",
+        code="SEC-GUARD-001",
+        name="Security Guard Service",
+        description="Facility-wide security guard deployment, monthly contract",
+        procurement_type=ProcurementType.SERVICE,
+        category="Facility Services",
+        sub_category="Security",
         type_specific_attrs={
-            "warranty_months": 36, "installation_required": True, "compliance_certifications": ["ISO 13485"],
-            "amc_cmc_type": "cmc", "amc_cmc_procurement": "bundled_with_purchase",  # mechanical, frequent-use equipment -- prone to wear
+            "default_tenure_months": 12, "billing_basis": "fixed", "manpower_deployment_norms": "1 supervisor per 20 guards",
+            "background_verification_required": True, "statutory_compliance_notes": "Police verification certificate required for all deployed staff",
         },
     ),
     dict(
-        code="MED-SYRINGE-001",
-        name="Disposable Syringes (10ml)",
-        description="Single-use disposable syringes, box of 100",
-        procurement_type=ProcurementType.ITEM,
-        category="Consumables",
-        sub_category="General Supplies",
-        unit_of_measure="Box of 100",
-        type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True},
-    ),
-    # A restricted entry: mapping needs a minimum item rating (spec 4.4).
-    dict(
-        code="IMPL-HIP-001",
-        name="Total Hip Implant (Cemented)",
-        description="Cemented total hip replacement implant set",
-        procurement_type=ProcurementType.ITEM,
-        category="Implants",
-        sub_category="Orthopaedic",
-        regulatory_class="Class III implant",
-        approved_brands=["Zimmer Biomet", "Stryker"],
-        min_mapping_rating=80.0,
-        type_specific_attrs={"pack_size": "1 set", "shelf_life_tracking": True, "storage_condition": "Sterile, room temperature", "alternate_brand_allowed": False},
+        code="BIOMED-AMC-001",
+        name="Biomedical Equipment AMC Service",
+        description="Annual maintenance contract for biomedical equipment fleet",
+        procurement_type=ProcurementType.SERVICE,
+        category="IT Services",
+        sub_category="AMC",
+        type_specific_attrs={"default_tenure_months": 12, "sla_response_time_hours": 4, "sla_resolution_time_hours": 48, "billing_basis": "fixed"},
     ),
 ]
 
 # Categories that need a minimum vendor rating before ANY mapping to them is approved.
-CATEGORY_MIN_RATING = {"Implants": 75.0}
+CATEGORY_MIN_RATING = {"Pharmaceuticals": 70.0}
+
+PRODUCT_BY_CODE = {p["code"]: i for i, p in enumerate(PRODUCTS)}
 
 # (vendor index, product index) pairs, 0-based into VENDORS/PRODUCTS above.
-MAPPINGS = [(0, 0), (0, 4), (1, 1), (2, 3), (3, 2)]
+MAPPINGS = [
+    (0, PRODUCT_BY_CODE["SURG-GLOVES-001"]),
+    (0, PRODUCT_BY_CODE["MED-SYRINGE-001"]),
+    (1, PRODUCT_BY_CODE["XRAY-MACH-001"]),
+    (2, PRODUCT_BY_CODE["ICU-BED-001"]),
+    (3, PRODUCT_BY_CODE["HKEEP-SVC-001"]),
+]
 
 # (vendor index, category name, state): category-level mappings. An approved
 # category mapping makes the vendor eligible for every item in it.
@@ -254,20 +419,25 @@ VENDOR_DEMO_PASSWORD = "vendor12345"
 
 # (title, tender_type, department, product index, qty, estimated_price/unit)
 TENDERS = [
-    ("Supply of Surgical Gloves - FY26 Q1", TenderType.RFQ, "Surgery", 0, 5000, 8.5),
-    ("Digital X-Ray Machine Procurement", TenderType.RFP, "Radiology", 1, 1, 1_500_000.0),
-    ("Annual Housekeeping Services Contract", TenderType.RFP, "Facilities", 2, 12, 45_000.0),
-    ("ICU Bed Procurement - 20 Units", TenderType.RFP, "Critical Care", 3, 20, 250_000.0),
-    ("Disposable Syringes Annual Supply", TenderType.RFQ, "Nursing", 4, 100_000, 3.2),
+    ("Supply of Surgical Gloves - FY26 Q1", TenderType.RFQ, "Surgery", PRODUCT_BY_CODE["SURG-GLOVES-001"], 5000, 8.5),
+    ("Digital X-Ray Machine Procurement", TenderType.RFP, "Radiology", PRODUCT_BY_CODE["XRAY-MACH-001"], 1, 1_500_000.0),
+    ("Annual Housekeeping Services Contract", TenderType.RFP, "Facilities", PRODUCT_BY_CODE["HKEEP-SVC-001"], 12, 45_000.0),
+    ("ICU Bed Procurement - 20 Units", TenderType.RFP, "Critical Care", PRODUCT_BY_CODE["ICU-BED-001"], 20, 250_000.0),
+    ("Disposable Syringes Annual Supply", TenderType.RFQ, "Nursing", PRODUCT_BY_CODE["MED-SYRINGE-001"], 100_000, 3.2),
 ]
 
 
 def run():
     db = SessionLocal()
     try:
+        preserved_vendor_id = db.execute(
+            text("SELECT id FROM vendors WHERE lower(legal_name) = lower(:name)"), {"name": PRESERVED_VENDOR_NAME}
+        ).scalar()
+        if preserved_vendor_id:
+            print(f"Preserving vendor '{PRESERVED_VENDOR_NAME}' (id {preserved_vendor_id}) across the wipe...")
         print("Wiping business/domain data (facilities, staff logins, approval bands untouched)...")
         for table in WIPE_TABLES:
-            db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+            _wipe_table(db, table, preserved_vendor_id)
         db.commit()
 
         creator = db.query(UserAccount).filter(UserAccount.role == Role.PROCUREMENT_OFFICER).first()
@@ -292,10 +462,22 @@ def run():
                 )
                 db.add(categories[key])
         db.flush()
+        sub_categories: dict[tuple[int, str], ProductSubCategory] = {}
+        for p in PRODUCTS:
+            if not p.get("sub_category"):
+                continue
+            category_id = categories[(p["category"], p["procurement_type"])].id
+            key = (category_id, p["sub_category"])
+            if key not in sub_categories:
+                sub_categories[key] = ProductSubCategory(name=key[1], category_id=category_id)
+                db.add(sub_categories[key])
+        db.flush()
         products = []
         for p in PRODUCTS:
-            fields = {k: v for k, v in p.items() if k != "category"}
-            products.append(ProductMaster(category_id=categories[(p["category"], p["procurement_type"])].id, **fields))
+            fields = {k: v for k, v in p.items() if k not in ("category", "sub_category")}
+            category_id = categories[(p["category"], p["procurement_type"])].id
+            sub_category_id = sub_categories[(category_id, p["sub_category"])].id if p.get("sub_category") else None
+            products.append(ProductMaster(category_id=category_id, sub_category_id=sub_category_id, **fields))
         db.add_all(products)
         db.commit()
         for p in products:

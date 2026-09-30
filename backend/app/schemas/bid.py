@@ -6,6 +6,7 @@ from app.models.bid import BidAttachmentKind, BidStatus
 from app.models.product_master import ProcurementType
 from app.models.tender import TenderType
 from app.models.tender_line_item import TechnicalEvalMethod
+from app.schemas.tender import LineAttachmentOut
 
 
 # ---- Type-specific answers (spec 8.2, 6.3.x, 9.2.2). Unknown keys are refused,
@@ -53,6 +54,7 @@ class BidSave(BaseModel):
     technical_compliance: str | None = None
     brand_offered: str | None = None
     details: dict = {}
+    comments: str | None = None  # free-text, never required (2026-10-01, user-directed)
     submit: bool = False
 
     @field_validator("unit_price")
@@ -83,13 +85,25 @@ class BidSave(BaseModel):
             raise ValueError("Quote validity must be at least 1 day")
         return v
 
-    @field_validator("payment_terms", "technical_compliance", "brand_offered")
+    @field_validator("payment_terms", "technical_compliance", "brand_offered", "comments")
     @classmethod
     def blank_to_none(cls, v):
         if v is None:
             return None
         v = v.strip()
         return v or None
+
+
+class BidLineSave(BidSave):
+    """One row of a bulk grid save (2026-10-01: the vendor bid workspace is
+    now a spreadsheet grid, same pattern as tender line-item creation) --
+    BidSave plus which line it's for."""
+
+    line_item_id: int
+
+
+class BidBulkSave(BaseModel):
+    lines: list[BidLineSave]
 
 
 class AttachmentOut(BaseModel):
@@ -117,6 +131,7 @@ class BidOut(BaseModel):
     technical_compliance: str | None
     brand_offered: str | None
     details: dict
+    comments: str | None
     submitted_at: datetime | None
     amended_at: datetime | None
     withdrawn_at: datetime | None
@@ -139,6 +154,19 @@ class RequirementsOut(BaseModel):
     slots: list[SlotOut]
 
 
+class CatalogSpecOut(BaseModel):
+    """What the vendor is being asked to meet (spec §4.2.1/§4.2.2) -- a
+    deliberately narrow subset of ProductMaster (2026-10-01, user-directed):
+    never reorder_level, price_band_min/max, min_mapping_rating or
+    required_documents, all staff-only internal inventory/budget/eligibility
+    facts, not part of what's being procured."""
+
+    unit_of_measure: str | None
+    regulatory_class: str | None
+    approved_brands: list[str]
+    type_specific_attrs: dict
+
+
 class LineContextOut(BaseModel):
     line_item_id: int
     tender_id: int
@@ -150,7 +178,13 @@ class LineContextOut(BaseModel):
     uom: str | None
     bid_due_date: datetime | None
     technical_eval_method: TechnicalEvalMethod
+    technical_weight: float | None  # QCBS only -- spec: vendors are told upfront how they'll be evaluated
+    price_weight: float | None
+    split_award_allowed: bool
     shelf_life_tracked: bool
+    catalog_spec: CatalogSpecOut
+    line_details: dict  # this tender's own per-engagement overrides (delivery date/location, tenure, etc.)
+    attachments: list[LineAttachmentOut]  # the officer's SOW/spec documents for this line (spec §6.4)
 
 
 class BidFormOut(BaseModel):
@@ -159,6 +193,28 @@ class BidFormOut(BaseModel):
     bid: BidOut | None
     locked: bool  # true = the vendor can view but not change
     lock_reason: str | None
+
+
+class TenderBidsOut(BaseModel):
+    """Every line a vendor was invited to bid on within one tender, in a
+    single call -- backs the bid grid (2026-10-01) instead of the previous
+    one-GET-per-line pattern."""
+
+    tender_id: int
+    tender_title: str
+    tender_type: TenderType
+    tender_description: str | None
+    facility_name: str
+    terms_and_conditions: str | None
+    bid_due_date: datetime | None
+    lines: list[BidFormOut]
+
+
+class BidBulkSaveResult(BaseModel):
+    line_item_id: int
+    ok: bool
+    error: str | None = None
+    form: BidFormOut | None = None
 
 
 class MyBidOut(BaseModel):

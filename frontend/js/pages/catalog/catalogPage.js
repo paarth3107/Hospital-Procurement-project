@@ -5,6 +5,7 @@ import { openItemForm } from "./itemForm.js";
 import { openAssetForm } from "./assetForm.js";
 import { openServiceForm } from "./serviceForm.js";
 import { openCategoryForm } from "./categoryForm.js";
+import { openSubCategoryForm } from "./subCategoryForm.js";
 import { attrSummary, priceBand } from "./attrSummary.js";
 import { docLabel } from "../../constants.js";
 
@@ -15,6 +16,7 @@ const host = () => document.getElementById("catalog-form-host");
 const resultEl = () => document.getElementById("product-result");
 
 let categories = [];
+let subCategories = [];
 let products = [];
 let mappings = [];
 let typeFilter = "all";
@@ -93,6 +95,7 @@ function render() {
       <button class="ep-b" data-v="p" data-new="asset">+ New asset</button>
       <button class="ep-b" data-v="p" data-new="service">+ New service</button>
       <button class="ep-b" data-new="category">+ New category</button>
+      <button class="ep-b" data-new="subcategory">+ New sub-category</button>
     </div>
     <div class="ep-pane">
       <table class="ep-table">${th("Code", "Name &amp; specification", "Type", "Category", "Type-specific attributes", "Price band", "Vendors", "")}<tbody>${productRowsHtml}</tbody></table>
@@ -112,6 +115,20 @@ function render() {
           : emptyRow(4, "No categories yet.")
       }</tbody></table>
     </div>
+    <div class="ep-pane">
+      <div class="ep-pane-head"><span>Sub-categories</span><span class="ep-k">used by the vendor-mapping drill-down</span></div>
+      <table class="ep-table">${th("Name", "Category", "Type", "")}<tbody>${
+        subCategories.length
+          ? subCategories
+              .map((s) => {
+                const c = categories.find((x) => x.id === s.category_id);
+                return `<tr><td class="ep-cell" style="font-weight:600">${esc(s.name)}</td><td class="ep-cell">${esc(c?.name ?? "—")}</td><td class="ep-cell">${c ? typeTag(c.procurement_type) : "—"}</td>
+                  <td class="ep-cell" style="text-align:right"><button class="ep-b" data-edit-subcategory="${s.id}">Edit</button></td></tr>`;
+              })
+              .join("")
+          : emptyRow(4, "No sub-categories yet.")
+      }</tbody></table>
+    </div>
   </div>`;
   wire();
 }
@@ -126,19 +143,29 @@ function wire() {
   r.querySelectorAll("[data-new]").forEach((b) =>
     b.addEventListener("click", () => {
       const kind = b.dataset.new;
-      showForm(() => (kind === "category" ? openCategoryForm(host(), null, afterSave, closeForm) : FORM_BY_TYPE[kind](host(), null, categories, afterSave, closeForm)));
+      showForm(() => {
+        if (kind === "category") return openCategoryForm(host(), null, afterSave, closeForm);
+        if (kind === "subcategory") return openSubCategoryForm(host(), null, categories, afterSave, closeForm);
+        return FORM_BY_TYPE[kind](host(), null, categories, subCategories, afterSave, closeForm);
+      });
     })
   );
   r.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => {
       const p = products.find((x) => x.id === Number(b.dataset.edit));
-      showForm(() => FORM_BY_TYPE[p.procurement_type](host(), p, categories, afterSave, closeForm));
+      showForm(() => FORM_BY_TYPE[p.procurement_type](host(), p, categories, subCategories, afterSave, closeForm));
     })
   );
   r.querySelectorAll("[data-edit-category]").forEach((b) =>
     b.addEventListener("click", () => {
       const c = categories.find((x) => x.id === Number(b.dataset.editCategory));
       showForm(() => openCategoryForm(host(), c, afterSave, closeForm));
+    })
+  );
+  r.querySelectorAll("[data-edit-subcategory]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const s = subCategories.find((x) => x.id === Number(b.dataset.editSubcategory));
+      showForm(() => openSubCategoryForm(host(), s, categories, afterSave, closeForm));
     })
   );
   r.querySelectorAll("[data-toggle]").forEach((b) =>
@@ -155,7 +182,7 @@ function wire() {
 
 export async function loadProducts() {
   try {
-    [products, categories, mappings] = await Promise.all([api("/products"), api("/categories"), api("/mappings")]);
+    [products, categories, subCategories, mappings] = await Promise.all([api("/products"), api("/categories"), api("/subcategories"), api("/mappings")]);
     render();
   } catch (err) {
     showResult(resultEl(), "Could not load catalog: " + err.message, false);

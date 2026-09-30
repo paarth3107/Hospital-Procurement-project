@@ -61,6 +61,6 @@ const SERVICE_FIELDS = [
   { name: "exit_data_portability", label: "Exit / data-portability terms", kind: "text", showWhen: LIC },
 ];
 
-export function openServiceForm(host, product, categories, onSaved, onCancel) {
-  renderProductForm({ host, procurementType: "service", typeLabel: "Service", typeFields: SERVICE_FIELDS, product, categories, onSaved, onCancel });
+export function openServiceForm(host, product, categories, subCategories, onSaved, onCancel) {
+  renderProductForm({ host, procurementType: "service", typeLabel: "Service", typeFields: SERVICE_FIELDS, product, categories, subCategories, onSaved, onCancel });
 }

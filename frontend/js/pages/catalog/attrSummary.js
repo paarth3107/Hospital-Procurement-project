@@ -53,6 +53,26 @@ export function attrSummary(p) {
   return bits.join(" · ") || "—";
 }
 
+// Vendor-safe subset of attrSummary() (2026-10-01, user-directed): the
+// vendor gets unit/regulatory/brand/type-specific facts only -- never
+// reorder_level, price band, min_mapping_rating or required_documents (all
+// staff-only internal inventory/budget/eligibility facts, not part of what's
+// being procured). Deliberately its own "bits" assembly, not a filtered call
+// into attrSummary(), so a future field added there can't leak here by
+// accident -- this function simply never reads those fields at all.
+export function vendorCatalogSpec(spec) {
+  const bits = [];
+  if (spec.unit_of_measure) bits.push(`UoM ${spec.unit_of_measure}`);
+  if (spec.regulatory_class) bits.push(spec.regulatory_class);
+  if (spec.approved_brands?.length) bits.push(`brands: ${spec.approved_brands.join(", ")}`);
+  for (const [key, value] of Object.entries(spec.type_specific_attrs || {})) {
+    const fmt = LABELS[key];
+    const text = fmt ? fmt(value) : `${key.replace(/_/g, " ")} ${value}`;
+    if (text) bits.push(text);
+  }
+  return bits.join(" · ") || "—";
+}
+
 export function priceBand(p) {
   if (p.price_band_min == null && p.price_band_max == null) return "—";
   return `${p.price_band_min != null ? inr(p.price_band_min) : "…"} – ${p.price_band_max != null ? inr(p.price_band_max) : "…"}`;

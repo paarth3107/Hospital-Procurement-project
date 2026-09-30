@@ -118,6 +118,34 @@ class LineDetailOut(BaseModel):
     vendors: list[VendorBidRow]
 
 
+class TenderEvalSummaryOut(BaseModel):
+    """One row of the evaluation inbox (2026-10-01, replaces a flat
+    cross-tender line list): a tender is evaluated as a whole -- an evaluator
+    opens one tender and sees every one of its lines together, the same
+    grouping the Awards and E-Tender-Approval screens already use."""
+
+    tender_id: int
+    tender_title: str
+    tender_type: TenderType
+    tender_status: TenderStatus
+    facility_name: str
+    bid_due_date: datetime | None
+    line_count: int
+    submitted_count: int
+    evaluated_count: int
+    open_count: int  # lines not yet technical_closed
+
+
+class TenderEvalDetailOut(BaseModel):
+    tender_id: int
+    tender_title: str
+    tender_type: TenderType
+    tender_status: TenderStatus
+    facility_name: str
+    bid_due_date: datetime | None
+    lines: list[LineDetailOut]
+
+
 class EvaluationSave(BaseModel):
     decision: TechnicalDecision
     scores: dict[str, float | None] = {}

@@ -20,7 +20,6 @@ const resultEl = () => document.getElementById("vendor-dashboard-result");
 // a checkbox reveals them again without a refetch.
 const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
 let showClosed = false;
-let selectedTenderId = null;
 let invitesPage = 0;
 let bidsPage = 0;
 
@@ -115,8 +114,9 @@ function timeRemaining(iso) {
 }
 
 // One row per tender you're invited to, not per line item -- a real tender
-// can carry hundreds of lines, so the line-level detail is a drill-down
-// (renderTenderLines), not this list.
+// can carry hundreds of lines. Line-level detail lives in the bid workspace
+// itself now (2026-10-01, replaces the separate "View lines" drill-down --
+// Prepare/View Bid already shows every line, bid or not).
 function groupByTender(lineRows) {
   const map = new Map();
   for (const { t, li } of lineRows) {
@@ -149,8 +149,11 @@ function tenderRow(group) {
     <td class="ep-cell" style="font-size:12.5px">${timeCell}</td>
     <td class="ep-cell">${statusTag}</td>
     <td class="ep-cell" style="text-align:right;white-space:nowrap">
-      <button class="ep-b" data-view-tender="${t.tender_id}">View lines</button>
-      ${t.can_bid ? `<button class="ep-b" data-v="p" data-prepare-bid="${t.tender_id}">Prepare Bid</button>` : ""}
+      ${
+        t.can_bid || submitted > 0
+          ? `<button class="ep-b" data-v="p" data-prepare-bid="${t.tender_id}">${submitted > 0 ? "View Bid" : "Prepare Bid"}</button>`
+          : ""
+      }
     </td>
   </tr>`;
 }
@@ -177,31 +180,6 @@ function renderTenderList(lineRows, closedCount, openLinesCount) {
       ${paginationBar(page, totalPages, "invites-prev", "invites-next")}
     </div>`,
   };
-}
-
-function renderTenderLines(selectedGroup) {
-  const t = selectedGroup[0]?.t;
-  return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>${t ? esc(t.title) : "Tender"}</span>
-      <div style="display:flex;gap:10px">
-        ${t && t.can_bid ? `<button class="ep-b" data-v="p" data-prepare-bid="${t.tender_id}">Prepare Bid</button>` : ""}
-        <button class="ep-b" id="back-to-tenders">← All invitations</button>
-      </div>
-    </div>
-    ${t ? `<div style="padding:10px 16px 0" class="ep-sub">#${t.tender_id} · ${esc(t.facility_name)} · ${esc(t.tender_type)} · ${t.can_bid && t.bid_due_date ? `${timeRemaining(t.bid_due_date)} remaining` : "closed"} (${fmtDateTime(t.bid_due_date)})</div>` : ""}
-    <table class="ep-table">${th("Item", "Bid Status")}<tbody>${
-      selectedGroup.length
-        ? selectedGroup
-            .map(({ t, li }) => {
-              const bs = li.bid_status;
-              const closed = CLOSED_TENDER_STATUSES.has(t.status);
-              const status = bs === "submitted" ? tag("Bid submitted", "pos") : bs === "draft" ? tag("Draft saved", "esc") : bs === "withdrawn" ? tag("Withdrawn", "neg") : t.can_bid ? tag("Not submitted", "att") : closed ? tag(t.status === "awarded" ? "Tender awarded" : "Closed, no award", "neg") : tag("Deadline passed", "neg");
-              return `<tr><td class="ep-cell"><div style="font-weight:600">${esc(li.product_name)}</div><div class="ep-sub">${li.qty}</div></td><td class="ep-cell">${status}</td></tr>`;
-            })
-            .join("")
-        : emptyRow(2, "No lines.")
-    }</tbody></table>
-  </div>`;
 }
 
 function bidsPane(bids) {
@@ -237,16 +215,7 @@ function render(note, tenders, bids, notes, ratings, docs) {
     ? `<div class="ep-note warn"><span>${closingSoonTenders} tender(s) close within 24 hours — submit soon or they'll pass without a bid.</span></div>`
     : "";
 
-  const selectedGroup = selectedTenderId != null ? lineRows.filter(({ t }) => t.tender_id === selectedTenderId) : null;
-  let invitationsHtml, invitesPageClamped, invitesTotalPages;
-  if (selectedGroup) {
-    invitationsHtml = renderTenderLines(selectedGroup);
-  } else {
-    const built = renderTenderList(lineRows, closedCount, openLines.length);
-    invitationsHtml = built.html;
-    invitesPageClamped = built.page;
-    invitesTotalPages = built.totalPages;
-  }
+  const { html: invitationsHtml, page: invitesPageClamped } = renderTenderList(lineRows, closedCount, openLines.length);
 
   root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${expiryNote(docs)}${notificationsHtml(notes)}${kpiStrip(openLines.length, bids, ratings)}${closingSoonNote}${invitationsHtml}${bidsPane(bids)}${ratingPanel(ratings)}</div>`;
   wireNotifications(root(), () => { loadVendorDashboard(); refreshChrome(); });
@@ -260,17 +229,7 @@ function render(note, tenders, bids, notes, ratings, docs) {
     invitesPage = 0;
     rerender();
   });
-  root().querySelector("#back-to-tenders")?.addEventListener("click", () => {
-    selectedTenderId = null;
-    rerender();
-  });
-  root().querySelectorAll("[data-view-tender]").forEach((b) =>
-    b.addEventListener("click", () => {
-      selectedTenderId = Number(b.dataset.viewTender);
-      rerender();
-    })
-  );
-  if (!selectedGroup) wirePagination(root(), "invites-prev", "invites-next", invitesPageClamped, (p) => { invitesPage = p; rerender(); });
+  wirePagination(root(), "invites-prev", "invites-next", invitesPageClamped, (p) => { invitesPage = p; rerender(); });
   wirePagination(root(), "bids-prev", "bids-next", bidsPage, (p) => { bidsPage = p; rerender(); });
 }
 

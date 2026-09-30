@@ -36,6 +36,28 @@ class ProductCategory(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     products = relationship("ProductMaster", back_populates="category_ref")
+    sub_categories = relationship("ProductSubCategory", back_populates="category_ref")
+
+
+class ProductSubCategory(Base):
+    """Sub-category, promoted from a free-text string on each catalog entry to
+    its own table (2026-10-01, user-directed) so the vendor-mapping matrix can
+    drill down Category -> Sub-category -> Item at catalog scale (100s of
+    categories, 1000s of items) instead of rendering everything flat. Belongs
+    to one category, so it inherits that category's procurement type -- no
+    separate type field needed here."""
+
+    __tablename__ = "product_sub_categories"
+    __table_args__ = (UniqueConstraint("name", "category_id", name="uq_subcategory_name_category"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    category_ref = relationship("ProductCategory", back_populates="sub_categories")
+    products = relationship("ProductMaster", back_populates="sub_category_ref")
 
 
 class ProductMaster(Base):
@@ -47,7 +69,7 @@ class ProductMaster(Base):
     description = Column(String, nullable=True)
     procurement_type = Column(Enum(ProcurementType), nullable=False)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=False)
-    sub_category = Column(String, nullable=True)
+    sub_category_id = Column(Integer, ForeignKey("product_sub_categories.id"), nullable=True)
 
     # Spec §4.2 core details. All optional -- whoever creates an entry picks
     # which of these apply to it (some items need a regulatory class or a
@@ -78,8 +100,13 @@ class ProductMaster(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     category_ref = relationship("ProductCategory", back_populates="products")
+    sub_category_ref = relationship("ProductSubCategory", back_populates="products")
     mappings = relationship("VendorMapping", back_populates="product")
 
     @property
     def category(self) -> str:
         return self.category_ref.name
+
+    @property
+    def sub_category(self) -> str | None:
+        return self.sub_category_ref.name if self.sub_category_ref else None

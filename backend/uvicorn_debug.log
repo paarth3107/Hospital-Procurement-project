@@ -1,16 +1,667 @@
-INFO:     Started server process [18756]
+INFO:     Started server process [23312]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:61321 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61322 - "POST /api/v1/tenders HTTP/1.1" 201 Created
-INFO:     127.0.0.1:61324 - "GET /api/v1/tenders/25/line-items HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61328 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61329 - "POST /api/v1/tenders/25/line-items/24/attachments HTTP/1.1" 400 Bad Request
-INFO:     127.0.0.1:61330 - "PUT /api/v1/tenders/25 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61331 - "POST /api/v1/tenders/25/submit-for-approval HTTP/1.1" 400 Bad Request
-INFO:     127.0.0.1:61334 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61341 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61347 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61350 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61353 - "POST /api/v1/tenders/25/line-items/24/attachments HTTP/1.1" 201 Created
+INFO:     127.0.0.1:60084 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60085 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60086 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60090 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60091 - "GET /api/v1/products?category_id=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60092 - "GET /api/v1/products?sub_category_id=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63534 - "POST /api/v1/auth/login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:63512 - "POST /api/v1/auth/login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:64310 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64311 - "POST /api/v1/subcategories HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:64312 - "POST /api/v1/subcategories HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:64313 - "POST /api/v1/subcategories HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:64314 - "POST /api/v1/products HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:64320 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54252 - "POST /api/v1/subcategories HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:64997 - "POST /api/v1/subcategories HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:64999 - "POST /api/v1/subcategories HTTP/1.1" 201 Created
+INFO:     127.0.0.1:65498 - "POST /api/v1/products HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:49674 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49675 - "POST /api/v1/products HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:49681 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49682 - "GET /js/pages/catalog/catalogPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49683 - "GET /js/pages/catalog/subCategoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49684 - "GET /js/pages/mappings/mappingMatrix.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49685 - "GET /js/pages/mappings/mappingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51308 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /design-system.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /styles.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/main.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/nav.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/staffLoginPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/register/registerPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/vendorLoginPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/dashboardPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/vendorQueuePage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/ratings/ratingsPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/approvalsPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/catalog/catalogPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51308 - "GET /js/pages/mappings/mappingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56880 - "GET /js/pages/tenders/tendersPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/vendorDocumentsPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/vendorDashboardPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/vendorProfilePage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/api.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/ui.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/state.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/kit.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/staff/staffPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/audit/auditPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/bid/bidPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/evaluation/evaluationPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/vendorCategories/vendorCategoriesPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/awards/awardsPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/dashboard/officerDashboard.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/dashboard/actionQueue.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/dashboard/categoryManagerDashboard.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/po/poFilesPage.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/dashboard/vendorBase.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/constants.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/register/registerOtherDocs.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/ratings/scorecard.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/ratings/adjustDialog.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/approvals/reviewPanel.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/register/registerDocuments.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/catalog/itemForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65423 - "GET /js/pages/vendorReveal.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/catalog/serviceForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56880 - "GET /js/pages/catalog/assetForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57073 - "GET /js/pages/catalog/subCategoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51072 - "GET /js/modal.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/catalog/categoryForm.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/catalog/attrSummary.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/mappings/mappingMatrix.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51072 - "GET /js/pages/staff/staffForm.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/mappings/mappingData.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56880 - "GET /js/pages/tenders/tenderForm.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/vendorNotifications.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/mappings/mappingList.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/bid/bidLineItems.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/audit/auditDetail.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/staff/facilityForm.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/evaluation/tenderEvaluation.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/staff/passwordDialog.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/vendorCategories/categoryRequests.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/vendorCategories/itemRequests.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/vendorCategories/coveredItems.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/catalog/requiredDocs.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/awards/tenderAward.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/awards/awardHelpers.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/catalog/productForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56880 - "GET /js/pages/mappings/mappingDialog.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/mappings/matrixGrid.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57073 - "GET /js/pages/tenders/tenderDetail.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/mappings/mappingActions.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/tenders/tenderLineItems.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/catalog/formKit.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/tenders/lineDetailFields.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/bid/bidLineItemsCsv.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/bid/bidAttachments.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/bid/bidFields.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/tenders/lineAttachments.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51308 - "GET /js/pages/evaluation/lineDetail.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58211 - "GET /js/pages/vendorCategories/requirements.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57073 - "GET /js/pages/catalog/coreDetails.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56880 - "GET /js/pages/awards/decisionForm.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/tenders/lineItemsCsv.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/awards/recommendationForm.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51072 - "GET /js/pages/evaluation/evaluateDialog.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:65423 - "GET /js/pages/evaluation/commercialStatement.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57568 - "GET /api/v1/tenders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55503 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57568 - "GET /api/v1/facilities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55503 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56875 - "GET /api/v1/products?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57499 - "GET /api/v1/evaluation/tenders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65051 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49401 - "GET /api/v1/evaluation/tenders/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/main.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /design-system.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/register/registerPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/nav.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/staffLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/vendorLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/dashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/vendorQueuePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/catalog/catalogPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/mappings/mappingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/approvalsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/ratings/ratingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/tenders/tendersPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/vendorDocumentsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/vendorProfilePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/vendorDashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/state.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/api.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/ui.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/kit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/constants.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/register/registerDocuments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/register/registerOtherDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/vendorCategories/vendorCategoriesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/staff/staffPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/audit/auditPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/bid/bidPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/evaluation/evaluationPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/awards/awardsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/dashboard/actionQueue.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/po/poFilesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/dashboard/officerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/dashboard/categoryManagerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/dashboard/vendorBase.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/vendorReveal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/mappings/mappingData.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/modal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/mappings/mappingMatrix.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/mappings/mappingList.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/catalog/itemForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/catalog/categoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/catalog/assetForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/catalog/serviceForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/catalog/subCategoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/catalog/attrSummary.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/approvals/reviewPanel.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/tenders/tenderForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/ratings/scorecard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/vendorNotifications.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/vendorCategories/categoryRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/vendorCategories/itemRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/ratings/adjustDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/vendorCategories/coveredItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/staff/passwordDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/staff/facilityForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/audit/auditDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/staff/staffForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/bid/bidLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/evaluation/tenderEvaluation.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/mappings/matrixGrid.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/mappings/mappingDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/awards/awardHelpers.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/catalog/productForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/mappings/mappingActions.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/awards/tenderAward.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/tenders/tenderLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/catalog/requiredDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/tenders/tenderDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/bid/bidAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/vendorCategories/requirements.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/catalog/formKit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/bid/bidFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/catalog/coreDetails.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/tenders/lineDetailFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/bid/bidLineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/evaluation/lineDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /js/pages/tenders/lineAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /js/pages/evaluation/evaluateDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /js/pages/awards/recommendationForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /js/pages/evaluation/commercialStatement.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /js/pages/awards/decisionForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /js/pages/tenders/lineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55045 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52055 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58902 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55420 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55045 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51049 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49797 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50924 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63508 - "GET /api/v1/vendor-auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63508 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50924 - "GET /api/v1/vendor-portal/bids/tender/27 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:53213 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:51323 - "GET /api/v1/vendor-auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:51323 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /design-system.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/main.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/nav.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/vendorLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/staffLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/register/registerPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/vendorQueuePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/dashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/catalog/catalogPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/ratings/ratingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/approvalsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/vendorDocumentsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/mappings/mappingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/tenders/tendersPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/api.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/state.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/kit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/vendorProfilePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/ui.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/vendorDashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/vendorCategories/vendorCategoriesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/staff/staffPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/audit/auditPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/bid/bidPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/evaluation/evaluationPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/awards/awardsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/vendorReveal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/constants.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/po/poFilesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/register/registerDocuments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/modal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/register/registerOtherDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/dashboard/vendorBase.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/dashboard/categoryManagerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/dashboard/actionQueue.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/dashboard/officerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/ratings/scorecard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/ratings/adjustDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/catalog/itemForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/catalog/assetForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/catalog/attrSummary.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/catalog/serviceForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/catalog/categoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/catalog/subCategoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/approvals/reviewPanel.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/tenders/tenderForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/mappings/mappingList.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/vendorNotifications.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/mappings/mappingData.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/mappings/mappingMatrix.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/vendorCategories/categoryRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/vendorCategories/coveredItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/staff/passwordDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/staff/facilityForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/vendorCategories/itemRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/staff/staffForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/bid/bidLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/evaluation/tenderEvaluation.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/awards/tenderAward.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/audit/auditDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/awards/awardHelpers.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/catalog/productForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/catalog/requiredDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/tenders/tenderLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/mappings/mappingActions.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/mappings/mappingDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/mappings/matrixGrid.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/tenders/tenderDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/vendorCategories/requirements.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/catalog/formKit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/bid/bidAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/tenders/lineDetailFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/bid/bidFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/bid/bidLineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56019 - "GET /js/pages/tenders/lineAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "GET /js/pages/evaluation/lineDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50347 - "GET /js/pages/awards/recommendationForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/awards/decisionForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/catalog/coreDetails.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51323 - "GET /js/pages/tenders/lineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /js/pages/evaluation/evaluateDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53213 - "GET /js/pages/evaluation/commercialStatement.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52684 - "GET /api/v1/vendor-auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52684 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60336 - "POST /api/v1/vendor-auth/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:60336 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /design-system.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/main.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/nav.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/register/registerPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/staffLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/vendorLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/dashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/vendorQueuePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/catalog/catalogPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/mappings/mappingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/tenders/tendersPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/ratings/ratingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/approvalsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/vendorDocumentsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/vendorProfilePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/vendorDashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/api.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/ui.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/state.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/kit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/vendorCategories/vendorCategoriesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/staff/staffPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/audit/auditPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/bid/bidPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/evaluation/evaluationPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/awards/awardsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/constants.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/po/poFilesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/register/registerOtherDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/register/registerDocuments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/dashboard/actionQueue.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/dashboard/officerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/dashboard/categoryManagerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/catalog/itemForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/dashboard/vendorBase.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/vendorReveal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/modal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/catalog/assetForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/catalog/serviceForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/catalog/subCategoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/catalog/categoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/catalog/attrSummary.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/mappings/mappingData.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/mappings/mappingMatrix.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/mappings/mappingList.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/ratings/scorecard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/tenders/tenderForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/approvals/reviewPanel.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/ratings/adjustDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/vendorNotifications.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/vendorCategories/categoryRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/vendorCategories/coveredItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/staff/staffForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/vendorCategories/itemRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/staff/passwordDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/staff/facilityForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/bid/bidLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/audit/auditDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/awards/awardHelpers.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/awards/tenderAward.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/evaluation/tenderEvaluation.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/catalog/productForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/catalog/requiredDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/mappings/matrixGrid.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/mappings/mappingActions.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/mappings/mappingDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/tenders/tenderLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/tenders/tenderDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/vendorCategories/requirements.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/catalog/formKit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/bid/bidAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/bid/bidLineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/bid/bidFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/tenders/lineDetailFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /js/pages/tenders/lineAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /js/pages/awards/decisionForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /js/pages/awards/recommendationForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /js/pages/evaluation/lineDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/catalog/coreDetails.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/tenders/lineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /js/pages/evaluation/commercialStatement.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /js/pages/evaluation/evaluateDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /api/v1/vendor-auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /api/v1/vendor-auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55107 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50501 - "GET /api/v1/vendor-portal/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60336 - "GET /api/v1/vendor-portal/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59749 - "GET /api/v1/vendor-portal/tenders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55107 - "GET /api/v1/vendor-portal/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51878 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /api/v1/vendor-portal/bids HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51003 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60031 - "GET /api/v1/vendor-portal/bids/tender/6 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51003 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60031 - "GET /api/v1/vendor-auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51003 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51003 - "GET /api/v1/vendor-portal/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60031 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "GET /api/v1/vendor-portal/bids HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60956 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64463 - "GET /api/v1/vendor-portal/tenders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51003 - "GET /api/v1/vendor-portal/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60956 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53392 - "GET /api/v1/vendor-portal/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63508 - "POST /api/v1/vendors HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:59252 - "POST /api/v1/vendors HTTP/1.1" 201 Created
+INFO:     127.0.0.1:59930 - "POST /api/v1/vendor-auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59930 - "GET /api/v1/vendor-auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63224 - "GET /api/v1/vendor-auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59930 - "GET /api/v1/vendor-portal/documents/requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59930 - "GET /api/v1/vendor-portal/tenders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56940 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63224 - "GET /api/v1/vendor-portal/bids HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58917 - "GET /api/v1/vendor-portal/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59930 - "GET /api/v1/vendor-portal/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65405 - "GET /api/v1/vendor-portal/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/main.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /design-system.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/nav.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/register/registerPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/staffLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/vendorLoginPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/dashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/vendorQueuePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/catalog/catalogPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/mappings/mappingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/ratings/ratingsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/tenders/tendersPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/approvalsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/vendorDocumentsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/vendorProfilePage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/vendorDashboardPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/api.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/ui.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/state.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/kit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/constants.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/register/registerDocuments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/register/registerOtherDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/vendorCategories/vendorCategoriesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/staff/staffPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/audit/auditPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/bid/bidPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/evaluation/evaluationPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/awards/awardsPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/dashboard/officerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/dashboard/categoryManagerDashboard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/po/poFilesPage.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/dashboard/actionQueue.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/dashboard/vendorBase.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/vendorReveal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/modal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/catalog/itemForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/catalog/assetForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/catalog/serviceForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/catalog/categoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/catalog/subCategoryForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/catalog/attrSummary.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/mappings/mappingMatrix.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/mappings/mappingList.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/mappings/mappingData.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/ratings/scorecard.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/ratings/adjustDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/tenders/tenderForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/approvals/reviewPanel.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/vendorNotifications.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/vendorCategories/categoryRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/vendorCategories/itemRequests.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/vendorCategories/coveredItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/audit/auditDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/staff/staffForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/bid/bidLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/staff/passwordDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/staff/facilityForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/awards/awardHelpers.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/evaluation/tenderEvaluation.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/catalog/productForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/awards/tenderAward.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/catalog/requiredDocs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/mappings/matrixGrid.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/mappings/mappingActions.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/mappings/mappingDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/tenders/tenderLineItems.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/tenders/tenderDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/catalog/formKit.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/vendorCategories/requirements.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/bid/bidAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/bid/bidFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/evaluation/lineDetail.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/tenders/lineDetailFields.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/bid/bidLineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/tenders/lineAttachments.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60880 - "GET /js/pages/catalog/coreDetails.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /js/pages/awards/recommendationForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /js/pages/awards/decisionForm.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /js/pages/tenders/lineItemsCsv.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /js/pages/evaluation/evaluateDialog.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /js/pages/evaluation/commercialStatement.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors?status_filter=pending_verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65134 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/documents/1/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "POST /api/v1/vendors/6/documents/1/verify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/documents/2/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "POST /api/v1/vendors/6/documents/2/verify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/documents/3/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "POST /api/v1/vendors/6/documents/3/verify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/documents/4/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "POST /api/v1/vendors/6/documents/4/verify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/documents/5/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "POST /api/v1/vendors/6/documents/5/verify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/6/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/6/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/6/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "POST /api/v1/vendors/6/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors?status_filter=pending_verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65188 - "GET /api/v1/vendors/5/documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /api/v1/vendors/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54508 - "GET /api/v1/vendors/5/status-history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/vendors/5/document-requirements HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53035 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58198 - "POST /api/v1/vendors/5/approve HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:49988 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60325 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57476 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60108 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49988 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59535 - "GET /api/v1/dashboard/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55844 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56087 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56087 - "POST /api/v1/mappings/8/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52489 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56087 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60745 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57826 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54677 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59715 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61243 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:61243 - "POST /api/v1/mappings/9/approve HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:54217 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61243 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57256 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55451 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54612 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52487 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53330 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53330 - "POST /api/v1/mappings/10/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53330 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60356 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53136 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55595 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55652 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60805 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49173 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:49173 - "POST /api/v1/mappings/11/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63215 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57173 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49173 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64052 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53946 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62284 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58023 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:58023 - "POST /api/v1/mappings/12/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52014 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58023 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62596 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52951 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59088 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54419 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60214 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:60214 - "POST /api/v1/mappings/13/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60214 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60873 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50928 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63739 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57253 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62104 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62104 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:62104 - "POST /api/v1/mappings/14/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50928 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57253 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62104 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60214 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63739 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60873 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50177 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:50177 - "POST /api/v1/mappings/15/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57310 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50177 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54853 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54888 - "GET /api/v1/ratings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62800 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51070 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58275 - "POST /api/v1/mappings HTTP/1.1" 201 Created
+INFO:     127.0.0.1:58275 - "POST /api/v1/mappings/16/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49223 - "GET /api/v1/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58275 - "GET /api/v1/vendors/lookup HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54563 - "GET /api/v1/subcategories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59499 - "GET /api/v1/mappings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63941 - "GET /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58843 - "GET /api/v1/ratings HTTP/1.1" 200 OK

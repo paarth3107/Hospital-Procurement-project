@@ -1,6 +1,7 @@
 import { api } from "../../api.js";
 import { esc, typeTag } from "../../kit.js";
 import { showResult } from "../../ui.js";
+import { modalPrompt, modalAlert } from "../../modal.js";
 import { fieldHtml, readFields, wireConditionalFields } from "./formKit.js";
 import { coreDetailsHtml, wireCoreDetails, readCoreDetails } from "./coreDetails.js";
 
@@ -8,10 +9,15 @@ import { coreDetailsHtml, wireCoreDetails, readCoreDetails } from "./coreDetails
 // those (itemForm.js / assetForm.js / serviceForm.js) only describes what is
 // different: its type and its type-specific fields (spec 4.2.1 / 4.2.2).
 //
-// options: { host, procurementType, typeLabel, typeFields, product (or null to create), categories, onSaved, onCancel }
-export function renderProductForm({ host, procurementType, typeLabel, typeFields, product, categories, onSaved, onCancel }) {
+// options: { host, procurementType, typeLabel, typeFields, product (or null to create), categories, subCategories, onSaved, onCancel }
+export function renderProductForm({ host, procurementType, typeLabel, typeFields, product, categories, subCategories, onSaved, onCancel }) {
   const attrs = product?.type_specific_attrs || {};
   const typeCategories = categories.filter((c) => c.procurement_type === procurementType);
+  const subCategoryOptionsHtml = (categoryId) =>
+    `<option value="">— none —</option>${subCategories
+      .filter((s) => s.category_id === categoryId)
+      .map((s) => `<option value="${s.id}" ${product?.sub_category_id === s.id ? "selected" : ""}>${esc(s.name)}</option>`)
+      .join("")}`;
 
   host.hidden = false;
   const group = (title, body) => `<div class="ep-pane"><div class="ep-pane-head"><span>${title}</span></div><div style="padding:6px 16px 14px">${body}</div></div>`;
@@ -28,7 +34,11 @@ export function renderProductForm({ host, procurementType, typeLabel, typeFields
               <option value="">— select a category —</option>
               ${typeCategories.map((c) => `<option value="${c.id}" ${product?.category_id === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
             </select></div>
-          <div class="ep-field"><div class="ep-k">Sub-category (optional)</div><input class="input" name="sub_category" value="${esc(product?.sub_category ?? "")}"></div>
+          <div class="ep-field"><div class="ep-k">Sub-category (optional)</div>
+            <div style="display:flex;gap:6px">
+              <select class="input" name="sub_category_id" id="sub-category-select" style="flex:1">${subCategoryOptionsHtml(product?.category_id ?? null)}</select>
+              <button type="button" class="ep-b" id="new-subcategory-btn">+ New</button>
+            </div></div>
         </div>
       </div>
       ${group(`Core Details — tick the ones that apply to this ${typeLabel.toLowerCase()}`, `<div class="core-details">${coreDetailsHtml(product)}</div>`)}
@@ -45,6 +55,29 @@ export function renderProductForm({ host, procurementType, typeLabel, typeFields
   wireConditionalFields(form.querySelector(".type-details"));
   form.querySelector(".cancel-btn").addEventListener("click", onCancel);
 
+  const subCategorySelect = form.querySelector("#sub-category-select");
+  form.elements.category_id.addEventListener("change", () => {
+    subCategorySelect.innerHTML = subCategoryOptionsHtml(Number(form.elements.category_id.value) || null);
+  });
+  form.querySelector("#new-subcategory-btn").addEventListener("click", async () => {
+    const categoryId = Number(form.elements.category_id.value) || null;
+    if (!categoryId) return modalAlert("Pick a category first.");
+    const name = await modalPrompt("New sub-category name");
+    if (!name) return;
+    try {
+      const created = await api("/subcategories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, category_id: categoryId }),
+      });
+      subCategories.push(created);
+      subCategorySelect.innerHTML = subCategoryOptionsHtml(categoryId);
+      subCategorySelect.value = String(created.id);
+    } catch (err) {
+      showResult(form.querySelector(".form-result"), "Could not add sub-category: " + err.message, false);
+    }
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
@@ -53,7 +86,7 @@ export function renderProductForm({ host, procurementType, typeLabel, typeFields
       description: form.elements.description.value.trim() || null,
       procurement_type: procurementType,
       category_id: Number(form.elements.category_id.value),
-      sub_category: form.elements.sub_category.value.trim() || null,
+      sub_category_id: form.elements.sub_category_id.value ? Number(form.elements.sub_category_id.value) : null,
       ...readCoreDetails(form.querySelector(".core-details")),
       type_specific_attrs: readFields(form.querySelector(".type-details"), typeFields),
     };

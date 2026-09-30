@@ -22,6 +22,6 @@ const ASSET_FIELDS = [
   },
 ];
 
-export function openAssetForm(host, product, categories, onSaved, onCancel) {
-  renderProductForm({ host, procurementType: "asset", typeLabel: "Asset", typeFields: ASSET_FIELDS, product, categories, onSaved, onCancel });
+export function openAssetForm(host, product, categories, subCategories, onSaved, onCancel) {
+  renderProductForm({ host, procurementType: "asset", typeLabel: "Asset", typeFields: ASSET_FIELDS, product, categories, subCategories, onSaved, onCancel });
 }

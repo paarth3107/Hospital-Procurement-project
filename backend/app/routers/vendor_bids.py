@@ -8,11 +8,13 @@ from app.database import get_db
 from app.models.bid import Bid, BidAttachment, BidAttachmentKind, BidStatus
 from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TenderLineItem
-from app.models.vendor import Vendor
-from app.schemas.bid import AttachmentOut, BidFormOut, BidSave, LineContextOut, MyBidOut
+from app.models.vendor import Vendor, VendorStatus
+from app.schemas.bid import AttachmentOut, BidBulkSave, BidBulkSaveResult, BidFormOut, BidSave, CatalogSpecOut, LineContextOut, MyBidOut, TenderBidsOut
+from app.schemas.tender import LineAttachmentOut
 from app.security import get_current_vendor
 from app.services import bids as rules
 from app.services import document_store
+from app.services.expiry import sweep_vendor
 from app.models.award import APPROVED, FINAL, AwardRound
 from app.models.bid_evaluation import BidTechnicalResult, TechnicalDecision
 from app.models.tender import TenderStatus
@@ -20,7 +22,7 @@ from app.services.audit import record
 
 router = APIRouter(prefix="/api/v1/vendor-portal/bids", tags=["vendor-bids"])
 
-BID_FIELDS = ("unit_price", "gst_percent", "other_duties", "delivery_lead_days", "quote_validity_days", "payment_terms", "compliant_full", "technical_compliance", "brand_offered")
+BID_FIELDS = ("unit_price", "gst_percent", "other_duties", "delivery_lead_days", "quote_validity_days", "payment_terms", "compliant_full", "technical_compliance", "brand_offered", "comments")
 MAX_ATTACHMENTS_PER_BID = 20
 
 
@@ -54,19 +56,31 @@ def _audit(db: Session, action: str, vendor: Vendor, bid: Bid, line: TenderLineI
 
 def _form(db: Session, vendor: Vendor, line: TenderLineItem, bid: Bid | None) -> BidFormOut:
     tender = line.tender
+    product = line.product
     return BidFormOut(
         context=LineContextOut(
             line_item_id=line.id,
             tender_id=tender.id,
             tender_title=tender.title,
             tender_type=tender.tender_type,
-            product_name=line.product.name,
+            product_name=product.name,
             procurement_type=line.procurement_type,
             qty=line.qty,
-            uom=line.product.unit_of_measure,
+            uom=product.unit_of_measure,
             bid_due_date=tender.bid_due_date,
             technical_eval_method=line.technical_eval_method,
+            technical_weight=line.technical_weight,
+            price_weight=line.price_weight,
+            split_award_allowed=line.split_award_allowed,
             shelf_life_tracked=rules.shelf_life_tracked(line),
+            catalog_spec=CatalogSpecOut(
+                unit_of_measure=product.unit_of_measure,
+                regulatory_class=product.regulatory_class,
+                approved_brands=product.approved_brands or [],
+                type_specific_attrs=product.type_specific_attrs or {},
+            ),
+            line_details=line.line_details or {},
+            attachments=[LineAttachmentOut.model_validate(a) for a in line.attachments],
         ),
         requirements=rules.requirements(line, bid),
         bid=rules.bid_out(bid) if bid else None,
@@ -116,13 +130,33 @@ def get_bid_form(line_item_id: int, vendor: Vendor = Depends(get_current_vendor)
     return _form(db, vendor, line, _own_bid(db, vendor, line))
 
 
-@router.put("/line/{line_item_id}", response_model=BidFormOut)
-def save_bid(line_item_id: int, payload: BidSave, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
-    """Save a draft, submit, or amend a submitted bid (until the deadline).
-    A submitted bid must stay complete: an amendment that would leave a
-    required field or mandatory attachment missing is refused."""
+@router.get("/line/{line_item_id}/spec-attachments/{attachment_id}/download")
+def download_spec_attachment(line_item_id: int, attachment_id: int, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """The officer's own line-item documents (SOW, technical spec sheet,
+    engineering drawing, reference image -- spec §6.4), read-only, for a
+    vendor invited to this line. Deliberately separate from tenders.py's
+    staff-only download_line_attachment (get_current_user rejects a vendor
+    token, by design) -- this is its own vendor-scoped route, gated on the
+    invite rather than staff role."""
 
     line = _line(db, line_item_id)
+    invited = db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).first()
+    if not invited:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You were not invited to bid on this line item")
+    att = next((a for a in line.attachments if a.id == attachment_id), None)
+    if not att:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+    return Response(content=att.content, media_type=att.content_type, headers={"Content-Disposition": f'inline; filename="{att.original_filename}"'})
+
+
+def _apply_bid_save(db: Session, vendor: Vendor, line: TenderLineItem, payload: BidSave) -> Bid:
+    """Create/reopen/update one line's bid and run the submit gate if needed --
+    shared by the single-line PUT and the bulk grid-save PUT (2026-10-01) so
+    the rule (spec 8.4: a submitted bid must stay complete) isn't duplicated.
+    Raises HTTPException on any problem; the caller decides how much to roll
+    back (the whole request for a single line, just this line's savepoint
+    for a bulk save)."""
+
     rules.assert_can_bid(db, vendor, line)
 
     bid = _own_bid(db, vendor, line)
@@ -151,7 +185,6 @@ def save_bid(line_item_id: int, payload: BidSave, vendor: Vendor = Depends(get_c
         db.refresh(bid)
         problems = rules.submit_problems(bid, line)
         if problems:
-            db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Can't " + ("save this amendment" if was_submitted else "submit yet") + " — missing: " + "; ".join(problems),
@@ -169,9 +202,119 @@ def save_bid(line_item_id: int, payload: BidSave, vendor: Vendor = Depends(get_c
         if reopened:
             _audit(db, "bid.reopened", vendor, bid, line)
         _audit(db, "bid.draft_created" if created else "bid.draft_saved", vendor, bid, line, changed)
+    return bid
+
+
+@router.put("/line/{line_item_id}", response_model=BidFormOut)
+def save_bid(line_item_id: int, payload: BidSave, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Save a draft, submit, or amend a submitted bid (until the deadline).
+    A submitted bid must stay complete: an amendment that would leave a
+    required field or mandatory attachment missing is refused."""
+
+    line = _line(db, line_item_id)
+    try:
+        bid = _apply_bid_save(db, vendor, line, payload)
+    except HTTPException:
+        db.rollback()
+        raise
     db.commit()
     db.refresh(bid)
     return _form(db, vendor, line, bid)
+
+
+@router.get("/tender/{tender_id}", response_model=TenderBidsOut)
+def list_tender_bid_forms(tender_id: int, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Every line this vendor was invited to bid on within one tender, in a
+    single call -- backs the bid grid (2026-10-01), replacing the previous
+    /vendor-portal/tenders + one GET per line pattern."""
+
+    lines = (
+        db.query(TenderLineItem)
+        .join(TenderInvite, TenderInvite.tender_line_item_id == TenderLineItem.id)
+        .filter(TenderInvite.vendor_id == vendor.id, TenderLineItem.tender_id == tender_id)
+        .order_by(TenderLineItem.id)
+        .all()
+    )
+    if not lines:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No lines you're invited to bid on in this tender")
+    tender = lines[0].tender
+    forms = [_form(db, vendor, line, _own_bid(db, vendor, line)) for line in lines]
+    return TenderBidsOut(
+        tender_id=tender.id, tender_title=tender.title, tender_type=tender.tender_type,
+        tender_description=tender.description, facility_name=tender.facility.name,
+        terms_and_conditions=tender.terms_and_conditions, bid_due_date=tender.bid_due_date, lines=forms,
+    )
+
+
+@router.put("/tender/{tender_id}", response_model=list[BidBulkSaveResult])
+def bulk_save_bids(tender_id: int, payload: BidBulkSave, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Saves many lines' bids in one request -- the grid's "Save all drafts"
+    button and CSV import (2026-10-01), mirroring the tender line-item bulk
+    save. Each line is its own SAVEPOINT: one line failing (e.g. a submit
+    attempt missing a mandatory field) doesn't lose another line's save in
+    the same batch, matching the CSV importer's own partial-success pattern.
+    Pre-sweeps the vendor's expiry status once up front rather than letting
+    assert_can_bid's own sweep fire (and possibly commit) from inside a
+    per-line savepoint."""
+
+    if sweep_vendor(db, vendor):
+        db.commit()
+
+    results: list[BidBulkSaveResult] = []
+    for line_save in payload.lines:
+        line = db.get(TenderLineItem, line_save.line_item_id)
+        if not line or line.tender_id != tender_id:
+            results.append(BidBulkSaveResult(line_item_id=line_save.line_item_id, ok=False, error="Line item not found in this tender"))
+            continue
+        try:
+            with db.begin_nested():
+                bid = _apply_bid_save(db, vendor, line, line_save)
+                db.flush()
+        except HTTPException as e:
+            results.append(BidBulkSaveResult(line_item_id=line.id, ok=False, error=str(e.detail)))
+            continue
+        db.refresh(bid)
+        results.append(BidBulkSaveResult(line_item_id=line.id, ok=True, form=_form(db, vendor, line, bid)))
+    db.commit()
+    return results
+
+
+@router.post("/tender/{tender_id}/reopen", response_model=list[BidFormOut])
+def reopen_tender_bids(tender_id: int, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Undoes the tender-wide Submit Bid action (2026-10-01, user-directed:
+    bidding is one tender-level action from the vendor's side, not
+    independent per-line submit/withdraw/amend). Every SUBMITTED line's bid
+    in this tender reverts to Draft; submitted_at is cleared so a genuine
+    resubmission gets a fresh tie-break timestamp rather than keeping the
+    original one for what may now be materially different content."""
+
+    lines = (
+        db.query(TenderLineItem)
+        .join(TenderInvite, TenderInvite.tender_line_item_id == TenderLineItem.id)
+        .filter(TenderInvite.vendor_id == vendor.id, TenderLineItem.tender_id == tender_id)
+        .all()
+    )
+    if not lines:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No lines you're invited to bid on in this tender")
+    tender = lines[0].tender
+    if vendor.status != VendorStatus.ACTIVE:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only an Active, approved vendor may bid")
+    if tender.bid_due_date is None or datetime.now(timezone.utc) > tender.bid_due_date:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The bid deadline for this tender has passed")
+
+    reopened_any = False
+    for line in lines:
+        bid = _own_bid(db, vendor, line)
+        if bid and bid.status == BidStatus.SUBMITTED:
+            bid.status = BidStatus.DRAFT
+            bid.submitted_at = None
+            bid.amended_at = None
+            reopened_any = True
+            _audit(db, "bid.reopened_for_editing", vendor, bid, line)
+    if not reopened_any:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Nothing submitted to reopen")
+    db.commit()
+    return [_form(db, vendor, line, _own_bid(db, vendor, line)) for line in lines]
 
 
 @router.post("/{bid_id}/withdraw", response_model=BidFormOut)

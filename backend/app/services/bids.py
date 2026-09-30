@@ -189,6 +189,7 @@ def bid_out(bid: Bid) -> BidOut:
         technical_compliance=bid.technical_compliance,
         brand_offered=bid.brand_offered,
         details=bid.details or {},
+        comments=bid.comments,
         submitted_at=bid.submitted_at,
         amended_at=bid.amended_at,
         withdrawn_at=bid.withdrawn_at,

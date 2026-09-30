@@ -63,6 +63,11 @@ class Bid(Base):
     # validated per procurement type in app/schemas/bid.py.
     details = Column(JSON, nullable=False, default=dict)
 
+    # A free-text note the vendor can optionally add to their bid (2026-10-01,
+    # user-directed) -- never required, purely a place to add context the
+    # fixed fields above don't cover.
+    comments = Column(Text, nullable=True)
+
     submitted_at = Column(DateTime(timezone=True), nullable=True)  # first submission (tie-break, spec §9.3)
     amended_at = Column(DateTime(timezone=True), nullable=True)
     withdrawn_at = Column(DateTime(timezone=True), nullable=True)

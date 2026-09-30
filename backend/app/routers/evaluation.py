@@ -25,6 +25,8 @@ from app.schemas.evaluation import (
     LineDetailOut,
     LineSummaryOut,
     ResultOut,
+    TenderEvalDetailOut,
+    TenderEvalSummaryOut,
     VendorBidRow,
 )
 from app.schemas.override import OverrideDecision
@@ -79,9 +81,12 @@ def _summary(line: TenderLineItem, db: Session) -> LineSummaryOut:
     )
 
 
-@router.get("/lines", response_model=list[LineSummaryOut])
-def list_lines(db: Session = Depends(get_db), _user: UserAccount = Depends(require_role(*VIEWERS))):
-    award_rules.sweep_no_bid_lines(db)  # at the moment it matters: this screen is what "still Published" claims are read from
+@router.get("/tenders", response_model=list[TenderEvalSummaryOut])
+def list_eval_tenders(db: Session = Depends(get_db), _user: UserAccount = Depends(require_role(*VIEWERS))):
+    """The evaluation inbox (2026-10-01, user-directed): grouped by tender,
+    not a flat cross-tender line list -- mirrors GET /awards/tenders."""
+
+    award_rules.sweep_no_bid_lines(db)
     lines = (
         db.query(TenderLineItem)
         .join(Tender, TenderLineItem.tender_id == Tender.id)
@@ -89,7 +94,47 @@ def list_lines(db: Session = Depends(get_db), _user: UserAccount = Depends(requi
         .order_by(Tender.bid_due_date, TenderLineItem.id)
         .all()
     )
-    return [_summary(l, db) for l in lines]
+    by_tender: dict[int, list[TenderLineItem]] = {}
+    for l in lines:
+        by_tender.setdefault(l.tender_id, []).append(l)
+    out = []
+    for tender_lines in by_tender.values():
+        t = tender_lines[0].tender
+        summaries = [_summary(l, db) for l in tender_lines]
+        out.append(
+            TenderEvalSummaryOut(
+                tender_id=t.id, tender_title=t.title, tender_type=t.tender_type, tender_status=t.status,
+                facility_name=t.facility.name, bid_due_date=t.bid_due_date, line_count=len(tender_lines),
+                submitted_count=sum(s.submitted_count for s in summaries), evaluated_count=sum(s.evaluated_count for s in summaries),
+                open_count=sum(1 for s in summaries if s.phase != "technical_closed"),
+            )
+        )
+    out.sort(key=lambda x: (x.bid_due_date is None, x.bid_due_date))
+    return out
+
+
+@router.get("/tenders/{tender_id}", response_model=TenderEvalDetailOut)
+def tender_eval_detail(tender_id: int, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*VIEWERS))):
+    """Every published line of one tender in a single screen (2026-10-01,
+    user-directed) -- an evaluator opens a tender once and works through all
+    its lines together, instead of navigating a flat list line by line with
+    no sense of which lines share a tender."""
+
+    lines = (
+        db.query(TenderLineItem)
+        .join(Tender, TenderLineItem.tender_id == Tender.id)
+        .filter(Tender.id == tender_id, Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD]), TenderLineItem.published.is_(True))
+        .order_by(TenderLineItem.id)
+        .all()
+    )
+    if not lines:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No published lines to evaluate in this tender")
+    t = lines[0].tender
+    return TenderEvalDetailOut(
+        tender_id=t.id, tender_title=t.title, tender_type=t.tender_type, tender_status=t.status,
+        facility_name=t.facility.name, bid_due_date=t.bid_due_date,
+        lines=[line_detail(l.id, db, user) for l in lines],
+    )
 
 
 @router.get("/lines/{line_id}", response_model=LineDetailOut)

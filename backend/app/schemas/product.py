@@ -67,13 +67,35 @@ class CategoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SubCategoryCreate(BaseModel):
+    name: str
+    category_id: int
+
+    @field_validator("name")
+    @classmethod
+    def name_required(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Sub-category name is required")
+        return v
+
+
+class SubCategoryOut(BaseModel):
+    id: int
+    name: str
+    category_id: int
+    active: bool
+
+    model_config = {"from_attributes": True}
+
+
 class ProductCreate(BaseModel):
     code: str
     name: str
     description: str | None = None
     procurement_type: ProcurementType
     category_id: int
-    sub_category: str | None = None
+    sub_category_id: int | None = None
 
     # Spec 4.2 core details -- all optional, chosen per entry.
     unit_of_measure: str | None = None
@@ -112,6 +134,7 @@ class ProductOut(BaseModel):
     procurement_type: ProcurementType
     category_id: int
     category: str
+    sub_category_id: int | None
     sub_category: str | None
     unit_of_measure: str | None
     regulatory_class: str | None

@@ -4,9 +4,10 @@ import { api } from "../../api.js";
 // to whichever tab is showing. Ratings are one row per (vendor, type), so
 // they're keyed "vendorId:type" for quick lookup.
 export async function loadMappingData() {
-  const [vendors, categories, products, mappings, ratings] = await Promise.all([
+  const [vendors, categories, subCategories, products, mappings, ratings] = await Promise.all([
     api("/vendors/lookup"),
     api("/categories"),
+    api("/subcategories"),
     api("/products"),
     api("/mappings"),
     api("/ratings"),
@@ -15,10 +16,12 @@ export async function loadMappingData() {
   return {
     vendors,
     categories,
+    subCategories,
     products,
     mappings,
     vendorById: new Map(vendors.map((v) => [v.id, v])),
     categoryById: new Map(categories.map((c) => [c.id, c])),
+    subCategoryById: new Map(subCategories.map((s) => [s.id, s])),
     productById: new Map(products.map((p) => [p.id, p])),
     categoryMappingOf: (vendorId, categoryId) => mappings.find((m) => m.vendor_id === vendorId && m.category_id === categoryId),
     itemMappingOf: (vendorId, productId) => mappings.find((m) => m.vendor_id === vendorId && m.product_master_id === productId),

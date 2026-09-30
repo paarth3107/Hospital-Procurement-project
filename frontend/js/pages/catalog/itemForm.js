@@ -10,6 +10,6 @@ const ITEM_FIELDS = [
   { name: "alternate_brand_allowed", label: "Alternate/equivalent brand allowed", kind: "bool" },
 ];
 
-export function openItemForm(host, product, categories, onSaved, onCancel) {
-  renderProductForm({ host, procurementType: "item", typeLabel: "Item", typeFields: ITEM_FIELDS, product, categories, onSaved, onCancel });
+export function openItemForm(host, product, categories, subCategories, onSaved, onCancel) {
+  renderProductForm({ host, procurementType: "item", typeLabel: "Item", typeFields: ITEM_FIELDS, product, categories, subCategories, onSaved, onCancel });
 }
