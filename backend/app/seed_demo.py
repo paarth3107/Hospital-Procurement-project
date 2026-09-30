@@ -138,7 +138,7 @@ PRODUCTS = [
         reorder_level=50,
         price_band_min=6.0,
         price_band_max=12.0,
-        type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True, "storage_condition": "Store below 30 C, dry"},
+        type_specific_attrs={"pack_size": "100 pcs", "shelf_life_tracking": True, "storage_condition": "Store below 30 C, dry", "hsn_sac_code": "4015", "alternate_brand_allowed": True},
     ),
     dict(
         code="XRAY-MACH-001",
@@ -153,9 +153,14 @@ PRODUCTS = [
             "expected_useful_life_years": 10,
             "warranty_months": 24,
             "installation_required": True,
-            "amc_cmc_applicable": True,
+            "amc_cmc_type": "amc",  # stable equipment that still needs regular servicing, not prone to frequent breakage
+            "amc_cmc_procurement": "separate_service_tender",
             "compliance_certifications": ["CE", "AERB"],
             "site_readiness": "Lead-lined room, 3-phase power, ceiling load check",
+            "training_required": True,
+            "training_details": "2-day on-site operator training for radiology staff",
+            "spares_commitment_months": 84,
+            "insurance_requirement": "Transit and installation insurance required, hospital's blanket policy accepted",
         },
     ),
     dict(
@@ -167,10 +172,16 @@ PRODUCTS = [
         sub_category="Housekeeping",
         type_specific_attrs={
             "default_tenure_months": 12,
+            "renewal_terms": "Auto-renews annually unless terminated with 60 days' notice",
             "sla_response_time_hours": 2,
+            "sla_resolution_time_hours": 24,
             "sla_penalty_clauses": "1% of monthly fee per missed audit",
             "billing_basis": "fixed",
             "manpower_deployment_norms": "1 supervisor per 15 staff",
+            "insurance_requirement": "Vendor public liability insurance, minimum Rs. 10 lakh cover",
+            "exit_transition_clause": "90-day transition-out period with handover to incoming vendor",
+            "background_verification_required": True,
+            "statutory_compliance_notes": "Police verification certificate required for all deployed staff",
         },
     ),
     dict(
@@ -180,7 +191,10 @@ PRODUCTS = [
         procurement_type=ProcurementType.ASSET,
         category="Patient Care Equipment",
         sub_category="Critical Care",
-        type_specific_attrs={"warranty_months": 36, "installation_required": True, "compliance_certifications": ["ISO 13485"]},
+        type_specific_attrs={
+            "warranty_months": 36, "installation_required": True, "compliance_certifications": ["ISO 13485"],
+            "amc_cmc_type": "cmc", "amc_cmc_procurement": "bundled_with_purchase",  # mechanical, frequent-use equipment -- prone to wear
+        },
     ),
     dict(
         code="MED-SYRINGE-001",
@@ -203,7 +217,7 @@ PRODUCTS = [
         regulatory_class="Class III implant",
         approved_brands=["Zimmer Biomet", "Stryker"],
         min_mapping_rating=80.0,
-        type_specific_attrs={"pack_size": "1 set", "shelf_life_tracking": True, "storage_condition": "Sterile, room temperature"},
+        type_specific_attrs={"pack_size": "1 set", "shelf_life_tracking": True, "storage_condition": "Sterile, room temperature", "alternate_brand_allowed": False},
     ),
 ]
 

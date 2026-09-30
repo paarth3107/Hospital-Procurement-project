@@ -27,6 +27,7 @@ const PAGE_TITLES = {
   mappings: ["Module 2", "Vendor–Product Eligibility Matrix"],
   ratings: ["Module 3", "Vendor Rating & Scorecard"],
   tenders: ["Module 4", "E-Tender Creation"],
+  "tender-edit": ["Module 4", "E-Tender Creation"],
   approvals: ["Module 4B", "E-Tender Approval"],
   staff: ["Administration", "Staff Accounts"],
   audit: ["Administration", "Audit Log"],
@@ -85,7 +86,8 @@ export function switchView(view) {
   document.getElementById("view-" + view).hidden = false;
   setPageHead(view);
   refreshChrome();
-  document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+  const tabView = view === "tender-edit" ? "tenders" : view; // the editor is a sub-screen of Tenders, not its own tab
+  document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === tabView));
   if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
   if (view === "catalog") loadProducts();

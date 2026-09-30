@@ -202,6 +202,11 @@
 
   <section id="view-tenders" class="view" hidden>
     <div id="tender-list-root"></div>
+    <div id="tender-list-result" class="result"></div>
+  </section>
+
+  <section id="view-tender-edit" class="view" hidden>
+    <button class="back-link" data-view="tenders">← Back to tenders</button>
 
     <form id="tender-form" class="ep-form" hidden novalidate>
       <div id="tender-status-notice" class="ep-note" hidden></div>
@@ -233,20 +238,25 @@
             <div class="ep-field"><div class="ep-k">Default rating threshold</div><input class="input" name="min_rating_threshold" type="number" step="0.1" value="0"></div>
             <div class="ep-field"><div class="ep-k">Min vendors to invite (optional)</div><input class="input" name="min_invites" type="number" min="1"></div>
             <div class="ep-field"><div class="ep-k">Max vendors to invite (optional)</div><input class="input" name="max_invites" type="number" min="1"></div>
-            <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Title</div><input class="input" name="title" required></div>
-            <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Description</div><input class="input" name="description"></div>
+            <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Title</div><input class="input" name="title" required></div>
+            <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Description</div><input class="input" name="description"></div>
             <div class="ep-field" style="grid-column:span 4"><div class="ep-k">Terms &amp; conditions (optional)</div><textarea class="input" name="terms_and_conditions" rows="2" style="resize:vertical" placeholder="Payment terms, delivery terms, penalty clauses, validity period"></textarea></div>
           </div>
         </fieldset>
       </div>
 
-      <div style="display:flex;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:14px;font-weight:800">Line items</span>
-        <span class="hint">each line is evaluated and awarded independently</span>
+        <span class="hint">each line is evaluated and awarded independently · click Details for type-specific fields</span>
         <div style="flex:1"></div>
-        <button type="button" class="ep-b" id="add-line-item-btn">+ Add line item</button>
+        <button type="button" class="ep-b" id="li-download-template-btn">Download CSV template</button>
+        <button type="button" class="ep-b" id="li-upload-csv-btn">Upload CSV</button>
+        <input type="file" id="li-csv-file-input" accept=".csv" hidden>
+        <button type="button" class="ep-b" id="add-line-item-btn">+ Add row</button>
+        <button type="button" class="ep-b" id="add-10-line-items-btn">+ Add 10 rows</button>
       </div>
-      <div id="tender-line-items" style="display:flex;flex-direction:column;gap:18px"></div>
+      <div id="li-import-errors" class="ep-note warn" hidden></div>
+      <div id="tender-line-items"></div>
 
       <div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:14px;border-left:3px solid #ec3013" id="tender-form-actions">
         <div style="flex:1">

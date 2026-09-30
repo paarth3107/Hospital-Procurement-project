@@ -3,51 +3,50 @@
 // pattern (see ../catalog/formKit.js) and app/schemas/line_details.py on the
 // backend exactly. Rendered generically by tenderLineItems.js.
 
+// One generic "anything else" box, identical across all three types --
+// replaces the old Item-only "technical_spec_override" framing (2026-10-01,
+// user-directed: a plain comments field fits better than a fake "technical
+// override," and there's no reason Asset/Service couldn't use the same thing).
+const COMMENTS_FIELD = { name: "comments", label: "Comments (optional)", kind: "textarea" };
+
+// hsn_sac_code and alternate_brand_allowed are deliberately NOT here -- both
+// are fixed catalog classification facts (tax code; generic-substitution
+// policy for this item), not things that vary per tender (2026-10-01,
+// user-directed).
 const ITEM_LINE_FIELDS = [
-  { name: "hsn_sac_code", label: "HSN/SAC code", kind: "text" },
-  { name: "alternate_brand_allowed", label: "Alternate/equivalent brand allowed", kind: "bool" },
   { name: "delivery_date", label: "Required delivery date", kind: "date" },
   { name: "delivery_location", label: "Required delivery location", kind: "text" },
-  { name: "technical_spec_override", label: "Technical specification — line-specific notes (in addition to master spec)", kind: "textarea" },
+  COMMENTS_FIELD,
 ];
 
+// required_certifications, warranty_requirement_months, brand_restriction,
+// installation_notes, training_required/details, spares_commitment_months,
+// insurance_requirement, and the AMC/CMC arrangement are deliberately NOT
+// here -- they're all fixed facts about the asset itself (see the read-only
+// "Catalog spec" line above these fields). Pull from the master item; only
+// ask what it can't answer.
 const ASSET_LINE_FIELDS = [
-  { name: "required_certifications", label: "Required certifications (CE, BIS, ISO, FDA…)", kind: "list" },
-  { name: "brand_restriction", label: "Brand restriction", kind: "text" },
-  { name: "warranty_requirement_months", label: "Warranty required (months)", kind: "number" },
-  {
-    name: "amc_cmc_arrangement", label: "Post-warranty AMC/CMC", kind: "select",
-    options: [["this_line", "Quoted as part of this line"], ["linked_service_line", "Quoted as a linked Service line"], ["none", "Not required"]],
-  },
-  { name: "installation_notes", label: "Installation / commissioning & site-readiness notes", kind: "textarea" },
-  { name: "training_required", label: "Training required", kind: "bool" },
-  { name: "training_details", label: "Training details (sessions, duration)", kind: "text", showWhen: { training_required: "true" } },
-  { name: "spares_commitment_months", label: "Spare-parts/serviceability commitment (months)", kind: "number" },
   { name: "exchange_buyback", label: "Old asset exchange / buy-back", kind: "bool" },
   { name: "exchange_asset_reference", label: "Reference asset ID being exchanged", kind: "text", showWhen: { exchange_buyback: "true" } },
   { name: "delivery_date", label: "Required delivery / installation date", kind: "date" },
   { name: "delivery_location", label: "Required delivery / installation location", kind: "text" },
+  COMMENTS_FIELD,
 ];
 
+// scope_of_work, sla_response_time_hours, sla_uptime_pct, sla_resolution_time_hours,
+// sla_penalty_clauses, billing_basis, manpower_deployment_norms,
+// background_verification_required, statutory_compliance_notes,
+// renewal_terms, insurance_requirement, exit_transition_clause and
+// license_ip_terms_notes are deliberately NOT here -- they're all standing
+// policy for this service category (see the read-only "Catalog spec" line
+// above these fields), or (license_ip_terms_notes) are already fully covered
+// by the catalog's software-specific fields plus the vendor's own bid
+// attachments. A Service line's mandatory SOW (spec §6.3.5) is enforced as a
+// catalog-completeness check at submission, not asked again here.
 const SERVICE_LINE_FIELDS = [
-  { name: "scope_of_work", label: "Scope of Work (SOW)", kind: "textarea" },
-  { name: "tenure_months", label: "Service tenure/duration (months)", kind: "number" },
-  { name: "renewal_terms", label: "Renewal terms", kind: "text" },
-  { name: "sla_response_time_hours", label: "SLA — response time (hours)", kind: "number" },
-  { name: "sla_uptime_pct", label: "SLA — uptime (%)", kind: "number" },
-  { name: "sla_resolution_time_hours", label: "SLA — resolution time (hours)", kind: "number" },
-  { name: "sla_penalty_clauses", label: "SLA — penalty / liquidated-damages clauses", kind: "textarea" },
-  {
-    name: "billing_basis", label: "Billing basis", kind: "select",
-    options: [["fixed", "Fixed periodic fee"], ["consumption", "Consumption-based"], ["milestone", "Milestone-based"]],
-  },
-  { name: "manpower_deployment_norms", label: "Manpower deployment norms (headcount, shifts, qualifications)", kind: "textarea" },
-  { name: "background_verification_required", label: "Background verification / statutory compliance required", kind: "bool" },
-  { name: "statutory_compliance_notes", label: "Statutory compliance notes (police verification, PF/ESI…)", kind: "textarea", showWhen: { background_verification_required: "true" } },
-  { name: "insurance_requirement", label: "Insurance / indemnity requirement", kind: "text" },
-  { name: "exit_transition_clause", label: "Exit / transition clause", kind: "textarea" },
+  { name: "tenure_months", label: "Service tenure/duration (months) — catalog default shown, override if this engagement differs", kind: "number" },
   { name: "service_locations", label: "Service location(s)", kind: "list" },
-  { name: "license_ip_terms_notes", label: "License / IP terms — line-specific notes (software lines)", kind: "textarea" },
+  COMMENTS_FIELD,
 ];
 
 export const LINE_DETAIL_FIELDS_BY_TYPE = {

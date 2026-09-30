@@ -1,12 +1,16 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
+import { switchView } from "../../nav.js";
 import { esc, stateTag, th, emptyRow, fmtDateTime, pageSlice, paginationBar, wirePagination } from "../../kit.js";
-import { initTenderForm, openTenderForm, closeTenderForm, isFormOpen } from "./tenderForm.js";
+import { initTenderForm, openTenderForm } from "./tenderForm.js";
 
-// ---- Tenders: the list, with "+ New tender" and Manage opening the editor
-// form (tenderForm.js) below it. ----
+// ---- Tenders: the list, on its own screen. "+ New tender" and Manage open
+// the editor (tenderForm.js) as its own separate screen (2026-10-01,
+// previously stacked below this list on the same page -- editing a tender
+// with many line items meant scrolling back up past the whole list). ----
 const root = () => document.getElementById("tender-list-root");
-const resultEl = () => document.getElementById("tender-result");
+const resultEl = () => document.getElementById("tender-list-result");
+const editResultEl = () => document.getElementById("tender-result");
 
 const TYPE_LABEL = { rfq: "RFQ", rfp: "RFP", rate_contract: "Rate contract" };
 
@@ -51,7 +55,10 @@ function render() {
     }</tbody></table>
     ${paginationBar(page, totalPages, "tenders-prev", "tenders-next")}
   </div>`;
-  root().querySelector("#add-tender-btn").addEventListener("click", () => (isFormOpen() ? closeTenderForm() : openTenderForm(null)));
+  root().querySelector("#add-tender-btn").addEventListener("click", () => {
+    switchView("tender-edit");
+    openTenderForm(null);
+  });
   root().querySelector("#show-closed-tenders").addEventListener("change", (e) => {
     showClosed = e.target.checked;
     page = 0;
@@ -67,10 +74,11 @@ function render() {
 // Opens a specific tender's editor directly -- used by the Manage button here
 // and by other pages (e.g. the Officer's dashboard) navigating in from a task.
 export async function openTenderById(id) {
+  switchView("tender-edit");
   try {
     openTenderForm(await api(`/tenders/${id}`));
   } catch (err) {
-    showResult(resultEl(), "Could not load tender: " + err.message, false);
+    showResult(editResultEl(), "Could not load tender: " + err.message, false);
   }
 }
 

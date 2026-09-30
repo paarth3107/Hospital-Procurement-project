@@ -6,13 +6,25 @@ from app.models.product_master import ProcurementType
 from app.models.tender import TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision
 from app.models.tender_line_item import TechnicalEvalMethod
+from app.models.tender_attachment import TenderLineAttachmentKind
 from app.schemas.line_details import LINE_DETAILS_BY_TYPE
 
 
 class LineItemCreate(BaseModel):
+    # Set only when this payload is updating an existing line (PUT on an
+    # existing Draft tender) -- lets _set_line_items match against the
+    # existing row instead of deleting and recreating it, which would
+    # cascade-delete that line's attachments (2026-10-01: attachments are
+    # user-uploaded content, unlike TenderInvite rows, which really are
+    # meant to be recomputed fresh on every save).
+    id: int | None = None
     product_master_id: int
     procurement_type: ProcurementType
-    qty: float
+    # Optional (2026-10-01, user-directed): a line only needs a resolved
+    # catalog entry to be saved and get a real id (documents can then be
+    # attached to it) -- qty, like Tender.facility_id/title, is required only
+    # from submit-for-approval onward, not at every draft save.
+    qty: float | None = None
     estimated_price: float | None = None
     split_award_allowed: bool = False
     min_rating_threshold_override: float | None = None
@@ -23,20 +35,19 @@ class LineItemCreate(BaseModel):
 
     @field_validator("qty")
     @classmethod
-    def qty_positive(cls, v: float) -> float:
-        if v <= 0:
+    def qty_positive(cls, v: float | None) -> float | None:
+        # None is allowed (draft, not yet filled in) -- only a genuinely
+        # invalid non-null value is rejected here. Required-ness is enforced
+        # at submit-for-approval instead (tenders.py), same split as
+        # Tender.facility_id/title.
+        if v is not None and v <= 0:
             raise ValueError("qty must be greater than zero")
         return v
 
-    @model_validator(mode="after")
-    def qcbs_needs_weights(self):
-        # Spec §9.4: QCBS's Technical/Price Weight is "configurable per line item" --
-        # caught here, at save time, rather than only at commercial-evaluation time
-        # (app/services/commercial_evaluation.py's own check) after bids have closed.
-        if self.technical_eval_method == TechnicalEvalMethod.QCBS:
-            if not self.technical_weight or not self.price_weight or self.technical_weight <= 0 or self.price_weight <= 0:
-                raise ValueError("A QCBS line needs a positive technical weight and price weight")
-        return self
+    # Note: QCBS's Technical/Price Weight requirement (spec §9.4) is NOT
+    # enforced here -- a draft line may have QCBS chosen with weights not
+    # filled in yet. Enforced at submit-for-approval instead (tenders.py),
+    # same split as qty above.
 
     @model_validator(mode="after")
     def clean_line_details(self):
@@ -51,10 +62,15 @@ class LineItemCreate(BaseModel):
 
 class TenderCreate(BaseModel):
     """Also the body of PUT (full replace of a Draft): line_items, when
-    given, replaces the tender's whole line-item list."""
+    given, replaces the tender's whole line-item list.
 
+    facility_id is optional here (2026-10-01, user-directed): a Draft
+    tolerates it being unset, same as everything else about a Draft --
+    required only at submit-for-approval time (tenders.py), since that's
+    the point everything downstream (approval matrix, PO facility code)
+    actually needs a real one."""
 
-    facility_id: int
+    facility_id: int | None = None
     title: str
     description: str | None = None
     tender_type: TenderType
@@ -70,7 +86,7 @@ class TenderCreate(BaseModel):
 
 class TenderOut(BaseModel):
     id: int
-    facility_id: int
+    facility_id: int | None
     title: str
     description: str | None
     tender_type: TenderType
@@ -89,12 +105,24 @@ class TenderOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LineAttachmentOut(BaseModel):
+    id: int
+    kind: TenderLineAttachmentKind
+    custom_label: str | None
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    uploaded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class LineItemOut(BaseModel):
     id: int
     tender_id: int
     product_master_id: int
     procurement_type: ProcurementType
-    qty: float
+    qty: float | None
     estimated_price: float | None
     split_award_allowed: bool
     published: bool
@@ -103,6 +131,7 @@ class LineItemOut(BaseModel):
     technical_weight: float | None
     price_weight: float | None
     line_details: dict
+    attachments: list[LineAttachmentOut] = []
     created_at: datetime
 
     model_config = {"from_attributes": True}

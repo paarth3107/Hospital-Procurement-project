@@ -1,20 +1,25 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.bid import Bid, BidStatus
-from app.models.product_master import ProductMaster
+from app.models.facility import Facility
+from app.models.product_master import ProcurementType, ProductMaster
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
-from app.models.tender_line_item import TenderLineItem
+from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
+from app.models.tender_attachment import TenderLineAttachment, TenderLineAttachmentKind
+from app.services import document_store
 from app.models.user_account import Role, UserAccount
 from app.schemas.tender import (
     ApprovalPayload,
     ApprovalRoundOut,
     EligibleVendorOut,
+    LineAttachmentOut,
     LineItemCreate,
     LineItemEligibilityOut,
     LineItemOut,
@@ -57,12 +62,25 @@ def _audit_label(tender: Tender) -> str:
     return f"#{tender.id} {tender.title}"
 
 
+def _validate_facility(facility_id: int | None, db: Session) -> None:
+    """None is fine -- a Draft tolerates an unset facility (2026-10-01,
+    user-directed); required only at submit (see the facility check in
+    submit_for_approval). A facility_id that IS given but doesn't exist is
+    still rejected here rather than reaching the INSERT as a dangling
+    foreign key and crashing with a raw IntegrityError, same as an unknown
+    catalog entry already gets in _validate_line_item."""
+
+    if facility_id is not None and db.get(Facility, facility_id) is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown facility")
+
+
 @router.post("", response_model=TenderOut, status_code=status.HTTP_201_CREATED)
 def create_tender(
     payload: TenderCreate,
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
+    _validate_facility(payload.facility_id, db)
     tender = Tender(**payload.model_dump(exclude={"line_items"}), created_by_id=user.id)
     db.add(tender)
     db.flush()
@@ -129,10 +147,9 @@ def _check_evaluation_lock(tender: Tender, items: list[LineItemCreate], db: Sess
     not Tender.published_at -- withdraw_to_draft clears that field on every
     revert, but round history is permanent (spec §7.3: a round is never
     overwritten), so it survives a revert-then-edit the way this rule needs
-    to. Matched by catalog entry, since a line item has no stable id across
-    saves (_set_line_items replaces the whole list every time) -- so this
-    also blocks the "remove and re-add the same item" way around it, which
-    is the point: there's no unapproved path, per spec §12."""
+    to. Matched by catalog entry rather than id -- deliberately, so removing
+    a locked line and re-adding the same catalog entry as a "new" one doesn't
+    dodge the lock either; there's no unapproved path around it, per spec §12."""
 
     ever_published = (
         db.query(TenderApprovalRound)
@@ -159,17 +176,32 @@ def _check_evaluation_lock(tender: Tender, items: list[LineItemCreate], db: Sess
 
 def _set_line_items(tender: Tender, items: list[LineItemCreate], db: Session) -> None:
     """Replaces the tender's whole line-item list (Draft only -- callers
-    check). Old rows go through the ORM so their persisted invites cascade
-    away too; invites are recomputed at submit anyway."""
+    check), matching incoming rows to existing ones by id (2026-10-01) rather
+    than deleting and recreating every row: a line item can now carry
+    attachments (app/models/tender_attachment.py), which are user-uploaded
+    content, not derived data like TenderInvite -- wiping and reinserting the
+    row on every save would cascade-delete them. A payload row with no id
+    (or one that doesn't match) is a genuinely new line; an existing row
+    whose id isn't in the payload was removed, and its invites/attachments
+    cascade away with it as before."""
 
     for item in items:
         _validate_line_item(item, db)
     _check_evaluation_lock(tender, items, db)
-    for old in list(tender.line_items):
-        db.delete(old)
-    db.flush()
+    existing_by_id = {li.id: li for li in tender.line_items}
+    keep_ids = set()
     for item in items:
-        db.add(TenderLineItem(tender_id=tender.id, **item.model_dump()))
+        data = item.model_dump(exclude={"id"})
+        existing = existing_by_id.get(item.id) if item.id is not None else None
+        if existing is not None:
+            for field, value in data.items():
+                setattr(existing, field, value)
+            keep_ids.add(existing.id)
+        else:
+            db.add(TenderLineItem(tender_id=tender.id, **data))
+    for old_id, old in existing_by_id.items():
+        if old_id not in keep_ids:
+            db.delete(old)
     db.flush()
     db.expire(tender, ["line_items"])
 
@@ -190,6 +222,7 @@ def update_draft_tender(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Tender is in status '{tender.status.value}'; it can only be edited while Draft",
         )
+    _validate_facility(payload.facility_id, db)
     header_keys = list(payload.model_dump(exclude={"line_items"}).keys())
     old = snapshot(tender, header_keys)
     old_lines = len(tender.line_items)
@@ -224,7 +257,7 @@ def add_line_item(
             detail=f"Catalog entry #{product.id} is a '{product.procurement_type.value}', not '{payload.procurement_type.value}'",
         )
 
-    line_item = TenderLineItem(tender_id=tender_id, **payload.model_dump())
+    line_item = TenderLineItem(tender_id=tender_id, **payload.model_dump(exclude={"id"}))
     db.add(line_item)
     db.flush()
     record(
@@ -239,7 +272,108 @@ def add_line_item(
 @router.get("/{tender_id}/line-items", response_model=list[LineItemOut])
 def list_line_items(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
     _load_tender(tender_id, db)
-    return db.query(TenderLineItem).filter(TenderLineItem.tender_id == tender_id).all()
+    # Ordered by id (2026-10-01): _set_line_items only ever updates an
+    # existing row in place or appends a new one, never inserts into the
+    # middle, so id-ascending is the same order the grid had them in --
+    # needed so the frontend's row-index bookkeeping (which Details panel is
+    # open, mid-attaching a document) still points at the right row after a
+    # save-triggered refresh.
+    return db.query(TenderLineItem).filter(TenderLineItem.tender_id == tender_id).order_by(TenderLineItem.id).all()
+
+
+def _load_line_item(tender_id: int, line_item_id: int, db: Session) -> TenderLineItem:
+    line = db.get(TenderLineItem, line_item_id)
+    if not line or line.tender_id != tender_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender line item not found")
+    return line
+
+
+def _load_attachment(line: TenderLineItem, attachment_id: int) -> TenderLineAttachment:
+    att = next((a for a in line.attachments if a.id == attachment_id), None)
+    if not att:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+    return att
+
+
+@router.post("/{tender_id}/line-items/{line_item_id}/attachments", response_model=LineAttachmentOut, status_code=status.HTTP_201_CREATED)
+async def add_line_attachment(
+    tender_id: int,
+    line_item_id: int,
+    kind: TenderLineAttachmentKind = Form(...),
+    custom_label: str | None = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Spec §6.4 line-item attachments -- SOW document (Service), technical
+    spec sheet (Asset), engineering drawing, reference/sample image. Only
+    while the tender is Draft, same as the line items themselves."""
+
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    line = _load_line_item(tender_id, line_item_id, db)
+
+    content = await file.read()
+    try:
+        document_store.validate(file.content_type or "", len(content), allow_office=True)
+    except document_store.DocumentValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    document_store.scan(content)
+
+    att = TenderLineAttachment(
+        tender_line_item_id=line.id,
+        kind=kind,
+        custom_label=(custom_label or "").strip() or None,
+        original_filename=file.filename,
+        content_type=file.content_type,
+        size_bytes=len(content),
+        content=content,
+        uploaded_by_id=user.id,
+    )
+    db.add(att)
+    db.flush()
+    record(
+        db, "tender.line_attachment_added", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        meta={"line_item_id": line.id, "kind": kind.value, "filename": file.filename},
+    )
+    db.commit()
+    db.refresh(att)
+    return att
+
+
+@router.delete("/{tender_id}/line-items/{line_item_id}/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_line_attachment(
+    tender_id: int,
+    line_item_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    line = _load_line_item(tender_id, line_item_id, db)
+    att = _load_attachment(line, attachment_id)
+    kind, filename = att.kind, att.original_filename
+    db.delete(att)
+    db.flush()
+    record(
+        db, "tender.line_attachment_removed", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        meta={"line_item_id": line.id, "kind": kind.value, "filename": filename},
+    )
+    db.commit()
+
+
+@router.get("/{tender_id}/line-items/{line_item_id}/attachments/{attachment_id}/download")
+def download_line_attachment(
+    tender_id: int,
+    line_item_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    _user: UserAccount = Depends(get_current_user),
+):
+    line = _load_line_item(tender_id, line_item_id, db)
+    att = _load_attachment(line, attachment_id)
+    return Response(content=att.content, media_type=att.content_type, headers={"Content-Disposition": f'inline; filename="{att.original_filename}"'})
 
 
 @router.get("/{tender_id}/eligibility-preview", response_model=list[LineItemEligibilityOut])
@@ -306,10 +440,55 @@ def submit_for_approval(
     tender = _load_tender(tender_id, db)
     _require_draft(tender)
 
+    # facility_id/title are optional while Draft (2026-10-01, user-directed)
+    # but genuinely required from here on: the approval matrix is resolved
+    # per facility, and the PO data file (spec §10.4) carries a facility/
+    # entity code -- neither can proceed with a null one.
+    if not tender.facility_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Facility must be set before submission")
+    if not tender.title or not tender.title.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title must be set before submission")
     if not tender.line_items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A tender needs at least one line item before submission")
     if not tender.bid_due_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be set before submission")
+
+    # qty/QCBS-weights are optional at draft-save time (schemas/tender.py) so
+    # a line can be saved -- and have documents attached -- as soon as it
+    # identifies a catalog entry; genuinely required only from here on, same
+    # split as facility_id/title above.
+    for li in tender.line_items:
+        if not li.qty or li.qty <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Line item '{li.product.name}' needs a quantity greater than zero before submission",
+            )
+        if li.technical_eval_method == TechnicalEvalMethod.QCBS and (
+            not li.technical_weight or li.technical_weight <= 0 or not li.price_weight or li.price_weight <= 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Line item '{li.product.name}' (QCBS) needs both a technical weight and a price weight before submission",
+            )
+
+    # Spec §6.3.5/§6.4/§6.4.1: "a Service line cannot be submitted for approval
+    # without a Scope of Work" -- an attached SOW_DOCUMENT on that specific
+    # tender line, not the catalog entry (2026-10-01, user-directed: two
+    # Service lines in the same tender can need two entirely different SOWs,
+    # so this can't be a fact about the catalog entry they share). The
+    # catalog's sow_template (spec §4.2.1) is a non-binding starting point a
+    # line's attachment can be drafted from, never what satisfies this gate.
+    missing_sow = [
+        li.product.name
+        for li in tender.line_items
+        if li.procurement_type == ProcurementType.SERVICE
+        and not any(a.kind == TenderLineAttachmentKind.SOW_DOCUMENT for a in li.attachments)
+    ]
+    if missing_sow:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"These Service line(s) need an attached Scope of Work document before this tender can be submitted: {', '.join(missing_sow)}",
+        )
 
     # A line with zero eligible vendors doesn't block the tender: it is held
     # back (not published) while the other lines proceed. Only a tender where

@@ -29,7 +29,11 @@ class TenderLineItem(Base):
     # change if the catalog entry is edited after the tender is drafted.
     procurement_type = Column(Enum(ProcurementType), nullable=False)
 
-    qty = Column(Float, nullable=False)
+    # Nullable (2026-10-01, user-directed): a line can be saved -- and have
+    # documents attached to it -- as soon as it identifies a catalog entry,
+    # same draft-tolerates-everything principle as Tender.facility_id.
+    # Required only from submit_for_approval onward.
+    qty = Column(Float, nullable=True)
     # Spec §6.3.1/6.3.2/6.3.3 "reference only, not shown to vendors" — used
     # for the approval-value band (app/services/approval_matrix.py) and bid
     # variance checks later (Phase 4+), never serialized to a vendor-facing
@@ -64,3 +68,4 @@ class TenderLineItem(Base):
     tender = relationship("Tender", back_populates="line_items")
     product = relationship("ProductMaster")
     invites = relationship("TenderInvite", back_populates="line_item", cascade="all, delete-orphan")
+    attachments = relationship("TenderLineAttachment", back_populates="line_item", cascade="all, delete-orphan", order_by="TenderLineAttachment.id")

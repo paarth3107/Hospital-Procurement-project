@@ -1,15 +1,17 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { modalConfirm } from "../../modal.js";
-import { setCatalog, setRows, startWithOneBlankRow, getRows, rowsForPayload, firstRowProblem, onLinesChanged, totalBudget } from "./tenderLineItems.js";
+import { switchView } from "../../nav.js";
+import { setCatalog, setTenderId, setRows, applySavedLineItems, startWithOneBlankRow, getRows, rowsForPayload, firstRowProblem, onLinesChanged, onNeedSave, totalBudget } from "./tenderLineItems.js";
 import { inr, tag } from "../../kit.js";
 import { showTenderDetail, hideTenderDetail } from "./tenderDetail.js";
 
-// ---- The tender editor form ----
-// One form serves both "New Tender" and editing an existing Draft: all
-// header fields plus the full line-item list live in it, and "Save as
-// Draft" / "Submit for Approval" both persist everything first (POST for
-// new, PUT for existing). Non-Draft tenders open read-only.
+// ---- The tender editor form -- its own screen (2026-10-01), reached from
+// the Tenders list's "+ New tender" / "Manage". One form serves both "New
+// Tender" and editing an existing Draft: all header fields plus the full
+// line-item list live in it, and "Save as Draft" / "Submit for Approval"
+// both persist everything first (POST for new, PUT for existing). Non-Draft
+// tenders open read-only. ----
 const form = document.getElementById("tender-form");
 const resultEl = document.getElementById("tender-result");
 
@@ -18,7 +20,6 @@ let currentStatus = "draft";
 let onTendersChanged = () => {};
 
 export const initTenderForm = (callbacks) => (onTendersChanged = callbacks.onTendersChanged);
-export const isFormOpen = () => !form.hidden;
 
 async function populateFacilityPicker() {
   const select = form.elements.facility_id;
@@ -54,7 +55,8 @@ function updateGate() {
   }
   const rows = getRows();
   let problem = null;
-  if (!form.elements.title.value.trim()) problem = ["Title missing", "Give the tender a title before sending it for approval."];
+  if (!form.elements.facility_id.value) problem = ["Facility missing", "Select a facility before sending it for approval."];
+  else if (!form.elements.title.value.trim()) problem = ["Title missing", "Give the tender a title before sending it for approval."];
   else if (!form.elements.bid_due_date.value) problem = ["Bid due date missing", "A bid due date is required before the tender can be sent for approval."];
   else if (rows.length === 0) problem = ["No line items", "Add at least one line item."];
   else if (firstRowProblem()) problem = ["Line item incomplete", firstRowProblem()];
@@ -75,9 +77,28 @@ function toLocalInputValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Shared between the initial load and the refresh after every save -- a
+// freshly-created line only gets a real id (and so becomes attachment-
+// capable) once the backend has assigned one.
+const mapApiLineItems = (items) =>
+  items.map((li) => ({
+    id: li.id,
+    product_master_id: li.product_master_id,
+    qty: li.qty,
+    estimated_price: li.estimated_price,
+    technical_eval_method: li.technical_eval_method,
+    technical_weight: li.technical_weight,
+    price_weight: li.price_weight,
+    split_award_allowed: li.split_award_allowed,
+    min_rating_threshold_override: li.min_rating_threshold_override,
+    line_details: li.line_details,
+    attachments: li.attachments || [],
+  }));
+
 export async function openTenderForm(tender) {
   currentTenderId = tender ? tender.id : null;
   currentStatus = tender ? tender.status : "draft";
+  setTenderId(currentTenderId);
   form.reset();
   form.hidden = false;
   await Promise.all([populateFacilityPicker(), loadCatalog()]);
@@ -96,18 +117,7 @@ export async function openTenderForm(tender) {
     el.bid_due_date.value = tender.bid_due_date ? toLocalInputValue(tender.bid_due_date) : "";
     el.publish_date.value = tender.publish_date ? toLocalInputValue(tender.publish_date) : "";
     const items = await api(`/tenders/${tender.id}/line-items`);
-    setRows(
-      items.map((li) => ({
-        product_master_id: li.product_master_id,
-        qty: li.qty,
-        estimated_price: li.estimated_price,
-        technical_eval_method: li.technical_eval_method,
-        technical_weight: li.technical_weight,
-        price_weight: li.price_weight,
-        split_award_allowed: li.split_award_allowed,
-        min_rating_threshold_override: li.min_rating_threshold_override,
-      }))
-    );
+    setRows(mapApiLineItems(items));
     showTenderDetail(tender.id, tender.status);
   } else {
     startWithOneBlankRow();
@@ -124,6 +134,8 @@ export function closeTenderForm() {
   form.hidden = true;
   hideTenderDetail();
   currentTenderId = null;
+  setTenderId(null);
+  switchView("tenders");
 }
 
 // Everything is editable only while Draft; anything else is read-only, with
@@ -172,7 +184,10 @@ async function revertToDraft(tenderId) {
 function buildPayload() {
   const data = Object.fromEntries(new FormData(form).entries());
   return {
-    facility_id: Number(data.facility_id),
+    // "" (nothing picked yet) must stay null, not Number("") === 0 -- 0
+    // isn't a real facility id, and a Draft is allowed to not have one yet
+    // (2026-10-01, user-directed: only Submit requires it).
+    facility_id: data.facility_id ? Number(data.facility_id) : null,
     title: data.title,
     description: data.description || null,
     tender_type: data.tender_type,
@@ -198,28 +213,63 @@ async function heldLineNames(tenderId) {
 }
 
 function submitProblem() {
+  if (!form.elements.facility_id.value) return "Select a facility before submitting for approval.";
+  if (!form.elements.title.value.trim()) return "Give the tender a title before submitting for approval.";
   if (!form.elements.bid_due_date.value) return "Bid Due Date is required to submit for approval.";
   if (getRows().length === 0) return "Add at least one line item to submit for approval.";
   return null;
 }
 
+// Shared by the "Save as Draft" button and the attachment grid's silent
+// auto-save (tenderLineItems.js's onNeedSave -- there's no "save first" wall
+// before attaching a document, this runs transparently instead). Deliberately
+// does NOT check firstRowProblem() -- that's a whole-grid "is this ready for
+// Submit" check, and a draft must tolerate rows still being filled in.
+// rowsForPayload() already leaves out whatever isn't savable yet (2026-10-01,
+// user-directed); this only ever persists what actually is. Throws on
+// failure rather than showing its own error when silent, so the caller
+// (e.g. the upload flow) can report it in context.
+async function saveDraft({ silent = false } = {}) {
+  if (currentStatus !== "draft") throw new Error("This tender can only be edited while Draft.");
+  // No header-field requirements here on purpose (2026-10-01, user-directed):
+  // a Draft saves whatever's there, null and all -- Facility/Title/etc. are
+  // only actually required once Submit is clicked (submitProblem() below),
+  // same principle as firstRowProblem() only gating Submit, not every save.
+  const options = { headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload()) };
+  const tender = currentTenderId
+    ? await api(`/tenders/${currentTenderId}`, { method: "PUT", ...options })
+    : await api("/tenders", { method: "POST", ...options });
+  currentTenderId = tender.id;
+  setTenderId(tender.id);
+  // Apply the saved result onto the existing rows in place -- never a
+  // wholesale reload, which would wipe out any row that wasn't savable yet
+  // (so absent from this response) along with whatever's still being typed
+  // into it.
+  const items = await api(`/tenders/${tender.id}/line-items`);
+  applySavedLineItems(items);
+  if (!silent) showResult(resultEl, `Tender #${tender.id} saved as draft.`, true);
+  onTendersChanged();
+  document.getElementById("tender-form-title").textContent = `Tender #${tender.id}`;
+  showTenderDetail(tender.id, tender.status);
+  updateGate();
+  return tender;
+}
+onNeedSave(() => saveDraft({ silent: true }));
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (currentStatus !== "draft") return;
   const action = e.submitter?.dataset.action || "save";
-  const problem = firstRowProblem() || (action === "submit" ? submitProblem() : null);
+  // The whole-grid completeness check (firstRowProblem) only gates Submit --
+  // a draft save tolerates incomplete rows (2026-10-01, user-directed).
+  const problem = action === "submit" ? firstRowProblem() || submitProblem() : null;
   if (problem) {
     showResult(resultEl, problem, false);
     return;
   }
-  const options = { headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload()) };
   try {
-    const tender = currentTenderId
-      ? await api(`/tenders/${currentTenderId}`, { method: "PUT", ...options })
-      : await api("/tenders", { method: "POST", ...options });
-    currentTenderId = tender.id;
-
     if (action === "submit") {
+      const tender = await saveDraft({ silent: true });
       try {
         await api(`/tenders/${tender.id}/submit-for-approval`, { method: "POST" });
       } catch (err) {
@@ -237,11 +287,7 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
-    showResult(resultEl, `Tender #${tender.id} saved as draft.`, true);
-    onTendersChanged();
-    document.getElementById("tender-form-title").textContent = `Tender #${tender.id}`;
-    showTenderDetail(tender.id, tender.status);
-    updateGate();
+    await saveDraft();
   } catch (err) {
     showResult(resultEl, "Could not save tender: " + err.message, false);
   }

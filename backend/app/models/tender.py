@@ -34,7 +34,12 @@ class Tender(Base):
     __tablename__ = "tenders"
 
     id = Column(Integer, primary_key=True)
-    facility_id = Column(Integer, ForeignKey("facilities.id"), nullable=False)
+    # Nullable (2026-10-01, user-directed): a Draft tolerates an unset
+    # facility -- required only by the time it's actually submitted for
+    # approval (app/routers/tenders.py's submit_for_approval), since
+    # everything downstream of that point (approval matrix, PO facility
+    # code) genuinely needs a real one.
+    facility_id = Column(Integer, ForeignKey("facilities.id"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     tender_type = Column(Enum(TenderType), nullable=False)

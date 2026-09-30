@@ -8,8 +8,10 @@ const LIC = { software_kind: "licensing" };
 const SERVICE_FIELDS = [
   { name: "sow_template", label: "Standard SOW template", kind: "textarea" },
   { name: "default_tenure_months", label: "Default service tenure (months)", kind: "number" },
+  { name: "renewal_terms", label: "Renewal terms", kind: "text" },
   { name: "sla_response_time_hours", label: "SLA — response time (hours)", kind: "number" },
   { name: "sla_uptime_pct", label: "SLA — uptime (%)", kind: "number" },
+  { name: "sla_resolution_time_hours", label: "SLA — resolution time (hours)", kind: "number" },
   { name: "sla_penalty_clauses", label: "SLA — penalty clauses", kind: "textarea" },
   {
     name: "billing_basis",
@@ -18,6 +20,10 @@ const SERVICE_FIELDS = [
     options: [["fixed", "Fixed"], ["consumption", "Consumption"], ["milestone", "Milestone"]],
   },
   { name: "manpower_deployment_norms", label: "Manpower deployment norms (if applicable)", kind: "textarea" },
+  { name: "insurance_requirement", label: "Insurance requirement (vendor liability/indemnity), if any", kind: "text" },
+  { name: "exit_transition_clause", label: "Exit / transition clause", kind: "textarea" },
+  { name: "background_verification_required", label: "Background verification / statutory compliance required", kind: "bool" },
+  { name: "statutory_compliance_notes", label: "Statutory compliance notes (police verification, PF/ESI…)", kind: "textarea", showWhen: { background_verification_required: "true" } },
 
   {
     name: "software_kind",

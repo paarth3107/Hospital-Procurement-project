@@ -10,6 +10,7 @@ from app.models.tender import Tender, TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
+from app.models.tender_attachment import TenderLineAttachment, TenderLineAttachmentKind
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import (
     DocumentStatus,
@@ -50,6 +51,8 @@ __all__ = [
     "TenderType",
     "TenderLineItem",
     "TechnicalEvalMethod",
+    "TenderLineAttachment",
+    "TenderLineAttachmentKind",
     "TenderInvite",
     "TenderApprovalRound",
     "RoundDecision",

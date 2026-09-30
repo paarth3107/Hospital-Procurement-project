@@ -102,6 +102,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def _no_cache_frontend(request, call_next):
+    """The frontend (plain ES modules, no build step, no cache-busted
+    filenames) is served straight off disk below -- without this, a browser's
+    default heuristic caching can keep serving an old .js file after it's
+    changed on disk, with no visible sign anything is stale. Forces
+    revalidation on every load; ETag/Last-Modified still make that a cheap
+    304 when the file hasn't actually changed. Never applied to /api/*."""
+
+    response = await call_next(request)
+    if not request.url.path.startswith("/api"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(audit_log.router)
