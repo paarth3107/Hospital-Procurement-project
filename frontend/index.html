@@ -99,37 +99,15 @@
 
   <div class="ep-content" id="content">
 
-  <!-- ============ Landing / auth (logged out) ============ -->
-  <section id="view-landing" class="view">
-    <div class="pb-16px border-bottom-2px-solid-ink-40">
-      <div class="landing-title">MedSource</div>
-      <div class="hint mt-4px">Hospital E-Procurement Portal</div>
-    </div>
-    <div class="d-grid grid-cols-1fr-1fr gap-20px">
-      <div class="ep-pane ep-pane-pad">
-        <div class="ep-k">Hospital</div>
-        <div class="fs-18px fw-800 margin-4px-0-8px">Staff</div>
-        <p class="hint minh-40px mb-18px">Manage tenders, vendor approvals, the catalog, and vendor ratings.</p>
-        <button class="ep-b landing-btn" data-v="p" data-view="login">Staff login</button>
-      </div>
-      <div class="ep-pane ep-pane-pad border-left-3px-solid-primary">
-        <div class="ep-k">Supplier</div>
-        <div class="fs-18px fw-800 margin-4px-0-8px">Vendor</div>
-        <p class="hint minh-40px mb-18px">Log in to manage your profile and bids, or register your company to get started.</p>
-        <button class="ep-b landing-btn" data-v="p" data-view="vendor-login">Vendor login</button>
-        <button class="ep-b landing-btn" data-view="register">Register as a vendor</button>
-      </div>
-    </div>
-  </section>
-
+  <!-- ============ Auth (logged out) ============ -->
   <section id="view-register" class="view auth-view" hidden>
-    <button class="back-link" data-view="landing">← Back to home</button>
+    <button class="back-link" data-view="vendor-login">← Back to vendor login</button>
     <div>
       <div class="ep-k">Module 1</div>
       <div class="fs-24px fw-800">Register as a vendor</div>
       <p class="hint mt-4px">Submissions are reviewed by Procurement Admin before you can bid on anything.</p>
     </div>
-    <div id="open-link-banner" hidden></div>
+    <div id="open-link-banner" class="open-link-banner" hidden></div>
     <div class="ep-seg self-start">
       <button type="button" class="on pe-none" id="register-step-1-tab">1. Basic info</button>
       <button type="button" id="register-step-2-tab" class="pe-none">2. Documents</button>
@@ -192,22 +170,27 @@
   </section>
 
   <section id="view-vendor-login" class="view auth-view maxw-460px" hidden>
-    <button class="back-link" data-view="landing">← Back to home</button>
+    <button class="back-link" data-view="login">← Back to staff login</button>
     <div>
       <div class="ep-k">Vendor access</div>
       <div class="fs-24px fw-800">Vendor login</div>
       <p class="hint mt-4px">Log in with the email and password you registered with.</p>
     </div>
+    <div id="vendor-login-open-link-banner" class="open-link-banner" hidden></div>
     <form id="vendor-login-form" class="ep-pane ep-pane-pad ep-form">
       <div class="ep-field"><div class="ep-k">Email</div><input class="input" name="email" type="email" required autocomplete="username"></div>
       <div class="ep-field"><div class="ep-k">Password</div><input class="input" name="password" type="password" required autocomplete="current-password"></div>
       <div class="d-flex items-center gap-14px"><button type="submit" class="ep-b" data-v="p">Log in</button><button type="button" class="link-btn" id="vendor-forgot-password-btn">Forgot password?</button></div>
     </form>
     <div id="vendor-login-result" class="result"></div>
+    <p class="hint">New vendor? <button type="button" class="link-btn" data-view="register">Register here</button></p>
   </section>
 
-  <section id="view-login" class="view auth-view maxw-460px" hidden>
-    <button class="back-link" data-view="landing">← Back to home</button>
+  <section id="view-login" class="view auth-view maxw-460px">
+    <div>
+      <div class="landing-title">MedSource</div>
+      <p class="hint mt-4px">Hospital E-Procurement Portal</p>
+    </div>
     <div>
       <div class="ep-k">Hospital access</div>
       <div class="fs-24px fw-800">Staff login</div>
@@ -218,6 +201,7 @@
       <div class="d-flex items-center gap-14px"><button type="submit" class="ep-b" data-v="p">Log in</button><button type="button" class="link-btn" id="staff-forgot-password-btn">Forgot password?</button></div>
     </form>
     <div id="login-result" class="result"></div>
+    <p class="hint">Supplier? <button type="button" class="link-btn" data-view="vendor-login">Click here to log in</button></p>
   </section>
 
   <!-- ============ Hospital screens ============ -->
@@ -264,6 +248,7 @@
         </div>
         <fieldset id="tender-fields" class="border-0 padding-0 margin-0 minw-0">
           <div class="ep-form-grid">
+            <div class="ep-field col-span-2"><div class="ep-k">Title</div><input class="input" name="title" required></div>
             <div class="ep-field"><div class="ep-k">Facility</div>
               <select class="input" name="facility_id" required><option value="">— select a facility —</option></select></div>
             <div class="ep-field"><div class="ep-k">Tender type</div>
@@ -271,24 +256,31 @@
                 <option value="rfq">RFQ — price only</option>
                 <option value="rfp">RFP — technical + commercial</option>
               </select></div>
-            <div class="ep-field"><div class="ep-k">Rate contract</div>
-              <label class="ep-check ep-check-field"><input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle"> The vendor supplies at this price for a fixed period</label>
-              <div class="hint mt-4px">Adds a contract start and end date below.</div></div>
-            <div class="ep-field" id="rate-contract-start-field" hidden><div class="ep-k">Contract start date</div><input class="input" name="contract_start_date" type="date"></div>
-            <div class="ep-field" id="rate-contract-end-field" hidden><div class="ep-k">Contract end date</div><input class="input" name="contract_end_date" type="date"></div>
             <div class="ep-field"><div class="ep-k">Department</div><input class="input" name="department"></div>
             <div class="ep-field"><div class="ep-k">Publish date (optional)</div><input class="input" name="publish_date" type="datetime-local"></div>
             <div class="ep-field"><div class="ep-k">Bid due date</div><input class="input" name="bid_due_date" type="datetime-local"></div>
-            <div class="ep-field"><div class="ep-k">Default rating threshold</div><input class="input" name="min_rating_threshold" type="number" step="0.1" value="0"></div>
-            <div class="ep-field"><div class="ep-k">Open tender</div>
-              <label class="ep-check ep-check-field"><input type="checkbox" name="open_tender"> Invite every Active vendor</label>
-              <div class="hint mt-4px">No mapping or rating filter, and no vendor count limits.</div></div>
-            <div class="ep-field col-span-3" id="open-link-box" hidden></div>
-            <div class="ep-field"><div class="ep-k">Min vendors to invite (optional)</div><input class="input" name="min_invites" type="number" min="1"></div>
-            <div class="ep-field"><div class="ep-k">Max vendors to invite (optional)</div><input class="input" name="max_invites" type="number" min="1"></div>
-            <div class="ep-field col-span-2"><div class="ep-k">Title</div><input class="input" name="title" required></div>
-            <div class="ep-field col-span-2"><div class="ep-k">Description</div><input class="input" name="description"></div>
-            <div class="ep-field col-span-4"><div class="ep-k">Terms &amp; conditions (optional)</div><textarea class="input resize-y" name="terms_and_conditions" rows="2" placeholder="Payment terms, delivery terms, penalty clauses, validity period"></textarea></div>
+            <div class="ep-field"><div class="ep-k">Default rating threshold</div><input class="input input-narrow" name="min_rating_threshold" type="number" step="0.1" value="0"></div>
+            <div class="ep-field col-span-2">
+              <div class="tender-option-row">
+                <div class="tender-option">
+                  <label class="ep-check ep-check-field"><input type="checkbox" name="open_tender"> Open tender</label>
+                  <div id="open-link-box" class="mt-10px" hidden></div>
+                </div>
+                <div class="tender-option">
+                  <label class="ep-check ep-check-field"><input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle"> Rate contract</label>
+                  <div class="d-flex gap-10px mt-10px">
+                    <div id="rate-contract-start-field" hidden><div class="ep-k">Start date</div><input class="input" name="contract_start_date" type="date"></div>
+                    <div id="rate-contract-end-field" hidden><div class="ep-k">End date</div><input class="input" name="contract_end_date" type="date"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ep-field"><div class="ep-k">Min vendors to invite (optional)</div><input class="input input-narrow" name="min_invites" type="number" min="1"></div>
+            <div class="ep-field"><div class="ep-k">Max vendors to invite (optional)</div><input class="input input-narrow" name="max_invites" type="number" min="1"></div>
+            <div class="ep-field col-span-4"><div class="ep-k">Description</div><input class="input" name="description"></div>
+            <div class="ep-field col-span-4"><div class="ep-k">Terms &amp; conditions</div>
+              <div class="hint mb-4px">Payment terms, delivery terms, penalty clauses, validity period -- as a document.</div>
+              <div id="terms-document-box"></div></div>
           </div>
         </fieldset>
       </div>
@@ -327,8 +319,8 @@
         </table>
       </div>
       <div class="ep-pane">
-        <div class="ep-pane-head"><span>Eligible Vendors Per Line</span><button class="ep-b" id="preview-eligibility-btn">Preview eligibility</button></div>
-        <div id="eligibility-preview" class="ep-pane-pad hint">Preview shows who would be invited for the saved version.</div>
+        <div class="ep-pane-head"><span>Eligible Vendors Per Line</span><span class="ep-k">Save as a draft to update vendors</span></div>
+        <div id="eligibility-preview" class="ep-pane-pad hint">Save as a draft to see who would be invited.</div>
       </div>
       <div class="ep-pane">
         <div class="ep-pane-head"><span>Approval Rounds</span></div>

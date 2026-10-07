@@ -1,4 +1,4 @@
-import { api } from "../../api.js";
+import { api, API_BASE, apiHeaders } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { esc, kicker, tag, th, emptyRow, fmtDateTime, inr } from "../../kit.js";
 
@@ -57,7 +57,7 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
       fact("Type", esc(r.tender_type.replace("_", " "))), fact("Facility / entity", esc(r.facility_name) + (r.facility_code ? ` (${esc(r.facility_code)})` : "")), fact("Department", esc(r.department || "")), fact("Prepared by", esc(r.created_by || "")),
       fact("Publish date", r.publish_date ? fmtDateTime(r.publish_date) : "On approval"), fact("Bids close", fmtDateTime(r.bid_due_date)), fact("Default minimum vendor rating", r.min_rating_threshold), fact("Vendors per line (min / max)", `${r.min_invites ?? "—"} / ${r.max_invites ?? "—"}`),
       ...(r.description ? [fact("Description", `<span class="pre-wrap fw-400">${esc(r.description)}</span>`, 4)] : []),
-      ...(r.terms_and_conditions ? [fact("Terms &amp; conditions", `<span class="pre-wrap fw-400">${esc(r.terms_and_conditions)}</span>`, 4)] : []),
+      fact("Terms &amp; conditions", r.terms_document_filename ? `<button type="button" class="ep-b" id="rv-terms-download">${esc(r.terms_document_filename)} — download</button>` : null, 4),
     ]))}
     ${pane(`Line items (${r.lines.length})`, `<span class="ep-k">${r.lines.filter((l) => l.held_back).length} would be held back</span>`, r.lines.map(lineHtml).join(""))}
     ${pane("Approval History", "", rounds)}
@@ -71,6 +71,15 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
     </div></div>`;
 
   container.querySelector("#rv-back").addEventListener("click", onBack);
+  container.querySelector("#rv-terms-download")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${API_BASE}/tenders/${tenderId}/terms-document/download`, { headers: apiHeaders() });
+      if (!res.ok) throw new Error("Could not open the file");
+      window.open(URL.createObjectURL(await res.blob()), "_blank");
+    } catch (err) {
+      showResult(resultEl, err.message, false);
+    }
+  });
   const box = container.querySelector("#rv-comments");
   box?.addEventListener("input", () => {
     box.classList.remove("invalid");

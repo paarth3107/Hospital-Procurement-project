@@ -9,18 +9,22 @@ const LEAD = {
   closed: "has closed for bidding, so registering through this link can't be completed.",
 };
 
+// Shown on both the vendor login screen and the registration screen (2026-10-07:
+// login comes first now), so every element with this class gets the same content.
 export async function showOpenLinkBanner() {
-  const el = document.getElementById("open-link-banner");
+  const elements = document.querySelectorAll(".open-link-banner");
   const token = sessionStorage.getItem("openLinkToken");
-  el.hidden = !token;
+  elements.forEach((el) => (el.hidden = !token));
   if (!token) return;
   try {
     const t = await api(`/open-links/${token}`);
     const place = [t.facility_name, t.department].filter(Boolean).join(" · ");
     const due = t.bid_due_date ? ` · bids close ${fmtDateTime(t.bid_due_date)}` : "";
-    el.innerHTML = `<div class="ep-note"><span><b>${esc(t.title)}</b>${place ? ` · ${esc(place)}` : ""}${due}<br>This tender ${LEAD[t.state]}</span></div>`;
+    const html = `<div class="ep-note"><span><b>${esc(t.title)}</b>${place ? ` · ${esc(place)}` : ""}${due}<br>This tender ${LEAD[t.state]}</span></div>`;
+    elements.forEach((el) => (el.innerHTML = html));
   } catch (err) {
     sessionStorage.removeItem("openLinkToken");
-    el.innerHTML = `<div class="ep-note warn"><span>${esc(err.message)}</span></div>`;
+    const html = `<div class="ep-note warn"><span>${esc(err.message)}</span></div>`;
+    elements.forEach((el) => (el.innerHTML = html));
   }
 }

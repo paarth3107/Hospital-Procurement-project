@@ -20,7 +20,10 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 .ep-nav.active { background: linear-gradient(118deg, var(--primary), rgba(var(--primary-rgb), .7)); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .4); }
 .ep-nav .nav-label { flex: 1; white-space: nowrap; }
 .ep-nav .nav-icon, .ep-navgroup-head .nav-icon { flex: none; opacity: .85; }
-.ep-nav .nav-badge { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--danger); color: var(--on-solid); font-size: 11px; font-weight: 600; text-align: center; }
+/* A true circle for a single digit; padding lets it widen into a rounded
+   capsule (still fully round at both ends) rather than squashing for 2+ digits. */
+.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.ep-nav .nav-badge { background: var(--danger); color: var(--on-solid); }
 .ep-nav .nav-badge:empty { display: none; }
 .ep-nav.active .nav-badge { background: var(--on-solid); color: var(--primary); }
 .ep-navgroup-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--ink); text-align: left; }
@@ -60,7 +63,7 @@ body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
 .ep-dropdown-head { padding: 10px 12px 8px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--ink-12); margin-bottom: 4px; }
 .ep-dropdown-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 9px 12px; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; text-align: left; font-size: 13.5px; color: var(--ink); }
 .ep-dropdown-item:hover { background: var(--ink-06); }
-.ep-dropdown-item .nav-badge { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--primary-14); color: var(--primary-dark); font-size: 11px; font-weight: 600; text-align: center; }
+.ep-dropdown-item .nav-badge { background: var(--primary-14); color: var(--primary-dark); }
 .ep-dropdown-empty { padding: 14px 12px; font-size: 13px; color: var(--ink-60); }
 .ep-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-14); color: var(--primary-dark); font-weight: 600; font-size: 13px; border: 0; cursor: pointer; }
 .ep-user-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px 10px; border-bottom: 1px solid var(--ink-12); margin-bottom: 4px; }
@@ -123,7 +126,15 @@ button.ep-tag { border: 0; font-family: inherit; }
 .ep-b[data-v="p"] { background: var(--primary); border-color: var(--primary); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .35); }
 .ep-b[data-v="p"]:hover { background: var(--primary-dark); }
 .ep-b:disabled { opacity: .45; cursor: not-allowed; }
-.ep-tag { display: inline-block; font-size: 13px; font-weight: 500; text-transform: capitalize; padding: 4px 12px; border-radius: var(--radius); white-space: nowrap; background: var(--ink-12); color: var(--ink); }
+/* Brief confirmation after a copy -- a colour change and a pop, no popup dialog.
+   The :hover variant is repeated so it still wins while the pointer is still
+   sitting on the button right after the click that triggered it. min-width is
+   set to fit "Copy link" (the wider of the two states), with "Copied!"
+   centered, so the button doesn't resize when the text swaps. */
+.copy-link-btn { min-width: 108px; justify-content: center; }
+.ep-b.copy-success, .ep-b.copy-success:hover { background: var(--success); border-color: var(--success); color: var(--on-solid); animation: copy-pop .35s ease; }
+@keyframes copy-pop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.ep-tag { display: inline-block; font-size: 13px; font-weight: 500; text-transform: capitalize; padding: 4px 12px; border-radius: var(--radius-badge); white-space: nowrap; background: var(--ink-12); color: var(--ink); }
 .ep-tag[data-t="pos"] { background: var(--success-bg); color: var(--success-text); }
 .ep-tag[data-t="att"] { background: var(--primary-14); color: var(--primary-dark); }
 .ep-tag[data-t="neg"] { background: var(--danger-100); color: var(--danger-700); }
@@ -142,7 +153,7 @@ button.ep-tag { border: 0; font-family: inherit; }
 .eligibility-none { border-left-color: var(--danger); background: var(--danger-08); }
 .eligibility-short { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
 .eligibility-ok { border-left-color: var(--ink-30); background: var(--ink-04); }
-.vc-chip { font-size: 12px; padding: 4px 10px; font-weight: 500; border-radius: var(--radius); }
+.vc-chip { font-size: 12px; padding: 4px 10px; font-weight: 500; border-radius: var(--radius-badge); }
 .chip-approved { background: var(--success-bg); color: var(--success-text); }
 .chip-pending { background: var(--ink-12); color: var(--ink); }
 .chip-rejected, .chip-suspended { background: var(--danger-100); color: var(--danger-700); }
@@ -168,7 +179,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .ring-tone-muted { --ring-color: var(--ink-40); }
 .assign-chevron { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: var(--radius); background: var(--surface-subtle); color: var(--ink-70); cursor: pointer; }
 .assign-chevron:hover { background: var(--ink-09); }
-.ep-kpi-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: var(--radius); background: var(--primary-14); color: var(--primary); }
+.ep-kpi-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: var(--radius-badge); background: var(--primary-14); color: var(--primary); }
 .ep-kpi-icon.tone-success { background: var(--success-bg); color: var(--success-text); }
 .ep-kpi-icon.tone-info { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
 .ep-kpi-icon.tone-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
@@ -197,6 +208,12 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .ep-field > .ep-k, .ep-field > label { display: block; margin-bottom: 5px; }
 .ep-form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 24px; }
 .ep-form-grid > div { min-width: 0; }
+.input-narrow { max-width: 110px; }
+/* Open tender and Rate contract: same checkbox-plus-extra-fields shape, shown side by
+   side so the two stay visually paired regardless of which one's extra fields are shown. */
+.tender-option-row { display: flex; gap: 24px; flex-wrap: wrap; }
+.tender-option { flex: 1; min-width: 220px; }
+.tender-option input[type="date"] { max-width: 150px; }
 .input.invalid { border-color: var(--danger); background: var(--danger-08); }
 .ep-check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .ep-check-field { min-height: 42px; }
@@ -245,8 +262,6 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 
 /* landing / auth */
 .landing-title { font-size: 34px; font-weight: 600; letter-spacing: -.01em; }
-.landing-btn { display: block; width: 100%; text-align: center; margin-top: 10px; }
-.landing-btn:first-of-type { margin-top: 0; }
 .back-link, .link-btn { background: none; border: 0; padding: 0; color: var(--ink-60); font-size: 13px; font-weight: 500; cursor: pointer; align-self: flex-start; }
 .back-link:hover, .link-btn:hover { color: var(--primary); }
 

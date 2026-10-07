@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, false, func
+from sqlalchemy import Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, false, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -47,8 +47,18 @@ class Tender(Base):
     department = Column(String, nullable=True)
     awarded_at = Column(DateTime(timezone=True), nullable=True)
     # Spec §6.2: payment terms, delivery terms, penalty clauses, validity period.
-    # Free text for now -- the spec lists these as prose terms, not a fixed field set.
-    terms_and_conditions = Column(Text, nullable=True)
+    # A mandatory uploaded document (2026-10-07, user-directed), not free text --
+    # vendors and approvers read the actual document rather than a typed summary.
+    # Required before submission (tenders.py), same split as facility_id/title: a
+    # Draft tolerates it unset. Uploading again replaces whatever was there, so
+    # there's only ever one -- one row embedded on Tender, not a child table,
+    # since a tender never has more than one.
+    terms_document_filename = Column(String, nullable=True)
+    terms_document_content_type = Column(String, nullable=True)
+    terms_document_size = Column(Integer, nullable=True)
+    terms_document_content = Column(LargeBinary, nullable=True)
+    terms_document_uploaded_at = Column(DateTime(timezone=True), nullable=True)
+    terms_document_uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
     # Spec §6.2 — tender-wide defaults, overridable per line item.
     min_rating_threshold = Column(Float, nullable=False, default=0.0)

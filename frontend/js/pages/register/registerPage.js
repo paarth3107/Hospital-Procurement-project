@@ -73,13 +73,13 @@ function goToStep(n) {
 function startReturnCountdown(resultEl, vendorId) {
   let secondsLeft = 5;
   const message = () =>
-    `Registered as Vendor #${vendorId}. Taking you back to the login page in ${secondsLeft}... please log in with your email and the password you just set.`;
+    `Registered as Vendor #${vendorId}. Taking you to the vendor login page in ${secondsLeft}... please log in with your email and the password you just set.`;
   showResult(resultEl, message(), true);
   const countdown = setInterval(() => {
     secondsLeft--;
     if (secondsLeft <= 0) {
       clearInterval(countdown);
-      switchView("landing");
+      switchView("vendor-login");
       return;
     }
     showResult(resultEl, message(), true);
@@ -113,7 +113,7 @@ form.addEventListener("submit", async (e) => {
     // multipart: fetch sets the boundary itself
     const vendor = await api("/vendors", { method: "POST", body: formData });
     sessionStorage.removeItem("openLinkToken");
-    document.getElementById("open-link-banner").hidden = true;
+    document.querySelectorAll(".open-link-banner").forEach((el) => (el.hidden = true));
     form.reset();
     syncCityOptions();
     getChosenFiles().clear();

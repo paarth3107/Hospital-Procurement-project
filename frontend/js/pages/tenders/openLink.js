@@ -1,10 +1,11 @@
 import { api } from "../../api.js";
-import { esc } from "../../kit.js";
 import { modalAlert, modalConfirm } from "../../modal.js";
 
 // Registration link for an Open Tender (2026-10-06): copy it, make a new one
 // (the old one stops working at once), or turn it off. Shown for a saved Open
-// Tender only; a new tender has no link until it is saved.
+// Tender only; a new tender has no link until it is saved. No visible URL
+// field (2026-10-07) -- the column it lives in is too narrow to show a full
+// link anyway, and Copy is the only thing anyone does with it.
 const box = () => document.getElementById("open-link-box");
 const urlFor = (token) => `${location.origin}/?open=${token}`;
 
@@ -20,19 +21,24 @@ export function renderOpenLink(tender) {
   el.innerHTML = `
     <div class="ep-k">Registration link</div>
     <div class="d-flex gap-10px items-center flex-wrap mt-6px">
-      <input class="input flex-1" readonly value="${token ? esc(urlFor(token)) : ""}" placeholder="Link is off">
-      ${token ? '<button type="button" class="ep-b" data-open-copy>Copy</button>' : ""}
+      ${token ? '<button type="button" class="ep-b copy-link-btn" data-v="p" data-open-copy>Copy link</button>' : ""}
       <button type="button" class="ep-b" data-open-new>${token ? "New link" : "Turn on"}</button>
       ${token ? '<button type="button" class="ep-b" data-open-off>Turn off</button>' : ""}
     </div>
     <div class="hint mt-6px">New vendors open this link and register. They see this tender listed once they are approved.</div>`;
 
-  el.querySelector("[data-open-copy]")?.addEventListener("click", async () => {
+  const copyBtn = el.querySelector("[data-open-copy]");
+  copyBtn?.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(urlFor(token));
-      modalAlert("Link copied.");
+      copyBtn.textContent = "Copied!";
+      copyBtn.classList.add("copy-success");
+      setTimeout(() => {
+        copyBtn.textContent = "Copy link";
+        copyBtn.classList.remove("copy-success");
+      }, 1400);
     } catch (err) {
-      modalAlert("Could not copy automatically. Select the link and copy it.");
+      modalAlert("Could not copy the link automatically. Check your browser's clipboard permission.");
     }
   });
   el.querySelector("[data-open-new]").addEventListener("click", async () => {

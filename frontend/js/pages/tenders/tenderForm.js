@@ -1,5 +1,6 @@
 import { api } from "../../api.js";
 import { renderOpenLink } from "./openLink.js";
+import { renderTermsDocument } from "./termsDocument.js";
 import { showResult } from "../../ui.js";
 import { modalConfirm } from "../../modal.js";
 import { switchView } from "../../nav.js";
@@ -61,6 +62,7 @@ function updateGate() {
   else if (!form.elements.bid_due_date.value) problem = ["Bid due date missing", "A bid due date is required before the tender can be sent for approval."];
   else if (form.elements.is_rate_contract.checked && (!form.elements.contract_start_date.value || !form.elements.contract_end_date.value))
     problem = ["Contract dates missing", "A rate contract needs both a contract start and end date before it can be sent for approval."];
+  else if (!hasTermsDocument()) problem = ["Terms & conditions missing", "Upload the Terms & Conditions document before sending it for approval."];
   else if (rows.length === 0) problem = ["No line items", "Add at least one line item."];
   else if (firstRowProblem()) problem = ["Line item incomplete", firstRowProblem()];
   bar.style.borderLeftColor = problem ? "#ec3013" : "#201e1d";
@@ -73,6 +75,7 @@ function updateGate() {
 }
 onLinesChanged(() => updateGate());
 form.addEventListener("input", updateGate);
+const hasTermsDocument = () => !!document.querySelector("#terms-document-box [data-terms-download]");
 
 function toLocalInputValue(iso) {
   const d = new Date(iso);
@@ -123,7 +126,7 @@ export async function openTenderForm(tender) {
     el.contract_start_date.value = tender.contract_start_date || "";
     el.contract_end_date.value = tender.contract_end_date || "";
     syncRateContract();
-    el.terms_and_conditions.value = tender.terms_and_conditions || "";
+    renderTermsDocument(tender, updateGate);
     el.bid_due_date.value = tender.bid_due_date ? toLocalInputValue(tender.bid_due_date) : "";
     el.publish_date.value = tender.publish_date ? toLocalInputValue(tender.publish_date) : "";
     const items = await api(`/tenders/${tender.id}/line-items`);
@@ -134,6 +137,7 @@ export async function openTenderForm(tender) {
     hideTenderDetail();
     renderOpenLink(null);
     syncRateContract();
+    renderTermsDocument(null);
   }
 
   document.getElementById("tender-form-title").textContent = tender ? `Tender #${tender.id}` : "Tender header";
@@ -212,7 +216,6 @@ function buildPayload() {
     // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
     contract_start_date: data.is_rate_contract === "on" ? data.contract_start_date || null : null,
     contract_end_date: data.is_rate_contract === "on" ? data.contract_end_date || null : null,
-    terms_and_conditions: data.terms_and_conditions?.trim() || null,
     publish_date: data.publish_date ? new Date(data.publish_date).toISOString() : null,
     bid_due_date: data.bid_due_date ? new Date(data.bid_due_date).toISOString() : null,
     line_items: rowsForPayload(),
@@ -235,6 +238,7 @@ function submitProblem() {
   if (!form.elements.bid_due_date.value) return "Bid Due Date is required to submit for approval.";
   if (form.elements.is_rate_contract.checked && (!form.elements.contract_start_date.value || !form.elements.contract_end_date.value))
     return "A rate contract needs both a contract start and end date before it can be submitted for approval.";
+  if (!hasTermsDocument()) return "Upload the Terms & Conditions document before submitting for approval.";
   if (getRows().length === 0) return "Add at least one line item to submit for approval.";
   return null;
 }
@@ -271,6 +275,7 @@ async function saveDraft({ silent = false } = {}) {
   document.getElementById("tender-form-title").textContent = `Tender #${tender.id}`;
   showTenderDetail(tender.id, tender.status);
   renderOpenLink(tender);
+  renderTermsDocument(tender, updateGate);
   updateGate();
   return tender;
 }

@@ -84,7 +84,9 @@ class TenderCreate(BaseModel):
     contract_end_date: date | None = None
     publish_date: datetime | None = None
     bid_due_date: datetime | None = None
-    terms_and_conditions: str | None = None
+    # Terms & Conditions is a mandatory uploaded document (2026-10-07), not a
+    # field here -- it's set through its own endpoint (POST .../terms-document),
+    # the same split as a line item's attachments.
     line_items: list[LineItemCreate] = []
 
     @model_validator(mode="after")
@@ -115,7 +117,9 @@ class TenderOut(BaseModel):
     contract_end_date: date | None
     publish_date: datetime | None
     bid_due_date: datetime | None
-    terms_and_conditions: str | None
+    terms_document_filename: str | None
+    terms_document_size: int | None
+    terms_document_uploaded_at: datetime | None
     published_at: datetime | None
     round_number: int
     created_at: datetime

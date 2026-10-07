@@ -16,9 +16,9 @@ export function showTenderDetail(id, tenderStatus) {
   tenderId = id;
   tenderState = tenderStatus;
   detail().hidden = false;
-  document.getElementById("eligibility-preview").innerHTML = "Preview shows who would be invited for the saved version.";
   loadRounds();
   loadPublishStatus();
+  renderPreview();
 }
 
 export function hideTenderDetail() {
@@ -230,4 +230,3 @@ async function renderPreview() {
   }
 }
 
-document.getElementById("preview-eligibility-btn").addEventListener("click", renderPreview);

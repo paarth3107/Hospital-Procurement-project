@@ -120,7 +120,10 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => switchView(btn.dataset.view));
 });
 
-document.querySelectorAll(".back-link").forEach((btn) => {
+// Also wires the small forward links between the three auth screens (staff
+// login <-> vendor login -> register) -- same plain-text-button look, same
+// "go to this view" behavior as a back-link.
+document.querySelectorAll(".back-link, .link-btn[data-view]").forEach((btn) => {
   btn.addEventListener("click", () => switchView(btn.dataset.view));
 });
 
@@ -145,10 +148,10 @@ export const DEFAULT_VIEW_BY_ROLE = {
 };
 export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"];
 
-// Vendor Registration/Login and Staff Login are reached only through the
-// landing page now (view-landing's two panels, plus a "back to home" link
-// on each destination screen) -- no persistent nav tab for them anymore,
-// so there's nothing to hide/show for the logged-out state here.
+// Staff login is the default entry screen (2026-10-07); Vendor login and
+// Registration are one click away from it (and from each other), each with
+// a link back -- no persistent nav tab for any of the three, so there's
+// nothing to hide/show for the logged-out state here.
 
 export function showStaffTabsForRole(role) {
   document.getElementById("sidebar").hidden = false;
@@ -214,10 +217,9 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   sessionStorage.removeItem("actorType");
   setWhoami("", "");
   resetToLoggedOutNav();
-  switchView("landing");
+  switchView("login");
 });
 
-document.getElementById("brand-home-link").addEventListener("click", () => switchView("landing"));
-document.querySelectorAll(".landing-btn, .back-home-link").forEach((btn) => {
-  btn.addEventListener("click", () => switchView(btn.dataset.view));
-});
+// Staff login is the default entry point now (2026-10-07) -- there's no
+// separate chooser page to go "home" to.
+document.getElementById("brand-home-link").addEventListener("click", () => switchView("login"));

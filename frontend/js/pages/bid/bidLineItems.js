@@ -87,7 +87,7 @@ export function setFromServer(tenderBidsOut) {
     tender_type: tenderBidsOut.tender_type,
     tender_description: tenderBidsOut.tender_description,
     facility_name: tenderBidsOut.facility_name,
-    terms_and_conditions: tenderBidsOut.terms_and_conditions,
+    terms_document_filename: tenderBidsOut.terms_document_filename,
     bid_due_date: tenderBidsOut.bid_due_date,
   };
   rows = tenderBidsOut.lines.map((f) => ({ ...rowFromForm(f), skipped: false }));

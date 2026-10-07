@@ -31,12 +31,16 @@ initShell();
 
 // ---- Restore session on load ----
 (async function init() {
-  // A registration link (?open=TOKEN) opens the vendor registration screen with
-  // that tender in the banner; the token is kept for the registration itself.
+  // A registration link (?open=TOKEN) opens the vendor login screen with that
+  // tender in the banner (2026-10-07: login first, not straight to
+  // registration -- a vendor who already has an account just logs in; "New
+  // vendor? Register here" carries the token into registerPage.js). Signed in
+  // already -- vendor or staff -- the token has nothing left to do; fall
+  // through to the normal session restore below instead of interrupting it.
   const openLinkToken = new URLSearchParams(location.search).get("open");
-  if (openLinkToken) {
-    sessionStorage.setItem("openLinkToken", openLinkToken);
-    switchView("register");
+  if (openLinkToken) sessionStorage.setItem("openLinkToken", openLinkToken);
+  if (openLinkToken && !state.token) {
+    switchView("vendor-login");
     showOpenLinkBanner();
     return;
   }

@@ -8,7 +8,8 @@
   --font-sans: "Public Sans", system-ui, sans-serif;
   --font-mono: ui-monospace, Menlo, monospace;
 
-  --radius: 6px;
+  --radius: 12px;
+  --radius-badge: 16px;
 
   /* Ink: body text and every muted/rule opacity step derive from --ink-rgb, so
      one value here recolours all of them, in both themes. */

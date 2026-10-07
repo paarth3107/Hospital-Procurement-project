@@ -62,7 +62,7 @@ class TenderReviewOut(BaseModel):
     max_invites: int | None
     publish_date: datetime | None
     bid_due_date: datetime | None
-    terms_and_conditions: str | None
+    terms_document_filename: str | None
     created_by: str | None
     created_at: datetime
     round_number: int

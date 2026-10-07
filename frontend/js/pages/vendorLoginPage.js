@@ -26,6 +26,10 @@ document.getElementById("vendor-login-form").addEventListener("submit", async (e
     sessionStorage.setItem("actorType", "vendor");
     state.vendor = await api("/vendor-auth/me");
 
+    // Done its job once they're logged in -- same cleanup as a completed registration.
+    sessionStorage.removeItem("openLinkToken");
+    document.querySelectorAll(".open-link-banner").forEach((el) => (el.hidden = true));
+
     showResult(resultEl, `Logged in as ${state.vendor.legal_name}`, true);
     setWhoami(state.vendor.legal_name, `Vendor #${state.vendor.id}`, state.vendor.status === "active");
     showVendorDashboardTab();

@@ -390,6 +390,78 @@ def download_line_attachment(
     return Response(content=att.content, media_type=att.content_type, headers={"Content-Disposition": f'inline; filename="{att.original_filename}"'})
 
 
+@router.post("/{tender_id}/terms-document", response_model=TenderOut, status_code=status.HTTP_201_CREATED)
+async def upload_terms_document(
+    tender_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """The tender's Terms & Conditions document (2026-10-07, user-directed) --
+    payment terms, delivery terms, penalty clauses, validity period, read from
+    the actual document rather than typed in. Replaces whatever was uploaded
+    before. Only while Draft, same as everything else about the tender header;
+    required before submit-for-approval."""
+
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    content = await file.read()
+    try:
+        document_store.validate(file.content_type or "", len(content), allow_office=True)
+    except document_store.DocumentValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    document_store.scan(content)
+
+    tender.terms_document_filename = file.filename
+    tender.terms_document_content_type = file.content_type
+    tender.terms_document_size = len(content)
+    tender.terms_document_content = content
+    tender.terms_document_uploaded_at = datetime.now(timezone.utc)
+    tender.terms_document_uploaded_by_id = user.id
+    record(
+        db, "tender.terms_document_uploaded", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        meta={"filename": file.filename},
+    )
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.delete("/{tender_id}/terms-document", response_model=TenderOut)
+def delete_terms_document(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    filename = tender.terms_document_filename
+    tender.terms_document_filename = None
+    tender.terms_document_content_type = None
+    tender.terms_document_size = None
+    tender.terms_document_content = None
+    tender.terms_document_uploaded_at = None
+    tender.terms_document_uploaded_by_id = None
+    record(
+        db, "tender.terms_document_removed", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        meta={"filename": filename},
+    )
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.get("/{tender_id}/terms-document/download")
+def download_terms_document(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
+    tender = _load_tender(tender_id, db)
+    if not tender.terms_document_content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Terms & Conditions document uploaded")
+    return Response(
+        content=tender.terms_document_content, media_type=tender.terms_document_content_type,
+        headers={"Content-Disposition": f'inline; filename="{tender.terms_document_filename}"'},
+    )
+
+
 @router.get("/{tender_id}/eligibility-preview", response_model=list[LineItemEligibilityOut])
 def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
     """Spec §6.5 — computed on demand, doesn't persist anything. Guest invites are
@@ -643,6 +715,8 @@ def submit_for_approval(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be set before submission")
     if tender.is_rate_contract and (not tender.contract_start_date or not tender.contract_end_date):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract start and end dates must be set before submission")
+    if not tender.terms_document_content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A Terms & Conditions document must be uploaded before submission")
 
     # qty/QCBS-weights are optional at draft-save time (schemas/tender.py) so
     # a line can be saved -- and have documents attached -- as soon as it

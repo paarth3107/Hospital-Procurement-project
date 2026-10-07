@@ -89,7 +89,7 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
         id=tender.id, title=tender.title, description=tender.description, tender_type=tender.tender_type, status=tender.status,
         department=tender.department, facility_name=facility.name, facility_code=getattr(facility, "legal_entity_code", None),
         min_rating_threshold=tender.min_rating_threshold, min_invites=tender.min_invites, max_invites=tender.max_invites,
-        publish_date=tender.publish_date, bid_due_date=tender.bid_due_date, terms_and_conditions=tender.terms_and_conditions,
+        publish_date=tender.publish_date, bid_due_date=tender.bid_due_date, terms_document_filename=tender.terms_document_filename,
         created_by=names.get(tender.created_by_id), created_at=tender.created_at,
         round_number=tender.round_number, consecutive_rejections=tender.consecutive_rejections, total_estimated_value=total, lines_without_price=unpriced,
         required_tier=required_tier, tier_label=tier_label, escalated=escalated,

@@ -1,4 +1,4 @@
-import { api } from "../../api.js";
+import { api, API_BASE, apiHeaders } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { esc, kicker, fmtDateTime } from "../../kit.js";
 import { switchView } from "../../nav.js";
@@ -32,11 +32,21 @@ function renderHeader() {
     </div>
     ${ctx.tender_description ? `<div class="hint mt-10px">${esc(ctx.tender_description)}</div>` : ""}
     ${
-      ctx.terms_and_conditions
-        ? `<div class="mt-12px"><div class="ep-k">Terms &amp; conditions</div><div class="hint mt-4px pre-wrap">${esc(ctx.terms_and_conditions)}</div></div>`
+      ctx.terms_document_filename
+        ? `<div class="mt-12px"><div class="ep-k">Terms &amp; conditions</div>
+            <button type="button" class="ep-b mt-4px" id="bid-terms-download">${esc(ctx.terms_document_filename)} — download</button></div>`
         : ""
     }
   </div>`;
+  document.getElementById("bid-terms-download")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${API_BASE}/vendor-portal/bids/tender/${ctx.tender_id}/terms-document/download`, { headers: apiHeaders() });
+      if (!res.ok) throw new Error("Could not open the file");
+      window.open(URL.createObjectURL(await res.blob()), "_blank");
+    } catch (err) {
+      showResult(resultEl(), err.message, false);
+    }
+  });
 }
 
 export async function loadBid() {

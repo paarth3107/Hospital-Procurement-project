@@ -205,7 +205,7 @@ class TenderBidsOut(BaseModel):
     tender_type: TenderType
     tender_description: str | None
     facility_name: str
-    terms_and_conditions: str | None
+    terms_document_filename: str | None  # vendor downloads it via GET .../terms-document/download
     bid_due_date: datetime | None
     lines: list[BidFormOut]
 
