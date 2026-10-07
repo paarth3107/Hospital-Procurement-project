@@ -44,7 +44,7 @@ function mount(el, build) {
 }
 
 // labels, series: arrays; pickColors(palette) -> array of colours in label order.
-export function donut(el, { labels, series, pickColors, height = 260 }) {
+export function donut(el, { labels, series, pickColors, height = 260, legend = true }) {
   const build = () => {
     const base = baseOptions();
     return {
@@ -56,7 +56,7 @@ export function donut(el, { labels, series, pickColors, height = 260 }) {
       dataLabels: { enabled: false },
       stroke: { width: 2, colors: [token("--surface")] },
       plotOptions: { pie: { donut: { size: "70%", labels: { show: false } } } },
-      legend: { ...base.legend, position: "bottom" },
+      legend: { ...base.legend, position: "bottom", show: legend },
     };
   };
   return mount(el, build);

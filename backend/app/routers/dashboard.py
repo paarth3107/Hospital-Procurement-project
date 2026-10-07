@@ -51,6 +51,35 @@ def _live_expiry_docs(db: Session):
     )
 
 
+def _tender_progress_pct(db: Session, tender: Tender, now: datetime) -> int:
+    """Where a tender sits in its own lifecycle, for the Officer's dashboard ring
+    (product decision, 2026-10-07). Fixed checkpoints reached by an event, not by
+    time elapsed -- a tender sitting past its bid deadline with no bids hasn't
+    "made progress" just because the clock moved, so nothing here reads a clock
+    except to ask whether the deadline has passed. Only the last stretch, L1
+    decisions, is fractional -- that's the one part genuinely done line by line."""
+    if tender.status == TenderStatus.DRAFT:
+        return 10 if tender.line_items else 5
+    if tender.status == TenderStatus.PENDING_APPROVAL:
+        return 20
+    if tender.status != TenderStatus.PUBLISHED:
+        return 0  # not reached for a tender this dashboard lists, but defined rather than left to fall through
+
+    lines = award_rules.published_lines(tender)
+    if not lines or tender.bid_due_date is None or tender.bid_due_date > now:
+        return 40
+    if any(li.technical_closed_at is None for li in lines):
+        return 55
+    states = [award_rules.line_state(award_rules.latest_round(db, li)) for li in lines]
+    if any(s in ("none", "draft", "returned") for s in states):
+        return 65
+    decided = sum(1 for s in states if s in ("approved", "excluded"))
+    # Capped below 100: a tender with every line decided finalizes (Awarded/No
+    # Award) in the same step and drops off this list, so this list should never
+    # actually reach it -- the cap just keeps a stray edge case from reading "done".
+    return min(99, 80 + round(20 * decided / len(lines)))
+
+
 def _officer_stats(
     db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_approval_count: int, bid_counts: dict[int, int], draft_tenders: list[Tender]
 ) -> DashboardOfficerOut | None:
@@ -102,6 +131,7 @@ def _officer_stats(
             DashboardOfficerTenderOut(
                 id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
                 lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decision_by_tender.get(t.id, 0),
+                lines_total=len(t.line_items), progress_pct=_tender_progress_pct(db, t, now),
             )
             for t in tenders
         ],

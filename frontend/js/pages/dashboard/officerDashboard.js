@@ -1,7 +1,8 @@
-import { esc, kicker, th, emptyRow, fmtDate, tag, stateTag } from "../../kit.js";
+import { esc, fmtDate } from "../../kit.js";
 import { switchView } from "../../nav.js";
 import { kpiStrip as kpiTiles } from "./kpi.js";
-import { bars } from "../../charts.js";
+import { donut } from "../../charts.js";
+import { icon } from "../../icons.js";
 import { openTenderById } from "../tenders/tendersPage.js";
 import { actionQueue, wireActionQueue } from "./actionQueue.js";
 
@@ -32,65 +33,95 @@ function kpiStrip(o) {
   ]);
 }
 
-function pipeline(o) {
-  const stages = [
-    ["Draft", `${o.draft_count} tender(s)`, o.draft_count],
-    ["Pending E-Tender Approval", `${o.pending_approval_count} tender(s)`, o.pending_approval_count],
+// Stage rows of the tracker: [label, icon, tone, note, tender count]. Every
+// stage counts tenders; the lines behind them are in the note and the table.
+function stages(o) {
+  return [
+    ["Draft", "file-text", "primary", "not yet submitted for approval", o.draft_count],
+    ["Pending E-Tender Approval", "clock", "warning", "sent, waiting on the Approving Authority", o.pending_approval_count],
     [
       "Published — bidding open",
-      o.awaiting_evaluation_close_count ? `${o.live_count} tender(s) · ${o.awaiting_evaluation_close_count} more closed, awaiting evaluation (Category Manager)` : `${o.live_count} tender(s)`,
+      "activity",
+      "success",
+      o.awaiting_evaluation_close_count ? `${o.awaiting_evaluation_close_count} more closed, awaiting evaluation (Category Manager)` : "accepting bids",
       o.live_count,
     ],
-    ["Ready to recommend", `${o.ready_to_recommend_lines} line(s) · ${o.ready_to_recommend_count} tender(s)`, o.ready_to_recommend_lines],
-    ["Awaiting L1 approval", `${o.awaiting_decision_lines} line(s) · ${o.awaiting_decision_count} tender(s)`, o.awaiting_decision_lines],
+    ["Ready to recommend", "award", "info", `${o.ready_to_recommend_lines} line(s) ready to recommend`, o.ready_to_recommend_count],
+    ["Awaiting L1 approval", "check-square", "primary", `${o.awaiting_decision_lines} line(s) sent for approval`, o.awaiting_decision_count],
   ];
-  return `<div>
-    <div class="ep-k mb-9px">My tender pipeline</div>
-    <div class="ep-pipeline">${stages
-      .map(
-        ([name, note, count], i) => `<div class="ep-stage">
-          <div class="d-flex items-center gap-7px">
-            <span class="ep-stage-dot ${count ? "ep-stage-dot-on" : "ep-stage-dot-off"}">${i + 1}</span>
-            <span class="fs-12-5px fw-800">${esc(name)}</span>
-          </div>
-          <div class="ep-sub lh-1-4">${esc(note)}</div>
-          <div class="ep-stage-bar ${count ? "ep-stage-bar-on" : "ep-stage-bar-off"}"></div>
-        </div>`
-      )
-      .join("")}</div>
+}
+
+// Vuexy-style support tracker: a donut of where the work sits, with each stage listed beside it.
+function tracker(o) {
+  const rows = stages(o)
+    .map(
+      ([label, ic, tone, note, count]) => `<div class="d-flex items-center gap-12px">
+        <span class="ep-kpi-icon tone-${tone}">${icon(ic, 20)}</span>
+        <div class="flex-1 minw-0"><div class="fw-600">${esc(label)}</div><div class="ep-sub">${esc(note)}</div></div>
+        <span class="fw-800 fs-16px">${count}</span>
+      </div>`
+    )
+    .join("");
+  return `<div class="ep-pane">
+    <div class="ep-pane-head"><span>Procurement pipeline</span><span class="ep-k">where your work sits, now</span></div>
+    <div class="ep-pane-pad d-flex flex-wrap gap-24px items-center">
+      <div id="officer-stage-chart" class="flex-1 minw-0"></div>
+      <div class="d-flex flex-col gap-16px flex-1 minw-0">${rows}</div>
+    </div>
   </div>`;
 }
 
-// Replaces the old generic "Bids submitted" number (a single count with no
-// tender attached, per feedback 2026-09-29) with one row per tender actually
-// in progress, each carrying its own bid count.
-function tendersTable(o) {
+// What's happening on a tender, in one line: bidding status while it's live,
+// otherwise why it isn't -- draft, pending approval, or what's left to decide.
+function tenderSubtitle(t) {
+  const parts = [`${t.lines_total} line item(s)`];
+  if (t.status === "draft") parts.push("not yet submitted");
+  else if (t.status === "pending_approval") parts.push("waiting on the Approving Authority");
+  else if (t.status === "published") {
+    const due = t.bid_due_date ? new Date(t.bid_due_date) : null;
+    const closed = due && due <= new Date();
+    parts.push(`${t.bids_received} bid(s)${due ? `, ${closed ? "closed" : "closes"} ${fmtDate(t.bid_due_date)}` : ""}`);
+    if (t.lines_ready_to_recommend) parts.push(`${t.lines_ready_to_recommend} to recommend`);
+    if (t.lines_awaiting_decision) parts.push(`${t.lines_awaiting_decision} awaiting approval`);
+  }
+  return parts.join(" · ");
+}
+
+// Tone for the progress ring: green on track, amber a bit behind, red stalled
+// (reserved for the one case that's genuinely a stall -- technical evaluation
+// still open after the bid deadline passed), grey for a tender just starting out.
+function progressTone(t, value) {
+  if (t.status === "published" && t.bid_due_date && new Date(t.bid_due_date) <= new Date() && value <= 55) return "danger";
+  if (value >= 65) return "success";
+  if (value >= 20) return "warning";
+  return "muted";
+}
+
+// Vuexy's "Assignment Progress" card: a row per tender with a percentage ring,
+// the tender and what's happening on it, and a chevron through to it. Replaces
+// the old table of Title/Status/Bidding/Lines/Next step columns -- all of that
+// now reads as one line per tender. The ring is a CSS conic-gradient, not a
+// chart -- ApexCharts' radialBar won't draw a visible arc at this size.
+function tenderProgress(o) {
   const rows = o.tenders.length
     ? o.tenders
         .map((t) => {
-          const nextStep =
-            [t.lines_ready_to_recommend ? tag(`${t.lines_ready_to_recommend} to recommend`, "att") : "", t.lines_awaiting_decision ? tag(`${t.lines_awaiting_decision} awaiting approval`) : ""]
-              .filter(Boolean)
-              .join(" ") || '<span class="ep-sub">—</span>';
-          const due = t.bid_due_date ? new Date(t.bid_due_date) : null;
-          const closed = due && due <= new Date();
-          const bidding =
-            t.status === "published"
-              ? `${t.bids_received} bid(s)${due ? ` · ${closed ? "closed" : "closes"} ${fmtDate(t.bid_due_date)}` : ""}${closed && !t.lines_ready_to_recommend && !t.lines_awaiting_decision ? '<div class="ep-sub">awaiting technical evaluation close</div>' : ""}`
-              : '<span class="ep-sub">—</span>';
-          return `<tr>
-            <td class="ep-cell fw-600">${esc(t.title)}</td>
-            <td class="ep-cell">${stateTag(t.status)}</td>
-            <td class="ep-cell fs-12-5px">${bidding}</td>
-            <td class="ep-cell fs-12-5px">${nextStep}</td>
-            <td class="ep-cell text-right"><button class="ep-b" data-open="${t.id}">Open</button></td>
-          </tr>`;
+          const value = t.progress_pct;
+          const tone = progressTone(t, value);
+          return `<div class="assign-row d-flex items-center gap-14px">
+            <div class="assign-ring ring-tone-${tone}" style="--ring-value: ${value}"><div class="assign-ring-hole">${value}%</div></div>
+            <div class="flex-1 minw-0">
+              <div class="fw-600">${esc(t.title)}</div>
+              <div class="ep-sub mt-2px">${esc(tenderSubtitle(t))}</div>
+            </div>
+            <button type="button" class="assign-chevron" data-open="${t.id}" aria-label="Open ${esc(t.title)}">${icon("chevron-right", 16)}</button>
+          </div>`;
         })
         .join("")
-    : emptyRow(5, "Nothing in Draft, Pending Approval, or Published right now.");
+    : '<div class="ep-sub">Nothing in Draft, Pending Approval, or Published right now.</div>';
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>Tenders</span><span class="ep-k">${o.tenders.length} in progress</span></div>
-    <table class="ep-table">${th("Title", "Status", "Bidding", "Next step", "")}<tbody>${rows}</tbody></table>
+    <div class="assign-list">${rows}</div>
   </div>`;
 }
 
@@ -99,9 +130,8 @@ export function renderOfficerDashboard(root, s) {
   const queue = actionQueue(s);
   root.innerHTML = `<div class="d-flex flex-col gap-22px">
     ${kpiStrip(o)}
-    ${pipeline(o)}
-    <div class="ep-pane"><div class="ep-pane-head"><span>Pipeline by stage</span><span class="ep-k">tenders and lines, now</span></div><div class="ep-pane-pad"><div id="officer-stage-chart"></div></div></div>
-    <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${tendersTable(o)}</div>
+    ${tracker(o)}
+    <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${tenderProgress(o)}</div>
   </div>`;
   wireActionQueue(root, queue);
   drawStageChart(o);
@@ -117,10 +147,10 @@ export function renderOfficerDashboard(root, s) {
 function drawStageChart(o) {
   const el = document.getElementById("officer-stage-chart");
   if (!el) return;
-  bars(el, {
-    categories: ["Draft tenders", "Pending approval", "Live tenders", "Lines ready to recommend", "Lines awaiting L1"],
-    series: [{ name: "Count", data: [o.draft_count, o.pending_approval_count, o.live_count, o.ready_to_recommend_lines, o.awaiting_decision_lines] }],
-    pickColors: (p) => [p.muted, p.warning, p.primary, p.success, p.info],
+  donut(el, {
+    labels: stages(o).map(([label]) => label),
+    series: stages(o).map(([, , , , count]) => count),
+    pickColors: (p) => [p.primary, p.warning, p.success, p.info, p.muted],
     height: 240,
   });
 }

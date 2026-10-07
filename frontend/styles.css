@@ -157,6 +157,17 @@ button.ep-tag { border: 0; font-family: inherit; }
 button.ep-kpi { border: none; font: inherit; text-align: left; width: 100%; cursor: pointer; }
 button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .ep-kpi-value { font-size: 32px; font-weight: 600; line-height: 1.15; margin-top: 6px; }
+.assign-list { padding: 2px 26px 8px; }
+.assign-row { padding: 14px 0; border-bottom: 1px solid var(--ink-07); }
+.assign-row:last-child { border-bottom: none; }
+.assign-ring { position: relative; width: 46px; height: 46px; flex: none; border-radius: 50%; background: conic-gradient(var(--ring-color, var(--primary)) calc(var(--ring-value) * 1%), var(--ink-12) 0); }
+.assign-ring-hole { position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: var(--ink); }
+.ring-tone-success { --ring-color: var(--success); }
+.ring-tone-warning { --ring-color: var(--warning); }
+.ring-tone-danger { --ring-color: var(--danger); }
+.ring-tone-muted { --ring-color: var(--ink-40); }
+.assign-chevron { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: var(--radius); background: var(--surface-subtle); color: var(--ink-70); cursor: pointer; }
+.assign-chevron:hover { background: var(--ink-09); }
 .ep-kpi-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: var(--radius); background: var(--primary-14); color: var(--primary); }
 .ep-kpi-icon.tone-success { background: var(--success-bg); color: var(--success-text); }
 .ep-kpi-icon.tone-info { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }

@@ -82,6 +82,12 @@ export async function refreshChrome() {
 }
 
 export function switchView(view) {
+  // Hiding a tab is not enough: search results and ?view= links can still name
+  // any staff screen. Send a role (or a vendor) that has no tab for it to its
+  // own start page instead. The server refuses the data either way.
+  if (ALL_STAFF_TAB_VIEWS.includes(view) && !(ROLE_TABS[state.user?.role] || []).includes(view)) {
+    view = state.actorType === "vendor" ? "vendor-dashboard" : DEFAULT_VIEW_BY_ROLE[state.user?.role] || "dashboard";
+  }
   document.querySelectorAll(".view").forEach((el) => (el.hidden = true));
   document.getElementById("view-" + view).hidden = false;
   setPageHead(view);

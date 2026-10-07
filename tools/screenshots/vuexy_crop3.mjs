@@ -1,0 +1,13 @@
+import { chromium } from "playwright";
+import { writeFileSync } from "fs";
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1600, height: 1200 } });
+await p.goto("https://demos.pixinvent.com/vuexy-html-admin-template/html/vertical-menu-template/app-academy-dashboard.html", { waitUntil: "networkidle", timeout: 30000 });
+const loc = p.locator("text=Assignment Progress").first();
+await loc.scrollIntoViewIfNeeded();
+const card = loc.locator("xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' card ')][1]");
+await card.screenshot({ path: "vuexy_assignment_card.png" });
+const html = await card.evaluate((el) => el.outerHTML);
+writeFileSync("vuexy_assignment_card.html", html);
+console.log("len", html.length);
+await b.close();

@@ -109,6 +109,8 @@ class DashboardOfficerTenderOut(BaseModel):
     bid_due_date: datetime | None
     lines_ready_to_recommend: int
     lines_awaiting_decision: int
+    lines_total: int
+    progress_pct: int  # milestone-based progress through the tender's lifecycle, see _tender_progress_pct
 
 
 class DashboardOfficerOut(BaseModel):
