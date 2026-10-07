@@ -31,7 +31,7 @@ const SEARCH_GROUPS = {
   staff: [
     ["vendors", "Vendors", "queue"],
     ["tenders", "Tenders", "tenders"],
-    ["products", "Items", "catalog"],
+    ["products", "Items", "catalog-list"],
   ],
   vendor: [
     ["tenders", "Your tenders", null],

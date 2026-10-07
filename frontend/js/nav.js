@@ -4,7 +4,10 @@ import { api } from "./api.js";
 import { esc, fmtDateTime } from "./kit.js";
 import { loadDashboard } from "./pages/dashboardPage.js";
 import { loadVendors } from "./pages/vendorQueuePage.js";
-import { loadProducts } from "./pages/catalog/catalogPage.js";
+import { loadList as loadCatalogList } from "./pages/catalog/productListPage.js";
+import { loadAddProduct as loadCatalogAdd } from "./pages/catalog/addProductPage.js";
+import { loadCategories as loadCatalogCategories } from "./pages/catalog/categoryListPage.js";
+import { loadSubCategories as loadCatalogSubcategories } from "./pages/catalog/subCategoryListPage.js";
 import { loadMappingsPage } from "./pages/mappings/mappingsPage.js";
 import { loadRatingsPage } from "./pages/ratings/ratingsPage.js";
 import { loadVendorDashboard } from "./pages/vendorDashboardPage.js";
@@ -24,7 +27,10 @@ import { closingSoonTenders } from "./pages/vendorNotifications.js";
 const PAGE_TITLES = {
   dashboard: ["Overview", "Procurement Command Centre"],
   queue: ["Module 1", "Vendor Registration & Onboarding"],
-  catalog: ["Module 2", "Items"],
+  "catalog-list": ["Module 2", "Product List"],
+  "catalog-add": ["Module 2", "Add Product"],
+  "catalog-categories": ["Module 2", "Category List"],
+  "catalog-subcategories": ["Module 2", "Sub-Category List"],
   mappings: ["Module 2", "Vendor–Product Eligibility Matrix"],
   ratings: ["Module 3", "Vendor Rating & Scorecard"],
   tenders: ["Module 4", "E-Tender Creation"],
@@ -104,7 +110,10 @@ export function switchView(view) {
   });
   if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
-  if (view === "catalog") loadProducts();
+  if (view === "catalog-list") loadCatalogList();
+  if (view === "catalog-add") loadCatalogAdd();
+  if (view === "catalog-categories") loadCatalogCategories();
+  if (view === "catalog-subcategories") loadCatalogSubcategories();
   if (view === "mappings") loadMappingsPage();
   if (view === "ratings") loadRatingsPage();
   if (view === "vendor-dashboard") loadVendorDashboard();
@@ -135,13 +144,14 @@ document.querySelectorAll(".back-link, .link-btn[data-view]").forEach((btn) => {
 // actually do server-side (see backend/README.md's role tables) — not just
 // "logged in staff sees everything". Kept in one place so a new tab only
 // needs one line here, not a scattered set of if/role checks.
+const CATALOG_VIEWS = ["catalog-list", "catalog-add", "catalog-categories", "catalog-subcategories"];
 export const ROLE_TABS = {
   procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
   // Procurement Admin and Category Manager are one job (KYC, mapping, catalog, ratings).
-  category_manager: ["dashboard", "queue", "catalog", "mappings", "ratings", "evaluation", "pofiles"],
-  procurement_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "evaluation", "pofiles"],
+  category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "evaluation", "pofiles"],
+  procurement_admin: ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "evaluation", "pofiles"],
   approving_authority: ["dashboard", "approvals", "awards"],
-  system_admin: ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
+  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
 };
 export const DEFAULT_VIEW_BY_ROLE = {
   procurement_officer: "dashboard",
@@ -150,7 +160,7 @@ export const DEFAULT_VIEW_BY_ROLE = {
   approving_authority: "dashboard",
   system_admin: "dashboard",
 };
-export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", "catalog", "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"];
+export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"];
 
 // Staff login is the default entry screen (2026-10-07); Vendor login and
 // Registration are one click away from it (and from each other), each with

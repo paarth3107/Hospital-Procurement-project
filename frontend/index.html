@@ -36,7 +36,10 @@
     <div class="ep-navgroup" data-group="catalog">
       <button class="ep-navgroup-head" type="button" aria-expanded="true" data-icon="package"><span class="nav-label">Catalog</span><svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
       <div class="ep-navgroup-items">
-      <button class="tab-btn ep-nav" id="catalog-tab" data-view="catalog" data-icon="package" hidden><span class="nav-label">Items</span></button>
+      <button class="tab-btn ep-nav" id="catalog-list-tab" data-view="catalog-list" data-icon="package" hidden><span class="nav-label">Product List</span></button>
+      <button class="tab-btn ep-nav" id="catalog-add-tab" data-view="catalog-add" data-icon="upload" hidden><span class="nav-label">Add Product</span></button>
+      <button class="tab-btn ep-nav" id="catalog-categories-tab" data-view="catalog-categories" data-icon="tag" hidden><span class="nav-label">Category List</span></button>
+      <button class="tab-btn ep-nav" id="catalog-subcategories-tab" data-view="catalog-subcategories" data-icon="layers" hidden><span class="nav-label">Sub-Category List</span></button>
       </div>
     </div>
     <div class="ep-navgroup" data-group="tenders">
@@ -218,10 +221,26 @@
     <div id="queue-result" class="result"></div>
   </section>
 
-  <section id="view-catalog" class="view" hidden>
-    <div id="catalog-root"></div>
-    <div id="catalog-form-host" hidden></div>
-    <div id="product-result" class="result"></div>
+  <section id="view-catalog-list" class="view" hidden>
+    <div id="catalog-list-root"></div>
+    <div id="catalog-list-result" class="result"></div>
+  </section>
+
+  <section id="view-catalog-add" class="view" hidden>
+    <div id="catalog-add-root"></div>
+    <div id="catalog-add-result" class="result"></div>
+  </section>
+
+  <section id="view-catalog-categories" class="view" hidden>
+    <div id="catalog-categories-root"></div>
+    <div id="catalog-categories-form-host" hidden></div>
+    <div id="catalog-categories-result" class="result"></div>
+  </section>
+
+  <section id="view-catalog-subcategories" class="view" hidden>
+    <div id="catalog-subcategories-root"></div>
+    <div id="catalog-subcategories-form-host" hidden></div>
+    <div id="catalog-subcategories-result" class="result"></div>
   </section>
 
   <section id="view-mappings" class="view" hidden>
