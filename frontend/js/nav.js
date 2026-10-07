@@ -3,7 +3,8 @@ import { setWhoami } from "./ui.js";
 import { api } from "./api.js";
 import { esc, fmtDateTime } from "./kit.js";
 import { loadDashboard } from "./pages/dashboardPage.js";
-import { loadVendors } from "./pages/vendorQueuePage.js";
+import { loadVendors } from "./pages/vendorListPage.js";
+import { loadVendorView } from "./pages/vendorViewPage.js";
 import { loadList as loadCatalogList } from "./pages/catalog/productListPage.js";
 import { loadAddProduct as loadCatalogAdd } from "./pages/catalog/addProductPage.js";
 import { loadCategories as loadCatalogCategories } from "./pages/catalog/categoryListPage.js";
@@ -26,7 +27,8 @@ import { closingSoonTenders } from "./pages/vendorNotifications.js";
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
   dashboard: ["Overview", "Procurement Command Centre"],
-  queue: ["Module 1", "Vendor Registration & Onboarding"],
+  queue: ["Module 1", "Vendor List"],
+  "vendor-view": ["Module 1", "Vendor Profile"],
   "catalog-list": ["Module 2", "Product List"],
   "catalog-add": ["Module 2", "Add Product"],
   "catalog-categories": ["Module 2", "Category List"],
@@ -102,7 +104,8 @@ export function switchView(view) {
   document.getElementById("view-" + view).hidden = false;
   setPageHead(view);
   refreshChrome();
-  const tabView = view === "tender-edit" ? "tenders" : view; // the editor is a sub-screen of Tenders, not its own tab
+  // Sub-screens with no tab of their own highlight their parent tab instead.
+  const tabView = view === "tender-edit" ? "tenders" : view === "vendor-view" ? "queue" : view;
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     const active = btn.dataset.view === tabView;
     btn.classList.toggle("active", active);
@@ -110,6 +113,7 @@ export function switchView(view) {
   });
   if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
+  if (view === "vendor-view") loadVendorView();
   if (view === "catalog-list") loadCatalogList();
   if (view === "catalog-add") loadCatalogAdd();
   if (view === "catalog-categories") loadCatalogCategories();

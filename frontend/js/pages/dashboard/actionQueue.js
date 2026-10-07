@@ -1,6 +1,6 @@
 import { state } from "../../state.js";
 import { switchView, ROLE_TABS } from "../../nav.js";
-import { preselectVendor } from "../vendorQueuePage.js";
+import { preselectVendor } from "../vendorListPage.js";
 import { openTenderById } from "../tenders/tendersPage.js";
 import { esc, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 
@@ -16,10 +16,13 @@ function buildTasks(s) {
   const allowed = new Set(ROLE_TABS[state.user?.role] || []);
   const tasks = [];
   const add = (view, task) => allowed.has(view) && tasks.push({ view, ...task });
+  // "queue" (Vendor List's permission) gates whether this role sees these at
+  // all; the task's own `view` then overrides it to jump straight to that
+  // vendor's profile (Vendor View) instead of landing on the list.
   for (const v of s.pending_vendors)
-    add("queue", { task: `${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`, detail: v.responded ? "Vendor answered your information request" : "New registration, documents awaiting review", ref: `Vendor #${v.id}`, due: "today", hot: true, vendorId: v.id });
+    add("queue", { view: "vendor-view", task: `${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`, detail: v.responded ? "Vendor answered your information request" : "New registration, documents awaiting review", ref: `Vendor #${v.id}`, due: "today", hot: true, vendorId: v.id });
   for (const v of s.docs_to_verify)
-    add("queue", { task: `Verify documents — ${v.legal_name}`, detail: `${v.count} document(s) uploaded by an approved vendor`, ref: `Vendor #${v.vendor_id}`, due: "today", hot: true, vendorId: v.vendor_id, allStatuses: true });
+    add("queue", { view: "vendor-view", task: `Verify documents — ${v.legal_name}`, detail: `${v.count} document(s) uploaded by an approved vendor`, ref: `Vendor #${v.vendor_id}`, due: "today", hot: true, vendorId: v.vendor_id, allStatuses: true });
   for (const a of s.award_tasks)
     add("awards", { task: a.kind === "decide" ? `L1 approval — ${a.title}` : `Recommend award — ${a.title}`, detail: a.detail + (a.tier ? ` · tier ${a.tier}` : ""), ref: `#${a.tender_id}`, due: "today", hot: true });
   for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });

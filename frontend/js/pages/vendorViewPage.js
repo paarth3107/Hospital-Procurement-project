@@ -3,84 +3,25 @@ import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
 import { modalPrompt, modalConfirm } from "../modal.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
-import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn, expiryTag, pageSlice, paginationBar, wirePagination, imgPlaceholder } from "../kit.js";
+import { esc, kicker, tag, stateTag, th, fmtDate, fmtDateTime, btn, expiryTag, imgPlaceholder } from "../kit.js";
 import { refreshChrome } from "../nav.js";
 import { state } from "../state.js";
+import { takeViewVendorId } from "./vendorViewState.js";
 
-// ---- Vendor registrations (Module 1): queue on the left, the selected
-// registration's identity, KYC documents and decision bar on the right. ----
-const root = () => document.getElementById("queue-root");
-const resultEl = () => document.getElementById("queue-result");
+// ---- Vendor View (Module 1, 2026-10-07): one vendor's identity, KYC
+// documents and decision bar, full width -- split out of the old combined
+// queue+detail screen (see vendorListPage.js). Reached via that screen's
+// View button or a dashboard deep link (preselectVendor there). ----
+const root = () => document.getElementById("vendor-view-root");
+const resultEl = () => document.getElementById("vendor-view-result");
 
-let statusFilter = null; // set on first load, by role
-let vendors = [];
-let selectedId = null;
-let queuePage = 0;
+let vendorId = null;
 // Verify/Reject on a document stay disabled until the reviewer has opened
 // the file in this review session, so nobody rubber-stamps unseen documents.
 let reviewedDocIds = new Set();
 // Status history is closed by default -- it's a record, not something that
 // needs reviewing every time a vendor is opened.
 let historyOpen = false;
-
-const FILTERS = [
-  ["pending_verification", "Pending"],
-  ["info_requested", "Info requested"],
-  ["active", "Active"],
-  ["rejected", "Rejected"],
-  ["suspended", "Suspended"],
-  ["blacklisted", "Blacklisted"],
-  ["", "All"],
-];
-
-// Lets the dashboard's action queue open the list with one vendor preselected.
-export function preselectVendor(id, filter = "pending_verification") {
-  selectedId = id;
-  statusFilter = filter;
-}
-
-export async function loadVendors() {
-  if (statusFilter === null) statusFilter = "";
-  try {
-    vendors = await api("/vendors" + (statusFilter ? `?status_filter=${statusFilter}` : ""));
-    if (!vendors.some((v) => v.id === selectedId)) selectedId = vendors[0]?.id ?? null;
-    reviewedDocIds = new Set();
-    await render();
-  } catch (err) {
-    showResult(resultEl(), "Could not load vendors: " + err.message, false);
-  }
-}
-
-function queuePane() {
-  const { pageItems, totalPages, page } = pageSlice(vendors, queuePage);
-  queuePage = page;
-  const list = pageItems.length
-    ? pageItems
-        .map(
-          (v) => `<button class="ep-row-btn${v.id === selectedId ? " sel" : ""}" data-vendor="${v.id}">
-            <div class="d-flex items-center gap-10px">
-              ${imgPlaceholder("image", "sm")}
-              <div class="flex-1 minw-0">
-                <div class="d-flex justify-between gap-8px items-baseline">
-                  <span class="fs-13px fw-800">${esc(v.legal_name)}</span>
-                  <span class="ep-sub">V-${v.id}</span>
-                </div>
-                <div class="d-flex items-center gap-7px mt-5px">${stateTag(v.status)}<span class="ep-sub">${esc(v.contact_person)}</span></div>
-              </div>
-            </div>
-          </button>`
-        )
-        .join("")
-    : `<div class="ep-pane-pad hint">No vendors in this status.</div>`;
-  return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Vendors</span><span class="ep-k">${vendors.length}</span></div>
-    <div class="padding-10px-12px border-bottom-1px-solid-ink-18">
-      <select class="input" id="queue-filter">${FILTERS.map(([v, l]) => `<option value="${v}" ${v === statusFilter ? "selected" : ""}>${l}</option>`).join("")}</select>
-    </div>
-    ${list}
-    ${paginationBar(page, totalPages, "queue-prev", "queue-next")}
-  </div>`;
-}
 
 const money = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN"));
 
@@ -248,28 +189,27 @@ function historyPane(history) {
 }
 
 async function render() {
-  let detail = '<div class="ep-pane ep-pane-pad hint">Select a registration to review it.</div>';
-  let current = null;
-  let docs = [];
-  if (selectedId !== null) {
-    try {
-      let history, requirements;
-      [current, docs, history, requirements] = await Promise.all([
-        api(`/vendors/${selectedId}`),
-        api(`/vendors/${selectedId}/documents`),
-        api(`/vendors/${selectedId}/status-history`),
-        api(`/vendors/${selectedId}/document-requirements`),
-      ]);
-      detail = `<div class="d-flex flex-col gap-18px">${identityPane(current)}${docsPane(current, docs)}${requirementsPane(requirements)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
-    } catch (err) {
-      detail = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
-    }
+  if (vendorId === null) {
+    // The page's own back-link (index.html, always shown above this root)
+    // covers getting back to the list -- nothing more to do here.
+    root().innerHTML = `<div class="ep-pane ep-pane-pad hint">No vendor selected.</div>`;
+    return;
   }
-  root().innerHTML = `<div class="ep-grid grid-cols-340px-1fr">${queuePane()}${detail}</div>`;
-  wire(current);
+  try {
+    const [current, docs, history, requirements] = await Promise.all([
+      api(`/vendors/${vendorId}`),
+      api(`/vendors/${vendorId}/documents`),
+      api(`/vendors/${vendorId}/status-history`),
+      api(`/vendors/${vendorId}/document-requirements`),
+    ]);
+    root().innerHTML = `<div class="d-flex flex-col gap-18px">${identityPane(current)}${docsPane(current, docs)}${requirementsPane(requirements)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
+    wire(current);
+  } catch (err) {
+    root().innerHTML = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
+  }
 }
 
-async function openDocument(vendorId, docId) {
+async function openDocument(docId) {
   try {
     const res = await fetch(API_BASE + `/vendors/${vendorId}/documents/${docId}/download`, { headers: apiHeaders() });
     if (!res.ok) throw new Error("Could not open document");
@@ -287,23 +227,6 @@ async function post(path, body) {
 
 function wire(vendor) {
   const r = root();
-  r.querySelector("#queue-filter")?.addEventListener("change", (e) => {
-    statusFilter = e.target.value;
-    queuePage = 0;
-    loadVendors();
-  });
-  wirePagination(r, "queue-prev", "queue-next", queuePage, (p) => {
-    queuePage = p;
-    render();
-  });
-  r.querySelectorAll("[data-vendor]").forEach((b) =>
-    b.addEventListener("click", () => {
-      selectedId = Number(b.dataset.vendor);
-      reviewedDocIds = new Set();
-      historyOpen = false;
-      render();
-    })
-  );
   r.querySelector("#toggle-history")?.addEventListener("click", () => {
     historyOpen = !historyOpen;
     render();
@@ -311,7 +234,7 @@ function wire(vendor) {
   r.querySelectorAll("[data-reveal]").forEach((b) =>
     b.addEventListener("click", async () => {
       const span = b.parentElement.querySelector("[data-secret]");
-      const value = await askRevealPassword(selectedId, b.dataset.reveal, span.dataset.label);
+      const value = await askRevealPassword(vendorId, b.dataset.reveal, span.dataset.label);
       if (value != null) {
         span.textContent = value;
         b.remove(); // shown until the vendor is reopened or the tab re-rendered
@@ -321,7 +244,7 @@ function wire(vendor) {
   r.querySelectorAll("[data-view-doc]").forEach((a) =>
     a.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (await openDocument(selectedId, a.dataset.viewDoc)) {
+      if (await openDocument(a.dataset.viewDoc)) {
         reviewedDocIds.add(Number(a.dataset.viewDoc));
         render();
       }
@@ -334,9 +257,9 @@ function wire(vendor) {
           const reason = await modalPrompt("Reason for rejecting this document (required):");
           if (!reason) return;
           if (!(await modalConfirm(`Reject this document? Reason: "${reason}"`, { title: "Reject Document", confirmLabel: "Reject document", danger: true }))) return;
-          await post(`/vendors/${selectedId}/documents/${b.dataset.doc}/reject`, { reason });
+          await post(`/vendors/${vendorId}/documents/${b.dataset.doc}/reject`, { reason });
         } else {
-          await post(`/vendors/${selectedId}/documents/${b.dataset.doc}/verify`);
+          await post(`/vendors/${vendorId}/documents/${b.dataset.doc}/verify`);
         }
         render();
       } catch (err) {
@@ -384,9 +307,17 @@ async function decide(kind, vendor) {
       await post(`/vendors/${vendor.id}/request-info`, { note });
       showResult(resultEl(), "Documents requested again.", true);
     }
-    await loadVendors();
+    await render(); // this vendor's own data changed -- refresh it in place rather than leaving
     refreshChrome();
   } catch (err) {
     showResult(resultEl(), "Could not complete that: " + err.message, false);
   }
+}
+
+export async function loadVendorView() {
+  vendorId = takeViewVendorId();
+  reviewedDocIds = new Set();
+  historyOpen = false;
+  resultEl().textContent = "";
+  await render();
 }

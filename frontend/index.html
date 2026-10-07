@@ -28,7 +28,7 @@
     <div class="ep-navgroup" data-group="vendors">
       <button class="ep-navgroup-head" type="button" aria-expanded="true" data-icon="users"><span class="nav-label">Vendors</span><svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
       <div class="ep-navgroup-items">
-      <button class="tab-btn ep-nav" id="queue-tab" data-view="queue" data-icon="user-check" hidden><span class="nav-label">Registrations</span><span class="nav-badge" id="badge-queue"></span></button>
+      <button class="tab-btn ep-nav" id="queue-tab" data-view="queue" data-icon="user-check" hidden><span class="nav-label">Vendor List</span><span class="nav-badge" id="badge-queue"></span></button>
       <button class="tab-btn ep-nav" id="mappings-tab" data-view="mappings" data-icon="layers" hidden><span class="nav-label">Vendor Mapping</span><span class="nav-badge" id="badge-mappings"></span></button>
       <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" data-icon="star" hidden><span class="nav-label">Ratings &amp; Scorecards</span></button>
       </div>
@@ -219,6 +219,12 @@
   <section id="view-queue" class="view" hidden>
     <div id="queue-root"></div>
     <div id="queue-result" class="result"></div>
+  </section>
+
+  <section id="view-vendor-view" class="view" hidden>
+    <button class="back-link" data-view="queue">← Back to Vendor List</button>
+    <div id="vendor-view-root"></div>
+    <div id="vendor-view-result" class="result"></div>
   </section>
 
   <section id="view-catalog-list" class="view" hidden>
