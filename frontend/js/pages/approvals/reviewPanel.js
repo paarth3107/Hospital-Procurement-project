@@ -1,6 +1,6 @@
 import { api, API_BASE, apiHeaders } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, kicker, tag, th, emptyRow, fmtDateTime, inr } from "../../kit.js";
+import { esc, kicker, tag, th, emptyRow, fmtDate, fmtDateTime, inr } from "../../kit.js";
 
 // The approver's review of one tender, before publishing it (spec 7.2): header
 // terms, line items by procurement type, the vendors each line would go to,
@@ -14,6 +14,10 @@ const kv = (o) =>
     .filter(([, v]) => v !== null && v !== "" && v !== undefined)
     .map(([k, v]) => `<div class="ep-sub">${esc(k.replace(/_/g, " "))}: <b>${esc(Array.isArray(v) ? v.join(", ") : v === true ? "yes" : v === false ? "no" : v)}</b></div>`)
     .join("");
+
+// Small pill badges next to the title for whichever flags apply -- no
+// explanatory paragraph, same spirit as the status tags used everywhere else.
+const flagTags = (r) => `${r.open_tender ? " " + tag("Open tender", "att") : ""}${r.is_rate_contract ? " " + tag("Rate contract", "att") : ""}`;
 
 function lineHtml(l) {
   const method = l.technical_eval_method === "qualify_disqualify" ? "Qualify / disqualify, then lowest price (L1)" : l.technical_eval_method === "scored" ? "Scored technical ranking, then lowest price (L1)" : `QCBS — technical ${l.technical_weight ?? "?"} / price ${l.price_weight ?? "?"}`;
@@ -48,9 +52,14 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
   container.innerHTML = `<div class="d-flex flex-col gap-18px">
     <div><button class="ep-b" id="rv-back">← Approval inbox</button></div>
     <div class="ep-pane ep-pane-pad d-flex gap-24px items-center flex-wrap">
-      <div class="flex-1 minw-260px">${kicker(`Tender #${r.id} · ${r.tender_type.toUpperCase().replace("_", " ")} · round ${r.round_number}`)}<h4 class="margin-4px-0-3px fs-22px">${esc(r.title)}</h4><div class="ep-sub">${esc(r.facility_name)}${r.department ? " · " + esc(r.department) : ""}</div></div>
+      <div class="flex-1 minw-260px">${kicker(`Tender #${r.id} · ${r.tender_type.toUpperCase().replace("_", " ")} · round ${r.round_number}`)}<h4 class="margin-4px-0-3px fs-22px">${esc(r.title)}${flagTags(r)}</h4><div class="ep-sub">${esc(r.facility_name)}${r.department ? " · " + esc(r.department) : ""}</div></div>
       <div>${kicker("Total estimated value")}<div class="fs-22px fw-800 mt-3px">${inr(r.total_estimated_value)}</div></div>
       <div>${kicker("Approval required from")}<div class="mt-5px">${tag(r.required_tier ? "Tier " + r.required_tier : "—", "att")}</div><div class="ep-sub">${esc(r.tier_label || "")}</div></div>
+      ${
+        r.is_rate_contract
+          ? `<div>${kicker("Rate contract period")}<div class="fw-700 mt-3px">${fmtDate(r.contract_start_date)} – ${fmtDate(r.contract_end_date)}</div></div>`
+          : ""
+      }
     </div>
     ${r.warnings.map((w) => `<div class="ep-note warn">${esc(w)}</div>`).join("")}
     ${pane("Tender Details", "", facts([
@@ -58,6 +67,7 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
       fact("Publish date", r.publish_date ? fmtDateTime(r.publish_date) : "On approval"), fact("Bids close", fmtDateTime(r.bid_due_date)), fact("Default minimum vendor rating", r.min_rating_threshold), fact("Vendors per line (min / max)", `${r.min_invites ?? "—"} / ${r.max_invites ?? "—"}`),
       ...(r.description ? [fact("Description", `<span class="pre-wrap fw-400">${esc(r.description)}</span>`, 4)] : []),
       fact("Terms &amp; conditions", r.terms_document_filename ? `<button type="button" class="ep-b" id="rv-terms-download">${esc(r.terms_document_filename)} — download</button>` : null, 4),
+      ...(r.is_rate_contract ? [fact("Rate contract agreement", r.rate_contract_document_filename ? `<button type="button" class="ep-b" id="rv-rate-contract-download">${esc(r.rate_contract_document_filename)} — download</button>` : null, 4)] : []),
     ]))}
     ${pane(`Line items (${r.lines.length})`, `<span class="ep-k">${r.lines.filter((l) => l.held_back).length} would be held back</span>`, r.lines.map(lineHtml).join(""))}
     ${pane("Approval History", "", rounds)}
@@ -74,6 +84,15 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
   container.querySelector("#rv-terms-download")?.addEventListener("click", async () => {
     try {
       const res = await fetch(`${API_BASE}/tenders/${tenderId}/terms-document/download`, { headers: apiHeaders() });
+      if (!res.ok) throw new Error("Could not open the file");
+      window.open(URL.createObjectURL(await res.blob()), "_blank");
+    } catch (err) {
+      showResult(resultEl, err.message, false);
+    }
+  });
+  container.querySelector("#rv-rate-contract-download")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${API_BASE}/tenders/${tenderId}/rate-contract-document/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
       window.open(URL.createObjectURL(await res.blob()), "_blank");
     } catch (err) {

@@ -5,6 +5,7 @@ import { donut } from "../../charts.js";
 import { icon } from "../../icons.js";
 import { openTenderById } from "../tenders/tendersPage.js";
 import { actionQueue, wireActionQueue } from "./actionQueue.js";
+import { renderTenderProgressCard } from "./tenderProgressCard.js";
 
 // ---- Procurement Officer's own dashboard (product decision, 2026-09-29 --
 // the spec has no dashboard requirements). A tender-lifecycle pipeline built
@@ -87,61 +88,21 @@ function tenderSubtitle(t) {
   return parts.join(" · ");
 }
 
-// Tone for the progress ring: green on track, amber a bit behind, red stalled
-// (reserved for the one case that's genuinely a stall -- technical evaluation
-// still open after the bid deadline passed), grey for a tender just starting out.
-function progressTone(t, value) {
-  if (t.status === "published" && t.bid_due_date && new Date(t.bid_due_date) <= new Date() && value <= 55) return "danger";
-  if (value >= 65) return "success";
-  if (value >= 20) return "warning";
-  return "muted";
-}
-
-// Vuexy's "Assignment Progress" card: a row per tender with a percentage ring,
-// the tender and what's happening on it, and a chevron through to it. Replaces
-// the old table of Title/Status/Bidding/Lines/Next step columns -- all of that
-// now reads as one line per tender. The ring is a CSS conic-gradient, not a
-// chart -- ApexCharts' radialBar won't draw a visible arc at this size.
-function tenderProgress(o) {
-  const rows = o.tenders.length
-    ? o.tenders
-        .map((t) => {
-          const value = t.progress_pct;
-          const tone = progressTone(t, value);
-          return `<div class="assign-row d-flex items-center gap-14px">
-            <div class="assign-ring ring-tone-${tone}" style="--ring-value: ${value}"><div class="assign-ring-hole">${value}%</div></div>
-            <div class="flex-1 minw-0">
-              <div class="fw-600">${esc(t.title)}</div>
-              <div class="ep-sub mt-2px">${esc(tenderSubtitle(t))}</div>
-            </div>
-            <button type="button" class="assign-chevron" data-open="${t.id}" aria-label="Open ${esc(t.title)}">${icon("chevron-right", 16)}</button>
-          </div>`;
-        })
-        .join("")
-    : '<div class="ep-sub">Nothing in Draft, Pending Approval, or Published right now.</div>';
-  return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Tenders</span><span class="ep-k">${o.tenders.length} in progress</span></div>
-    <div class="assign-list">${rows}</div>
-  </div>`;
-}
-
 export function renderOfficerDashboard(root, s) {
   const o = s.officer;
   const queue = actionQueue(s);
   root.innerHTML = `<div class="d-flex flex-col gap-22px">
     ${kpiStrip(o)}
     ${tracker(o)}
-    <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${tenderProgress(o)}</div>
+    <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}<div class="ep-pane" id="officer-tenders-pane"></div></div>
   </div>`;
   wireActionQueue(root, queue);
   drawStageChart(o);
   root.querySelectorAll(".ep-kpi[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
-  root.querySelectorAll("[data-open]").forEach((b) =>
-    b.addEventListener("click", () => {
-      switchView("tenders");
-      openTenderById(b.dataset.open);
-    })
-  );
+  renderTenderProgressCard(root, "officer-tenders-pane", o.tenders, tenderSubtitle, (id) => {
+    switchView("tenders");
+    openTenderById(id);
+  });
 }
 
 function drawStageChart(o) {

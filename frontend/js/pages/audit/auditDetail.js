@@ -1,4 +1,4 @@
-import { esc, kicker, fmtDateTime } from "../../kit.js";
+import { esc, kicker, fmtDateTime, roleLabel } from "../../kit.js";
 
 // One audit entry in full: who / what / when, the reason, and the before and
 // after values (only the fields that changed are recorded).
@@ -25,7 +25,7 @@ const kv = (obj) =>
     : '<div class="ep-sub mt-6px">—</div>';
 
 export function openAuditDetail(row) {
-  const who = row.actor_type === "system" ? "System" : `${row.actor_name || "—"}${row.actor_role ? ` (${row.actor_role.replace(/_/g, " ")})` : ""}`;
+  const who = row.actor_type === "system" ? "System" : `${row.actor_name || "—"}${row.actor_role ? ` (${roleLabel(row.actor_role)})` : ""}`;
   box.innerHTML = `
     <div class="dlg-head"><div class="flex-1">${kicker(`Audit entry #${row.id}${row.imported ? " · imported from earlier history" : ""}`)}<h4>${esc(actionLabel(row.action))}</h4></div></div>
     <div class="padding-16px-18px d-flex flex-col gap-14px maxh-70vh overflow-auto">

@@ -13,6 +13,7 @@ class CurrentUser(BaseModel):
     email: str
     full_name: str
     role: Role
+    approval_tier: int | None  # Approving Authority only -- which tier this login can decide at
     facility_id: int | None
 
     model_config = {"from_attributes": True}

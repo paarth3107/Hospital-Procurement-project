@@ -1,5 +1,6 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
+import { switchView } from "../../nav.js";
 import { esc, tag, th, emptyRow, inr, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { STATE } from "./awardHelpers.js";
 import { renderTenderAward } from "./tenderAward.js";
@@ -84,3 +85,11 @@ function showTender() {
 }
 
 export const loadAwards = () => (selected ? showTender() : showList());
+
+// Opens one tender's award stage directly -- used by the Approving
+// Authority's dashboard (approvingAuthorityDashboard.js) navigating in from
+// its pipeline, same pattern approvalsPage.js uses for its own review.
+export function openTenderAward(id) {
+  selected = id;
+  switchView("awards");
+}

@@ -1,9 +1,11 @@
 import { api } from "./api.js";
 import { state } from "./state.js";
 import { esc } from "./kit.js";
-import { switchView } from "./nav.js";
+import { switchView, refreshChrome } from "./nav.js";
 import { hydrateIcons } from "./icons.js";
 import { refreshCharts } from "./charts.js";
+import { openTenderBid } from "./pages/bid/bidPage.js";
+import { bellRowsHtml, wireBellRows } from "./pages/vendorNotifications.js";
 
 // Top navbar behaviour: dark-mode toggle, quick search, notifications and the
 // account menu, plus collapsing the grouped sidebar. Each control reads the
@@ -22,11 +24,21 @@ const NOTIFICATIONS = [
   ["badge-vendor-dashboard", "Unread notifications", "vendor-dashboard"],
 ];
 
-const SEARCH_GROUPS = [
-  ["vendors", "Vendors", "queue"],
-  ["tenders", "Tenders", "tenders"],
-  ["products", "Items", "catalog"],
-];
+// Staff groups switch to the matching tab (same item can be found again
+// there); a vendor has no such tabs for its results, so a null view means
+// "open that tender's bid page directly" (see renderSearchResults) instead.
+const SEARCH_GROUPS = {
+  staff: [
+    ["vendors", "Vendors", "queue"],
+    ["tenders", "Tenders", "tenders"],
+    ["products", "Items", "catalog"],
+  ],
+  vendor: [
+    ["tenders", "Your tenders", null],
+    ["products", "Items on your tenders", null],
+  ],
+};
+const searchEndpoint = () => (state.actorType === "vendor" ? "/vendor-portal/search" : "/search");
 
 const $ = (id) => document.getElementById(id);
 
@@ -62,15 +74,44 @@ function notificationRows() {
   return NOTIFICATIONS.map(([badgeId, label, view]) => ({ n: $(badgeId)?.textContent || "", label, view })).filter((r) => r.n);
 }
 
-function renderNotifications() {
+// Staff keep the existing badge-derived summary (one row per queue, with a
+// count -- opening it just jumps to that list). A vendor gets the real
+// content instead (2026-10-07): its actual notifications plus tenders
+// closing soon, read live off the API each time the bell opens, the same
+// way the dashboard's own notification pane and closing-soon banner do.
+// The dot itself stays driven by the sidebar badges either way (the
+// MutationObserver below) -- badge-vendor-dashboard already carries the
+// vendor's combined unread-notifications + closing-soon count (nav.js).
+async function renderNotifications() {
+  $("notifications-dot").hidden = notificationRows().length === 0;
+  const box = $("notifications-menu");
+  if (state.actorType === "vendor") {
+    box.innerHTML = `<div class="ep-dropdown-head">Notifications</div><div class="ep-dropdown-empty">Loading…</div>`;
+    try {
+      const [notes, tenders] = await Promise.all([api("/vendor-portal/notifications"), api("/vendor-portal/tenders")]);
+      box.innerHTML = bellRowsHtml(notes, tenders);
+      wireBellRows(box, () => {
+        renderNotifications();
+        refreshChrome();
+      });
+      box.querySelectorAll("[data-open-bid]").forEach((b) =>
+        b.addEventListener("click", () => {
+          closeMenus();
+          openTenderBid(Number(b.dataset.openBid));
+        })
+      );
+    } catch (err) {
+      box.innerHTML = `<div class="ep-dropdown-head">Notifications</div><div class="ep-dropdown-empty">Could not load notifications.</div>`;
+    }
+    return;
+  }
   const rows = notificationRows();
-  $("notifications-dot").hidden = rows.length === 0;
-  $("notifications-menu").innerHTML = rows.length
+  box.innerHTML = rows.length
     ? `<div class="ep-dropdown-head">Needs your attention</div>${rows
         .map((r) => `<button class="ep-dropdown-item" type="button" data-view="${r.view}"><span>${esc(r.label)}</span><span class="nav-badge">${esc(r.n)}</span></button>`)
         .join("")}`
     : `<div class="ep-dropdown-head">Notifications</div><div class="ep-dropdown-empty">You're all caught up.</div>`;
-  $("notifications-menu").querySelectorAll("[data-view]").forEach((b) =>
+  box.querySelectorAll("[data-view]").forEach((b) =>
     b.addEventListener("click", () => {
       closeMenus();
       switchView(b.dataset.view);
@@ -115,23 +156,27 @@ function toggleMenu(menuId, btnId, beforeOpen) {
 }
 
 function renderSearchResults(data) {
-  const groups = SEARCH_GROUPS.map(([key, title, view]) => ({ title, view, items: data[key] || [] })).filter((g) => g.items.length);
+  const isVendor = state.actorType === "vendor";
+  const groups = SEARCH_GROUPS[isVendor ? "vendor" : "staff"].map(([key, title, view]) => ({ title, view, items: data[key] || [] })).filter((g) => g.items.length);
   const box = $("search-results");
   box.hidden = false;
   box.innerHTML = groups.length
     ? groups
         .map(
           (g) => `<div class="ep-search-group">${esc(g.title)}</div>${g.items
-            .map((it) => `<button class="ep-search-item" type="button" data-view="${g.view}"><span>${esc(it.label)}</span><span class="ep-sub">${esc(it.sub)}</span></button>`)
+            .map((it) => `<button class="ep-search-item" type="button" data-id="${it.id}" data-view="${g.view || ""}"><span>${esc(it.label)}</span><span class="ep-sub">${esc(it.sub)}</span></button>`)
             .join("")}`
         )
         .join("")
     : `<div class="ep-dropdown-empty">No matches.</div>`;
-  box.querySelectorAll("[data-view]").forEach((b) =>
+  box.querySelectorAll("[data-id]").forEach((b) =>
     b.addEventListener("click", () => {
       closeMenus();
       $("search-input").value = "";
-      switchView(b.dataset.view);
+      // Vendor results carry no view (a vendor has no tab to land a result
+      // on) -- they go straight to that tender's bid page instead.
+      if (b.dataset.view) switchView(b.dataset.view);
+      else openTenderBid(Number(b.dataset.id));
     })
   );
 }
@@ -149,12 +194,31 @@ function onSearchInput(e) {
   searchTimer = setTimeout(async () => {
     const seq = ++searchSeq;
     try {
-      const data = await api(`/search?q=${encodeURIComponent(q)}`);
+      const data = await api(`${searchEndpoint()}?q=${encodeURIComponent(q)}`);
       if (seq === searchSeq) renderSearchResults(data);
     } catch (err) {
       // a failed search just leaves the previous results in place
     }
   }, 250);
+}
+
+// Whole-sidebar collapse (Vuexy-style, 2026-10-07): a thin icon rail, same
+// idea as the theme choice -- remembered, applied as a body class so every
+// affected rule lives in CSS rather than being toggled here element by element.
+function applySidebarCollapsed(collapsed) {
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  $("sidebar-collapse-btn")?.setAttribute("aria-expanded", String(!collapsed));
+  // Collapsing always shows the true collapsed rail immediately, whatever the
+  // pointer happens to be resting on (the toggle it was just clicked with,
+  // still inside the sidebar) -- it only peeks open again on the next real
+  // mouseenter, not because it was already "hovering" a moment ago.
+  if (collapsed) $("sidebar").classList.remove("sidebar-peek");
+}
+
+function toggleSidebarCollapsed() {
+  const next = !document.body.classList.contains("sidebar-collapsed");
+  writeStored("sidebarCollapsed", String(next));
+  applySidebarCollapsed(next);
 }
 
 function initGroups() {
@@ -184,6 +248,14 @@ export function initShell() {
   hydrateIcons();
   applyTheme(readStored("theme") === "dark" ? "dark" : "light");
   $("theme-toggle").addEventListener("click", toggleTheme);
+  applySidebarCollapsed(readStored("sidebarCollapsed") === "true");
+  $("sidebar-collapse-btn").addEventListener("click", (e) => {
+    e.stopPropagation(); // sits inside the brand row, which also navigates home on click
+    toggleSidebarCollapsed();
+  });
+  // Tracked in JS, not CSS :hover -- see the comment above .sidebar-peek in styles.css.
+  $("sidebar").addEventListener("mouseenter", () => $("sidebar").classList.add("sidebar-peek"));
+  $("sidebar").addEventListener("mouseleave", () => $("sidebar").classList.remove("sidebar-peek"));
   $("notifications-btn").addEventListener("click", (e) => {
     e.stopPropagation();
     toggleMenu("notifications-menu", "notifications-btn", renderNotifications);

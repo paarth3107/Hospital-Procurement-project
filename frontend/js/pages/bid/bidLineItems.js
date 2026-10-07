@@ -88,6 +88,11 @@ export function setFromServer(tenderBidsOut) {
     tender_description: tenderBidsOut.tender_description,
     facility_name: tenderBidsOut.facility_name,
     terms_document_filename: tenderBidsOut.terms_document_filename,
+    open_tender: tenderBidsOut.open_tender,
+    is_rate_contract: tenderBidsOut.is_rate_contract,
+    contract_start_date: tenderBidsOut.contract_start_date,
+    contract_end_date: tenderBidsOut.contract_end_date,
+    rate_contract_document_filename: tenderBidsOut.rate_contract_document_filename,
     bid_due_date: tenderBidsOut.bid_due_date,
   };
   rows = tenderBidsOut.lines.map((f) => ({ ...rowFromForm(f), skipped: false }));

@@ -2,9 +2,8 @@ import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
 import { openTenderBid } from "./bid/bidPage.js";
-import { notificationsHtml, wireNotifications } from "./vendorNotifications.js";
 import { scorecardHtml } from "./ratings/scorecard.js";
-import { switchView, refreshChrome } from "../nav.js";
+import { switchView } from "../nav.js";
 import { kpiStrip as kpiTiles } from "./dashboard/kpi.js";
 import { esc, kicker, tag, stateTag, th, emptyRow, fmtDateTime, inr, pageSlice, paginationBar, wirePagination } from "../kit.js";
 
@@ -216,7 +215,11 @@ function bidsPane(bids) {
   </div>`;
 }
 
-function render(note, tenders, bids, notes, ratings, docs) {
+// Notifications (document verify/reject, status changes, award outcomes)
+// and the closing-soon reminder used to have their own inline spots here
+// too; both now live only in the top bell (shell.js, 2026-10-07) -- showing
+// them in both places just meant reading the same thing twice.
+function render(note, tenders, bids, ratings, docs) {
   const allLineRows = tenders.flatMap((t) => t.line_items.map((li) => ({ t, li })));
   const closedCount = allLineRows.filter(({ t }) => CLOSED_TENDER_STATUSES.has(t.status)).length;
   // Soonest-closing first -- lines with no due date (shouldn't happen for a
@@ -224,21 +227,15 @@ function render(note, tenders, bids, notes, ratings, docs) {
   const byDeadline = (a, b) => new Date(a.t.bid_due_date || 8640000000000000) - new Date(b.t.bid_due_date || 8640000000000000);
   const lineRows = (showClosed ? allLineRows : allLineRows.filter(({ t }) => !CLOSED_TENDER_STATUSES.has(t.status))).slice().sort(byDeadline);
   const openLines = lineRows.filter(({ t }) => t.can_bid);
-  const closingSoon = openLines.filter(({ t }) => t.bid_due_date && new Date(t.bid_due_date) - Date.now() < 24 * 3600 * 1000);
-  const closingSoonTenders = new Set(closingSoon.map(({ t }) => t.tender_id)).size;
-  const closingSoonNote = closingSoonTenders
-    ? `<div class="ep-note warn"><span>${closingSoonTenders} tender(s) close within 24 hours — submit soon or they'll pass without a bid.</span></div>`
-    : "";
 
   const { html: invitationsHtml, page: invitesPageClamped } = renderTenderList(lineRows, closedCount, openLines.length);
 
-  root().innerHTML = `<div class="d-flex flex-col gap-18px">${note}${expiryNote(docs)}${notificationsHtml(notes)}${kpiStrip(openLines.length, bids, ratings)}${closingSoonNote}${invitationsHtml}${bidsPane(bids)}${ratingPanel(ratings)}</div>`;
-  wireNotifications(root(), () => { loadVendorDashboard(); refreshChrome(); });
+  root().innerHTML = `<div class="d-flex flex-col gap-18px">${note}${expiryNote(docs)}${kpiStrip(openLines.length, bids, ratings)}${invitationsHtml}${bidsPane(bids)}${ratingPanel(ratings)}</div>`;
   root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-categories"));
   root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-categories"));
   root().querySelector("#goto-profile-expiry")?.addEventListener("click", () => switchView("vendor-profile"));
   root().querySelectorAll("[data-prepare-bid]").forEach((b) => b.addEventListener("click", () => openTenderBid(Number(b.dataset.prepareBid))));
-  const rerender = () => render(note, tenders, bids, notes, ratings, docs);
+  const rerender = () => render(note, tenders, bids, ratings, docs);
   root().querySelector("#show-closed-invites")?.addEventListener("change", (e) => {
     showClosed = e.target.checked;
     invitesPage = 0;
@@ -252,15 +249,14 @@ export async function loadVendorDashboard() {
   try {
     const vendor = await api("/vendor-auth/me");
     state.vendor = vendor;
-    const [note, tenders, bids, notes, ratings, docs] = await Promise.all([
+    const [note, tenders, bids, ratings, docs] = await Promise.all([
       statusNote(vendor),
       api("/vendor-portal/tenders"),
       api("/vendor-portal/bids"),
-      api("/vendor-portal/notifications"),
       api("/vendor-portal/ratings"),
       api("/vendor-portal/documents"),
     ]);
-    render(note, tenders, bids, notes, ratings, docs);
+    render(note, tenders, bids, ratings, docs);
     resultEl().textContent = "";
     if (state.flash) {
       showResult(resultEl(), state.flash, true);

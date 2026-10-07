@@ -9,39 +9,74 @@ a:hover { color: var(--primary-dark); }
 input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(--primary); }
 
 /* ---------- shell: sidebar ---------- */
-.ep-side { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--sidebar-bg); box-shadow: 0 0 22px 0 rgba(var(--ink-rgb), .06); display: flex; flex-direction: column; z-index: 50; overflow-y: auto; }
+.ep-side { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--sidebar-bg); box-shadow: 0 0 22px 0 rgba(var(--ink-rgb), .06); display: flex; flex-direction: column; z-index: 50; overflow-x: hidden; overflow-y: auto; transition: width .25s ease, box-shadow .25s ease; }
 .ep-brand { display: flex; align-items: center; gap: 12px; padding: 26px 26px 22px; cursor: pointer; }
-.ep-brand-mark { width: 28px; height: 28px; border-radius: var(--radius); background: var(--primary); color: var(--on-solid); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
-.ep-brand-name { font-size: 18px; font-weight: 600; line-height: 1.1; }
-.ep-navhead { padding: 18px 26px 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-50); font-weight: 600; }
+.ep-brand-mark { width: 28px; height: 28px; flex: none; border-radius: var(--radius); background: var(--primary); color: var(--on-solid); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+.ep-brand-name { font-size: 18px; font-weight: 600; line-height: 1.1; white-space: nowrap; min-width: 0; transition: opacity .2s ease; }
+.sidebar-collapse-btn { margin-left: auto; flex: none; }
+.sidebar-collapse-btn .collapse-chevron { transition: transform .25s ease; }
+body.sidebar-collapsed .collapse-chevron { transform: rotate(180deg); }
+.ep-navhead { padding: 18px 26px 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-50); font-weight: 600; white-space: nowrap; transition: opacity .2s ease; }
 .ep-navlist { display: flex; flex-direction: column; gap: 4px; padding: 6px 14px 18px; }
 .ep-nav { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 16px; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--ink); }
 .ep-nav:hover { background: var(--ink-06); }
 .ep-nav.active { background: linear-gradient(118deg, var(--primary), rgba(var(--primary-rgb), .7)); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .4); }
-.ep-nav .nav-label { flex: 1; white-space: nowrap; }
+.ep-nav .nav-label { flex: 1; min-width: 0; white-space: nowrap; transition: opacity .2s ease; }
 .ep-nav .nav-icon, .ep-navgroup-head .nav-icon { flex: none; opacity: .85; }
 /* A true circle for a single digit; padding lets it widen into a rounded
    capsule (still fully round at both ends) rather than squashing for 2+ digits. */
-.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px; font-weight: 600; flex: none; transition: opacity .2s ease; }
 .ep-nav .nav-badge { background: var(--danger); color: var(--on-solid); }
 .ep-nav .nav-badge:empty { display: none; }
 .ep-nav.active .nav-badge { background: var(--on-solid); color: var(--primary); }
 .ep-navgroup-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--ink); text-align: left; }
 .ep-navgroup-head:hover { background: var(--ink-06); }
-.ep-navgroup-head .nav-label { flex: 1; white-space: nowrap; }
-.ep-navgroup-head .nav-chevron { margin-left: auto; transition: transform .15s; }
+.ep-navgroup-head .nav-label { flex: 1; min-width: 0; white-space: nowrap; transition: opacity .2s ease; }
+.ep-navgroup-head .nav-chevron { margin-left: auto; flex: none; transition: transform .15s, opacity .2s ease; }
 .ep-navgroup.collapsed .nav-chevron { transform: rotate(-90deg); }
 .ep-navgroup.collapsed .ep-navgroup-items { display: none; }
 .ep-navgroup-items { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; }
 .ep-navgroup-items .ep-nav { padding-left: 30px; }
-.ep-identity { margin-top: auto; border-top: 1px solid var(--ink-12); padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; }
+.ep-identity { margin-top: auto; border-top: 1px solid var(--ink-12); padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; white-space: nowrap; transition: opacity .2s ease; }
 .who-name { font-size: 14px; font-weight: 600; }
 .verified-tick { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--primary); color: var(--on-solid); font-size: 9px; line-height: 1; vertical-align: middle; }
 .who-role { font-size: 12px; color: var(--ink-60); margin-top: 2px; }
 
+/* Collapsed sidebar (Vuexy-style, 2026-10-07): a thin icon rail. Checked
+   against the real Vuexy template -- nothing about a row's own layout
+   changes (padding, alignment); only the sidebar's own width animates, and
+   the icons (flex: none, fixed size) stay exactly where they always are.
+   Labels fade out over the same .25s as the width, so the two motions read
+   as one smooth shrink instead of text popping in/out mid-animation, and
+   overflow-x: hidden on .ep-side quietly crops whatever the width leaves no
+   room for. Hovering flies the rail back out over the page (box-shadow only,
+   main's own margin doesn't move) for a quick glance without committing to
+   it. ".sidebar-peek" is tracked in JS (shell.js's mouseenter/mouseleave) and
+   explicitly cleared the moment the sidebar is collapsed, rather than read
+   live off CSS :hover -- :hover is still true right after the click that
+   collapsed it (the pointer hasn't moved, it's resting on the toggle it just
+   pressed), so a plain :hover rule shows the sidebar as if nothing happened. */
+body.sidebar-collapsed .ep-side { width: 76px; }
+body.sidebar-collapsed .ep-side.sidebar-peek { width: 280px; box-shadow: 0 0 32px 0 rgba(var(--ink-rgb), .18); }
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-brand-name,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-navhead,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-identity,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .nav-label,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .nav-badge,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .nav-chevron,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .sidebar-collapse-btn { opacity: 0; pointer-events: none; }
+/* Sub-items collapse along with the rail (2026-10-07) -- a wall of undifferentiated
+   icons with no group headings to break them up defeats the point of a thin rail.
+   This never touches .ep-navgroup's own "collapsed" class or its saved preference
+   (initGroups() in shell.js) -- it's purely a display override while the rail is
+   narrow, so expanding the sidebar (or peeking it) reveals each group exactly as
+   the user last left it, not forced back open. */
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-navgroup-items { display: none; }
+
 /* ---------- shell: main + app bar ---------- */
 main { min-width: 0; }
-body:has(#sidebar:not([hidden])) main { margin-left: 280px; }
+body:has(#sidebar:not([hidden])) main { margin-left: 280px; transition: margin-left .25s ease; }
+body.sidebar-collapsed:has(#sidebar:not([hidden])) main { margin-left: 76px; }
 .ep-appbar { display: none; align-items: center; gap: 16px; margin: 24px 28px 0; padding: 14px 20px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); position: relative; z-index: 40; }
 body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
 .ep-search { position: relative; flex: 1; max-width: 460px; }
@@ -65,6 +100,13 @@ body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
 .ep-dropdown-item:hover { background: var(--ink-06); }
 .ep-dropdown-item .nav-badge { background: var(--primary-14); color: var(--primary-dark); }
 .ep-dropdown-empty { padding: 14px 12px; font-size: 13px; color: var(--ink-60); }
+/* The bell's richer vendor rows (shell.js's bellRowsHtml): a title line plus
+   a body sentence, unlike .ep-dropdown-item's single-line label+count. */
+.ep-dropdown.ep-dropdown-wide { min-width: 360px; max-width: 380px; }
+.ep-notif-item { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; text-align: left; color: var(--ink); }
+.ep-notif-item:hover { background: var(--ink-06); }
+.ep-notif-dismiss { flex: none; border: 0; background: transparent; color: var(--ink-50); font-size: 13px; line-height: 1; padding: 3px 7px; border-radius: 50%; cursor: pointer; }
+.ep-notif-dismiss:hover { background: var(--ink-12); color: var(--ink); }
 .ep-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-14); color: var(--primary-dark); font-weight: 600; font-size: 13px; border: 0; cursor: pointer; }
 .ep-user-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px 10px; border-bottom: 1px solid var(--ink-12); margin-bottom: 4px; }
 .ep-user-head .ep-avatar { cursor: default; }
@@ -79,6 +121,14 @@ body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
 .ep-content { padding: 26px 28px 56px; display: flex; flex-direction: column; gap: 26px; }
 body:not(:has(#sidebar:not([hidden]))) .ep-content { max-width: 980px; margin: 0 auto; padding-top: 32px; }
 body:not(:has(#sidebar:not([hidden]))) .ep-content:has(#view-register:not([hidden])) { max-width: 1360px; }
+/* Vuexy-style (2026-10-07): the page keeps a comfortable fixed width and
+   recenters in whatever room the sidebar leaves, rather than every card and
+   grid column stretching to fill the extra space when it collapses. Only
+   margin-left/right are set, not the margin shorthand, so each element's own
+   top/bottom spacing above is untouched. */
+body:has(#sidebar:not([hidden])) .ep-appbar,
+body:has(#sidebar:not([hidden])) .ep-head,
+body:has(#sidebar:not([hidden])) .ep-content { max-width: 1320px; margin-left: auto; margin-right: auto; }
 .view { display: flex; flex-direction: column; gap: 26px; }
 .view[hidden] { display: none; }
 
@@ -126,6 +176,17 @@ button.ep-tag { border: 0; font-family: inherit; }
 .ep-b[data-v="p"] { background: var(--primary); border-color: var(--primary); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .35); }
 .ep-b[data-v="p"]:hover { background: var(--primary-dark); }
 .ep-b:disabled { opacity: .45; cursor: not-allowed; }
+/* Vuexy-style pagination (2026-10-07): circular page pills + chevron arrows,
+   the active page filled solid primary -- replaces the old plain
+   "‹ Previous / Page X of Y / Next ›" text bar everywhere paginationBar()
+   is used (kit.js), so every paginated list in the app picked this up at once. */
+.ep-pagination { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 16px 0 4px; flex-wrap: wrap; }
+.ep-page-btn, .ep-page-arrow { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-65); font-size: 13.5px; font-weight: 500; cursor: pointer; }
+.ep-page-btn:hover, .ep-page-arrow:hover:not(:disabled) { background: var(--primary-08); color: var(--primary); }
+.ep-page-btn.active { background: var(--primary); color: var(--on-solid); font-weight: 700; box-shadow: 0 2px 6px rgba(var(--primary-rgb), .35); }
+.ep-page-arrow { font-size: 17px; }
+.ep-page-arrow:disabled { opacity: .35; cursor: not-allowed; }
+.ep-page-ellipsis { color: var(--ink-40); padding: 0 2px; font-size: 13.5px; }
 /* Brief confirmation after a copy -- a colour change and a pop, no popup dialog.
    The :hover variant is repeated so it still wins while the pointer is still
    sitting on the button right after the click that triggered it. min-width is
@@ -184,6 +245,18 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .ep-kpi-icon.tone-info { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
 .ep-kpi-icon.tone-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
 .ep-kpi-icon.tone-danger { background: var(--danger-100); color: var(--danger); }
+.ep-kpi-icon.tone-muted { background: var(--tag-neutral-bg); color: var(--tag-neutral-text); }
+/* Reserved image slots (2026-10-07, kit.js's imgPlaceholder()) -- catalog
+   rows/cards and the Add Product image card today, vendor logos later. */
+.ep-thumb { flex: none; display: grid; place-items: center; background: var(--ink-06); color: var(--ink-35); border-radius: var(--radius); overflow: hidden; }
+.ep-thumb-sm { width: 40px; height: 40px; }
+.ep-thumb-md { width: 56px; height: 56px; }
+.ep-thumb-lg { width: 100%; min-height: 180px; border: 1.5px dashed var(--ink-25); background: var(--surface-subtle); }
+/* Category List tab: a card per category (Vuexy's ecommerce category-list
+   grid) instead of a table row -- the icon placeholder above doubles as
+   where a real category image lands later. */
+.ep-category-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.ep-category-card-head { display: flex; gap: 14px; align-items: center; }
 .ep-pipeline { display: flex; align-items: stretch; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); }
 .ep-stage { flex: 1; padding: 22px 24px; border-right: 1px solid var(--ink-12); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ep-stage:last-child { border-right: 0; }
@@ -271,8 +344,13 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
   .ep-side.open { transform: none; }
   .ep-menu-btn { display: grid; }
   body:has(#sidebar:not([hidden])) main { margin-left: 0; }
+  /* The icon-rail collapse is a desktop idea -- the mobile drawer already
+     slides fully off-screen, so always show it full width and drop the toggle. */
+  body.sidebar-collapsed .ep-side { width: 280px; }
+  .sidebar-collapse-btn { display: none; }
   .ep-kpis { grid-template-columns: repeat(2, 1fr); }
   .dlg-body { grid-template-columns: 1fr; }
+  .grid-cols-2fr-1fr { grid-template-columns: 1fr; }
 }
 
 /* ---- Utility classes generated from what was previously inline style="..."
@@ -349,6 +427,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .grid-cols-1fr-1fr { grid-template-columns: 1fr 1fr; }
 .grid-cols-1fr-1fr-1fr { grid-template-columns: 1fr 1fr 1fr; }
 .grid-cols-340px-1fr { grid-template-columns: 340px 1fr; }
+.grid-cols-2fr-1fr { grid-template-columns: 2fr 1fr; }
 .grid-cols-repeat31fr { grid-template-columns: repeat(3,1fr); }
 .grid-cols-repeat41fr { grid-template-columns: repeat(4,1fr); }
 .grid-cols-repeatauto-fitminmax260px1fr { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }

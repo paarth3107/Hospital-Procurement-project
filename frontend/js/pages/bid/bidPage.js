@@ -1,6 +1,6 @@
 import { api, API_BASE, apiHeaders } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, kicker, fmtDateTime } from "../../kit.js";
+import { esc, kicker, fmtDate, fmtDateTime, tag } from "../../kit.js";
 import { switchView } from "../../nav.js";
 import { setFromServer, getTenderCtx } from "./bidLineItems.js";
 
@@ -17,6 +17,10 @@ export function openTenderBid(id) {
   switchView("bid");
 }
 
+// Small pill badges next to the title for whichever flags apply -- no
+// explanatory paragraph, same spirit as the status tags used everywhere else.
+const flagTags = (ctx) => `${ctx.open_tender ? " " + tag("Open tender", "att") : ""}${ctx.is_rate_contract ? " " + tag("Rate contract", "att") : ""}`;
+
 function renderHeader() {
   const ctx = getTenderCtx();
   if (!ctx) {
@@ -26,9 +30,14 @@ function renderHeader() {
   headerEl().innerHTML = `<div class="ep-pane ep-pane-pad mt-14px">
     <div class="d-flex gap-24px items-center flex-wrap">
       <div class="flex-1 minw-260px">${kicker(`Tender #${ctx.tender_id} · ${ctx.tender_type.toUpperCase()} · ${ctx.facility_name}`)}
-        <h4 class="margin-4px-0-3px fs-21px">${esc(ctx.tender_title)}</h4>
+        <h4 class="margin-4px-0-3px fs-21px">${esc(ctx.tender_title)}${flagTags(ctx)}</h4>
       </div>
       <div>${kicker("Closes")}<div class="fw-700 mt-3px">${esc(fmtDateTime(ctx.bid_due_date))}</div></div>
+      ${
+        ctx.is_rate_contract
+          ? `<div>${kicker("Rate contract period")}<div class="fw-700 mt-3px">${esc(fmtDate(ctx.contract_start_date))} – ${esc(fmtDate(ctx.contract_end_date))}</div></div>`
+          : ""
+      }
     </div>
     ${ctx.tender_description ? `<div class="hint mt-10px">${esc(ctx.tender_description)}</div>` : ""}
     ${
@@ -37,10 +46,25 @@ function renderHeader() {
             <button type="button" class="ep-b mt-4px" id="bid-terms-download">${esc(ctx.terms_document_filename)} — download</button></div>`
         : ""
     }
+    ${
+      ctx.rate_contract_document_filename
+        ? `<div class="mt-12px"><div class="ep-k">Rate contract agreement</div>
+            <button type="button" class="ep-b mt-4px" id="bid-rate-contract-download">${esc(ctx.rate_contract_document_filename)} — download</button></div>`
+        : ""
+    }
   </div>`;
   document.getElementById("bid-terms-download")?.addEventListener("click", async () => {
     try {
       const res = await fetch(`${API_BASE}/vendor-portal/bids/tender/${ctx.tender_id}/terms-document/download`, { headers: apiHeaders() });
+      if (!res.ok) throw new Error("Could not open the file");
+      window.open(URL.createObjectURL(await res.blob()), "_blank");
+    } catch (err) {
+      showResult(resultEl(), err.message, false);
+    }
+  });
+  document.getElementById("bid-rate-contract-download")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${API_BASE}/vendor-portal/bids/tender/${ctx.tender_id}/rate-contract-document/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
       window.open(URL.createObjectURL(await res.blob()), "_blank");
     } catch (err) {

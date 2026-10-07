@@ -15,6 +15,9 @@ from app.models.vendor_rating import VendorRating
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import DocumentStatus, Vendor, VendorDocument, VendorStatus, VendorStatusHistory
 from app.schemas.dashboard import (
+    DashboardApprovingAuthorityOut,
+    DashboardApprovingAuthorityTenderOut,
+    DashboardCategoryManagerOut,
     DashboardDraftTenderOut,
     DashboardEvalWorkloadOut,
     DashboardHeldLineOut,
@@ -136,6 +139,68 @@ def _officer_stats(
             for t in tenders
         ],
     )
+
+
+def _approving_authority_stats(
+    db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_your_approval: list[tuple[Tender, TenderApprovalRound]], bid_counts: dict[int, int]
+) -> DashboardApprovingAuthorityOut | None:
+    """Approving Authority's own pipeline, mirroring the Officer's dashboard
+    (product decision, 2026-10-07): the two gates this role decides -- E-Tender
+    Approval and L1 Approval -- plus what's directly upstream of each as a
+    tracking-only note. Draft tenders and the Officer's recommendation work
+    are deliberately not stages here -- there's nothing for this role to do
+    until a tender reaches Pending Approval or a line reaches Awaiting your
+    L1 decision."""
+    if user.role != Role.APPROVING_AUTHORITY:
+        return None
+
+    now = datetime.now(timezone.utc)
+    decidable_tender_ids = {t.id for t, _r in pending_your_approval}
+    required_tier_by_tender = {t.id: r.required_tier for t, r in pending_your_approval}
+
+    decide_by_tender = {t["tender_id"]: t["lines"] for t in award_tasks_raw if t["kind"] == "decide"}
+    recommend_by_tender = {t["tender_id"]: t["lines"] for t in award_rules.recommend_tasks(db)}
+
+    tenders = (
+        db.query(Tender)
+        .filter(Tender.status.in_([TenderStatus.PENDING_APPROVAL, TenderStatus.PUBLISHED]))
+        .order_by(Tender.id.desc())
+        .all()
+    )
+    published = [t for t in tenders if t.status == TenderStatus.PUBLISHED]
+    live_count = sum(1 for t in published if t.bid_due_date is None or t.bid_due_date > now)
+
+    return DashboardApprovingAuthorityOut(
+        pending_approval_count=len(decidable_tender_ids),
+        live_count=live_count,
+        ready_to_recommend_count=len(recommend_by_tender),
+        ready_to_recommend_lines=sum(recommend_by_tender.values()),
+        awaiting_decision_count=len(decide_by_tender),
+        awaiting_decision_lines=sum(decide_by_tender.values()),
+        tenders=[
+            DashboardApprovingAuthorityTenderOut(
+                id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
+                needs_your_approval=t.id in decidable_tender_ids, required_tier=required_tier_by_tender.get(t.id),
+                lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decide_by_tender.get(t.id, 0),
+                lines_total=len(t.line_items), progress_pct=_tender_progress_pct(db, t, now),
+            )
+            for t in tenders
+        ],
+    )
+
+
+def _category_manager_stats(db: Session, user: UserAccount, open_tenders_count: int, awaiting_evaluation_count: int) -> DashboardCategoryManagerOut | None:
+    """Category Manager / Procurement Admin's own mini pipeline -- just the
+    technical-evaluation stage of a tender's lifecycle this role touches
+    (product decision, 2026-10-07, mirrors _officer_stats/
+    _approving_authority_stats above). The two counts handed in are already
+    computed for the generic dashboard (open_tenders, eval_workload_lines);
+    only "evaluated_count" (handed off to the Officer) is new here."""
+    if user.role not in (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN):
+        return None
+
+    evaluated_count = sum(t["lines"] for t in award_rules.recommend_tasks(db))
+    return DashboardCategoryManagerOut(live_count=open_tenders_count, awaiting_evaluation_count=awaiting_evaluation_count, evaluated_count=evaluated_count)
 
 
 @router.get("/stats", response_model=DashboardStatsOut)
@@ -274,6 +339,8 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
 
     return DashboardStatsOut(
         officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts, draft_tenders),
+        approving_authority=_approving_authority_stats(db, user, award_tasks_raw, pending_your_approval, bid_counts),
+        category_manager=_category_manager_stats(db, user, len(open_tenders), len(eval_workload_lines)),
         vendors_by_status=vendors_by_status,
         catalog_entries_count=db.query(ProductMaster).filter(ProductMaster.active.is_(True)).count(),
         mappings_approved_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.APPROVED).count(),

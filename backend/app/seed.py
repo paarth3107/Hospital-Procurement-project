@@ -18,11 +18,11 @@ ADMIN_PASSWORD = "changeme123"
 # instead of only ever being tested as the one super-role account. All of
 # these are scoped to the first (default) facility.
 DEMO_STAFF = [
-    ("officer@medsource.local", "changeme123", "Priya Sharma (Procurement Officer)", Role.PROCUREMENT_OFFICER, None),
-    ("category@medsource.local", "changeme123", "Ravi Kumar (Category Manager)", Role.CATEGORY_MANAGER, None),
-    ("authority1@medsource.local", "changeme123", "Dr. Anjali Rao (Approving Authority, Tier 1)", Role.APPROVING_AUTHORITY, 1),
-    ("authority3@medsource.local", "changeme123", "Dr. Vikram Singh (Approving Authority, Tier 3)", Role.APPROVING_AUTHORITY, 3),
-    ("sysadmin@medsource.local", "changeme123", "System Admin (seed)", Role.SYSTEM_ADMIN, None),
+    ("officer@medsource.local", "changeme123", "Priya Sharma", Role.PROCUREMENT_OFFICER, None),
+    ("category@medsource.local", "changeme123", "Ravi Kumar", Role.CATEGORY_MANAGER, None),
+    ("authority1@medsource.local", "changeme123", "Dr. Anjali Rao", Role.APPROVING_AUTHORITY, 1),
+    ("authority3@medsource.local", "changeme123", "Dr. Vikram Singh", Role.APPROVING_AUTHORITY, 3),
+    ("sysadmin@medsource.local", "changeme123", "Sanjay Gupta", Role.SYSTEM_ADMIN, None),
 ]
 
 # Spec §2.3: multi-facility from the start. Two more facilities plus staff
@@ -35,13 +35,13 @@ DEMO_FACILITIES = [
 
 # (email, password, full_name, role, approval_tier, facility_code | None for group-wide)
 DEMO_FACILITY_STAFF = [
-    ("officer2@medsource.local", "changeme123", "Meena Pillai (Procurement Officer)", Role.PROCUREMENT_OFFICER, None, "ECH-002"),
-    ("category2@medsource.local", "changeme123", "Arjun Nair (Category Manager)", Role.CATEGORY_MANAGER, None, "ECH-002"),
-    ("authority2@medsource.local", "changeme123", "Dr. Farah Khan (Approving Authority, Tier 2)", Role.APPROVING_AUTHORITY, 2, "ECH-002"),
-    ("admin3@medsource.local", "changeme123", "Karan Mehta (Procurement Admin)", Role.PROCUREMENT_ADMIN, None, "LSC-003"),
-    ("officer3@medsource.local", "changeme123", "Sunita Verma (Procurement Officer)", Role.PROCUREMENT_OFFICER, None, "LSC-003"),
+    ("officer2@medsource.local", "changeme123", "Meena Pillai", Role.PROCUREMENT_OFFICER, None, "ECH-002"),
+    ("category2@medsource.local", "changeme123", "Arjun Nair", Role.CATEGORY_MANAGER, None, "ECH-002"),
+    ("authority2@medsource.local", "changeme123", "Dr. Farah Khan", Role.APPROVING_AUTHORITY, 2, "ECH-002"),
+    ("admin3@medsource.local", "changeme123", "Karan Mehta", Role.PROCUREMENT_ADMIN, None, "LSC-003"),
+    ("officer3@medsource.local", "changeme123", "Sunita Verma", Role.PROCUREMENT_OFFICER, None, "LSC-003"),
     # facility_code None -- a group-wide login, so the "All facilities" case shows under every facility filter too.
-    ("groupadmin@medsource.local", "changeme123", "IT Admin (Group-wide)", Role.SYSTEM_ADMIN, None, None),
+    ("groupadmin@medsource.local", "changeme123", "Deepak Joshi", Role.SYSTEM_ADMIN, None, None),
 ]
 
 # Spec §11.2's illustrative value bands (CLAUDE.md open question 2 — bands
@@ -134,7 +134,7 @@ def run():
             admin = UserAccount(
                 email=ADMIN_EMAIL,
                 hashed_password=hash_password(ADMIN_PASSWORD),
-                full_name="Procurement Admin (seed)",
+                full_name="Admin User",
                 role=Role.PROCUREMENT_ADMIN,
                 facility_id=facility.id,
             )

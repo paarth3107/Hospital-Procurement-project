@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -23,6 +23,52 @@ from app.services.open_links import facility_name, link_state
 from app.schemas.open_link import RegisteredTenderOut
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
+
+SEARCH_RESULTS_PER_GROUP = 5
+
+
+@router.get("/search")
+def search_my_tenders(q: str = Query(min_length=1, max_length=100), vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """Vendor-side quick search for the top navbar -- scoped to what this
+    vendor can actually see: the tenders it was invited to (same invite list
+    list_open_tenders above reads) and the line items on them. Never other
+    vendors or the staff-wide catalog (app/routers/search.py's version, which
+    vendor tokens are refused on entirely)."""
+
+    needle = q.strip().lower()
+    invites = (
+        db.query(TenderInvite)
+        .join(TenderLineItem, TenderInvite.tender_line_item_id == TenderLineItem.id)
+        .join(Tender, TenderLineItem.tender_id == Tender.id)
+        .filter(TenderInvite.vendor_id == vendor.id, Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD]))
+        .all()
+    )
+
+    tenders: dict[int, Tender] = {}
+    lines_by_tender: dict[int, list[TenderLineItem]] = {}
+    for inv in invites:
+        li = inv.line_item
+        tenders[li.tender_id] = li.tender
+        lines_by_tender.setdefault(li.tender_id, []).append(li)
+
+    tender_hits = [t for t in tenders.values() if needle in t.title.lower()][:SEARCH_RESULTS_PER_GROUP]
+
+    product_hits: list[tuple[Tender, str]] = []
+    seen_tenders: set[int] = set()
+    for tender in tenders.values():
+        if tender.id in seen_tenders:
+            continue
+        for li in lines_by_tender.get(tender.id, []):
+            if needle in li.product.name.lower():
+                product_hits.append((tender, li.product.name))
+                seen_tenders.add(tender.id)
+                break
+    product_hits = product_hits[:SEARCH_RESULTS_PER_GROUP]
+
+    return {
+        "tenders": [{"id": t.id, "label": t.title, "sub": f"Tender #{t.id} · {t.status.value.replace('_', ' ')}"} for t in tender_hits],
+        "products": [{"id": t.id, "label": name, "sub": f"Tender #{t.id} · {t.title}"} for t, name in product_hits],
+    }
 
 
 @router.put("/commercial-terms", response_model=VendorOut)

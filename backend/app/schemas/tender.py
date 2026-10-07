@@ -115,6 +115,9 @@ class TenderOut(BaseModel):
     is_rate_contract: bool
     contract_start_date: date | None
     contract_end_date: date | None
+    rate_contract_document_filename: str | None
+    rate_contract_document_size: int | None
+    rate_contract_document_uploaded_at: datetime | None
     publish_date: datetime | None
     bid_due_date: datetime | None
     terms_document_filename: str | None

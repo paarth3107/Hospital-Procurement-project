@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
-import { esc, stateTag } from "../kit.js";
+import { esc, stateTag, imgPlaceholder } from "../kit.js";
 import { renderVendorDocuments } from "./vendorDocumentsPage.js";
 import { refreshChrome } from "../nav.js";
 
@@ -56,6 +56,10 @@ export async function loadVendorProfile() {
       <div class="d-flex flex-col gap-18px">
         <div class="ep-pane ep-pane-pad">
           <div class="fs-14px fw-800 mb-14px d-flex justify-between items-center">Company &amp; statutory details ${stateTag(v.status)}</div>
+          <div class="d-flex items-center gap-14px mb-16px">
+            ${imgPlaceholder("image", "md")}
+            <div class="ep-sub">Company logo — reserved for later, no upload yet</div>
+          </div>
           <div class="d-grid grid-cols-1fr-1fr gap-13px-16px">
             ${field("Legal name", v.legal_name, 2)}
             ${field("Trade name", v.trade_name)}${field("Entity type", v.entity_type)}

@@ -21,6 +21,7 @@ import "./pages/vendorDashboardPage.js";
 
 import { api } from "./api.js";
 import { setWhoami } from "./ui.js";
+import { staffRoleLabel } from "./kit.js";
 import { state } from "./state.js";
 import { switchView, showStaffTabsForRole, showVendorDashboardTab, DEFAULT_VIEW_BY_ROLE } from "./nav.js";
 import { routeVendorAfterAuth } from "./pages/vendorLoginPage.js";
@@ -55,7 +56,7 @@ initShell();
       else await routeVendorAfterAuth();
     } else {
       state.user = await api("/auth/me");
-      setWhoami(state.user.full_name, state.user.role.replace(/_/g, " "));
+      setWhoami(state.user.full_name, staffRoleLabel(state.user));
       showStaffTabsForRole(state.user.role);
       const deepLink = new URLSearchParams(location.search).get("view"); // e.g. /?view=mappings
       switchView(document.getElementById("view-" + deepLink) ? deepLink : DEFAULT_VIEW_BY_ROLE[state.user.role] || "tenders");

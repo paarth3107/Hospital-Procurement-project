@@ -1,9 +1,9 @@
 import { api } from "../../api.js";
 import { state } from "../../state.js";
 import { showResult } from "../../ui.js";
-import { esc, tag, stateTag, th, emptyRow, fmtDate, pageSlice, paginationBar, wirePagination } from "../../kit.js";
+import { esc, tag, stateTag, th, emptyRow, fmtDate, pageSlice, paginationBar, wirePagination, ROLE_LABELS } from "../../kit.js";
 import { modalConfirm } from "../../modal.js";
-import { openStaffForm, ROLE_LABELS } from "./staffForm.js";
+import { openStaffForm } from "./staffForm.js";
 import { openPasswordDialog } from "./passwordDialog.js";
 import { openFacilityForm } from "./facilityForm.js";
 
@@ -30,7 +30,7 @@ function render() {
           const me = u.id === state.user?.id;
           return `<tr>
             <td class="ep-cell fw-600">${esc(u.full_name)}${me ? ' <span class="ep-sub">(you)</span>' : ""}<div class="ep-sub">${esc(u.email)}</div></td>
-            <td class="ep-cell">${esc(ROLE_LABELS[u.role] || u.role)}${u.approval_tier ? `<div class="ep-sub">tier ${u.approval_tier}</div>` : ""}</td>
+            <td class="ep-cell">${esc(ROLE_LABELS[u.role] || u.role)}${u.approval_tier ? `<div class="ep-sub">Tier ${u.approval_tier}</div>` : ""}</td>
             <td class="ep-cell">${u.facility_id == null ? "All facilities" : esc(facilityName.get(u.facility_id) || "—")}</td>
             <td class="ep-cell">${u.is_active ? stateTag("active") : tag("Deactivated", "neg")}</td>
             <td class="ep-cell fs-12-5px">${fmtDate(u.created_at)}</td>

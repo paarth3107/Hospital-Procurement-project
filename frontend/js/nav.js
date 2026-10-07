@@ -18,6 +18,7 @@ import { loadBid } from "./pages/bid/bidPage.js";
 import { loadEvaluation } from "./pages/evaluation/evaluationPage.js";
 import { loadAwards } from "./pages/awards/awardsPage.js";
 import { loadPoFiles } from "./pages/po/poFilesPage.js";
+import { closingSoonTenders } from "./pages/vendorNotifications.js";
 
 // Page header (kicker + title) per screen, as in the prototype.
 const PAGE_TITLES = {
@@ -59,8 +60,11 @@ export async function refreshChrome() {
     try {
       const reqs = await api("/vendor-portal/documents/requirements");
       badge("badge-vendor-categories", reqs.filter((r) => r.summary === "documents_needed").length);
-      const notes = await api("/vendor-portal/notifications");
-      badge("badge-vendor-dashboard", notes.filter((n) => !n.read).length);
+      // Unread notifications plus tenders closing within 24 hours (the
+      // latter has no "read" state -- it's just currently true or not) --
+      // one combined count, same thing the top bell shows (shell.js).
+      const [notes, tenders] = await Promise.all([api("/vendor-portal/notifications"), api("/vendor-portal/tenders")]);
+      badge("badge-vendor-dashboard", notes.filter((n) => !n.read).length + closingSoonTenders(tenders).length);
     } catch (err) {
       // decorative
     }
@@ -166,6 +170,7 @@ export function showStaffTabsForRole(role) {
     document.getElementById(`${view}-tab`).hidden = !allowed.has(view);
   }
   document.getElementById("search-box").hidden = false;
+  document.getElementById("search-input").placeholder = "Search vendors, tenders, items";
   syncNavGroups();
   // Only Procurement Admin can save manual ratings server-side (see
   // ratings.py's require_role) — everyone else on the Ratings tab gets a
@@ -183,7 +188,11 @@ export function showVendorDashboardTab() {
   document.getElementById("vendor-profile-tab").hidden = false;
   document.getElementById("vendor-categories-tab").hidden = false;
   document.getElementById("logout-btn").hidden = false;
-  document.getElementById("search-box").hidden = true;
+  // Vendors get their own scoped quick search (their invited tenders and the
+  // items on them, GET /vendor-portal/search) -- not the staff-wide one,
+  // which a vendor token is refused on. See shell.js's onSearchInput.
+  document.getElementById("search-box").hidden = false;
+  document.getElementById("search-input").placeholder = "Search your tenders and items";
   syncNavGroups();
 }
 

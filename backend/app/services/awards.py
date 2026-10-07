@@ -335,6 +335,25 @@ def _notify_outcome(db: Session, tender: Tender, rounds: list[AwardRound]) -> No
         )
 
 
+def recommend_tasks(db: Session) -> list[dict]:
+    """Lines ready for the Officer to recommend on or submit -- system-wide,
+    not tied to any one officer (recommend isn't tier-gated, unlike decide
+    below). Factored out of tasks_for so the Approving Authority's dashboard
+    can track this stage too (it can't act on it, but it's directly upstream
+    of what the AA does act on)."""
+    out = []
+    tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+    for t in tenders:
+        states = [(li, latest_round(db, li)) for li in published_lines(t) if li.technical_closed_at is not None]
+        if not states:
+            continue
+        todo = [li for li, r in states if line_state(r) in ("none", "returned")]
+        drafts = [li for li, r in states if line_state(r) == "draft"]
+        if todo or drafts:
+            out.append({"tender_id": t.id, "title": t.title, "kind": "recommend", "lines": len(todo) + len(drafts), "tier": None, "detail": f"{len(todo)} line(s) need a recommendation" + (f", {len(drafts)} ready to submit" if drafts else "")})
+    return out
+
+
 def tasks_for(db: Session, user: UserAccount) -> list[dict]:
     """Award-stage work waiting on this user, for the dashboard's action queue:
     the Officer's lines still needing a recommendation, the Approving
@@ -342,18 +361,14 @@ def tasks_for(db: Session, user: UserAccount) -> list[dict]:
     from app.models.user_account import Role
 
     out = []
-    tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
-    for t in tenders:
-        lines = published_lines(t)
-        states = [(li, latest_round(db, li)) for li in lines if li.technical_closed_at is not None]
-        if not states:
-            continue
-        if user.role in (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN):
-            todo = [li for li, r in states if line_state(r) in ("none", "returned")]
-            drafts = [li for li, r in states if line_state(r) == "draft"]
-            if todo or drafts:
-                out.append({"tender_id": t.id, "title": t.title, "kind": "recommend", "lines": len(todo) + len(drafts), "tier": None, "detail": f"{len(todo)} line(s) need a recommendation" + (f", {len(drafts)} ready to submit" if drafts else "")})
-        if user.role in (Role.APPROVING_AUTHORITY, Role.SYSTEM_ADMIN):
+    if user.role in (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN):
+        out += recommend_tasks(db)
+    if user.role in (Role.APPROVING_AUTHORITY, Role.SYSTEM_ADMIN):
+        tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+        for t in tenders:
+            states = [(li, latest_round(db, li)) for li in published_lines(t) if li.technical_closed_at is not None]
+            if not states:
+                continue
             pend = [r for _, r in states if r is not None and r.status == PENDING and can_approve_tier(user, r.required_tier)]
             if pend:
                 out.append({"tender_id": t.id, "title": t.title, "kind": "decide", "lines": len(pend), "tier": pend[0].required_tier, "detail": f"{len(pend)} line(s) waiting for L1 approval"})

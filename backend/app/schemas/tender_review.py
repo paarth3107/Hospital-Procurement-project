@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -33,8 +33,8 @@ class ReviewLineOut(BaseModel):
     line_details: dict
     catalog_attrs: dict
     required_documents: list[str]
-    eligible_vendors: list[ReviewVendorOut]  # live resolution: what approving will publish to
-    held_back: bool  # no eligible vendor: the line will not be published
+    eligible_vendors: list[ReviewVendorOut]  # the persisted invite list -- who this line will actually publish to
+    held_back: bool  # no invited vendor: the line will not be published
 
 
 class ReviewRoundOut(BaseModel):
@@ -60,6 +60,11 @@ class TenderReviewOut(BaseModel):
     min_rating_threshold: float
     min_invites: int | None
     max_invites: int | None
+    open_tender: bool
+    is_rate_contract: bool
+    contract_start_date: date | None
+    contract_end_date: date | None
+    rate_contract_document_filename: str | None
     publish_date: datetime | None
     bid_due_date: datetime | None
     terms_document_filename: str | None

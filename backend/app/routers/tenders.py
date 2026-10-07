@@ -462,6 +462,79 @@ def download_terms_document(tender_id: int, db: Session = Depends(get_db), _user
     )
 
 
+@router.post("/{tender_id}/rate-contract-document", response_model=TenderOut, status_code=status.HTTP_201_CREATED)
+async def upload_rate_contract_document(
+    tender_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """The signed Rate Contract agreement (2026-10-07, user-directed) -- only
+    meaningful on a tender flagged is_rate_contract. Same single-document
+    pattern as terms-document above: replaces whatever was uploaded before,
+    only while Draft, required before submit-for-approval."""
+
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    if not tender.is_rate_contract:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This tender isn't flagged as a rate contract")
+    content = await file.read()
+    try:
+        document_store.validate(file.content_type or "", len(content), allow_office=True)
+    except document_store.DocumentValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    document_store.scan(content)
+
+    tender.rate_contract_document_filename = file.filename
+    tender.rate_contract_document_content_type = file.content_type
+    tender.rate_contract_document_size = len(content)
+    tender.rate_contract_document_content = content
+    tender.rate_contract_document_uploaded_at = datetime.now(timezone.utc)
+    tender.rate_contract_document_uploaded_by_id = user.id
+    record(
+        db, "tender.rate_contract_document_uploaded", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        meta={"filename": file.filename},
+    )
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.delete("/{tender_id}/rate-contract-document", response_model=TenderOut)
+def delete_rate_contract_document(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    filename = tender.rate_contract_document_filename
+    tender.rate_contract_document_filename = None
+    tender.rate_contract_document_content_type = None
+    tender.rate_contract_document_size = None
+    tender.rate_contract_document_content = None
+    tender.rate_contract_document_uploaded_at = None
+    tender.rate_contract_document_uploaded_by_id = None
+    record(
+        db, "tender.rate_contract_document_removed", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        meta={"filename": filename},
+    )
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.get("/{tender_id}/rate-contract-document/download")
+def download_rate_contract_document(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
+    tender = _load_tender(tender_id, db)
+    if not tender.rate_contract_document_content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Rate Contract agreement uploaded")
+    return Response(
+        content=tender.rate_contract_document_content, media_type=tender.rate_contract_document_content_type,
+        headers={"Content-Disposition": f'inline; filename="{tender.rate_contract_document_filename}"'},
+    )
+
+
 @router.get("/{tender_id}/eligibility-preview", response_model=list[LineItemEligibilityOut])
 def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
     """Spec §6.5 — computed on demand, doesn't persist anything. Guest invites are
@@ -715,6 +788,8 @@ def submit_for_approval(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be set before submission")
     if tender.is_rate_contract and (not tender.contract_start_date or not tender.contract_end_date):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract start and end dates must be set before submission")
+    if tender.is_rate_contract and not tender.rate_contract_document_content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The Rate Contract agreement document must be uploaded before submission")
     if not tender.terms_document_content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A Terms & Conditions document must be uploaded before submission")
 

@@ -11,7 +11,6 @@ from app.models.vendor import requirement_label
 from app.schemas.tender_review import ReviewLineOut, ReviewRoundOut, ReviewVendorOut, TenderReviewOut
 from app.security import get_current_user
 from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, resolve_required_tier
-from app.services.eligibility import resolve_eligible_vendors
 from app.services.mappings import required_document_types
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tender-review"])
@@ -34,7 +33,12 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
         value = li.estimated_price * li.qty if li.estimated_price is not None else None
         total += value or 0.0
         unpriced += 0 if li.estimated_price is not None else 1
-        eligible = resolve_eligible_vendors(li, db)
+        # The actual persisted invite list (spec §6.5's resolved list, written by
+        # _persist_invites at submission and re-checked at approval) -- not a fresh
+        # live re-run of the eligibility rules, which would miss guest invites
+        # entirely (they're outside the rules by definition) and ignore vendors the
+        # officer removed. This is who the line actually publishes to.
+        invited = li.invites
         minimum = li.min_rating_threshold_override if li.min_rating_threshold_override is not None else tender.min_rating_threshold
         lines.append(
             ReviewLineOut(
@@ -43,8 +47,8 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
                 split_award_allowed=li.split_award_allowed, technical_eval_method=li.technical_eval_method, technical_weight=li.technical_weight,
                 price_weight=li.price_weight, min_rating_applied=minimum, line_details=li.line_details or {}, catalog_attrs=p.type_specific_attrs or {},
                 required_documents=[requirement_label(e) for e in required_document_types(p, p.category_ref)],
-                eligible_vendors=[ReviewVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score) for e in eligible],
-                held_back=not eligible,
+                eligible_vendors=[ReviewVendorOut(vendor_id=inv.vendor_id, legal_name=inv.vendor.legal_name, rating_score=inv.rating_at_resolution) for inv in invited],
+                held_back=not invited,
             )
         )
 
@@ -89,6 +93,9 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
         id=tender.id, title=tender.title, description=tender.description, tender_type=tender.tender_type, status=tender.status,
         department=tender.department, facility_name=facility.name, facility_code=getattr(facility, "legal_entity_code", None),
         min_rating_threshold=tender.min_rating_threshold, min_invites=tender.min_invites, max_invites=tender.max_invites,
+        open_tender=tender.open_tender,
+        is_rate_contract=tender.is_rate_contract, contract_start_date=tender.contract_start_date, contract_end_date=tender.contract_end_date,
+        rate_contract_document_filename=tender.rate_contract_document_filename,
         publish_date=tender.publish_date, bid_due_date=tender.bid_due_date, terms_document_filename=tender.terms_document_filename,
         created_by=names.get(tender.created_by_id), created_at=tender.created_at,
         round_number=tender.round_number, consecutive_rejections=tender.consecutive_rejections, total_estimated_value=total, lines_without_price=unpriced,

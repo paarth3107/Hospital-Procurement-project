@@ -242,7 +242,11 @@ def list_tender_bid_forms(tender_id: int, vendor: Vendor = Depends(get_current_v
     return TenderBidsOut(
         tender_id=tender.id, tender_title=tender.title, tender_type=tender.tender_type,
         tender_description=tender.description, facility_name=tender.facility.name,
-        terms_document_filename=tender.terms_document_filename, bid_due_date=tender.bid_due_date, lines=forms,
+        terms_document_filename=tender.terms_document_filename,
+        open_tender=tender.open_tender,
+        is_rate_contract=tender.is_rate_contract, contract_start_date=tender.contract_start_date, contract_end_date=tender.contract_end_date,
+        rate_contract_document_filename=tender.rate_contract_document_filename,
+        bid_due_date=tender.bid_due_date, lines=forms,
     )
 
 
@@ -266,6 +270,28 @@ def download_tender_terms_document(tender_id: int, vendor: Vendor = Depends(get_
     return Response(
         content=tender.terms_document_content, media_type=tender.terms_document_content_type,
         headers={"Content-Disposition": f'inline; filename="{tender.terms_document_filename}"'},
+    )
+
+
+@router.get("/tender/{tender_id}/rate-contract-document/download")
+def download_tender_rate_contract_document(tender_id: int, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """The signed Rate Contract agreement (2026-10-07), read-only, for a vendor
+    invited to at least one line of it -- same gating as the terms document above."""
+
+    invited = (
+        db.query(TenderLineItem)
+        .join(TenderInvite, TenderInvite.tender_line_item_id == TenderLineItem.id)
+        .filter(TenderInvite.vendor_id == vendor.id, TenderLineItem.tender_id == tender_id)
+        .first()
+    )
+    if not invited:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No lines you're invited to bid on in this tender")
+    tender = invited.tender
+    if not tender.rate_contract_document_content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Rate Contract agreement uploaded")
+    return Response(
+        content=tender.rate_contract_document_content, media_type=tender.rate_contract_document_content_type,
+        headers={"Content-Disposition": f'inline; filename="{tender.rate_contract_document_filename}"'},
     )
 
 

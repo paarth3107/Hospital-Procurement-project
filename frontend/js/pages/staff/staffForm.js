@@ -1,18 +1,10 @@
 import { api } from "../../api.js";
-import { esc, kicker } from "../../kit.js";
+import { esc, kicker, ROLE_LABELS } from "../../kit.js";
 
 // Create / edit one staff account (System Admin). Email is fixed once created;
 // a password is only asked for on create (later changes go through Reset password).
 const overlay = document.getElementById("app-dialog");
 const box = document.getElementById("app-dialog-box");
-
-export const ROLE_LABELS = {
-  procurement_officer: "Procurement Officer",
-  procurement_admin: "Procurement Admin",
-  category_manager: "Category Manager",
-  approving_authority: "Approving Authority",
-  system_admin: "System Admin",
-};
 
 const close = () => {
   overlay.hidden = true;

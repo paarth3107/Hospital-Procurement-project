@@ -1,6 +1,6 @@
 import { API_BASE, api, apiHeaders } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, tag, th, emptyRow, fmtDateTime } from "../../kit.js";
+import { esc, tag, th, emptyRow, fmtDateTime, roleLabel } from "../../kit.js";
 import { openAuditDetail, actionLabel } from "./auditDetail.js";
 
 // ---- Audit log (System Admin, read-only): every recorded action with who,
@@ -50,7 +50,7 @@ function render() {
         .map(
           (r) => `<tr>
             <td class="ep-cell fs-12px nowrap">${esc(fmtDateTime(r.occurred_at))}</td>
-            <td class="ep-cell"><div class="fw-600">${esc(r.actor_type === "system" ? "System" : r.actor_name || "—")}</div><div class="ep-sub">${esc((r.actor_role || r.actor_type).replace(/_/g, " "))}</div></td>
+            <td class="ep-cell"><div class="fw-600">${esc(r.actor_type === "system" ? "System" : r.actor_name || "—")}</div><div class="ep-sub">${esc(roleLabel(r.actor_role || r.actor_type))}</div></td>
             <td class="ep-cell">${esc(actionLabel(r.action))}${r.imported ? ` ${tag("imported")}` : ""}</td>
             <td class="ep-cell"><div class="fw-600">${esc(r.entity_label || `${r.entity_type} #${r.entity_id ?? ""}`)}</div><div class="ep-sub">${esc(RECORD_TYPE[r.entity_type] || r.entity_type)}${r.entity_id != null ? ` · #${r.entity_id}` : ""}</div></td>
             <td class="ep-cell ep-sub maxw-280px">${reasonCell(r)}</td>

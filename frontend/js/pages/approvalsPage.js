@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { showResult } from "../ui.js";
 import { esc, th, emptyRow, tag, fmtDateTime, inr, pageSlice, paginationBar, wirePagination } from "../kit.js";
-import { refreshChrome } from "../nav.js";
+import { refreshChrome, switchView } from "../nav.js";
 import { renderReview } from "./approvals/reviewPanel.js";
 
 // ---- E-Tender approval (Module 4B): the gate that publishes a tender to
@@ -13,6 +13,10 @@ const root = () => document.getElementById("approvals-root");
 const resultEl = () => document.getElementById("approval-result");
 let allRows = [];
 let page = 0;
+// Set just before switchView("approvals") so loadApprovals() (which that
+// triggers) opens straight into this review instead of racing its own
+// inbox fetch against it -- same pattern as awardsPage.js's `selected`.
+let pendingReviewId = null;
 
 function renderInbox() {
   const { pageItems: rows, totalPages, page: clamped } = pageSlice(allRows, page);
@@ -47,6 +51,7 @@ function renderInbox() {
 }
 
 async function showInbox(message) {
+  pendingReviewId = null;
   try {
     const tenders = await api("/tenders?status_filter=pending_approval");
     allRows = await Promise.all(
@@ -75,4 +80,11 @@ function showReview(id) {
   });
 }
 
-export const loadApprovals = () => showInbox();
+export const loadApprovals = () => (pendingReviewId ? showReview(pendingReviewId) : showInbox());
+
+// Opens one tender's review directly -- used by the Approving Authority's
+// dashboard (approvingAuthorityDashboard.js) navigating in from its pipeline.
+export function openTenderReview(id) {
+  pendingReviewId = id;
+  switchView("approvals");
+}

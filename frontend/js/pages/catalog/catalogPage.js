@@ -1,6 +1,6 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, typeTag, stateTag, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
+import { esc, tag, typeTag, th, emptyRow, pageSlice, paginationBar, wirePagination, imgPlaceholder } from "../../kit.js";
 import { openItemForm } from "./itemForm.js";
 import { openAssetForm } from "./assetForm.js";
 import { openServiceForm } from "./serviceForm.js";
@@ -9,10 +9,15 @@ import { openSubCategoryForm } from "./subCategoryForm.js";
 import { attrBits, priceBand } from "./attrSummary.js";
 import { docLabel } from "../../constants.js";
 
-// ---- Item, Asset & Service master (Module 2): the prototype's segment
-// filter + catalogue table, with our create/edit forms opening above it. ----
+// ---- Item, Asset & Service master (Module 2): laid out like Vuexy's own
+// eCommerce > Products section (Product List / Add Product / Category List,
+// 2026-10-07) -- Sub-Category List is a 4th tab alongside those three, since
+// this app has a concept Vuexy's own demo doesn't. Add Product replaces the
+// old pattern of an inline create/edit form toggling in below the list --
+// it's its own tab now, the same way Vuexy's is its own page, and doubles as
+// the edit screen (clicking Edit on a list row opens it there, pre-filled).
 const root = () => document.getElementById("catalog-root");
-const host = () => document.getElementById("catalog-form-host");
+const host = () => document.getElementById("catalog-form-host"); // category/sub-category inline forms only -- see below
 const resultEl = () => document.getElementById("product-result");
 
 let categories = [];
@@ -21,11 +26,14 @@ let products = [];
 let mappings = [];
 let typeFilter = "all";
 let productPage = 0;
-let catalogTab = "items";
+let catalogTab = "list";
+let editingProduct = null; // set while the Add Product tab is actually editing an existing entry
+let addType = "item"; // which type's blank form the Add Product tab shows when creating new
 const expandedAttrs = new Set();
 const ATTR_PREVIEW = 2;
 
 const FORM_BY_TYPE = { item: openItemForm, asset: openAssetForm, service: openServiceForm };
+const TYPE_OPTS = [["item", "Item"], ["asset", "Asset"], ["service", "Service"]];
 
 function closeForm() {
   host().hidden = true;
@@ -78,15 +86,22 @@ function productRows() {
     : shown
         .map(
           (p) => `<tr>
-        <td class="ep-cell ep-mono fs-11px nowrap">${esc(p.code)}</td>
-        <td class="ep-cell"><div class="fw-600 ep-clip" title="${esc(p.name)}">${esc(p.name)}</div><div class="ep-sub ep-clip" title="${esc(p.description || "")}">${esc(p.description || "")}</div></td>
+        <td class="ep-cell">
+          <div class="d-flex items-center gap-12px">
+            ${imgPlaceholder("image", "sm")}
+            <div class="minw-0">
+              <div class="fw-600 ep-clip" title="${esc(p.name)}">${esc(p.name)}</div>
+              <div class="ep-sub ep-mono fs-11px">${esc(p.code)}</div>
+            </div>
+          </div>
+        </td>
+        <td class="ep-cell fs-12-5px">${esc(p.category)}${p.sub_category ? `<div class="ep-sub">${esc(p.sub_category)}</div>` : ""}</td>
         <td class="ep-cell">${typeTag(p.procurement_type)}</td>
-        <td class="ep-cell fs-12-5px">${esc(p.category)}${p.sub_category ? " › " + esc(p.sub_category) : ""}</td>
         <td class="ep-cell fs-11-5px text-ink-68 maxw-290px lh-1-45">${attrCell(p)}</td>
         <td class="ep-cell fs-12-5px nowrap">${esc(priceBand(p))}</td>
         <td class="ep-cell fw-800">${vendorCount(p)}</td>
+        <td class="ep-cell">${p.active ? tag("Active", "pos") : tag("Inactive", "neg")}</td>
         <td class="ep-cell nowrap text-right">
-          ${p.active ? "" : stateTag("suspended") + " "}
           <button class="ep-b" data-edit="${p.id}">Edit</button>
           <button class="ep-b" data-toggle="${p.id}" data-action="${p.active ? "deactivate" : "activate"}">${p.active ? "Deactivate" : "Activate"}</button>
         </td></tr>`
@@ -95,38 +110,65 @@ function productRows() {
   return { rows, totalPages, page };
 }
 
+// Category List tab: a card per category (Vuexy's ecommerce category grid),
+// not a table row -- the image placeholder is where a real category photo
+// lands later, same as the product list's.
+function categoryCards() {
+  if (!categories.length) return `<div class="ep-pane ep-pane-pad hint">No categories yet.</div>`;
+  return `<div class="ep-grid grid-cols-repeatauto-fitminmax260px1fr">${categories
+    .map((c) => {
+      const count = products.filter((p) => p.category_id === c.id).length;
+      return `<div class="ep-category-card">
+        <div class="ep-category-card-head">
+          ${imgPlaceholder("tag", "md")}
+          <div class="minw-0">
+            <div class="fw-700 fs-15px ep-clip" title="${esc(c.name)}">${esc(c.name)}</div>
+            <div class="ep-sub">${count} item(s)</div>
+          </div>
+        </div>
+        <div class="d-flex items-center gap-8px flex-wrap">${typeTag(c.procurement_type)}${c.min_mapping_rating != null ? tag(`Min rating ${c.min_mapping_rating}`, "att") : ""}</div>
+        ${c.required_documents?.length ? `<div class="ep-sub">Needs: ${esc(c.required_documents.map(docLabel).join(", "))}</div>` : ""}
+        <div><button class="ep-b" data-edit-category="${c.id}">Edit</button></div>
+      </div>`;
+    })
+    .join("")}</div>`;
+}
+
 function render() {
-  const tabs = [["items", "Items"], ["categories", "Categories"], ["subcategories", "Sub-categories"]];
+  const tabs = [["list", "Product List"], ["add", "Add Product"], ["categories", "Category List"], ["subcategories", "Sub-Category List"]];
   const typeSeg = [["all", "All types"], ["item", "Item"], ["asset", "Asset"], ["service", "Service"]];
   const count = products.filter((p) => typeFilter === "all" || p.procurement_type === typeFilter).length;
   const { rows: productRowsHtml, totalPages: productTotalPages, page: productPageClamped } = productRows();
   const newButtons = {
-    items: `<button class="ep-b" data-v="p" data-new="item">+ New item</button><button class="ep-b" data-v="p" data-new="asset">+ New asset</button><button class="ep-b" data-v="p" data-new="service">+ New service</button>`,
+    list: `<button class="ep-b" data-v="p" data-goto-add>+ Add Product</button>`,
+    add: "",
     categories: `<button class="ep-b" data-new="category">+ New category</button>`,
     subcategories: `<button class="ep-b" data-new="subcategory">+ New sub-category</button>`,
   };
   const body = {
-    items: `<div class="d-flex items-center gap-14px flex-wrap">
+    list: `<div class="d-flex items-center gap-14px flex-wrap">
         <div class="ep-seg">${typeSeg.map(([k, l]) => `<button data-type="${k}" class="${k === typeFilter ? "on" : ""}">${l}</button>`).join("")}</div>
         <div class="hint flex-1">${count} entries · procurement type drives the line-item form and the mandatory attachment checklist</div>
       </div>
       <div class="ep-pane">
-        <table class="ep-table">${th("Code", "Name &amp; specification", "Type", "Category", "Type-specific attributes", "Price band", "Vendors", "")}<tbody>${productRowsHtml}</tbody></table>
+        <table class="ep-table">${th("Product", "Category", "Type", "Type-specific attributes", "Price band", "Vendors", "Status", "")}<tbody>${productRowsHtml}</tbody></table>
         ${paginationBar(productPageClamped, productTotalPages, "catalog-prev", "catalog-next")}
       </div>`,
-    categories: `<div class="ep-pane">
-        <div class="ep-pane-head"><span>Categories</span><span class="ep-k">restricted categories need a minimum vendor rating to map</span></div>
-        <table class="ep-table">${th("Name", "Type", "Min rating for mapping", "")}<tbody>${
-          categories.length
-            ? categories
-                .map(
-                  (c) => `<tr><td class="ep-cell fw-600">${esc(c.name)}</td><td class="ep-cell">${typeTag(c.procurement_type)}</td>
-                    <td class="ep-cell">${c.min_mapping_rating ?? "—"}${c.required_documents?.length ? `<div class="ep-sub">needs: ${c.required_documents.map(docLabel).join(", ")}</div>` : ""}</td>
-                    <td class="ep-cell text-right"><button class="ep-b" data-edit-category="${c.id}">Edit</button></td></tr>`
-                )
-                .join("")
-            : emptyRow(4, "No categories yet.")
-        }</tbody></table>
+    // Same screen for create and edit, like Vuexy's own Add Product page --
+    // editing a row just opens this tab pre-filled instead of a separate form.
+    add: `<div class="d-flex items-baseline gap-14px flex-wrap">
+        <span class="fs-18px fw-800">${editingProduct ? `Edit ${esc(editingProduct.name)}` : "Add a new catalog entry"}</span>
+        ${editingProduct ? typeTag(editingProduct.procurement_type) : ""}
+      </div>
+      ${
+        editingProduct
+          ? ""
+          : `<div class="ep-seg self-start">${TYPE_OPTS.map(([k, l]) => `<button data-add-type="${k}" class="${k === addType ? "on" : ""}">${l}</button>`).join("")}</div>`
+      }
+      <div id="catalog-add-form-host"></div>`,
+    categories: `<div class="d-flex flex-col gap-16px">
+        <div class="hint">restricted categories need a minimum vendor rating to map</div>
+        ${categoryCards()}
       </div>`,
     subcategories: `<div class="ep-pane">
         <div class="ep-pane-head"><span>Sub-categories</span><span class="ep-k">used by the vendor-mapping drill-down</span></div>
@@ -152,6 +194,28 @@ function render() {
     ${body[catalogTab]}
   </div>`;
   wire();
+  if (catalogTab === "add") renderAddProductForm();
+}
+
+// The Add Product tab's actual form, rendered imperatively into its own
+// sub-host (same reasoning as the officer dashboard's donut chart div --
+// the surrounding tab chrome is declarative, the form itself isn't).
+function renderAddProductForm() {
+  const addHost = document.getElementById("catalog-add-form-host");
+  if (!addHost) return;
+  const onSaved = (message) => {
+    editingProduct = null;
+    catalogTab = "list";
+    showResult(resultEl(), message, true);
+    loadProducts();
+  };
+  const onCancel = () => {
+    editingProduct = null;
+    catalogTab = "list";
+    render();
+  };
+  const type = editingProduct ? editingProduct.procurement_type : addType;
+  FORM_BY_TYPE[type](addHost, editingProduct, categories, subCategories, onSaved, onCancel);
 }
 
 function wire() {
@@ -160,7 +224,24 @@ function wire() {
     productPage = p;
     render();
   });
-  r.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => ((catalogTab = b.dataset.tab), render())));
+  r.querySelectorAll("[data-tab]").forEach((b) =>
+    b.addEventListener("click", () => {
+      catalogTab = b.dataset.tab;
+      if (catalogTab !== "add") editingProduct = null;
+      render();
+    })
+  );
+  r.querySelector("[data-goto-add]")?.addEventListener("click", () => {
+    editingProduct = null;
+    catalogTab = "add";
+    render();
+  });
+  r.querySelectorAll("[data-add-type]").forEach((b) =>
+    b.addEventListener("click", () => {
+      addType = b.dataset.addType;
+      render();
+    })
+  );
   r.querySelectorAll("[data-attrs]").forEach((b) =>
     b.addEventListener("click", () => {
       const id = Number(b.dataset.attrs);
@@ -175,15 +256,15 @@ function wire() {
       const kind = b.dataset.new;
       showForm(() => {
         if (kind === "category") return openCategoryForm(host(), null, afterSave, closeForm);
-        if (kind === "subcategory") return openSubCategoryForm(host(), null, categories, afterSave, closeForm);
-        return FORM_BY_TYPE[kind](host(), null, categories, subCategories, afterSave, closeForm);
+        return openSubCategoryForm(host(), null, categories, afterSave, closeForm);
       });
     })
   );
   r.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => {
-      const p = products.find((x) => x.id === Number(b.dataset.edit));
-      showForm(() => FORM_BY_TYPE[p.procurement_type](host(), p, categories, subCategories, afterSave, closeForm));
+      editingProduct = products.find((x) => x.id === Number(b.dataset.edit));
+      catalogTab = "add";
+      render();
     })
   );
   r.querySelectorAll("[data-edit-category]").forEach((b) =>

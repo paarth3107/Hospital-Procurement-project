@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -206,6 +206,11 @@ class TenderBidsOut(BaseModel):
     tender_description: str | None
     facility_name: str
     terms_document_filename: str | None  # vendor downloads it via GET .../terms-document/download
+    open_tender: bool
+    is_rate_contract: bool
+    contract_start_date: date | None
+    contract_end_date: date | None
+    rate_contract_document_filename: str | None  # vendor downloads it via GET .../rate-contract-document/download
     bid_due_date: datetime | None
     lines: list[BidFormOut]
 

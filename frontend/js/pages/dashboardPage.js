@@ -4,16 +4,17 @@ import { showResult } from "../ui.js";
 import { esc, kicker, fmtDate } from "../kit.js";
 import { actionQueue, wireActionQueue } from "./dashboard/actionQueue.js";
 import { renderOfficerDashboard } from "./dashboard/officerDashboard.js";
+import { renderApprovingAuthorityDashboard } from "./dashboard/approvingAuthorityDashboard.js";
 import { renderCategoryManagerDashboard } from "./dashboard/categoryManagerDashboard.js";
 import { vendorBase, drawVendorBase } from "./dashboard/vendorBase.js";
 import { kpiStrip as kpiTiles } from "./dashboard/kpi.js";
 
 // ---- Staff dashboard: the prototype's command-centre layout, fed by
 // GET /dashboard/stats (real counts only). Role-specific dashboards live
-// under dashboard/ -- Procurement Officer (2026-09-29) and Category
-// Manager / Procurement Admin (2026-09-30) were rebuilt into their own
-// views; Approving Authority and System Admin still share this generic
-// view below until they get the same treatment. ----
+// under dashboard/ -- Procurement Officer (2026-09-29), Category Manager /
+// Procurement Admin (2026-09-30) and Approving Authority (2026-10-07) were
+// rebuilt into their own views; System Admin still shares this generic view
+// below (it has every tab, so no one pipeline fits it). ----
 
 function kpiStrip(s) {
   const v = s.vendors_by_status;
@@ -63,6 +64,11 @@ export async function loadDashboard() {
     }
     if (state.user?.role === "category_manager" || state.user?.role === "procurement_admin") {
       renderCategoryManagerDashboard(root, s);
+      resultEl.textContent = "";
+      return;
+    }
+    if (state.user?.role === "approving_authority" && s.approving_authority) {
+      renderApprovingAuthorityDashboard(root, s);
       resultEl.textContent = "";
       return;
     }

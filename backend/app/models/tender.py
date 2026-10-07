@@ -77,6 +77,15 @@ class Tender(Base):
     is_rate_contract = Column(Boolean, nullable=False, default=False, server_default=false())
     contract_start_date = Column(Date, nullable=True)
     contract_end_date = Column(Date, nullable=True)
+    # The signed rate contract agreement document (2026-10-07, user-directed) --
+    # same single-document pattern as terms_document_* above. Required before
+    # submission only when is_rate_contract is set (tenders.py).
+    rate_contract_document_filename = Column(String, nullable=True)
+    rate_contract_document_content_type = Column(String, nullable=True)
+    rate_contract_document_size = Column(Integer, nullable=True)
+    rate_contract_document_content = Column(LargeBinary, nullable=True)
+    rate_contract_document_uploaded_at = Column(DateTime(timezone=True), nullable=True)
+    rate_contract_document_uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
     publish_date = Column(DateTime(timezone=True), nullable=True)
     bid_due_date = Column(DateTime(timezone=True), nullable=True)

@@ -37,6 +37,7 @@ from app.schemas.vendor_document import ItemRequirementOut
 from app.services.audit import record
 from app.services.document_requirements import to_out, vendor_requirements
 from app.services.expiry import reinstate_if_cleared
+from app.services.notifier import notify_vendor
 from app.services.vendor_status import set_status
 
 logger = logging.getLogger(__name__)
@@ -508,6 +509,7 @@ def verify_vendor_document(
         db, "vendor.document_verified", "vendor", vendor_id, actor=user, entity_label=doc.vendor.legal_name,
         before={"status": DocumentStatus.PENDING}, after={"status": DocumentStatus.VERIFIED}, meta={"document": doc_label(doc)},
     )
+    notify_vendor(db, vendor_id, kind="document_verified", title="Document verified", body=f"{doc_label(doc)} has been verified.")
     reinstate_if_cleared(db, doc.vendor, user.id)
     db.commit()
     db.refresh(doc)
@@ -536,6 +538,7 @@ def reject_vendor_document(
         db, "vendor.document_rejected", "vendor", vendor_id, actor=user, entity_label=doc.vendor.legal_name,
         after={"status": DocumentStatus.REJECTED}, reason=payload.reason, meta={"document": doc_label(doc)},
     )
+    notify_vendor(db, vendor_id, kind="document_rejected", title="Document rejected", body=f"{doc_label(doc)} was rejected: {payload.reason.strip()}")
     db.commit()
     db.refresh(doc)
     return doc

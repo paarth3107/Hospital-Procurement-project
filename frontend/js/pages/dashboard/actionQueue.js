@@ -2,12 +2,15 @@ import { state } from "../../state.js";
 import { switchView, ROLE_TABS } from "../../nav.js";
 import { preselectVendor } from "../vendorQueuePage.js";
 import { openTenderById } from "../tenders/tendersPage.js";
-import { esc, th, emptyRow } from "../../kit.js";
+import { esc, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 
 // ---- "My action queue": one row per thing that actually needs a human,
 // limited to screens this role can open. Shared across every role's
 // dashboard (the task list itself is already role-aware; only the
-// surrounding layout differs per role). ----
+// surrounding layout differs per role). Paginated (2026-10-07) the same way
+// every other list in the app is (kit.js) -- this used to render every row
+// at once. ----
+const PAGE_SIZE = 6;
 
 function buildTasks(s) {
   const allowed = new Set(ROLE_TABS[state.user?.role] || []);
@@ -32,27 +35,10 @@ function buildTasks(s) {
   return tasks;
 }
 
+// Returns just the pane's skeleton -- wireActionQueue() below does the
+// actual (paginated) render, right after this is inserted into the page.
 export function actionQueue(s) {
-  const tasks = buildTasks(s);
-  const rows = tasks.length
-    ? tasks
-        .map(
-          (t, i) => `<tr>
-            <td class="ep-cell"><div class="fw-600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
-            <td class="ep-cell fs-12px">${esc(t.ref)}</td>
-            <td class="ep-cell fs-12px ${t.hot ? "text-danger-700" : "text-ink-70"}">${esc(t.due)}</td>
-            <td class="ep-cell text-right"><button class="ep-b" data-task="${i}">Open</button></td>
-          </tr>`
-        )
-        .join("")
-    : emptyRow(4, "Nothing needs your attention right now.");
-  return {
-    html: `<div class="ep-pane">
-      <div class="ep-pane-head"><span>My Action Queue</span><span class="ep-k">${tasks.length} open</span></div>
-      <table class="ep-table">${th("Task", "Ref", "Due", "")}<tbody>${rows}</tbody></table>
-    </div>`,
-    tasks,
-  };
+  return { html: `<div class="ep-pane" id="action-queue-pane"></div>`, tasks: buildTasks(s) };
 }
 
 function openTask(task) {
@@ -61,7 +47,35 @@ function openTask(task) {
   if (task.tenderId) openTenderById(task.tenderId);
 }
 
-// Wires the "Open" buttons of an actionQueue() result already inserted into `root`.
+// Renders (and re-renders, on page change) the actionQueue() result already
+// inserted into `root`, and wires its "Open" buttons and pagination.
 export function wireActionQueue(root, queue) {
-  root.querySelectorAll("button[data-task]").forEach((b) => b.addEventListener("click", () => openTask(queue.tasks[Number(b.dataset.task)])));
+  const pane = root.querySelector("#action-queue-pane");
+  let page = 0;
+  function render() {
+    const indexed = queue.tasks.map((t, i) => ({ t, i }));
+    const { pageItems, totalPages, page: clamped } = pageSlice(indexed, page, PAGE_SIZE);
+    page = clamped;
+    const rows = pageItems.length
+      ? pageItems
+          .map(
+            ({ t, i }) => `<tr>
+              <td class="ep-cell"><div class="fw-600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
+              <td class="ep-cell fs-12px">${esc(t.ref)}</td>
+              <td class="ep-cell fs-12px ${t.hot ? "text-danger-700" : "text-ink-70"}">${esc(t.due)}</td>
+              <td class="ep-cell text-right"><button class="ep-b" data-task="${i}">Open</button></td>
+            </tr>`
+          )
+          .join("")
+      : emptyRow(4, "Nothing needs your attention right now.");
+    pane.innerHTML = `<div class="ep-pane-head"><span>My Action Queue</span><span class="ep-k">${queue.tasks.length} open</span></div>
+      <table class="ep-table">${th("Task", "Ref", "Due", "")}<tbody>${rows}</tbody></table>
+      ${paginationBar(page, totalPages, "aq-prev", "aq-next")}`;
+    pane.querySelectorAll("button[data-task]").forEach((b) => b.addEventListener("click", () => openTask(queue.tasks[Number(b.dataset.task)])));
+    wirePagination(pane, "aq-prev", "aq-next", page, (p) => {
+      page = p;
+      render();
+    });
+  }
+  render();
 }

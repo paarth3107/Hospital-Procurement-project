@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>MedSource — Hospital E-Procurement</title>
+<title>MedSource</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="design-system.css">
@@ -15,6 +15,9 @@
   <div class="ep-brand" id="brand-home-link" title="Back to home">
     <div class="ep-brand-mark">M</div>
     <div class="ep-brand-name">MedSource</div>
+    <button type="button" class="ep-icon-btn sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true">
+      <svg class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="15 6 9 12 15 18"/></svg>
+    </button>
   </div>
   <div class="ep-navhead" id="nav-heading"></div>
   <nav class="ep-navlist" id="topnav">
@@ -76,7 +79,7 @@
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="ep-dot" id="notifications-dot" hidden></span>
         </button>
-        <div class="ep-dropdown" id="notifications-menu" hidden></div>
+        <div class="ep-dropdown ep-dropdown-wide" id="notifications-menu" hidden></div>
       </div>
       <div class="ep-dropdown-wrap">
         <button class="ep-avatar" id="user-btn" type="button" aria-expanded="false" aria-label="Account menu">?</button>
@@ -271,6 +274,10 @@
                   <div class="d-flex gap-10px mt-10px">
                     <div id="rate-contract-start-field" hidden><div class="ep-k">Start date</div><input class="input" name="contract_start_date" type="date"></div>
                     <div id="rate-contract-end-field" hidden><div class="ep-k">End date</div><input class="input" name="contract_end_date" type="date"></div>
+                  </div>
+                  <div id="rate-contract-document-field" class="mt-10px" hidden>
+                    <div class="ep-k">Rate contract agreement</div>
+                    <div id="rate-contract-document-box" class="mt-6px"></div>
                   </div>
                 </div>
               </div>

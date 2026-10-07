@@ -133,6 +133,54 @@ class DashboardOfficerOut(BaseModel):
     tenders: list[DashboardOfficerTenderOut]
 
 
+class DashboardApprovingAuthorityTenderOut(BaseModel):
+    """One row of the Approving Authority's own "Tenders" table -- Pending
+    E-Tender Approval and Published only (mirrors the Officer's table);
+    Awarded/No Award tenders drop off (nothing left to decide)."""
+
+    id: int
+    title: str
+    status: TenderStatus
+    bids_received: int
+    bid_due_date: datetime | None
+    needs_your_approval: bool  # Pending E-Tender Approval, and at this user's decidable tier
+    required_tier: int | None  # the tier that tender's current round actually needs, whether or not it's this user's
+    lines_ready_to_recommend: int  # Published: lines technically closed, waiting on the Officer (tracking only)
+    lines_awaiting_decision: int  # Published: lines recommended and waiting on this user's L1 decision
+    lines_total: int
+    progress_pct: int
+
+
+class DashboardApprovingAuthorityOut(BaseModel):
+    """Approving Authority's own pipeline: the two gates this role decides --
+    E-Tender Approval and L1 Approval (product decision, 2026-10-07, mirrors
+    the Officer's dashboard). Draft tenders and the Officer's own
+    recommendation work are tracked only as notes, not their own KPI, since
+    this role can't act on either."""
+
+    pending_approval_count: int  # tenders awaiting this user's E-Tender Approval decision, right now
+    live_count: int  # Published AND still before its bid due date
+    ready_to_recommend_count: int  # tenders with >=1 line ready for the Officer to recommend (tracking)
+    ready_to_recommend_lines: int
+    awaiting_decision_count: int  # tenders with >=1 line awaiting this user's L1 decision
+    awaiting_decision_lines: int
+    tenders: list[DashboardApprovingAuthorityTenderOut]
+
+
+class DashboardCategoryManagerOut(BaseModel):
+    """Category Manager / Procurement Admin's own slice of the tender
+    lifecycle (product decision, 2026-10-07): just the technical-evaluation
+    stage this role actually touches, framed as a mini pipeline the same way
+    the Officer's and Approving Authority's dashboards frame theirs. Vendor
+    KYC, mapping and rating refresh stay as separate queues (actionQueue.js)
+    -- they're parallel work, not steps of one tender's lifecycle, so they
+    don't belong in this pipeline."""
+
+    live_count: int  # Published tenders still accepting bids -- not yet this role's job, tracking only
+    awaiting_evaluation_count: int  # lines whose bidding closed, technical evaluation not yet closed -- this role's job (= eval_workload)
+    evaluated_count: int  # lines technical-closed, now with the Officer for recommendation -- tracking only
+
+
 class DashboardStatsOut(BaseModel):
     open_tenders_count: int
     pending_approval_count: int
@@ -162,3 +210,5 @@ class DashboardStatsOut(BaseModel):
     pending_approval: list[DashboardPendingApprovalOut]
     recently_published: list[DashboardRecentPublishedOut]
     officer: DashboardOfficerOut | None = None  # populated for Role.PROCUREMENT_OFFICER only
+    approving_authority: DashboardApprovingAuthorityOut | None = None  # populated for Role.APPROVING_AUTHORITY only
+    category_manager: DashboardCategoryManagerOut | None = None  # populated for Role.CATEGORY_MANAGER / Role.PROCUREMENT_ADMIN only

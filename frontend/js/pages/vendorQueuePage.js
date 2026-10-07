@@ -3,7 +3,7 @@ import { API_BASE, api, apiHeaders } from "../api.js";
 import { showResult } from "../ui.js";
 import { modalPrompt, modalConfirm } from "../modal.js";
 import { VENDOR_DOC_TYPES } from "../constants.js";
-import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn, expiryTag, pageSlice, paginationBar, wirePagination } from "../kit.js";
+import { esc, kicker, tag, stateTag, th, emptyRow, fmtDate, fmtDateTime, btn, expiryTag, pageSlice, paginationBar, wirePagination, imgPlaceholder } from "../kit.js";
 import { refreshChrome } from "../nav.js";
 import { state } from "../state.js";
 
@@ -58,11 +58,16 @@ function queuePane() {
     ? pageItems
         .map(
           (v) => `<button class="ep-row-btn${v.id === selectedId ? " sel" : ""}" data-vendor="${v.id}">
-            <div class="d-flex justify-between gap-8px items-baseline">
-              <span class="fs-13px fw-800">${esc(v.legal_name)}</span>
-              <span class="ep-sub">V-${v.id}</span>
+            <div class="d-flex items-center gap-10px">
+              ${imgPlaceholder("image", "sm")}
+              <div class="flex-1 minw-0">
+                <div class="d-flex justify-between gap-8px items-baseline">
+                  <span class="fs-13px fw-800">${esc(v.legal_name)}</span>
+                  <span class="ep-sub">V-${v.id}</span>
+                </div>
+                <div class="d-flex items-center gap-7px mt-5px">${stateTag(v.status)}<span class="ep-sub">${esc(v.contact_person)}</span></div>
+              </div>
             </div>
-            <div class="d-flex items-center gap-7px mt-5px">${stateTag(v.status)}<span class="ep-sub">${esc(v.contact_person)}</span></div>
           </button>`
         )
         .join("")
@@ -88,6 +93,7 @@ function identityPane(v) {
   ];
   return `<div class="ep-pane ep-pane-pad">
     <div class="d-flex items-start gap-16px">
+      ${imgPlaceholder("image", "md")}
       <div class="flex-1">${kicker(`V-${v.id} · applied ${fmtDate(v.created_at)}`)}<h4 class="margin-4px-0-3px fs-22px">${esc(v.legal_name)}</h4></div>
       <div class="text-right">${kicker("Current status")}<div class="mt-5px">${stateTag(v.status)}</div></div>
     </div>
