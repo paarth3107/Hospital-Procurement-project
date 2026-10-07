@@ -1,0 +1,11 @@
+{
+  "name": "medsource-screenshots",
+  "private": true,
+  "description": "Headless screenshots of each frontend page for visual review",
+  "scripts": {
+    "shots": "node shots.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.47.2"
+  }
+}

@@ -5,7 +5,8 @@ import { esc, kicker, fmtDate } from "../kit.js";
 import { actionQueue, wireActionQueue } from "./dashboard/actionQueue.js";
 import { renderOfficerDashboard } from "./dashboard/officerDashboard.js";
 import { renderCategoryManagerDashboard } from "./dashboard/categoryManagerDashboard.js";
-import { vendorBase } from "./dashboard/vendorBase.js";
+import { vendorBase, drawVendorBase } from "./dashboard/vendorBase.js";
+import { kpiStrip as kpiTiles } from "./dashboard/kpi.js";
 
 // ---- Staff dashboard: the prototype's command-centre layout, fed by
 // GET /dashboard/stats (real counts only). Role-specific dashboards live
@@ -16,15 +17,12 @@ import { vendorBase } from "./dashboard/vendorBase.js";
 
 function kpiStrip(s) {
   const v = s.vendors_by_status;
-  const cells = [
-    ["Live tenders", s.open_tenders_count, s.next_bid_close ? `next bid close ${fmtDate(s.next_bid_close)}` : "none open for bidding"],
-    ["Active vendors", v.active || 0, `${v.suspended || 0} suspended · ${(v.pending_verification || 0) + (v.info_requested || 0)} pending`],
-    ["Bids submitted", s.bids_submitted_count, "prices masked from staff"],
-    ["Awaiting your approval", s.pending_approval_count, "e-tender approval"],
-  ];
-  return `<div class="ep-kpis">${cells
-    .map(([label, value, sub]) => `<div class="ep-kpi">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></div>`)
-    .join("")}</div>`;
+  return kpiTiles([
+    ["Live tenders", s.open_tenders_count, s.next_bid_close ? `next bid close ${fmtDate(s.next_bid_close)}` : "none open for bidding", null, "file-text", "primary"],
+    ["Active vendors", v.active || 0, `${v.suspended || 0} suspended · ${(v.pending_verification || 0) + (v.info_requested || 0)} pending`, null, "users", "success"],
+    ["Bids submitted", s.bids_submitted_count, "prices masked from staff", null, "check-square", "info"],
+    ["Awaiting your approval", s.pending_approval_count, "e-tender approval", null, "clock", "warning"],
+  ]);
 }
 
 function pipeline(s) {
@@ -37,16 +35,16 @@ function pipeline(s) {
     ["Bid → L1 → PO", `${s.bids_submitted_count} bid(s) received`, s.bids_submitted_count > 0],
   ];
   return `<div>
-    <div class="ep-k" style="margin-bottom:9px">Procurement pipeline</div>
+    <div class="ep-k mb-9px">Procurement pipeline</div>
     <div class="ep-pipeline">${stages
       .map(
         ([name, note, done], i) => `<div class="ep-stage">
-          <div style="display:flex;align-items:center;gap:7px">
-            <span class="ep-stage-dot" style="background:${done ? "#1d4ed8" : "rgba(32,30,29,.18)"};color:${done ? "#f3f2f2" : "#201e1d"}">${i + 1}</span>
-            <span style="font-size:12.5px;font-weight:800">${esc(name)}</span>
+          <div class="d-flex items-center gap-7px">
+            <span class="ep-stage-dot ${done ? "ep-stage-dot-on" : "ep-stage-dot-off"}">${i + 1}</span>
+            <span class="fs-12-5px fw-800">${esc(name)}</span>
           </div>
-          <div class="ep-sub" style="line-height:1.4">${esc(note)}</div>
-          <div style="height:3px;margin-top:auto;background:${done ? "#1d4ed8" : "rgba(32,30,29,.18)"}"></div>
+          <div class="ep-sub lh-1-4">${esc(note)}</div>
+          <div class="ep-stage-bar ${done ? "ep-stage-bar-on" : "ep-stage-bar-off"}"></div>
         </div>`
       )
       .join("")}</div>
@@ -69,12 +67,13 @@ export async function loadDashboard() {
       return;
     }
     const queue = actionQueue(s);
-    root.innerHTML = `<div style="display:flex;flex-direction:column;gap:22px">
+    root.innerHTML = `<div class="d-flex flex-col gap-22px">
       ${kpiStrip(s)}
       ${pipeline(s)}
-      <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${vendorBase(s)}</div>
+      <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${vendorBase(s)}</div>
     </div>`;
     wireActionQueue(root, queue);
+    drawVendorBase(s);
     resultEl.textContent = "";
   } catch (err) {
     showResult(resultEl, "Could not load dashboard: " + err.message, false);

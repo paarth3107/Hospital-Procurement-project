@@ -1,29 +1,36 @@
+import { donut } from "../../charts.js";
+
 // ---- Vendor status breakdown -- shared by the generic dashboard and the
 // Category Manager / Procurement Admin dashboard (vendor lifecycle is
 // genuinely their job, unlike Procurement Officer's dashboard which drops
-// this panel entirely, 2026-09-29). ----
+// this panel entirely, 2026-09-29). Drawn as a donut (2026-10-06). ----
+const STATUSES = [
+  ["Active", "active", (p) => p.success],
+  ["Pending verification", "pending_verification", (p) => p.warning],
+  ["Info requested", "info_requested", (p) => p.info],
+  ["Suspended", "suspended", (p) => p.danger],
+  ["Rejected", "rejected", (p) => p.muted],
+  ["Blacklisted", "blacklisted", (p) => p.ink],
+];
+
 export function vendorBase(s) {
-  const v = s.vendors_by_status;
-  const total = Object.values(v).reduce((a, b) => a + b, 0) || 1;
-  const rows = [
-    ["Active", v.active || 0, "#2f8f4e"],
-    ["Pending verification", v.pending_verification || 0, "#ff9783"],
-    ["Info requested", v.info_requested || 0, "#7d7979"],
-    ["Suspended", v.suspended || 0, "#201e1d"],
-    ["Rejected", v.rejected || 0, "rgba(32,30,29,.45)"],
-    ["Blacklisted", v.blacklisted || 0, "#201e1d"],
-  ];
+  const total = STATUSES.reduce((sum, [, key]) => sum + (s.vendors_by_status[key] || 0), 0);
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Vendor Base</span></div>
-    <div style="padding:14px">
-      ${rows
-        .map(
-          ([label, n, color]) => `<div style="margin-bottom:13px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>${label}</span><span>${n}</span></div>
-            <div class="ep-bar" style="margin-top:5px"><div style="width:${(n / total) * 100}%;background:${color}"></div></div>
-          </div>`
-        )
-        .join("")}
+    <div class="ep-pane-head"><span>Vendor base</span><span class="ep-k">${total} vendors</span></div>
+    <div class="ep-pane-pad">
+      ${total ? '<div id="vendor-base-chart"></div>' : '<div class="hint">No vendors registered yet.</div>'}
     </div>
   </div>`;
+}
+
+// Call after vendorBase()'s markup is in the DOM.
+export function drawVendorBase(s) {
+  const el = document.getElementById("vendor-base-chart");
+  if (!el) return;
+  const rows = STATUSES.filter(([, key]) => (s.vendors_by_status[key] || 0) > 0);
+  donut(el, {
+    labels: rows.map(([label]) => label),
+    series: rows.map(([, key]) => s.vendors_by_status[key]),
+    pickColors: (p) => rows.map(([, , color]) => color(p)),
+  });
 }

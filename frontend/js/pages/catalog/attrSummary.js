@@ -37,7 +37,7 @@ const LABELS = {
   deployment_model: (v) => `${v.replace("_", "-")} deployment`,
 };
 
-export function attrSummary(p) {
+export function attrBits(p) {
   const bits = [];
   if (p.unit_of_measure) bits.push(`UoM ${p.unit_of_measure}`);
   if (p.regulatory_class) bits.push(p.regulatory_class);
@@ -50,7 +50,11 @@ export function attrSummary(p) {
   }
   if (p.min_mapping_rating != null) bits.push(`restricted: min rating ${p.min_mapping_rating}`);
   if (p.required_documents?.length) bits.push(`vendor must supply: ${p.required_documents.map(docLabel).join(", ")}`);
-  return bits.join(" · ") || "—";
+  return bits;
+}
+
+export function attrSummary(p) {
+  return attrBits(p).join(" · ") || "—";
 }
 
 // Vendor-safe subset of attrSummary() (2026-10-01, user-directed): the

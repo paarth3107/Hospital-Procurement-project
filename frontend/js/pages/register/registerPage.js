@@ -106,10 +106,14 @@ form.addEventListener("submit", async (e) => {
     if (el.value) formData.append(`valid_till_${el.dataset.validTill}`, el.value);
   });
   appendOtherDocsToFormData(formData);
+  const openLinkToken = sessionStorage.getItem("openLinkToken");
+  if (openLinkToken) formData.append("open_link_token", openLinkToken);
   const resultEl = document.getElementById("register-result");
   try {
     // multipart: fetch sets the boundary itself
     const vendor = await api("/vendors", { method: "POST", body: formData });
+    sessionStorage.removeItem("openLinkToken");
+    document.getElementById("open-link-banner").hidden = true;
     form.reset();
     syncCityOptions();
     getChosenFiles().clear();

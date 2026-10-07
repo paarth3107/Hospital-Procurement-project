@@ -33,17 +33,17 @@ function render() {
             .map(([k, n]) => `${n} ${STATE[k] ? STATE[k][0].toLowerCase() : k}`)
             .join(" · ");
           return `<tr>
-            <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
+            <td class="ep-cell"><div class="fw-700">#${t.tender_id}</div><div class="ep-sub">${esc(t.title)}</div></td>
             <td class="ep-cell">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("In progress", "att")}</td>
-            <td class="ep-cell" style="font-size:12.5px">${chips}</td>
-            <td class="ep-cell" style="font-size:12.5px">${t.required_tier ? `${inr(t.pending_value)}<div class="ep-sub">tier ${t.required_tier}</div>` : "—"}</td>
+            <td class="ep-cell fs-12-5px">${chips}</td>
+            <td class="ep-cell fs-12-5px">${t.required_tier ? `${inr(t.pending_value)}<div class="ep-sub">tier ${t.required_tier}</div>` : "—"}</td>
             <td class="ep-cell">${t.waiting_for_you ? tag("Waiting for you", "att") : ""}</td>
-            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="p" data-tender="${t.tender_id}">Open</button></td></tr>`;
+            <td class="ep-cell text-right"><button class="ep-b" data-v="p" data-tender="${t.tender_id}">Open</button></td></tr>`;
         })
         .join("")
     : emptyRow(6, showClosed ? "No tender has reached the award stage yet." : "Nothing in progress. Closed tenders are hidden -- tick the box above to see them.");
   root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders At The Award Stage</span>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
+    <label class="d-flex items-center gap-6px fs-12px fw-400 tt-none ls-0 text-ink-70">
       <input type="checkbox" id="show-closed-awards" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
     </label></div>
     <table class="ep-table">${th("Tender", "Status", "Lines", "Award value", "", "")}<tbody>${rows}</tbody></table>

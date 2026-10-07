@@ -30,17 +30,17 @@ function render() {
     ? tenders
         .map(
           (t) => `<tr>
-            <td class="ep-cell"><div style="font-weight:700">#${t.tender_id}</div><div class="ep-sub">${esc(t.tender_title)}</div></td>
-            <td class="ep-cell" style="font-size:12.5px">${esc(t.facility_name)}</td>
-            <td class="ep-cell" style="font-size:12.5px">${esc(fmtDateTime(t.bid_due_date))}</td>
-            <td class="ep-cell" style="font-size:12.5px">${t.line_count} line(s)<div class="ep-sub">${t.open_count ? `${t.open_count} still open` : "all closed"}</div></td>
-            <td class="ep-cell" style="font-size:12.5px">${t.submitted_count} submitted<div class="ep-sub">${t.evaluated_count} evaluated</div></td>
-            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-tender="${t.tender_id}">Open</button></td></tr>`
+            <td class="ep-cell"><div class="fw-600">${esc(t.tender_title)}</div><div class="ep-sub">#${t.tender_id}</div></td>
+            <td class="ep-cell fs-12-5px">${esc(t.facility_name)}</td>
+            <td class="ep-cell fs-12-5px">${esc(fmtDateTime(t.bid_due_date))}</td>
+            <td class="ep-cell fs-12-5px">${t.line_count} line(s)<div class="ep-sub">${t.open_count ? `${t.open_count} still open` : "all closed"}</div></td>
+            <td class="ep-cell fs-12-5px">${t.submitted_count} submitted<div class="ep-sub">${t.evaluated_count} evaluated</div></td>
+            <td class="ep-cell text-right"><button class="ep-b" data-tender="${t.tender_id}">Open</button></td></tr>`
         )
         .join("")
     : emptyRow(6, showClosed ? "No published tenders yet." : "Nothing in progress. Closed tenders are hidden -- tick the box above to see them.");
   root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders to Evaluate</span>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
+    <label class="d-flex items-center gap-6px fs-12px fw-400 tt-none ls-0 text-ink-70">
       <input type="checkbox" id="show-closed-eval" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
     </label></div>
     <table class="ep-table">${th("Tender", "Facility", "Bids close", "Lines", "Bids", "")}<tbody>${rows}</tbody></table>

@@ -36,9 +36,9 @@ export function coreDetailsHtml(product) {
   return CORE_ROWS.map((row, i) => {
     const has = row.fields.some((f) => isSet(product?.[f.name]));
     const inputs = row.docs ? requiredDocsHtml(product?.required_documents || []) : row.fields.map((f) => fieldHtml(f, product?.[f.name])).join("");
-    return `<div class="optional-row" data-row="${i}" style="border-bottom:1px solid rgba(32,30,29,.18);padding:8px 0">
-      <label class="optional-toggle ep-check" style="font-weight:600;cursor:pointer"><input type="checkbox" ${has ? "checked" : ""}> ${row.label}</label>
-      <div class="optional-input" style="margin:8px 0 2px 24px;display:flex;flex-direction:column;gap:10px" ${has ? "" : "hidden"}>${inputs}</div>
+    return `<div class="optional-row border-bottom-1px-solid-ink-18 padding-8px-0" data-row="${i}">
+      <label class="optional-toggle ep-check fw-600 cursor-pointer"><input type="checkbox" ${has ? "checked" : ""}> ${row.label}</label>
+      <div class="optional-input margin-8px-0-2px-24px d-flex flex-col gap-10px" ${has ? "" : "hidden"}>${inputs}</div>
     </div>`;
   }).join("");
 }

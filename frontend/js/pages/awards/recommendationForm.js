@@ -13,28 +13,28 @@ export function recommendationFormHtml(line) {
   const canSplit = line.split_award_allowed && rows.length >= 2;
   const mode = cur?.kind === "exclude" ? "exclude" : cur && cur.proposed.length > 1 ? "split" : cur?.is_override ? "other" : "top";
   const proposed = new Map((cur?.proposed || []).map((a) => [a.bid_id, a.share_pct]));
-  const radio = (v, label, extra = "") => `<label class="ep-check" style="align-items:flex-start;margin-top:8px"><input type="radio" name="mode-${line.line_item_id}" value="${v}" ${mode === v ? "checked" : ""} ${rows.length === 0 && v !== "exclude" ? "disabled" : ""}><span>${label}${extra}</span></label>`;
-  return `<div data-rec="${line.line_item_id}" style="margin-top:12px;padding:12px 14px;border:1px solid rgba(32,30,29,.3)">
+  const radio = (v, label, extra = "") => `<label class="ep-check items-start mt-8px"><input type="radio" name="mode-${line.line_item_id}" value="${v}" ${mode === v ? "checked" : ""} ${rows.length === 0 && v !== "exclude" ? "disabled" : ""}><span>${label}${extra}</span></label>`;
+  return `<div data-rec="${line.line_item_id}" class="mt-12px padding-12px-14px border-1px-solid-ink-30">
     ${kicker("Your recommendation")}
-    ${rows.length === 0 ? '<div class="hint" style="margin-top:6px">No technically qualified bid on this line. It can only be left out of the award.</div>' : ""}
+    ${rows.length === 0 ? '<div class="hint mt-6px">No technically qualified bid on this line. It can only be left out of the award.</div>' : ""}
     ${radio("top", `Confirm the system's ${top ? esc(top.rank_label) : "L1"} recommendation`, top ? ` — <b>${esc(top.vendor_name)}</b>` : "")}
     ${radio("other", "Recommend a different vendor instead")}
-    <div data-panel="other" style="margin:6px 0 0 26px" hidden>
+    <div data-panel="other" class="margin-6px-0-0-26px" hidden>
       <select class="input" name="other-bid">${others.map((r) => `<option value="${r.bid_id}" ${proposed.has(r.bid_id) && mode === "other" ? "selected" : ""}>${esc(r.rank_label)} — ${esc(r.vendor_name)} (${r.landed_unit_price})</option>`).join("")}</select>
     </div>
     ${canSplit ? radio("split", "Propose a split between vendors", ` <span class="ep-sub">(each share at least ${line.min_split_pct}%, total 100%)</span>`) : ""}
     ${
       canSplit
-        ? `<div data-panel="split" style="margin:6px 0 0 26px" hidden>${rows
-            .map((r) => `<div style="display:flex;gap:10px;align-items:center;margin-top:4px"><span style="min-width:230px;font-size:13px">${esc(r.rank_label)} — ${esc(r.vendor_name)}</span><input class="input" style="width:90px" type="number" min="0" max="100" step="1" name="share-${r.bid_id}" value="${proposed.get(r.bid_id) ?? ""}" placeholder="%"> <span class="ep-sub">%</span></div>`)
-            .join("")}<div class="ep-sub" id="split-total-${line.line_item_id}" style="margin-top:4px"></div></div>`
+        ? `<div data-panel="split" class="margin-6px-0-0-26px" hidden>${rows
+            .map((r) => `<div class="d-flex gap-10px items-center mt-4px"><span class="minw-230px fs-13px">${esc(r.rank_label)} — ${esc(r.vendor_name)}</span><input class="input w-90px" type="number" min="0" max="100" step="1" name="share-${r.bid_id}" value="${proposed.get(r.bid_id) ?? ""}" placeholder="%"> <span class="ep-sub">%</span></div>`)
+            .join("")}<div class="ep-sub mt-4px" id="split-total-${line.line_item_id}"></div></div>`
         : ""
     }
     ${radio("exclude", "Leave this line out of the award")}
-    <div class="ep-field" style="margin-top:10px">${kicker("Reason")}<textarea class="input" name="reason" rows="2" style="width:100%" placeholder="Required if you recommend a different vendor or leave the line out">${esc(cur?.officer_reason || "")}</textarea>
-      <div class="hint" data-reason-msg style="color:#ae1800;margin-top:4px" hidden>A reason is mandatory for this choice.</div></div>
+    <div class="ep-field mt-10px">${kicker("Reason")}<textarea class="input w-full" name="reason" rows="2" placeholder="Required if you recommend a different vendor or leave the line out">${esc(cur?.officer_reason || "")}</textarea>
+      <div class="hint text-danger-700 mt-4px" data-reason-msg hidden>A reason is mandatory for this choice.</div></div>
     <div id="rec-result-${line.line_item_id}" class="result"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="ep-b" data-v="p" data-save-rec="${line.line_item_id}">Save recommendation</button></div>
+    <div class="d-flex justify-end mt-8px"><button class="ep-b" data-v="p" data-save-rec="${line.line_item_id}">Save recommendation</button></div>
   </div>`;
 }
 

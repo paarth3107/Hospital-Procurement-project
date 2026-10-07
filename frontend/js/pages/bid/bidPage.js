@@ -23,17 +23,17 @@ function renderHeader() {
     headerEl().innerHTML = "";
     return;
   }
-  headerEl().innerHTML = `<div class="ep-pane ep-pane-pad" style="margin-top:14px">
-    <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
-      <div style="flex:1;min-width:260px">${kicker(`Tender #${ctx.tender_id} · ${ctx.tender_type.toUpperCase()} · ${ctx.facility_name}`)}
-        <h4 style="margin:4px 0 3px;font-size:21px">${esc(ctx.tender_title)}</h4>
+  headerEl().innerHTML = `<div class="ep-pane ep-pane-pad mt-14px">
+    <div class="d-flex gap-24px items-center flex-wrap">
+      <div class="flex-1 minw-260px">${kicker(`Tender #${ctx.tender_id} · ${ctx.tender_type.toUpperCase()} · ${ctx.facility_name}`)}
+        <h4 class="margin-4px-0-3px fs-21px">${esc(ctx.tender_title)}</h4>
       </div>
-      <div>${kicker("Closes")}<div style="font-weight:700;margin-top:3px">${esc(fmtDateTime(ctx.bid_due_date))}</div></div>
+      <div>${kicker("Closes")}<div class="fw-700 mt-3px">${esc(fmtDateTime(ctx.bid_due_date))}</div></div>
     </div>
-    ${ctx.tender_description ? `<div class="hint" style="margin-top:10px">${esc(ctx.tender_description)}</div>` : ""}
+    ${ctx.tender_description ? `<div class="hint mt-10px">${esc(ctx.tender_description)}</div>` : ""}
     ${
       ctx.terms_and_conditions
-        ? `<div style="margin-top:12px"><div class="ep-k">Terms &amp; conditions</div><div class="hint" style="margin-top:4px;white-space:pre-wrap">${esc(ctx.terms_and_conditions)}</div></div>`
+        ? `<div class="mt-12px"><div class="ep-k">Terms &amp; conditions</div><div class="hint mt-4px pre-wrap">${esc(ctx.terms_and_conditions)}</div></div>`
         : ""
     }
   </div>`;

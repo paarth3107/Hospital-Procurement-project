@@ -1,5 +1,7 @@
 import { esc, kicker, th, emptyRow, fmtDate, tag, stateTag } from "../../kit.js";
 import { switchView } from "../../nav.js";
+import { kpiStrip as kpiTiles } from "./kpi.js";
+import { bars } from "../../charts.js";
 import { openTenderById } from "../tenders/tendersPage.js";
 import { actionQueue, wireActionQueue } from "./actionQueue.js";
 
@@ -22,15 +24,12 @@ import { actionQueue, wireActionQueue } from "./actionQueue.js";
 // keep editing/submit it), Pending approval / Live -> Bid evaluation (where
 // their progress is tracked), Ready to recommend -> L1 award.
 function kpiStrip(o) {
-  const cells = [
-    ["Draft tenders", o.draft_count, "not yet submitted for approval", "tenders"],
-    ["Pending approval", o.pending_approval_count, "sent, waiting on the Approving Authority", "evaluation"],
-    ["Live tenders", o.live_count, o.awaiting_evaluation_close_count ? `bidding open · ${o.awaiting_evaluation_close_count} more closed, awaiting evaluation` : "bidding open", "evaluation"],
-    ["Ready to recommend", o.ready_to_recommend_lines, `${o.ready_to_recommend_count} tender(s)`, "awards"],
-  ];
-  return `<div class="ep-kpis">${cells
-    .map(([label, value, sub, view]) => `<button type="button" class="ep-kpi" data-view="${view}">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></button>`)
-    .join("")}</div>`;
+  return kpiTiles([
+    ["Draft tenders", o.draft_count, "not yet submitted for approval", "tenders", "file-text", "primary"],
+    ["Pending approval", o.pending_approval_count, "sent, waiting on the Approving Authority", "evaluation", "clock", "warning"],
+    ["Live tenders", o.live_count, o.awaiting_evaluation_close_count ? `bidding open · ${o.awaiting_evaluation_close_count} more closed, awaiting evaluation` : "bidding open", "evaluation", "activity", "success"],
+    ["Ready to recommend", o.ready_to_recommend_lines, `${o.ready_to_recommend_count} tender(s)`, "awards", "award", "info"],
+  ]);
 }
 
 function pipeline(o) {
@@ -46,16 +45,16 @@ function pipeline(o) {
     ["Awaiting L1 approval", `${o.awaiting_decision_lines} line(s) · ${o.awaiting_decision_count} tender(s)`, o.awaiting_decision_lines],
   ];
   return `<div>
-    <div class="ep-k" style="margin-bottom:9px">My tender pipeline</div>
+    <div class="ep-k mb-9px">My tender pipeline</div>
     <div class="ep-pipeline">${stages
       .map(
         ([name, note, count], i) => `<div class="ep-stage">
-          <div style="display:flex;align-items:center;gap:7px">
-            <span class="ep-stage-dot" style="background:${count ? "#1d4ed8" : "rgba(32,30,29,.18)"};color:${count ? "#f3f2f2" : "#201e1d"}">${i + 1}</span>
-            <span style="font-size:12.5px;font-weight:800">${esc(name)}</span>
+          <div class="d-flex items-center gap-7px">
+            <span class="ep-stage-dot ${count ? "ep-stage-dot-on" : "ep-stage-dot-off"}">${i + 1}</span>
+            <span class="fs-12-5px fw-800">${esc(name)}</span>
           </div>
-          <div class="ep-sub" style="line-height:1.4">${esc(note)}</div>
-          <div style="height:3px;margin-top:auto;background:${count ? "#1d4ed8" : "rgba(32,30,29,.18)"}"></div>
+          <div class="ep-sub lh-1-4">${esc(note)}</div>
+          <div class="ep-stage-bar ${count ? "ep-stage-bar-on" : "ep-stage-bar-off"}"></div>
         </div>`
       )
       .join("")}</div>
@@ -80,11 +79,11 @@ function tendersTable(o) {
               ? `${t.bids_received} bid(s)${due ? ` · ${closed ? "closed" : "closes"} ${fmtDate(t.bid_due_date)}` : ""}${closed && !t.lines_ready_to_recommend && !t.lines_awaiting_decision ? '<div class="ep-sub">awaiting technical evaluation close</div>' : ""}`
               : '<span class="ep-sub">—</span>';
           return `<tr>
-            <td class="ep-cell" style="font-weight:600">${esc(t.title)}</td>
+            <td class="ep-cell fw-600">${esc(t.title)}</td>
             <td class="ep-cell">${stateTag(t.status)}</td>
-            <td class="ep-cell" style="font-size:12.5px">${bidding}</td>
-            <td class="ep-cell" style="font-size:12.5px">${nextStep}</td>
-            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-open="${t.id}">Open</button></td>
+            <td class="ep-cell fs-12-5px">${bidding}</td>
+            <td class="ep-cell fs-12-5px">${nextStep}</td>
+            <td class="ep-cell text-right"><button class="ep-b" data-open="${t.id}">Open</button></td>
           </tr>`;
         })
         .join("")
@@ -98,12 +97,14 @@ function tendersTable(o) {
 export function renderOfficerDashboard(root, s) {
   const o = s.officer;
   const queue = actionQueue(s);
-  root.innerHTML = `<div style="display:flex;flex-direction:column;gap:22px">
+  root.innerHTML = `<div class="d-flex flex-col gap-22px">
     ${kpiStrip(o)}
     ${pipeline(o)}
-    <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${tendersTable(o)}</div>
+    <div class="ep-pane"><div class="ep-pane-head"><span>Pipeline by stage</span><span class="ep-k">tenders and lines, now</span></div><div class="ep-pane-pad"><div id="officer-stage-chart"></div></div></div>
+    <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${tendersTable(o)}</div>
   </div>`;
   wireActionQueue(root, queue);
+  drawStageChart(o);
   root.querySelectorAll(".ep-kpi[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
   root.querySelectorAll("[data-open]").forEach((b) =>
     b.addEventListener("click", () => {
@@ -111,4 +112,15 @@ export function renderOfficerDashboard(root, s) {
       openTenderById(b.dataset.open);
     })
   );
+}
+
+function drawStageChart(o) {
+  const el = document.getElementById("officer-stage-chart");
+  if (!el) return;
+  bars(el, {
+    categories: ["Draft tenders", "Pending approval", "Live tenders", "Lines ready to recommend", "Lines awaiting L1"],
+    series: [{ name: "Count", data: [o.draft_count, o.pending_approval_count, o.live_count, o.ready_to_recommend_lines, o.awaiting_decision_lines] }],
+    pickColors: (p) => [p.muted, p.warning, p.primary, p.success, p.info],
+    height: 240,
+  });
 }

@@ -12,7 +12,7 @@ import { decisionFormHtml, readDecision, wireDecision } from "./decisionForm.js"
 // approval. Approving Authority: decide each submitted line.
 function roundHtml(r) {
   const dec = r.decision_kind ? `${DECISION_LABEL[r.decision_kind] || r.decision_kind}${r.decided_by ? ` by ${esc(r.decided_by)}` : ""}${r.decided_at ? ` · ${esc(fmtDateTime(r.decided_at))}` : ""}` : "";
-  return `<div style="padding:6px 0;border-top:1px solid rgba(32,30,29,.12);font-size:12.5px">
+  return `<div class="padding-6px-0 border-top-1px-solid-ink-12 fs-12-5px">
     <b>Round ${r.round_number}</b> · ${tag(r.status, r.status === "approved" ? "pos" : r.status === "rejected" ? "neg" : "att")} ${r.kind === "exclude" ? "· left out of the award" : ""}
     <div>${r.kind === "exclude" ? "" : `Officer: ${allocationsHtml(r.proposed)}`}${r.is_override ? ` ${tag("override", "att")}` : ""}</div>
     ${r.officer_reason ? `<div class="ep-sub">Reason: ${esc(r.officer_reason)}</div>` : ""}
@@ -25,23 +25,23 @@ function lineHtml(line) {
   const c = line.current;
   const summary =
     c && line.state !== "none"
-      ? `<div style="margin-top:10px;font-size:13px">${kicker(`Round ${c.round_number}`)}
-          <div style="margin-top:3px">${c.kind === "exclude" ? "Recommended: leave this line out of the award" : `Recommended: ${allocationsHtml(c.proposed)}`}${c.is_override ? ` ${tag("not the system's top-ranked", "att")}` : ""}</div>
-          ${c.officer_reason ? `<div class="ep-sub" style="white-space:pre-wrap">Reason: ${esc(c.officer_reason)}</div>` : ""}
-          ${line.state === "approved" || line.state === "excluded" ? `<div style="margin-top:4px;font-weight:600">${DECISION_LABEL[c.decision_kind] || ""} — ${c.kind === "exclude" ? "no award" : allocationsHtml(c.final)}</div>` : ""}
+      ? `<div class="mt-10px fs-13px">${kicker(`Round ${c.round_number}`)}
+          <div class="mt-3px">${c.kind === "exclude" ? "Recommended: leave this line out of the award" : `Recommended: ${allocationsHtml(c.proposed)}`}${c.is_override ? ` ${tag("not the system's top-ranked", "att")}` : ""}</div>
+          ${c.officer_reason ? `<div class="ep-sub pre-wrap">Reason: ${esc(c.officer_reason)}</div>` : ""}
+          ${line.state === "approved" || line.state === "excluded" ? `<div class="mt-4px fw-600">${DECISION_LABEL[c.decision_kind] || ""} — ${c.kind === "exclude" ? "no award" : allocationsHtml(c.final)}</div>` : ""}
           ${c.decision_comments ? `<div class="ep-sub">Approver's comments: ${esc(c.decision_comments)}</div>` : ""}</div>`
       : "";
   const older = line.history.filter((r) => !c || r.round_number !== c.round_number);
-  return `<div class="ep-pane" data-line="${line.line_item_id}"><div class="ep-pane-head"><span>${esc(line.product_name)} <span class="ep-sub" style="font-weight:400">${esc(line.product_code)} · ${line.qty}${line.uom ? " " + esc(line.uom) : ""}</span></span><span>${tag(label, tone)}</span></div>
-    <div style="padding:14px 16px">
+  return `<div class="ep-pane" data-line="${line.line_item_id}"><div class="ep-pane-head"><span>${esc(line.product_name)} <span class="ep-sub fw-400">${esc(line.product_code)} · ${line.qty}${line.uom ? " " + esc(line.uom) : ""}</span></span><span>${tag(label, tone)}</span></div>
+    <div class="padding-14px-16px">
       <div class="ep-sub">${esc(line.evaluation_method.replace(/_/g, " "))}${line.split_award_allowed ? " · split award allowed" : ""}</div>
-      ${line.technical_closed ? statementHtml(line) : '<div class="hint" style="margin-top:8px">Technical evaluation is not closed for this line yet.</div>'}
+      ${line.technical_closed ? statementHtml(line) : '<div class="hint mt-8px">Technical evaluation is not closed for this line yet.</div>'}
       ${summary}
-      ${older.length ? `<details style="margin-top:8px"><summary class="ep-sub" style="cursor:pointer">Earlier rounds (${older.length})</summary>${older.map(roundHtml).join("")}</details>` : ""}
+      ${older.length ? `<details class="mt-8px"><summary class="ep-sub cursor-pointer">Earlier rounds (${older.length})</summary>${older.map(roundHtml).join("")}</details>` : ""}
       ${
         line.can_recommend
           ? line.state === "draft"
-            ? `<div style="margin-top:10px"><button class="ep-b" data-edit-rec="${line.line_item_id}">Edit recommendation</button></div><div data-rec-wrap="${line.line_item_id}" hidden>${recommendationFormHtml(line)}</div>`
+            ? `<div class="mt-10px"><button class="ep-b" data-edit-rec="${line.line_item_id}">Edit recommendation</button></div><div data-rec-wrap="${line.line_item_id}" hidden>${recommendationFormHtml(line)}</div>`
             : recommendationFormHtml(line)
           : ""
       }
@@ -59,22 +59,22 @@ export async function renderTenderAward(container, tenderId, { onBack, resultEl 
     return;
   }
   const paint = (message) => {
-    container.innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">
+    container.innerHTML = `<div class="d-flex flex-col gap-18px">
       <div><button class="ep-b" id="aw-back">← All tenders</button></div>
-      <div class="ep-pane ep-pane-pad" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
-        <div style="flex:1;min-width:260px">${kicker(`Tender #${t.tender_id}`)}<h4 style="margin:4px 0 3px;font-size:22px">${esc(t.title)}</h4><div class="ep-sub">${esc(t.facility_name)}${t.department ? " · " + esc(t.department) : ""}</div></div>
-        <div>${kicker("Status")}<div style="margin-top:5px">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("Award in progress", "att")}</div>${t.awarded_at ? `<div class="ep-sub">${esc(fmtDateTime(t.awarded_at))}</div>` : ""}</div>
-        ${t.required_tier ? `<div>${kicker("Waiting for approval")}<div style="font-size:20px;font-weight:800;margin-top:3px">${inr(t.pending_value)}</div><div class="ep-sub">needs tier ${t.required_tier}</div></div>` : ""}
+      <div class="ep-pane ep-pane-pad d-flex gap-24px items-center flex-wrap">
+        <div class="flex-1 minw-260px">${kicker(`Tender #${t.tender_id}`)}<h4 class="margin-4px-0-3px fs-22px">${esc(t.title)}</h4><div class="ep-sub">${esc(t.facility_name)}${t.department ? " · " + esc(t.department) : ""}</div></div>
+        <div>${kicker("Status")}<div class="mt-5px">${t.status === "awarded" ? tag("Awarded", "pos") : t.status === "no_award" ? tag("Nothing awarded", "neg") : tag("Award in progress", "att")}</div>${t.awarded_at ? `<div class="ep-sub">${esc(fmtDateTime(t.awarded_at))}</div>` : ""}</div>
+        ${t.required_tier ? `<div>${kicker("Waiting for approval")}<div class="fs-20px fw-800 mt-3px">${inr(t.pending_value)}</div><div class="ep-sub">needs tier ${t.required_tier}</div></div>` : ""}
       </div>
       ${
         t.status === "awarded" && t.po_files.length
-          ? `<div class="ep-pane"><div class="ep-pane-head"><span>PO Data Files</span></div><table class="ep-table"><tbody>${t.po_files.map((f) => `<tr><td class="ep-cell" style="font-weight:600">${esc(f.batch_id)}</td><td class="ep-cell">${esc(f.vendor_name)}</td><td class="ep-cell">${stateTag(f.status)}</td></tr>`).join("")}</tbody></table></div>`
+          ? `<div class="ep-pane"><div class="ep-pane-head"><span>PO Data Files</span></div><table class="ep-table"><tbody>${t.po_files.map((f) => `<tr><td class="ep-cell fw-600">${esc(f.batch_id)}</td><td class="ep-cell">${esc(f.vendor_name)}</td><td class="ep-cell">${stateTag(f.status)}</td></tr>`).join("")}</tbody></table></div>`
           : t.submit_blockers.length
           ? `<div class="ep-note">${t.submit_blockers.map(esc).join("<br>")}</div>`
           : ""
       }
       ${t.lines.map(lineHtml).join("")}
-      ${t.can_submit ? '<div style="display:flex;justify-content:flex-end"><button class="ep-b" data-v="p" id="aw-submit">Submit for L1 approval</button></div>' : ""}
+      ${t.can_submit ? '<div class="d-flex justify-end"><button class="ep-b" data-v="p" id="aw-submit">Submit for L1 approval</button></div>' : ""}
     </div>`;
     container.querySelector("#aw-back").addEventListener("click", onBack);
     if (message) showResult(resultEl, message, true);

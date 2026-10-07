@@ -24,9 +24,22 @@ import { setWhoami } from "./ui.js";
 import { state } from "./state.js";
 import { switchView, showStaffTabsForRole, showVendorDashboardTab, DEFAULT_VIEW_BY_ROLE } from "./nav.js";
 import { routeVendorAfterAuth } from "./pages/vendorLoginPage.js";
+import { initShell } from "./shell.js";
+import { showOpenLinkBanner } from "./pages/register/openLinkBanner.js";
+
+initShell();
 
 // ---- Restore session on load ----
 (async function init() {
+  // A registration link (?open=TOKEN) opens the vendor registration screen with
+  // that tender in the banner; the token is kept for the registration itself.
+  const openLinkToken = new URLSearchParams(location.search).get("open");
+  if (openLinkToken) {
+    sessionStorage.setItem("openLinkToken", openLinkToken);
+    switchView("register");
+    showOpenLinkBanner();
+    return;
+  }
   if (!state.token) return;
   try {
     if (state.actorType === "vendor") {

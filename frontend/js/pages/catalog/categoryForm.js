@@ -10,10 +10,10 @@ import { modalChoose } from "../../modal.js";
 export function openCategoryForm(host, category, onSaved, onCancel) {
   host.hidden = false;
   host.innerHTML = `
-    <form class="catalog-form ep-form" style="gap:16px">
-      <div style="font-size:18px;font-weight:800">${category ? "Edit" : "New"} category</div>
+    <form class="catalog-form ep-form gap-16px">
+      <div class="fs-18px fw-800">${category ? "Edit" : "New"} category</div>
       <div class="ep-pane ep-pane-pad">
-        <div class="ep-form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="ep-form-grid grid-cols-1fr-1fr-1fr">
           <div class="ep-field"><div class="ep-k">Name</div><input class="input" name="name" required value="${esc(category?.name ?? "")}"></div>
           <div class="ep-field"><div class="ep-k">Procurement type</div>
             <select class="input" name="procurement_type" ${category ? "disabled" : ""}>
@@ -22,11 +22,11 @@ export function openCategoryForm(host, category, onSaved, onCancel) {
           <div class="ep-field"><div class="ep-k">Min vendor rating to map (optional)</div>
             <input class="input" name="min_mapping_rating" type="number" step="any" min="0" max="100" value="${category?.min_mapping_rating ?? ""}"></div>
         </div>
-        <p class="hint" style="margin-top:10px">Set a minimum only for restricted or critical categories (implants, high-value equipment, critical AMC).</p>
-        <div class="ep-k" style="margin:14px 0 8px">Documents required from a vendor to be mapped to this category</div>
+        <p class="hint mt-10px">Set a minimum only for restricted or critical categories (implants, high-value equipment, critical AMC).</p>
+        <div class="ep-k margin-14px-0-8px">Documents required from a vendor to be mapped to this category</div>
         ${requiredDocsHtml(category?.required_documents || [])}
       </div>
-      <div style="display:flex;gap:8px">
+      <div class="d-flex gap-8px">
         <button type="submit" class="ep-b" data-v="p">${category ? "Save changes" : "Add category"}</button>
         <button type="button" class="ep-b cancel-btn">Cancel</button>
       </div>

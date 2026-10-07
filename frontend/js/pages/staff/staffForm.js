@@ -23,26 +23,26 @@ export function openStaffForm(user, facilities, onSaved) {
   const editing = !!user;
   const opt = (value, label, selected) => `<option value="${value}" ${selected ? "selected" : ""}>${esc(label)}</option>`;
   box.innerHTML = `
-    <div class="dlg-head"><div style="flex:1">${kicker(editing ? "Edit staff account" : "New staff account")}<h4>${editing ? esc(user.full_name) : "Add Hospital Staff"}</h4></div></div>
-    <form id="staff-form" class="ep-form" style="padding:16px 18px;background:transparent;border:0">
+    <div class="dlg-head"><div class="flex-1">${kicker(editing ? "Edit staff account" : "New staff account")}<h4>${editing ? esc(user.full_name) : "Add Hospital Staff"}</h4></div></div>
+    <form id="staff-form" class="ep-form padding-16px-18px bg-transparent border-0">
       <div class="ep-field">${kicker("Full name")}<input class="input" name="full_name" value="${editing ? esc(user.full_name) : ""}" required></div>
       <div class="ep-field">${kicker("Email (used to log in)")}<input class="input" name="email" type="email" value="${editing ? esc(user.email) : ""}" ${editing ? "disabled" : "required"}></div>
       ${
         editing
           ? ""
           : `<div class="ep-field">${kicker("Initial password (min 8 characters)")}<input class="input" name="password" type="password" minlength="8" autocomplete="new-password" required>
-        <div class="hint" style="margin-top:4px">Share it with the person directly; there is no email delivery yet. Use Reset password later to change it.</div></div>`
+        <div class="hint mt-4px">Share it with the person directly; there is no email delivery yet. Use Reset password later to change it.</div></div>`
       }
       <div class="ep-field">${kicker("Role")}<select class="input" name="role">${Object.entries(ROLE_LABELS)
         .map(([v, l]) => opt(v, l, editing && user.role === v))
         .join("")}</select></div>
       <div class="ep-field" id="tier-field" hidden>${kicker("Approval tier")}<input class="input" name="approval_tier" type="number" min="1" value="${editing && user.approval_tier ? user.approval_tier : ""}">
-        <div class="hint" style="margin-top:4px">Higher tiers can approve higher-value tenders (see the approval bands).</div></div>
+        <div class="hint mt-4px">Higher tiers can approve higher-value tenders (see the approval bands).</div></div>
       <div class="ep-field">${kicker("Facility")}<select class="input" name="facility_id">${opt("", "All facilities", editing && user.facility_id == null)}${facilities
         .map((f) => opt(f.id, f.name, editing && user.facility_id === f.id))
         .join("")}</select></div>
       <div id="staff-dialog-result" class="result"></div>
-      <div style="display:flex;justify-content:flex-end;gap:10px"><button type="button" class="ep-b" id="staff-cancel">Cancel</button><button class="ep-b" data-v="p">${editing ? "Save changes" : "Create account"}</button></div>
+      <div class="d-flex justify-end gap-10px"><button type="button" class="ep-b" id="staff-cancel">Cancel</button><button class="ep-b" data-v="p">${editing ? "Save changes" : "Create account"}</button></div>
     </form>`;
   overlay.hidden = false;
 

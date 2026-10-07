@@ -19,6 +19,8 @@ from app.security import get_current_vendor
 from app.services.audit import record
 from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
+from app.services.open_links import facility_name, link_state
+from app.schemas.open_link import RegisteredTenderOut
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
 
@@ -132,3 +134,22 @@ def request_my_mapping(
     themselves -- the vendor is always the logged-in one."""
 
     return create_pending_mapping(db, vendor, payload.product_master_id, payload.category_id, require_uploaded_documents=True, requested_by=vendor)
+
+
+@router.get("/registered-tender", response_model=RegisteredTenderOut | None)
+def registered_tender(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
+    """The Open Tender this vendor registered through, shown to them while they
+    wait for approval so they can see it listed (2026-10-06)."""
+
+    tender = db.get(Tender, vendor.registered_via_tender_id) if vendor.registered_via_tender_id else None
+    if tender is None:
+        return None
+    return RegisteredTenderOut(
+        id=tender.id,
+        title=tender.title,
+        facility_name=facility_name(tender, db),
+        department=tender.department,
+        bid_due_date=tender.bid_due_date,
+        state=link_state(tender),
+        tender_status=tender.status.value,
+    )

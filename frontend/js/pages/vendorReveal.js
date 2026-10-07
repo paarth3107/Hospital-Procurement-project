@@ -15,12 +15,12 @@ export function askRevealPassword(vendorId, field, label) {
       resolve(value);
     };
     box.innerHTML = `
-      <div class="dlg-head"><div style="flex:1">${kicker("Protected detail")}<h4>Show ${esc(label)}</h4></div></div>
-      <form id="reveal-form" class="ep-form" style="padding:16px 18px;background:transparent;border:0">
+      <div class="dlg-head"><div class="flex-1">${kicker("Protected detail")}<h4>Show ${esc(label)}</h4></div></div>
+      <form id="reveal-form" class="ep-form padding-16px-18px bg-transparent border-0">
         <div class="hint">This is personal / financial information. Enter your own password to view it.</div>
         <div class="ep-field">${kicker("Your password")}<input class="input" name="password" type="password" autocomplete="current-password" required></div>
         <div id="reveal-result" class="result"></div>
-        <div style="display:flex;justify-content:flex-end;gap:10px"><button type="button" class="ep-b" id="reveal-cancel">Cancel</button><button class="ep-b" data-v="p">Show</button></div>
+        <div class="d-flex justify-end gap-10px"><button type="button" class="ep-b" id="reveal-cancel">Cancel</button><button class="ep-b" data-v="p">Show</button></div>
       </form>`;
     overlay.hidden = false;
     const form = box.querySelector("#reveal-form");

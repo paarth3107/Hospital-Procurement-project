@@ -23,17 +23,17 @@ export function renderMappingMatrix(container, data, refresh) {
   if (!subCategoriesOfCategory.some((s) => s.id === selSubCategoryId)) selSubCategoryId = null;
 
   container.innerHTML = `
-    <div style="padding:14px 16px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(32,30,29,.18)">
-      <label class="ep-k">Vendor&nbsp;<select class="input" id="mm-vendor" style="width:auto;min-width:220px">${data.vendors
+    <div class="padding-14px-16px d-flex gap-14px flex-wrap items-center border-bottom-1px-solid-ink-18">
+      <label class="ep-k">Vendor&nbsp;<select class="input w-auto minw-220px" id="mm-vendor">${data.vendors
         .map((v) => `<option value="${v.id}" ${v.id === selVendorId ? "selected" : ""}>${esc(v.legal_name)}</option>`)
         .join("")}</select></label>
-      <label class="ep-k">Type&nbsp;<select class="input" id="mm-type" style="width:auto">${types
+      <label class="ep-k">Type&nbsp;<select class="input w-auto" id="mm-type">${types
         .map((t) => `<option value="${t}" ${t === selType ? "selected" : ""}>${t[0].toUpperCase() + t.slice(1)}</option>`)
         .join("")}</select></label>
-      <label class="ep-k">Category&nbsp;<select class="input" id="mm-category" style="width:auto;min-width:220px">${categoriesOfType
+      <label class="ep-k">Category&nbsp;<select class="input w-auto minw-220px" id="mm-category">${categoriesOfType
         .map((c) => `<option value="${c.id}" ${c.id === selCategoryId ? "selected" : ""}>${esc(c.name)}</option>`)
         .join("")}</select></label>
-      <label class="ep-k">Sub-category&nbsp;<select class="input" id="mm-subcategory" style="width:auto;min-width:220px" ${subCategoriesOfCategory.length ? "" : "disabled"}>
+      <label class="ep-k">Sub-category&nbsp;<select class="input w-auto minw-220px" id="mm-subcategory" ${subCategoriesOfCategory.length ? "" : "disabled"}>
         <option value="">All</option>
         ${subCategoriesOfCategory.map((s) => `<option value="${s.id}" ${s.id === selSubCategoryId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
       </select></label>
@@ -67,7 +67,7 @@ const mark = (state) => (state === "approved" ? "✓" : "—");
 const markState = (state) => (state === "approved" ? "approved" : "none");
 
 function statusButton(state, extraAttrs = "") {
-  return `<button class="matrix-btn" data-s="${markState(state)}" style="width:60px;height:32px" ${extraAttrs}>${mark(state)}</button>`;
+  return `<button class="matrix-btn w-60px h-32px" data-s="${markState(state)}" ${extraAttrs}>${mark(state)}</button>`;
 }
 
 function renderBody(body, data, refresh) {
@@ -87,31 +87,31 @@ function renderBody(body, data, refresh) {
       const m = data.itemMappingOf(vendor.id, p.id);
       const state = m ? m.state : "none";
       return `<tr>
-        <td class="ep-cell ep-mono" style="font-size:11.5px">${esc(p.code)}</td>
+        <td class="ep-cell ep-mono fs-11-5px">${esc(p.code)}</td>
         <td class="ep-cell">${esc(p.name)}${p.min_mapping_rating != null ? `<div class="ep-sub">min rating ${p.min_mapping_rating}</div>` : ""}</td>
         <td class="ep-cell">${esc(p.sub_category || "—")}</td>
-        <td class="ep-cell" style="text-align:center">${statusButton(state, `data-item="${p.id}"`)}</td>
+        <td class="ep-cell text-center">${statusButton(state, `data-item="${p.id}"`)}</td>
       </tr>`;
     })
     .join("");
 
   body.innerHTML = `
     <div class="ep-pane-pad">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:640px">
-        <div><div class="ep-k">Whole-category mapping</div><div style="font-weight:600">${esc(vendor.legal_name)} → "${esc(category.name)}"</div>
+      <div class="d-flex items-center justify-between gap-14px maxw-640px">
+        <div><div class="ep-k">Whole-category mapping</div><div class="fw-600">${esc(vendor.legal_name)} → "${esc(category.name)}"</div>
           <div class="hint">Approves ${esc(vendor.legal_name)} for every item in this category.</div></div>
         ${statusButton(categoryState, 'data-category="1"')}
       </div>
     </div>
-    <div class="ep-pane-pad" style="border-top:1px solid rgba(32,30,29,.18)">
-      <div class="ep-k" style="margin-bottom:8px">Item mapping — "${esc(itemSectionLabel)}"</div>
+    <div class="ep-pane-pad border-top-1px-solid-ink-18">
+      <div class="ep-k mb-8px">Item mapping — "${esc(itemSectionLabel)}"</div>
       ${
         items.length
-          ? `<table class="ep-table"><thead><tr><th class="ep-th">Code</th><th class="ep-th">Item</th><th class="ep-th">Sub-category</th><th class="ep-th" style="text-align:center">Mapped</th></tr></thead><tbody>${itemRows}</tbody></table>`
+          ? `<table class="ep-table"><thead><tr><th class="ep-th">Code</th><th class="ep-th">Item</th><th class="ep-th">Sub-category</th><th class="ep-th text-center">Mapped</th></tr></thead><tbody>${itemRows}</tbody></table>`
           : '<div class="hint">No items here yet.</div>'
       }
     </div>
-    <div style="display:flex;gap:22px;flex-wrap:wrap;padding:10px 16px;font-size:11.5px;color:rgba(32,30,29,.62);border-top:1px solid rgba(32,30,29,.18)">
+    <div class="d-flex gap-22px flex-wrap padding-10px-16px fs-11-5px text-ink-62 border-top-1px-solid-ink-18">
       <span>✓ mapped and approved</span><span>— not mapped (may be pending, suspended or rejected — click for details, or see Mapping requests)</span>
     </div>`;
 

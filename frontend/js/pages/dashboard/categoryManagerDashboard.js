@@ -1,6 +1,8 @@
 import { esc, kicker } from "../../kit.js";
 import { switchView } from "../../nav.js";
 import { actionQueue, wireActionQueue } from "./actionQueue.js";
+import { kpiStrip as kpiTiles } from "./kpi.js";
+import { drawVendorBase } from "./vendorBase.js";
 import { vendorBase } from "./vendorBase.js";
 
 // ---- Category Manager / Procurement Admin's own dashboard (one job, per
@@ -16,23 +18,21 @@ import { vendorBase } from "./vendorBase.js";
 // be decoration, not information. Just the real numbers and the queue. ----
 
 function kpiStrip(s) {
-  const cells = [
-    ["Vendor KYC", s.vendors_pending_count, s.docs_to_verify.length ? `+${s.docs_to_verify.length} vendor(s) with documents to verify` : "new registrations awaiting review", "queue"],
-    ["Mapping requests", s.mappings_pending_count, "vendor category / item eligibility", "mappings"],
-    ["Ready for technical evaluation", s.eval_workload.length, "bidding closed, not yet scored", "evaluation"],
-    ["Ratings needing refresh", s.stale_ratings.length, "no manual update in 90+ days", "ratings"],
-  ];
-  return `<div class="ep-kpis">${cells
-    .map(([label, value, sub, view]) => `<button type="button" class="ep-kpi" data-view="${view}">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></button>`)
-    .join("")}</div>`;
+  return kpiTiles([
+    ["Vendor KYC", s.vendors_pending_count, s.docs_to_verify.length ? `+${s.docs_to_verify.length} vendor(s) with documents to verify` : "new registrations awaiting review", "queue", "user-check", "primary"],
+    ["Mapping requests", s.mappings_pending_count, "vendor category / item eligibility", "mappings", "layers", "info"],
+    ["Ready for technical evaluation", s.eval_workload.length, "bidding closed, not yet scored", "evaluation", "bar-chart", "success"],
+    ["Ratings needing refresh", s.stale_ratings.length, "no manual update in 90+ days", "ratings", "star", "warning"],
+  ]);
 }
 
 export function renderCategoryManagerDashboard(root, s) {
   const queue = actionQueue(s);
-  root.innerHTML = `<div style="display:flex;flex-direction:column;gap:22px">
+  root.innerHTML = `<div class="d-flex flex-col gap-22px">
     ${kpiStrip(s)}
-    <div class="ep-grid" style="grid-template-columns:1.45fr 1fr">${queue.html}${vendorBase(s)}</div>
+    <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${vendorBase(s)}</div>
   </div>`;
   wireActionQueue(root, queue);
   root.querySelectorAll(".ep-kpi[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
+  drawVendorBase(s);
 }

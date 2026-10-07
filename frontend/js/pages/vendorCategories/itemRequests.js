@@ -23,18 +23,18 @@ export function renderItemRequestSection({ products, categories, mappingByCatego
     byCategory.get(p.category).push(p);
   }
   return `<div>
-    <div class="ep-k" style="margin-bottom:4px">Individual items</div>
-    <div class="hint" style="margin-bottom:10px">Only need to supply specific items rather than a whole category? Request them here.</div>
+    <div class="ep-k mb-4px">Individual items</div>
+    <div class="hint mb-10px">Only need to supply specific items rather than a whole category? Request them here.</div>
     ${[...byCategory.entries()]
       .map(
-        ([category, items]) => `<div style="margin-bottom:12px"><div class="ep-sub" style="font-weight:600;margin-bottom:4px">${esc(category)}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px 18px">${items
+        ([category, items]) => `<div class="mb-12px"><div class="ep-sub fw-600 mb-4px">${esc(category)}</div>
+          <div class="d-flex flex-wrap gap-8px-18px">${items
             .map((p) => {
               const req = itemRequirements(p, categoryById.get(p.category_id), docsByKey);
               const note = covered(p)
-                ? `<div class="ep-sub" style="margin-left:22px">Your category is approved, but this item has its own requirements${p.min_mapping_rating != null ? ` (minimum rating ${p.min_mapping_rating})` : ""}.</div>`
+                ? `<div class="ep-sub ml-22px">Your category is approved, but this item has its own requirements${p.min_mapping_rating != null ? ` (minimum rating ${p.min_mapping_rating})` : ""}.</div>`
                 : rejected(p)
-                ? '<div class="ep-sub" style="margin-left:22px;color:#ae1800">Previously rejected — you can request it again</div>'
+                ? '<div class="ep-sub ml-22px text-danger-700">Previously rejected — you can request it again</div>'
                 : "";
               return `<div><label class="ep-check"><input type="checkbox" data-product-id="${p.id}" ${req.missing.length ? "disabled" : ""}> ${esc(p.name)}</label>${note}${requirementNote(req)}</div>`;
             })

@@ -5,9 +5,9 @@
 let nextId = 0;
 
 function rowHtml(id) {
-  return `<div class="ep-pane ep-pane-pad" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap" data-other-row="${id}">
-    <div class="ep-field" style="flex:2;min-width:220px"><div class="ep-k">Document name</div><input class="input" data-other-label placeholder="e.g. CE marking certificate"></div>
-    <div class="ep-field" style="flex:2;min-width:220px"><div class="ep-k">File</div><input class="input" type="file" data-other-file></div>
+  return `<div class="ep-pane ep-pane-pad d-flex gap-10px items-end flex-wrap" data-other-row="${id}">
+    <div class="ep-field flex-2 minw-220px"><div class="ep-k">Document name</div><input class="input" data-other-label placeholder="e.g. CE marking certificate"></div>
+    <div class="ep-field flex-2 minw-220px"><div class="ep-k">File</div><input class="input" type="file" data-other-file></div>
     <button type="button" class="ep-b" data-remove-other="${id}">Remove</button>
   </div>`;
 }

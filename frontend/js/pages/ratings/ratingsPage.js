@@ -17,10 +17,10 @@ let ratingByVendor = new Map();
 const TYPES = [["item", "Items"], ["asset", "Assets"], ["service", "Services"]];
 
 function weightStrip() {
-  return `<div class="ep-pane" style="padding:16px 18px;display:flex;gap:26px;align-items:center">
-    <div style="flex:none"><div class="ep-k">Weighted model</div><div style="font-size:13px;font-weight:800;margin-top:3px">Price competitiveness is system-computed · the rest entered by Procurement Admin</div></div>
-    <div style="flex:1;display:flex;gap:1px;background:rgba(32,30,29,.3)">${WEIGHTS.map(
-      ([pct, label, flex]) => `<div style="flex:${flex};background:#f3f2f2;padding:8px 10px"><div style="font-size:15px;font-weight:800">${pct}</div><div style="font-size:10.5px;line-height:1.3;color:rgba(32,30,29,.65)">${label}</div></div>`
+  return `<div class="ep-pane padding-16px-18px d-flex gap-26px items-center">
+    <div class="flex-none"><div class="ep-k">Weighted model</div><div class="fs-13px fw-800 mt-3px">Price competitiveness is system-computed · the rest entered by Procurement Admin</div></div>
+    <div class="flex-1 d-flex gap-1px bg-ink-30">${WEIGHTS.map(
+      ([pct, label, flex]) => `<div class="flex-var bg-page-bg padding-8px-10px" style="--flex:${flex}"><div class="fs-15px fw-800">${pct}</div><div class="fs-10-5px lh-1-3 text-ink-65">${label}</div></div>`
     ).join("")}</div>
   </div>`;
 }
@@ -30,13 +30,13 @@ function render() {
   const cards = vendors.length
     ? vendors.map((v) => scorecardHtml(v, ratingByVendor.get(v.id), type, canAdjust)).join("")
     : '<div class="ep-pane ep-pane-pad hint">No vendors to rate yet.</div>';
-  root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  root().innerHTML = `<div class="d-flex flex-col gap-18px">
+    <div class="d-flex items-center gap-14px flex-wrap">
       <div class="ep-seg">${TYPES.map(([k, l]) => `<button data-type="${k}" class="${k === type ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="hint">A vendor holds a separate rating for each procurement type — strong at Items doesn't make them strong at Services.</div>
     </div>
     ${weightStrip()}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${cards}</div>
+    <div class="d-grid grid-cols-repeat31fr gap-16px">${cards}</div>
   </div>`;
   root().querySelectorAll("[data-type]").forEach((b) => b.addEventListener("click", () => ((type = b.dataset.type), load())));
   root().querySelectorAll("[data-adjust]").forEach((b) =>

@@ -47,7 +47,7 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
     .map((p) => {
       const m = data.itemMappingOf(vendor.id, p.id);
       const state = m ? m.state : categoryApproved ? "via category" : "—";
-      return `<tr><td class="ep-cell ep-mono" style="font-size:11.5px">${esc(p.code)}</td><td class="ep-cell" style="font-size:12px">${esc(p.name)}</td><td class="ep-cell">${m ? pill(m.state) : `<span class="ep-sub">${state}</span>`}</td></tr>`;
+      return `<tr><td class="ep-cell ep-mono fs-11-5px">${esc(p.code)}</td><td class="ep-cell fs-12px">${esc(p.name)}</td><td class="ep-cell">${m ? pill(m.state) : `<span class="ep-sub">${state}</span>`}</td></tr>`;
     })
     .join("");
 
@@ -76,12 +76,12 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
     }
   }
   const docsHtml = requiredTypes.length
-    ? `<div style="height:2px;background:rgba(32,30,29,.35);margin:15px 0 11px"></div>${kicker("Required documents")}
-       <div style="display:flex;flex-direction:column;gap:6px;margin-top:7px">${requiredTypes
+    ? `<div class="h-2px bg-ink-35 margin-15px-0-11px"></div>${kicker("Required documents")}
+       <div class="d-flex flex-col gap-6px mt-7px">${requiredTypes
          .map((t) => {
            const d = vendorDocs.find((x) => docKey(x) === entryKey(t));
            const status = !d ? tag("Not uploaded", "att") : d.expiry_state === "expired" ? tag("Expired", "neg") : stateTag(d.status);
-           return `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><span>${esc(docLabel(t))}</span>${status}</div>`;
+           return `<div class="d-flex justify-between gap-10px fs-12px"><span>${esc(docLabel(t))}</span>${status}</div>`;
          })
          .join("")}
          <div class="hint">Approving needs each one Verified — review them under Vendor registrations.</div></div>`
@@ -99,7 +99,7 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
 
   box.innerHTML = `
     <div class="dlg-head">
-      <div style="flex:1">${kicker(`${isCategory ? "Category" : "Item"} mapping · ${type}`)}
+      <div class="flex-1">${kicker(`${isCategory ? "Category" : "Item"} mapping · ${type}`)}
         <h4>${esc(vendor.legal_name)} → ${esc(target.name)}</h4></div>
       ${pill(state)}
     </div>
@@ -107,14 +107,14 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
       <div>
         <div class="fact-grid">${facts.map(([k, v]) => `<div>${kicker(k)}<div class="fact-value">${esc(v)}</div></div>`).join("")}</div>
         ${docsHtml}
-        <div style="height:2px;background:rgba(32,30,29,.35);margin:15px 0 11px"></div>
+        <div class="h-2px bg-ink-35 margin-15px-0-11px"></div>
         ${kicker("Mapping history")}
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">${
+        <div class="d-flex flex-col gap-8px mt-7px">${
           history.length
             ? history
                 .map(
                   (h) => `<div class="hist"><div class="hist-when">${fmt(h.at)}</div>
-                    <div style="font-size:12px;line-height:1.4">${h.from_state ? esc(h.from_state) + " → " : ""}<b>${esc(h.to_state)}</b>${h.reason ? ` — ${esc(h.reason)}` : ""}</div></div>`
+                    <div class="fs-12px lh-1-4">${h.from_state ? esc(h.from_state) + " → " : ""}<b>${esc(h.to_state)}</b>${h.reason ? ` — ${esc(h.reason)}` : ""}</div></div>`
                 )
                 .join("")
             : '<div class="hint">No history yet — this pair has never been mapped.</div>'
@@ -122,8 +122,8 @@ export async function openMappingDialog({ data, vendor, kind, target, mapping, o
       </div>
       <div>
         ${kicker(isCategory ? "SKUs / items in scope" : "Item in scope")}
-        <table class="ep-table" style="margin-top:7px"><thead><tr><th class="ep-th">Code</th><th class="ep-th">Entry</th><th class="ep-th">State</th></tr></thead><tbody>${scopeRows}</tbody></table>
-        <div class="hint" style="margin-top:11px">Approving a category does not map every item in it as a separate record, but an approved category makes the vendor eligible for its items at tender time. An item mapping can add to that or suspend a single item.</div>
+        <table class="ep-table mt-7px"><thead><tr><th class="ep-th">Code</th><th class="ep-th">Entry</th><th class="ep-th">State</th></tr></thead><tbody>${scopeRows}</tbody></table>
+        <div class="hint mt-11px">Approving a category does not map every item in it as a separate record, but an approved category makes the vendor eligible for its items at tender time. An item mapping can add to that or suspend a single item.</div>
       </div>
     </div>
     <div class="dlg-foot">

@@ -58,18 +58,18 @@ function queuePane() {
     ? pageItems
         .map(
           (v) => `<button class="ep-row-btn${v.id === selectedId ? " sel" : ""}" data-vendor="${v.id}">
-            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-              <span style="font-size:13px;font-weight:800">${esc(v.legal_name)}</span>
+            <div class="d-flex justify-between gap-8px items-baseline">
+              <span class="fs-13px fw-800">${esc(v.legal_name)}</span>
               <span class="ep-sub">V-${v.id}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:7px;margin-top:5px">${stateTag(v.status)}<span class="ep-sub">${esc(v.contact_person)}</span></div>
+            <div class="d-flex items-center gap-7px mt-5px">${stateTag(v.status)}<span class="ep-sub">${esc(v.contact_person)}</span></div>
           </button>`
         )
         .join("")
     : `<div class="ep-pane-pad hint">No vendors in this status.</div>`;
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>Vendors</span><span class="ep-k">${vendors.length}</span></div>
-    <div style="padding:10px 12px;border-bottom:1px solid rgba(32,30,29,.18)">
+    <div class="padding-10px-12px border-bottom-1px-solid-ink-18">
       <select class="input" id="queue-filter">${FILTERS.map(([v, l]) => `<option value="${v}" ${v === statusFilter ? "selected" : ""}>${l}</option>`).join("")}</select>
     </div>
     ${list}
@@ -87,19 +87,19 @@ function identityPane(v) {
     ["Commercial terms", [["Payment terms", v.payment_terms], ["Lead time", v.delivery_lead_time_days != null ? `${v.delivery_lead_time_days} days` : null], ["Min. order value", v.min_order_value != null ? money(v.min_order_value) : null], ["Note on file", v.rejection_reason]]],
   ];
   return `<div class="ep-pane ep-pane-pad">
-    <div style="display:flex;align-items:flex-start;gap:16px">
-      <div style="flex:1">${kicker(`V-${v.id} · applied ${fmtDate(v.created_at)}`)}<h4 style="margin:4px 0 3px;font-size:22px">${esc(v.legal_name)}</h4></div>
-      <div style="text-align:right">${kicker("Current status")}<div style="margin-top:5px">${stateTag(v.status)}</div></div>
+    <div class="d-flex items-start gap-16px">
+      <div class="flex-1">${kicker(`V-${v.id} · applied ${fmtDate(v.created_at)}`)}<h4 class="margin-4px-0-3px fs-22px">${esc(v.legal_name)}</h4></div>
+      <div class="text-right">${kicker("Current status")}<div class="mt-5px">${stateTag(v.status)}</div></div>
     </div>
     ${groups
       .map(
-        ([title, facts]) => `<div style="height:2px;background:rgba(32,30,29,.4);margin:16px 0 12px"></div>${kicker(title)}
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 16px;margin-top:8px">${facts
+        ([title, facts]) => `<div class="h-2px bg-ink-40 margin-16px-0-12px"></div>${kicker(title)}
+        <div class="d-grid grid-cols-repeat41fr gap-14px-16px mt-8px">${facts
           .map(([k, val, span, secret]) => {
             const cell = secret && val != null
-              ? `<span data-secret="${secret}" data-label="${esc(k)}">${esc(val)}</span> <button type="button" class="ep-b" data-reveal="${secret}" title="Show (asks for your password)" aria-label="Show ${esc(k)}" style="padding:0 7px;font-style:italic;font-family:serif">i</button>`
+              ? `<span data-secret="${secret}" data-label="${esc(k)}">${esc(val)}</span> <button type="button" class="ep-b padding-0-7px italic font-serif" data-reveal="${secret}" title="Show (asks for your password)" aria-label="Show ${esc(k)}">i</button>`
               : esc(val ?? "—");
-            return `<div style="grid-column:span ${span || 1}">${kicker(k)}<div style="font-size:13px;font-weight:600;margin-top:3px;word-break:break-word">${cell}</div></div>`;
+            return `<div class="col-span-${span || 1}">${kicker(k)}<div class="fs-13px fw-600 mt-3px break-word">${cell}</div></div>`;
           })
           .join("")}</div>`
       )
@@ -118,18 +118,18 @@ function docsPane(vendor, docs) {
   const rows = slots
     .map(({ label, mandatory, doc: d, other }) => {
       if (!d) {
-        return `<tr><td class="ep-cell" style="font-weight:600">${esc(label)}${mandatory ? "" : ' <span class="ep-sub">(optional)</span>'}</td>
+        return `<tr><td class="ep-cell fw-600">${esc(label)}${mandatory ? "" : ' <span class="ep-sub">(optional)</span>'}</td>
         <td class="ep-cell ep-sub" colspan="3">Not uploaded</td><td class="ep-cell">${tag("Missing", mandatory ? "att" : "")}</td><td class="ep-cell"></td></tr>`;
       }
       const viewed = reviewedDocIds.has(d.id);
       const off = viewed ? "" : "disabled";
       return `<tr>
-      <td class="ep-cell" style="font-weight:600">${esc(label)}${other ? '<div class="ep-sub">Other — asked for by a catalog entry; read the name and verify</div>' : ""}</td>
-      <td class="ep-cell ep-mono" style="font-size:12px">${esc(d.original_filename)}<div class="ep-sub">${(d.size_bytes / 1024).toFixed(0)} KB · <a href="#" data-view-doc="${d.id}">View</a></div></td>
-      <td class="ep-cell" style="font-size:12.5px">${fmtDate(d.uploaded_at)}</td>
-      <td class="ep-cell" style="font-size:12.5px">${d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
-      <td class="ep-cell">${stateTag(d.status)}${d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
-      <td class="ep-cell" style="text-align:right;white-space:nowrap">
+      <td class="ep-cell fw-600">${esc(label)}${other ? '<div class="ep-sub">Other — asked for by a catalog entry; read the name and verify</div>' : ""}</td>
+      <td class="ep-cell ep-mono fs-12px">${esc(d.original_filename)}<div class="ep-sub">${(d.size_bytes / 1024).toFixed(0)} KB · <a href="#" data-view-doc="${d.id}">View</a></div></td>
+      <td class="ep-cell fs-12-5px">${fmtDate(d.uploaded_at)}</td>
+      <td class="ep-cell fs-12-5px">${d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
+      <td class="ep-cell">${stateTag(d.status)}${d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub text-danger-700">${esc(d.rejection_reason)}</div>` : ""}</td>
+      <td class="ep-cell text-right nowrap">
         ${d.status !== "verified" ? `<button class="ep-b" data-v="p" data-doc="${d.id}" data-act="verify" ${off}>Verify</button> ` : ""}
         <button class="ep-b" data-doc="${d.id}" data-act="reject" ${off}>Reject</button>
         ${viewed ? "" : '<div class="ep-sub">View before deciding</div>'}
@@ -155,8 +155,8 @@ function decisionBar(vendor, docs) {
     return d?.status === "rejected" || d?.expiry_state === "expired";
   });
   const bar = (text, buttons, banner = "") =>
-    `${banner}<div class="ep-pane" style="padding:14px 16px;display:flex;align-items:center;gap:12px">
-      <div style="flex:1;font-size:12.5px;color:rgba(32,30,29,.68);line-height:1.45">${text}</div>${buttons}</div>`;
+    `${banner}<div class="ep-pane padding-14px-16px d-flex items-center gap-12px">
+      <div class="flex-1 fs-12-5px text-ink-68 lh-1-45">${text}</div>${buttons}</div>`;
   const issueBanner = (text) => (mandatoryIssue ? `<div class="ep-note warn">${text}</div>` : "");
 
   if (decidable) {
@@ -214,9 +214,9 @@ function requirementsPane(reqs) {
   const rows = reqs
     .map((r) => {
       const [sl, st] = REQ_SUMMARY[r.summary];
-      return `<tr><td class="ep-cell" style="font-weight:600">${esc(r.product_name)}<div class="ep-sub">${esc(r.product_code)} · ${esc(r.category)}</div></td>
+      return `<tr><td class="ep-cell fw-600">${esc(r.product_name)}<div class="ep-sub">${esc(r.product_code)} · ${esc(r.category)}</div></td>
         <td class="ep-cell ep-sub">${r.source === "category" ? "Via approved category" : `Item request (${esc(r.mapping_state)})`}</td>
-        <td class="ep-cell">${r.documents.map((d) => `<div style="font-size:12.5px">${esc(d.label)} ${tag(...REQ_STATE[d.state])}${d.reason ? ` <span class="ep-sub">${esc(d.reason)}</span>` : ""}</div>`).join("")}</td>
+        <td class="ep-cell">${r.documents.map((d) => `<div class="fs-12-5px">${esc(d.label)} ${tag(...REQ_STATE[d.state])}${d.reason ? ` <span class="ep-sub">${esc(d.reason)}</span>` : ""}</div>`).join("")}</td>
         <td class="ep-cell">${tag(sl, st)}</td></tr>`;
     })
     .join("");
@@ -226,16 +226,16 @@ function requirementsPane(reqs) {
 
 function historyPane(history) {
   if (!historyOpen) {
-    return `<div style="display:flex"><button class="ep-b" id="toggle-history">Show status history (${history.length})</button></div>`;
+    return `<div class="d-flex"><button class="ep-b" id="toggle-history">Show status history (${history.length})</button></div>`;
   }
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>Status History</span><button class="ep-b" id="toggle-history">Hide</button></div>
-    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">${history
+    <div class="padding-12px-14px d-flex flex-col gap-8px">${history
       .slice()
       .reverse()
       .map(
         (h) => `<div class="hist"><div class="hist-when">${fmtDateTime(h.at)}</div>
-          <div style="font-size:12px;line-height:1.4">${h.from_status ? esc(h.from_status.replace("_", " ")) + " → " : ""}<b>${esc(h.to_status.replace("_", " "))}</b>${h.reason ? " — " + esc(h.reason) : ""}</div></div>`
+          <div class="fs-12px lh-1-4">${h.from_status ? esc(h.from_status.replace("_", " ")) + " → " : ""}<b>${esc(h.to_status.replace("_", " "))}</b>${h.reason ? " — " + esc(h.reason) : ""}</div></div>`
       )
       .join("")}</div>
   </div>`;
@@ -254,12 +254,12 @@ async function render() {
         api(`/vendors/${selectedId}/status-history`),
         api(`/vendors/${selectedId}/document-requirements`),
       ]);
-      detail = `<div style="display:flex;flex-direction:column;gap:18px">${identityPane(current)}${docsPane(current, docs)}${requirementsPane(requirements)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
+      detail = `<div class="d-flex flex-col gap-18px">${identityPane(current)}${docsPane(current, docs)}${requirementsPane(requirements)}${historyPane(history)}${decisionBar(current, docs)}</div>`;
     } catch (err) {
       detail = `<div class="result err">Could not load vendor: ${esc(err.message)}</div>`;
     }
   }
-  root().innerHTML = `<div class="ep-grid" style="grid-template-columns:340px 1fr">${queuePane()}${detail}</div>`;
+  root().innerHTML = `<div class="ep-grid grid-cols-340px-1fr">${queuePane()}${detail}</div>`;
   wire(current);
 }
 

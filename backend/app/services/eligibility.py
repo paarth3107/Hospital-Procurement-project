@@ -68,6 +68,9 @@ def resolve_eligible_vendors(line_item: TenderLineItem, db: Session) -> list[Eli
        and cap at max_invites.
     """
 
+    if line_item.tender.open_tender:
+        return _open_candidates(line_item, db)
+
     threshold = (
         line_item.min_rating_threshold_override
         if line_item.min_rating_threshold_override is not None
@@ -86,4 +89,16 @@ def resolve_eligible_vendors(line_item: TenderLineItem, db: Session) -> list[Eli
     candidates.sort(key=lambda c: c.rating_score, reverse=True)
     if line_item.tender.max_invites is not None:
         candidates = candidates[: line_item.tender.max_invites]
+    return candidates
+
+
+def _open_candidates(line_item: TenderLineItem, db: Session) -> list[EligibleVendor]:
+    """Open Tender (2026-10-06): every Active vendor is invited, whatever its
+    mappings or ratings. Activation and valid documents are still required."""
+
+    candidates = []
+    for vendor in db.query(Vendor).filter(Vendor.status == VendorStatus.ACTIVE).order_by(Vendor.legal_name).all():
+        if expired_documents(db, vendor.id):
+            continue
+        candidates.append(EligibleVendor(vendor=vendor, rating_score=rating_score(vendor.id, line_item.procurement_type, db)))
     return candidates

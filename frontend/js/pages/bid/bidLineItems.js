@@ -141,9 +141,9 @@ function lineDetailsSummary(row) {
 
 function specAttachmentsHtml(row) {
   if (!row.spec_attachments?.length) return '<div class="hint">No documents attached to this line.</div>';
-  return `<div style="display:flex;flex-direction:column;gap:6px">${row.spec_attachments
+  return `<div class="d-flex flex-col gap-6px">${row.spec_attachments
     .map(
-      (a) => `<div style="display:flex;gap:10px;align-items:center;font-size:12.5px">
+      (a) => `<div class="d-flex gap-10px items-center fs-12-5px">
         <span class="ep-tag">${esc(SPEC_ATTACHMENT_KIND_LABELS[a.kind] || a.kind)}</span>
         <a href="#" data-view-spec-att="${a.id}">${esc(a.custom_label || a.original_filename)}</a>
         <span class="ep-sub">${(a.size_bytes / 1024).toFixed(0)} KB</span>
@@ -235,7 +235,7 @@ function rowResolved(row) {
 function actionButtonsHtml(row, i) {
   const skipLocked = row.locked || row.status === "submitted";
   const showSaveDraft = !row.locked && !row.skipped && row.status !== "submitted";
-  return `<label class="ep-check" style="margin-right:8px;white-space:nowrap"><input type="checkbox" data-skip-row="${i}" ${row.skipped ? "checked" : ""} ${
+  return `<label class="ep-check mr-8px nowrap"><input type="checkbox" data-skip-row="${i}" ${row.skipped ? "checked" : ""} ${
     skipLocked ? "disabled" : ""
   }> Skip</label>${showSaveDraft ? `<button type="button" class="ep-b" data-save-draft="${i}">Save draft</button>` : ""}`;
 }
@@ -247,36 +247,36 @@ function detailsRowHtml(row, i) {
   const disabled = fieldsDisabled(row);
   return `<tr class="li-details-row" data-row="${i}">
     <td class="ep-cell" colspan="12">
-      ${row.lock_reason ? `<div class="ep-note warn" style="margin-bottom:10px">${esc(row.lock_reason)}</div>` : ""}
-      <div class="hint" style="margin-bottom:6px"><b>Catalog spec (reference):</b> ${esc(vendorCatalogSpec(row.catalog_spec))}</div>
-      <div class="hint" style="margin-bottom:6px"><b>For this tender:</b> ${esc(lineDetailsSummary(row))}</div>
-      <div class="hint" style="margin-bottom:14px"><b>Evaluation:</b> ${esc(evalSummary(row))}</div>
-      <div class="ep-k" style="margin-bottom:6px">Documents provided (spec §6.4)</div>
-      <div style="margin-bottom:16px">${specAttachmentsHtml(row)}</div>
+      ${row.lock_reason ? `<div class="ep-note warn mb-10px">${esc(row.lock_reason)}</div>` : ""}
+      <div class="hint mb-6px"><b>Catalog spec (reference):</b> ${esc(vendorCatalogSpec(row.catalog_spec))}</div>
+      <div class="hint mb-6px"><b>For this tender:</b> ${esc(lineDetailsSummary(row))}</div>
+      <div class="hint mb-14px"><b>Evaluation:</b> ${esc(evalSummary(row))}</div>
+      <div class="ep-k mb-6px">Documents provided (spec §6.4)</div>
+      <div class="mb-16px">${specAttachmentsHtml(row)}</div>
       ${
         showBrand
-          ? `<div class="ep-field kit-field" style="max-width:340px;margin-bottom:12px">${kicker("Brand / model offered")}<input class="input" name="brand_offered" value="${esc(row.brand_offered || "")}" ${disabled ? "disabled" : ""}></div>`
+          ? `<div class="ep-field kit-field maxw-340px mb-12px">${kicker("Brand / model offered")}<input class="input" name="brand_offered" value="${esc(row.brand_offered || "")}" ${disabled ? "disabled" : ""}></div>`
           : ""
       }
       ${
         fields.length
-          ? `<div class="line-details-fields" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px">${fields.map((f) => fieldHtml(f, row.details?.[f.name])).join("")}</div>`
+          ? `<div class="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">${fields.map((f) => fieldHtml(f, row.details?.[f.name])).join("")}</div>`
           : ""
       }
-      <div class="ep-field" style="margin-top:14px">
+      <div class="ep-field mt-14px">
         <label class="ep-check"><input type="checkbox" name="compliant_full" ${row.compliant_full ? "checked" : ""} ${disabled ? "disabled" : ""}> Meets the specification fully — no deviations${
     req.compliance_required ? " *" : ""
   }</label>
       </div>
       <div class="ep-field" data-compliance-deviation ${row.compliant_full ? "hidden" : ""}>
         ${kicker("What is not compliant / deviations from the specification" + (req.required_fields.includes("technical_compliance") ? " *" : ""))}
-        <textarea class="input" name="technical_compliance" rows="3" style="width:100%;resize:vertical" ${disabled ? "disabled" : ""}>${esc(row.technical_compliance || "")}</textarea>
+        <textarea class="input w-full resize-y" name="technical_compliance" rows="3" ${disabled ? "disabled" : ""}>${esc(row.technical_compliance || "")}</textarea>
       </div>
-      <div class="ep-field" style="margin-top:14px">
+      <div class="ep-field mt-14px">
         ${kicker("Comments (optional)")}
-        <textarea class="input" name="bid_comments" rows="3" style="width:100%;resize:vertical" placeholder="Anything else you'd like to add for this line" ${disabled ? "disabled" : ""}>${esc(row.comments || "")}</textarea>
+        <textarea class="input w-full resize-y" name="bid_comments" rows="3" placeholder="Anything else you'd like to add for this line" ${disabled ? "disabled" : ""}>${esc(row.comments || "")}</textarea>
       </div>
-      <div class="ep-k" style="margin-top:16px;margin-bottom:6px">Attachments (spec §8.3)</div>
+      <div class="ep-k mt-16px mb-6px">Attachments (spec §8.3)</div>
       <div class="bid-attachments" data-row="${i}">${attachmentsHtml({ attachments: row.attachments }, req, disabled)}</div>
     </td>
   </tr>`;
@@ -297,7 +297,7 @@ function rowHtml(row, i) {
     <td class="ep-cell">${numCell(row, i, "quote_validity_days")}</td>
     <td class="ep-cell"><input class="input" type="text" data-row="${i}" data-field="payment_terms" value="${esc(row.payment_terms || "")}" ${fieldsDisabled(row) ? "disabled" : ""}></td>
     <td class="ep-cell li-total">${total ? inr(total) : "—"}</td>
-    <td class="ep-cell" style="white-space:nowrap">
+    <td class="ep-cell nowrap">
       <button type="button" class="ep-b li-details-btn" data-row="${i}">${expanded ? "Hide" : "Details"}</button>
       ${actionButtonsHtml(row, i)}
     </td>
@@ -592,7 +592,7 @@ csvFileInput.addEventListener("change", async () => {
   const errBox = document.getElementById("bid-import-errors");
   if (errors.length) {
     errBox.hidden = false;
-    errBox.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${errors.length} row(s) need fixing:</div><ul style="margin:0;padding-left:18px">${errors
+    errBox.innerHTML = `<div class="fw-700 mb-6px">${errors.length} row(s) need fixing:</div><ul class="margin-0 pl-18px">${errors
       .map((e) => `<li>${esc(e)}</li>`)
       .join("")}</ul>`;
   } else {

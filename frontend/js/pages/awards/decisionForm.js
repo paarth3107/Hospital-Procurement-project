@@ -9,26 +9,26 @@ export function decisionFormHtml(line) {
   const c = line.current;
   const canSystem = c.is_override && c.system_top_vendor;
   const split = c.kind === "award" && c.proposed.length > 1;
-  const opt = (v, label, checked) => `<label class="ep-check" style="align-items:flex-start;margin-top:8px"><input type="radio" name="dec-${line.line_item_id}" value="${v}" ${checked ? "checked" : ""}><span>${label}</span></label>`;
-  return `<div data-dec="${line.line_item_id}" style="margin-top:12px;padding:12px 14px;border:1px solid rgba(32,30,29,.3)">
+  const opt = (v, label, checked) => `<label class="ep-check items-start mt-8px"><input type="radio" name="dec-${line.line_item_id}" value="${v}" ${checked ? "checked" : ""}><span>${label}</span></label>`;
+  return `<div data-dec="${line.line_item_id}" class="mt-12px padding-12px-14px border-1px-solid-ink-30">
     ${kicker(`Decision · needs tier ${c.required_tier}`)}
-    <div style="margin-top:8px;font-size:13px"><b>Officer recommends${c.kind === "exclude" ? " leaving this line out of the award" : ""}:</b><div style="margin-top:3px">${c.kind === "exclude" ? "" : allocationsHtml(c.proposed)}</div>
-      ${c.is_override ? `<div style="margin-top:6px">${tag("Not the system's top-ranked bid", "att")} System's L1/C1 is <b>${esc(c.system_top_vendor || "")}</b>.</div>` : ""}
-      ${c.officer_reason ? `<div style="margin-top:6px;white-space:pre-wrap"><span class="ep-sub">Officer's reason:</span> ${esc(c.officer_reason)}</div>` : ""}</div>
+    <div class="mt-8px fs-13px"><b>Officer recommends${c.kind === "exclude" ? " leaving this line out of the award" : ""}:</b><div class="mt-3px">${c.kind === "exclude" ? "" : allocationsHtml(c.proposed)}</div>
+      ${c.is_override ? `<div class="mt-6px">${tag("Not the system's top-ranked bid", "att")} System's L1/C1 is <b>${esc(c.system_top_vendor || "")}</b>.</div>` : ""}
+      ${c.officer_reason ? `<div class="mt-6px pre-wrap"><span class="ep-sub">Officer's reason:</span> ${esc(c.officer_reason)}</div>` : ""}</div>
     ${opt("approve", c.kind === "exclude" ? "Approve leaving the line out" : "Approve the Officer's recommendation", true)}
     ${
       split
-        ? `<div style="margin:6px 0 0 26px;font-size:13px">${c.proposed
-            .map((a) => `<div style="display:flex;gap:10px;align-items:center;margin-top:4px"><span style="min-width:230px">${esc(a.vendor_name)}</span><input class="input" style="width:90px" type="number" min="0" max="100" step="1" name="adj-${a.bid_id}" value="${a.share_pct}"> <span class="ep-sub">%</span></div>`)
-            .join("")}<div class="ep-sub" style="margin-top:4px">You can adjust the shares; they must total 100% (each at least ${line.min_split_pct}%).</div></div>`
+        ? `<div class="margin-6px-0-0-26px fs-13px">${c.proposed
+            .map((a) => `<div class="d-flex gap-10px items-center mt-4px"><span class="minw-230px">${esc(a.vendor_name)}</span><input class="input w-90px" type="number" min="0" max="100" step="1" name="adj-${a.bid_id}" value="${a.share_pct}"> <span class="ep-sub">%</span></div>`)
+            .join("")}<div class="ep-sub mt-4px">You can adjust the shares; they must total 100% (each at least ${line.min_split_pct}%).</div></div>`
         : ""
     }
     ${canSystem ? opt("award_system_l1", `Award to the system's L1/C1 instead — <b>${esc(c.system_top_vendor)}</b>`, false) : ""}
     ${opt("reject", "Reject — return to the Officer", false)}
-    <div class="ep-field" style="margin-top:10px">${kicker("Comments (if any)")}<textarea class="input" name="comments" rows="2" style="width:100%"></textarea>
-      <div class="hint" data-comments-msg style="color:#ae1800;margin-top:4px" hidden>A reason is mandatory to reject.</div></div>
+    <div class="ep-field mt-10px">${kicker("Comments (if any)")}<textarea class="input w-full" name="comments" rows="2"></textarea>
+      <div class="hint text-danger-700 mt-4px" data-comments-msg hidden>A reason is mandatory to reject.</div></div>
     <div id="dec-result-${line.line_item_id}" class="result"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="ep-b" data-v="p" data-save-dec="${line.line_item_id}">Confirm decision</button></div>
+    <div class="d-flex justify-end mt-8px"><button class="ep-b" data-v="p" data-save-dec="${line.line_item_id}">Confirm decision</button></div>
   </div>`;
 }
 

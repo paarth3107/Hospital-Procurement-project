@@ -13,14 +13,14 @@ import { refreshChrome } from "../nav.js";
 // the one editable bit of an otherwise read-only profile. ----
 function commercialTermsForm(v) {
   return `<div class="ep-pane ep-pane-pad">
-    <div style="font-size:14px;font-weight:800;margin-bottom:4px">Commercial terms (optional)</div>
-    <p class="hint" style="margin:0 0 12px">Shown to staff for reference; nothing here gates your bidding.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px 16px">
-      <div><div class="ep-k" style="margin-bottom:4px">Standard payment terms</div><input class="input" id="ct-payment-terms" value="${esc(v.payment_terms || "")}"></div>
-      <div><div class="ep-k" style="margin-bottom:4px">Delivery lead time (days)</div><input class="input" id="ct-lead-time" type="number" min="0" value="${v.delivery_lead_time_days ?? ""}"></div>
-      <div style="grid-column:span 2"><div class="ep-k" style="margin-bottom:4px">Minimum order value (₹)</div><input class="input" id="ct-min-order" type="number" min="0" step="any" value="${v.min_order_value ?? ""}"></div>
+    <div class="fs-14px fw-800 mb-4px">Commercial terms (optional)</div>
+    <p class="hint margin-0-0-12px">Shown to staff for reference; nothing here gates your bidding.</p>
+    <div class="d-grid grid-cols-1fr-1fr gap-13px-16px">
+      <div><div class="ep-k mb-4px">Standard payment terms</div><input class="input" id="ct-payment-terms" value="${esc(v.payment_terms || "")}"></div>
+      <div><div class="ep-k mb-4px">Delivery lead time (days)</div><input class="input" id="ct-lead-time" type="number" min="0" value="${v.delivery_lead_time_days ?? ""}"></div>
+      <div class="col-span-2"><div class="ep-k mb-4px">Minimum order value (₹)</div><input class="input" id="ct-min-order" type="number" min="0" step="any" value="${v.min_order_value ?? ""}"></div>
     </div>
-    <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+    <div class="mt-12px d-flex items-center gap-12px">
       <button class="ep-b" data-v="p" id="ct-save">Save commercial terms</button>
       <div id="ct-result" class="result"></div>
     </div>
@@ -51,12 +51,12 @@ export async function loadVendorProfile() {
     const v = await api("/vendor-auth/me");
     state.vendor = v;
     const field = (label, value, span = 1) =>
-      `<div style="grid-column:span ${span}"><div class="ep-k" style="margin-bottom:4px">${label}</div><div class="ep-box">${esc(value || "—")}</div></div>`;
-    root.innerHTML = `<div class="ep-grid" style="grid-template-columns:1fr 1fr">
-      <div style="display:flex;flex-direction:column;gap:18px">
+      `<div class="col-span-${span}"><div class="ep-k mb-4px">${label}</div><div class="ep-box">${esc(value || "—")}</div></div>`;
+    root.innerHTML = `<div class="ep-grid grid-cols-1fr-1fr">
+      <div class="d-flex flex-col gap-18px">
         <div class="ep-pane ep-pane-pad">
-          <div style="font-size:14px;font-weight:800;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">Company &amp; statutory details ${stateTag(v.status)}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px 16px">
+          <div class="fs-14px fw-800 mb-14px d-flex justify-between items-center">Company &amp; statutory details ${stateTag(v.status)}</div>
+          <div class="d-grid grid-cols-1fr-1fr gap-13px-16px">
             ${field("Legal name", v.legal_name, 2)}
             ${field("Trade name", v.trade_name)}${field("Entity type", v.entity_type)}
             ${field("Year of incorporation", v.year_of_incorporation)}${field("GSTIN", v.gstin)}
@@ -75,7 +75,7 @@ export async function loadVendorProfile() {
         </div>
         ${commercialTermsForm(v)}
       </div>
-      <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="d-flex flex-col gap-18px">
         <div id="vendor-documents-list"></div>
       </div>
     </div>`;

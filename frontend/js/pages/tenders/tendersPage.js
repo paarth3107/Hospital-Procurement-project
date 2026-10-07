@@ -1,7 +1,7 @@
 import { api } from "../../api.js";
 import { showResult } from "../../ui.js";
 import { switchView } from "../../nav.js";
-import { esc, stateTag, th, emptyRow, fmtDateTime, pageSlice, paginationBar, wirePagination } from "../../kit.js";
+import { esc, stateTag, tag, th, emptyRow, fmtDateTime, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 import { initTenderForm, openTenderForm } from "./tenderForm.js";
 
 // ---- Tenders: the list, on its own screen. "+ New tender" and Manage open
@@ -29,8 +29,8 @@ function render() {
   page = clamped;
   root().innerHTML = `<div class="ep-pane">
     <div class="ep-pane-head"><span>Tenders</span>
-      <div style="display:flex;align-items:center;gap:14px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
+      <div class="d-flex items-center gap-14px">
+        <label class="d-flex items-center gap-6px fs-12px fw-400 tt-none ls-0 text-ink-70">
           <input type="checkbox" id="show-closed-tenders" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
         </label>
         <button class="ep-b" data-v="p" id="add-tender-btn">+ New tender</button>
@@ -41,13 +41,13 @@ function render() {
         ? pageItems
             .map(
               (t) => `<tr>
-                <td class="ep-cell ep-mono" style="font-size:12px">#${t.id}</td>
-                <td class="ep-cell"><div style="font-weight:600">${esc(t.title)}</div><div class="ep-sub">${esc(t.department || "")}</div></td>
-                <td class="ep-cell">${esc(TYPE_LABEL[t.tender_type] || t.tender_type)}</td>
+                <td class="ep-cell ep-mono fs-12px">#${t.id}</td>
+                <td class="ep-cell"><div class="fw-600">${esc(t.title)}</div><div class="ep-sub">${esc(t.department || "")}</div></td>
+                <td class="ep-cell">${tag(TYPE_LABEL[t.tender_type] || t.tender_type, "esc")}</td>
                 <td class="ep-cell">${stateTag(t.status)}</td>
-                <td class="ep-cell" style="font-size:12.5px">${fmtDateTime(t.bid_due_date)}</td>
+                <td class="ep-cell fs-12-5px">${fmtDateTime(t.bid_due_date)}</td>
                 <td class="ep-cell">${t.round_number}</td>
-                <td class="ep-cell" style="text-align:right"><button class="ep-b" data-manage="${t.id}">Manage</button></td>
+                <td class="ep-cell text-right"><button class="ep-b" data-manage="${t.id}">Manage</button></td>
               </tr>`
             )
             .join("")

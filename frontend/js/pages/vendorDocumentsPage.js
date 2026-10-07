@@ -26,14 +26,14 @@ export async function renderVendorDocuments(container, onChanged = () => {}) {
         .map((e, i) => {
           const d = e.doc;
           return `<tr>
-          <td class="ep-cell" style="font-weight:600">${esc(e.label)}<div>${e.custom ? tag("Requested by a catalog entry") : tag(e.mandatory ? "Required" : "Optional", e.mandatory ? "att" : "")}</div></td>
-          <td class="ep-cell" style="font-size:12px">${
+          <td class="ep-cell fw-600">${esc(e.label)}<div>${e.custom ? tag("Requested by a catalog entry") : tag(e.mandatory ? "Required" : "Optional", e.mandatory ? "att" : "")}</div></td>
+          <td class="ep-cell fs-12px">${
             d ? `<span class="ep-mono">${esc(d.original_filename)}</span><div class="ep-sub">${(d.size_bytes / 1024).toFixed(0)} KB · uploaded ${fmtDate(d.uploaded_at)} · <a href="#" data-view="${d.id}">View</a></div>` : '<span class="ep-sub">Not uploaded</span>'
           }</td>
-          <td class="ep-cell" style="font-size:12.5px">${d && d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
-          <td class="ep-cell">${d ? stateTag(d.status) : tag("Missing", e.mandatory ? "att" : "")}${d && d.status === "draft" ? '<div class="ep-sub">Not submitted yet</div>' : ""}${d && d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub" style="color:#ae1800">${esc(d.rejection_reason)}</div>` : ""}</td>
-          <td class="ep-cell" style="text-align:right">
-            ${e.expires ? `<input class="input" type="date" data-date="${i}" value="${d?.valid_till || ""}" title="Valid till — set before uploading" style="width:150px;display:inline-block;margin-right:6px">` : ""}
+          <td class="ep-cell fs-12-5px">${d && d.valid_till ? `${fmtDate(d.valid_till)}<div>${expiryTag(d)}</div>` : '<span class="ep-sub">—</span>'}</td>
+          <td class="ep-cell">${d ? stateTag(d.status) : tag("Missing", e.mandatory ? "att" : "")}${d && d.status === "draft" ? '<div class="ep-sub">Not submitted yet</div>' : ""}${d && d.status === "rejected" && d.rejection_reason ? `<div class="ep-sub text-danger-700">${esc(d.rejection_reason)}</div>` : ""}</td>
+          <td class="ep-cell text-right">
+            ${e.expires ? `<input class="input w-150px d-inline-block mr-6px" type="date" data-date="${i}" value="${d?.valid_till || ""}" title="Valid till — set before uploading">` : ""}
             <button class="ep-b" data-upload="${i}">${d ? "Replace" : "Upload"}</button>
             ${d && d.status !== "verified" ? `<button class="ep-b" data-delete="${d.id}">Delete</button>` : ""}
             <input type="file" accept="${e.accept}" hidden data-input="${i}">

@@ -31,6 +31,9 @@ class Vendor(Base):
     legal_name = Column(String, nullable=False)
     gstin = Column(String, nullable=False, unique=True, index=True)
     pan = Column(String, nullable=True, unique=True)
+    # Set when the vendor registered through an Open Tender link, so the tender stays
+    # listed for them and they are invited to it on approval.
+    registered_via_tender_id = Column(Integer, ForeignKey("tenders.id"), nullable=True)
 
     # Spec 3.2 Company Details. Columns are nullable only because vendors
     # registered before these fields existed have no values; registration

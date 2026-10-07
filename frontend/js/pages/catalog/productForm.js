@@ -20,30 +20,30 @@ export function renderProductForm({ host, procurementType, typeLabel, typeFields
       .join("")}`;
 
   host.hidden = false;
-  const group = (title, body) => `<div class="ep-pane"><div class="ep-pane-head"><span>${title}</span></div><div style="padding:6px 16px 14px">${body}</div></div>`;
+  const group = (title, body) => `<div class="ep-pane"><div class="ep-pane-head"><span>${title}</span></div><div class="padding-6px-16px-14px">${body}</div></div>`;
   host.innerHTML = `
-    <form class="catalog-form ep-form" style="gap:16px">
-      <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:18px;font-weight:800">${product ? "Edit" : "New"} ${typeLabel.toLowerCase()}</span>${typeTag(procurementType)}</div>
+    <form class="catalog-form ep-form gap-16px">
+      <div class="d-flex items-baseline gap-12px"><span class="fs-18px fw-800">${product ? "Edit" : "New"} ${typeLabel.toLowerCase()}</span>${typeTag(procurementType)}</div>
       <div class="ep-pane ep-pane-pad">
-        <div class="ep-form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="ep-form-grid grid-cols-1fr-1fr-1fr">
           <div class="ep-field"><div class="ep-k">Code / SKU</div><input class="input" name="code" required value="${esc(product?.code ?? "")}"></div>
-          <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Name</div><input class="input" name="name" required value="${esc(product?.name ?? "")}"></div>
-          <div class="ep-field" style="grid-column:span 3"><div class="ep-k">Description / specification</div><input class="input" name="description" value="${esc(product?.description ?? "")}"></div>
-          <div class="ep-field" style="grid-column:span 2"><div class="ep-k">Category</div>
+          <div class="ep-field col-span-2"><div class="ep-k">Name</div><input class="input" name="name" required value="${esc(product?.name ?? "")}"></div>
+          <div class="ep-field col-span-3"><div class="ep-k">Description / specification</div><input class="input" name="description" value="${esc(product?.description ?? "")}"></div>
+          <div class="ep-field col-span-2"><div class="ep-k">Category</div>
             <select class="input" name="category_id" required>
               <option value="">— select a category —</option>
               ${typeCategories.map((c) => `<option value="${c.id}" ${product?.category_id === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
             </select></div>
           <div class="ep-field"><div class="ep-k">Sub-category (optional)</div>
-            <div style="display:flex;gap:6px">
-              <select class="input" name="sub_category_id" id="sub-category-select" style="flex:1">${subCategoryOptionsHtml(product?.category_id ?? null)}</select>
+            <div class="d-flex gap-6px">
+              <select class="input flex-1" name="sub_category_id" id="sub-category-select">${subCategoryOptionsHtml(product?.category_id ?? null)}</select>
               <button type="button" class="ep-b" id="new-subcategory-btn">+ New</button>
             </div></div>
         </div>
       </div>
       ${group(`Core Details — tick the ones that apply to this ${typeLabel.toLowerCase()}`, `<div class="core-details">${coreDetailsHtml(product)}</div>`)}
-      ${group(`${typeLabel} Details`, `<div class="type-details" style="display:flex;flex-direction:column;gap:12px;padding-top:10px">${typeFields.map((f) => fieldHtml(f, attrs[f.name])).join("")}</div>`)}
-      <div style="display:flex;gap:8px">
+      ${group(`${typeLabel} Details`, `<div class="type-details d-flex flex-col gap-12px pt-10px">${typeFields.map((f) => fieldHtml(f, attrs[f.name])).join("")}</div>`)}
+      <div class="d-flex gap-8px">
         <button type="submit" class="ep-b" data-v="p">${product ? "Save changes" : "Add to catalog"}</button>
         <button type="button" class="ep-b cancel-btn">Cancel</button>
       </div>

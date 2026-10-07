@@ -1,3 +1,4 @@
+from app.services.open_links import invite_newly_active_vendor, require_open_link_tender
 import logging
 from datetime import date, datetime, timezone
 
@@ -177,12 +178,15 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
         if label.strip() and not isinstance(upload, str) and upload.filename
     ]
 
+    linked_tender = require_open_link_tender((text_fields.get("open_link_token") or "").strip() or None, db)
     vendor = Vendor(
         **payload.model_dump(exclude={"password", "category_declaration"}),
         status=VendorStatus.PENDING_VERIFICATION,
         hashed_password=hash_password(payload.password),
     )
     db.add(vendor)
+    if linked_tender is not None:
+        vendor.registered_via_tender_id = linked_tender.id
     db.flush()
     db.add(VendorStatusHistory(vendor_id=vendor.id, from_status=None, to_status=VendorStatus.PENDING_VERIFICATION, reason="Registered"))
     record(
@@ -290,6 +294,7 @@ def approve_vendor(
         )
 
     set_status(db, vendor, VendorStatus.ACTIVE, user.id, "Approved")
+    invite_newly_active_vendor(vendor, db)
     db.commit()
     db.refresh(vendor)
     return vendor

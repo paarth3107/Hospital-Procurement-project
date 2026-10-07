@@ -12,17 +12,17 @@ export function renderCategoryRequestSection({ categories, mappingByCategory, do
     return !m || m.state === "rejected";
   });
   return `<div>
-    <div class="ep-k" style="margin-bottom:8px">Categories</div>
+    <div class="ep-k mb-8px">Categories</div>
     ${
       open.length
-        ? `<div style="display:flex;flex-wrap:wrap;gap:10px 22px">${open
+        ? `<div class="d-flex flex-wrap gap-10px-22px">${open
             .map((c) => {
               const req = categoryRequirements(c, docsByKey);
               const rejected = mappingByCategory.get(c.id)?.state === "rejected";
-              return `<div><label class="ep-check"><input type="checkbox" data-category-id="${c.id}" ${req.missing.length ? "disabled" : ""}> ${esc(c.name)} <span class="ep-sub">${esc(c.procurement_type)}</span></label>${rejected ? '<div class="ep-sub" style="color:#ae1800">Previously rejected — you can request it again</div>' : ""}${requirementNote(req)}</div>`;
+              return `<div><label class="ep-check"><input type="checkbox" data-category-id="${c.id}" ${req.missing.length ? "disabled" : ""}> ${esc(c.name)} <span class="ep-sub">${esc(c.procurement_type)}</span></label>${rejected ? '<div class="ep-sub text-danger-700">Previously rejected — you can request it again</div>' : ""}${requirementNote(req)}</div>`;
             })
             .join("")}</div>
-          <div style="margin-top:12px"><button class="ep-b" data-v="p" id="request-categories-btn">Request selected categories</button></div>`
+          <div class="mt-12px"><button class="ep-b" data-v="p" id="request-categories-btn">Request selected categories</button></div>`
         : '<div class="hint">Every category already has a request on file.</div>'
     }
   </div>`;

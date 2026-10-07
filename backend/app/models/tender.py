@@ -1,16 +1,15 @@
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, false, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
 class TenderType(str, enum.Enum):
-    """Spec §6.2. Open Tender (§6.8 — public self-registration, bypasses
-    eligibility filtering) is intentionally not included yet: it needs its
-    own public-landing/self-registration path, deferred until that's built
-    rather than adding a type that silently does nothing."""
+    """Spec §6.2. Open Tender is not a type: it is the `open_tender` flag on a
+    tender (2026-10-06), because it changes who is invited, not how the
+    tender runs."""
 
     RFQ = "rfq"
     RFP = "rfp"
@@ -54,6 +53,11 @@ class Tender(Base):
     min_rating_threshold = Column(Float, nullable=False, default=0.0)
     min_invites = Column(Integer, nullable=True)
     max_invites = Column(Integer, nullable=True)
+    # Open Tender (2026-10-06): every Active vendor is invited, with no mapping or
+    # rating filter and no cap. Activation status is still required.
+    open_tender = Column(Boolean, nullable=False, default=False, server_default=false())
+    # The link a new vendor registers through to bid on this Open Tender (2026-10-06).
+    open_link_token = Column(String, unique=True, nullable=True)
 
     publish_date = Column(DateTime(timezone=True), nullable=True)
     bid_due_date = Column(DateTime(timezone=True), nullable=True)

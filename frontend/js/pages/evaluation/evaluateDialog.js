@@ -47,27 +47,27 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
   const opened = new Set(review.attachments.filter((a) => a.opened).map((a) => a.id));
 
   box.innerHTML = `
-    <div class="dlg-head"><div style="flex:1">${kicker("Technical evaluation")}<h4>${esc(review.vendor_name)}</h4></div></div>
-    <form id="eval-form" class="ep-form" style="padding:16px 18px;background:transparent;border:0;max-height:76vh;overflow:auto;gap:16px">
+    <div class="dlg-head"><div class="flex-1">${kicker("Technical evaluation")}<h4>${esc(review.vendor_name)}</h4></div></div>
+    <form id="eval-form" class="ep-form padding-16px-18px bg-transparent border-0 maxh-76vh overflow-auto gap-16px">
       <div>${kicker("1 · Review the bid")}
-        <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <div class="mt-8px d-flex flex-col gap-6px">
           ${review.brand_offered ? `<div class="ep-sub">Brand / make: <b>${esc(review.brand_offered)}</b></div>` : ""}${detailsHtml(review.details)}
           ${
             review.compliant_full
               ? '<div class="ep-sub">Vendor confirms full compliance — no deviations declared.</div>'
               : review.technical_compliance
-              ? `<div style="white-space:pre-wrap;font-size:13px;padding:8px 10px;border:1px solid rgba(32,30,29,.2)"><div class="ep-sub" style="margin-bottom:4px">Deviations from the specification</div>${esc(review.technical_compliance)}</div>`
+              ? `<div class="pre-wrap fs-13px padding-8px-10px border-1px-solid-ink-20"><div class="ep-sub mb-4px">Deviations from the specification</div>${esc(review.technical_compliance)}</div>`
               : '<div class="ep-sub">No compliance statement was given.</div>'
           }
         </div>
-        <div style="margin-top:10px" class="ep-k">Attached documents — open each one before scoring</div>
-        <div id="eval-docs" style="margin-top:6px"></div>
+        <div class="ep-k mt-10px">Attached documents — open each one before scoring</div>
+        <div id="eval-docs" class="mt-6px"></div>
       </div>
       <div id="eval-score-block">${
         review.scored
           ? `${kicker("2 · Score each aspect out of 100")}
-        <div id="eval-lock" class="hint" style="margin:6px 0"></div>
-        <div class="ep-form-grid" style="grid-template-columns:1fr 1fr;margin-top:6px">
+        <div id="eval-lock" class="hint margin-6px-0"></div>
+        <div class="ep-form-grid grid-cols-1fr-1fr mt-6px">
           ${review.criteria
             .map((c) =>
               c.auto
@@ -76,19 +76,19 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
             )
             .join("")}
         </div>
-        <div id="eval-preview" style="margin-top:10px"></div>
-        <label class="ep-check" style="margin-top:10px"><input type="checkbox" name="disqualify" data-score ${mine?.decision === "disqualified" ? "checked" : ""}> Disqualify outright (regardless of score)</label>`
+        <div id="eval-preview" class="mt-10px"></div>
+        <label class="ep-check mt-10px"><input type="checkbox" name="disqualify" data-score ${mine?.decision === "disqualified" ? "checked" : ""}> Disqualify outright (regardless of score)</label>`
           : `${kicker("2 · Decision")}
-        <div id="eval-lock" class="hint" style="margin:6px 0"></div>
-        <div style="display:flex;gap:20px;margin-top:8px">
+        <div id="eval-lock" class="hint margin-6px-0"></div>
+        <div class="d-flex gap-20px mt-8px">
           <label class="ep-check"><input type="radio" name="qd_decision" value="qualified" data-score ${mine?.decision !== "disqualified" ? "checked" : ""}> Qualify — meets the mandatory technical compliance points</label>
           <label class="ep-check"><input type="radio" name="qd_decision" value="disqualified" data-score ${mine?.decision === "disqualified" ? "checked" : ""}> Disqualify</label>
         </div>`
       }
-        <div class="ep-field" style="margin-top:8px">${kicker("Comments (if any)")}<textarea class="input" name="comments" rows="3" style="width:100%" data-score>${esc(mine?.comments || "")}</textarea><div id="eval-comments-msg" class="hint" style="margin-top:4px;color:#ae1800" hidden>A reason is mandatory to disqualify a bid.</div></div>
+        <div class="ep-field mt-8px">${kicker("Comments (if any)")}<textarea class="input w-full" name="comments" rows="3" data-score>${esc(mine?.comments || "")}</textarea><div id="eval-comments-msg" class="hint mt-4px text-danger-700" hidden>A reason is mandatory to disqualify a bid.</div></div>
       </div>
       <div id="eval-result" class="result"></div>
-      <div style="display:flex;justify-content:flex-end;gap:10px"><button type="button" class="ep-b" id="eval-cancel">Cancel</button><button class="ep-b" data-v="p" id="eval-save">Save evaluation</button></div>
+      <div class="d-flex justify-end gap-10px"><button type="button" class="ep-b" id="eval-cancel">Cancel</button><button class="ep-b" data-v="p" id="eval-save">Save evaluation</button></div>
     </form>`;
   overlay.hidden = false;
   const form = box.querySelector("#eval-form");
@@ -103,9 +103,9 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
     box.querySelector("#eval-docs").innerHTML = review.attachments.length
       ? review.attachments
           .map(
-            (a) => `<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(32,30,29,.12)">
-              <span style="font-size:13px;font-weight:600">${esc(a.original_filename)}</span><span class="ep-sub">${esc(a.label)}</span>
-              <span style="margin-left:auto">${opened.has(a.id) ? tag("Opened", "pos") : tag("Not opened", "att")}</span>
+            (a) => `<div class="d-flex gap-10px items-center padding-5px-0 border-bottom-1px-solid-ink-12">
+              <span class="fs-13px fw-600">${esc(a.original_filename)}</span><span class="ep-sub">${esc(a.label)}</span>
+              <span class="ml-auto">${opened.has(a.id) ? tag("Opened", "pos") : tag("Not opened", "att")}</span>
               <button type="button" class="ep-b" data-open="${a.id}">${opened.has(a.id) ? "Open again" : "Open"}</button></div>`
           )
           .join("")
@@ -128,12 +128,12 @@ export async function openEvaluateDialog(vendorRow, onSaved) {
     const typed = readScores();
     const required = manual.filter((c) => !c.optional);
     if (required.some((c) => typed[c.key] == null || Number.isNaN(typed[c.key]))) {
-      box.querySelector("#eval-preview").innerHTML = `${kicker("Weighted score")}<div class="ep-sub" style="margin-top:3px">Score every required aspect (*) to see the result.</div>`;
+      box.querySelector("#eval-preview").innerHTML = `${kicker("Weighted score")}<div class="ep-sub mt-3px">Score every required aspect (*) to see the result.</div>`;
       return;
     }
     const score = weighted(review.criteria, typed, review.rating);
     const pass = score >= review.min_technical_score;
-    box.querySelector("#eval-preview").innerHTML = `${kicker("Weighted score")}<div style="font-size:22px;font-weight:800;margin-top:3px">${score.toFixed(2)} <span class="ep-sub" style="font-size:13px;font-weight:600">/ 100 · minimum ${review.min_technical_score} · ${pass ? "would qualify" : "below the minimum"}${review.scored ? " · this line is also T-ranked" : ""}</span></div>`;
+    box.querySelector("#eval-preview").innerHTML = `${kicker("Weighted score")}<div class="fs-22px fw-800 mt-3px">${score.toFixed(2)} <span class="ep-sub fs-13px fw-600">/ 100 · minimum ${review.min_technical_score} · ${pass ? "would qualify" : "below the minimum"}${review.scored ? " · this line is also T-ranked" : ""}</span></div>`;
   };
   form.addEventListener("input", preview);
   form.comments.addEventListener("input", () => {

@@ -41,15 +41,15 @@ export function statementHtml(line) {
         final.has(r.bid_id) ? tag("Awarded", "pos") : "",
       ].join(" ");
       return `<tr>
-        <td class="ep-cell">${off ? tag("Disqualified", "neg") : `<span style="font-weight:800">${esc(r.rank_label)}</span>`}<div style="margin-top:3px">${marks}</div></td>
-        <td class="ep-cell"><div style="font-weight:600">${esc(r.vendor_name)}</div><div class="ep-sub">rating ${r.rating}</div></td>
-        <td class="ep-cell" style="font-size:12.5px">${off ? esc(r.technical_reason || "") : r.technical_score != null ? `${r.technical_score} / 100${r.t_rank ? ` · T${r.t_rank}` : ""}` : "qualified"}</td>
-        <td class="ep-cell">${off ? '<span class="ep-sub">Price not opened</span>' : `<div style="font-weight:700">${inr(r.unit_price)}</div><div class="ep-sub">+${r.gst_percent ?? 0}% GST</div>`}</td>
-        <td class="ep-cell">${off ? "" : `<div style="font-weight:700">${inr(r.landed_unit_price)}</div><div class="ep-sub">total ${inr(r.landed_total)}</div>`}</td>
-        ${qcbs ? `<td class="ep-cell" style="font-size:12.5px">${off ? "" : `combined <b>${r.combined_score ?? "—"}</b>`}</td>` : ""}
-        <td class="ep-cell" style="font-size:12.5px">${off ? "" : `${r.delivery_lead_days ?? "—"} days${r.payment_terms ? `<div class="ep-sub">${esc(r.payment_terms)}</div>` : ""}${r.price_flags.map((f) => `<div style="color:#ae1800">${esc(f)}</div>`).join("")}`}</td>
+        <td class="ep-cell">${off ? tag("Disqualified", "neg") : `<span class="fw-800">${esc(r.rank_label)}</span>`}<div class="mt-3px">${marks}</div></td>
+        <td class="ep-cell"><div class="fw-600">${esc(r.vendor_name)}</div><div class="ep-sub">rating ${r.rating}</div></td>
+        <td class="ep-cell fs-12-5px">${off ? esc(r.technical_reason || "") : r.technical_score != null ? `${r.technical_score} / 100${r.t_rank ? ` · T${r.t_rank}` : ""}` : "qualified"}</td>
+        <td class="ep-cell">${off ? '<span class="ep-sub">Price not opened</span>' : `<div class="fw-700">${inr(r.unit_price)}</div><div class="ep-sub">+${r.gst_percent ?? 0}% GST</div>`}</td>
+        <td class="ep-cell">${off ? "" : `<div class="fw-700">${inr(r.landed_unit_price)}</div><div class="ep-sub">total ${inr(r.landed_total)}</div>`}</td>
+        ${qcbs ? `<td class="ep-cell fs-12-5px">${off ? "" : `combined <b>${r.combined_score ?? "—"}</b>`}</td>` : ""}
+        <td class="ep-cell fs-12-5px">${off ? "" : `${r.delivery_lead_days ?? "—"} days${r.payment_terms ? `<div class="ep-sub">${esc(r.payment_terms)}</div>` : ""}${r.price_flags.map((f) => `<div class="text-danger-700">${esc(f)}</div>`).join("")}`}</td>
       </tr>`;
     })
     .join("");
-  return `<table class="ep-table" style="margin-top:8px">${th("Rank", "Vendor", "Technical", "Quoted price", "Landed price", ...(qcbs ? ["QCBS"] : []), "Delivery / checks")}<tbody>${rows}</tbody></table>`;
+  return `<table class="ep-table mt-8px">${th("Rank", "Vendor", "Technical", "Quoted price", "Landed price", ...(qcbs ? ["QCBS"] : []), "Delivery / checks")}<tbody>${rows}</tbody></table>`;
 }

@@ -1,4 +1,5 @@
 import { api } from "../../api.js";
+import { renderOpenLink } from "./openLink.js";
 import { showResult } from "../../ui.js";
 import { modalConfirm } from "../../modal.js";
 import { switchView } from "../../nav.js";
@@ -113,6 +114,9 @@ export async function openTenderForm(tender) {
     el.min_rating_threshold.value = tender.min_rating_threshold;
     el.min_invites.value = tender.min_invites ?? "";
     el.max_invites.value = tender.max_invites ?? "";
+    el.open_tender.checked = !!tender.open_tender;
+    syncOpenTender();
+    renderOpenLink(tender);
     el.terms_and_conditions.value = tender.terms_and_conditions || "";
     el.bid_due_date.value = tender.bid_due_date ? toLocalInputValue(tender.bid_due_date) : "";
     el.publish_date.value = tender.publish_date ? toLocalInputValue(tender.publish_date) : "";
@@ -122,6 +126,7 @@ export async function openTenderForm(tender) {
   } else {
     startWithOneBlankRow();
     hideTenderDetail();
+    renderOpenLink(null);
   }
 
   document.getElementById("tender-form-title").textContent = tender ? `Tender #${tender.id}` : "Tender header";
@@ -195,6 +200,7 @@ function buildPayload() {
     min_rating_threshold: data.min_rating_threshold ? Number(data.min_rating_threshold) : 0,
     min_invites: data.min_invites ? Number(data.min_invites) : null,
     max_invites: data.max_invites ? Number(data.max_invites) : null,
+    open_tender: data.open_tender === "on",
     terms_and_conditions: data.terms_and_conditions?.trim() || null,
     publish_date: data.publish_date ? new Date(data.publish_date).toISOString() : null,
     bid_due_date: data.bid_due_date ? new Date(data.bid_due_date).toISOString() : null,
@@ -251,6 +257,7 @@ async function saveDraft({ silent = false } = {}) {
   onTendersChanged();
   document.getElementById("tender-form-title").textContent = `Tender #${tender.id}`;
   showTenderDetail(tender.id, tender.status);
+  renderOpenLink(tender);
   updateGate();
   return tender;
 }
@@ -294,3 +301,13 @@ form.addEventListener("submit", async (e) => {
 });
 
 document.getElementById("tender-form-cancel-btn").addEventListener("click", closeTenderForm);
+
+// Open Tender (2026-10-06): every Active vendor is invited, so the count limits don't apply.
+// Disabled fields are left out of FormData, so they save as null.
+const openTenderBox = document.querySelector('#tender-form [name="open_tender"]');
+function syncOpenTender() {
+  document.querySelector('#tender-form [name="min_invites"]').disabled = openTenderBox.checked;
+  document.querySelector('#tender-form [name="max_invites"]').disabled = openTenderBox.checked;
+  if (!openTenderBox.checked) renderOpenLink(null);
+}
+openTenderBox.addEventListener("change", syncOpenTender);

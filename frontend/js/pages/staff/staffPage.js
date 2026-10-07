@@ -29,12 +29,12 @@ function render() {
         .map((u) => {
           const me = u.id === state.user?.id;
           return `<tr>
-            <td class="ep-cell" style="font-weight:600">${esc(u.full_name)}${me ? ' <span class="ep-sub">(you)</span>' : ""}<div class="ep-sub">${esc(u.email)}</div></td>
+            <td class="ep-cell fw-600">${esc(u.full_name)}${me ? ' <span class="ep-sub">(you)</span>' : ""}<div class="ep-sub">${esc(u.email)}</div></td>
             <td class="ep-cell">${esc(ROLE_LABELS[u.role] || u.role)}${u.approval_tier ? `<div class="ep-sub">tier ${u.approval_tier}</div>` : ""}</td>
             <td class="ep-cell">${u.facility_id == null ? "All facilities" : esc(facilityName.get(u.facility_id) || "—")}</td>
             <td class="ep-cell">${u.is_active ? stateTag("active") : tag("Deactivated", "neg")}</td>
-            <td class="ep-cell" style="font-size:12.5px">${fmtDate(u.created_at)}</td>
-            <td class="ep-cell" style="text-align:right;white-space:nowrap">
+            <td class="ep-cell fs-12-5px">${fmtDate(u.created_at)}</td>
+            <td class="ep-cell text-right nowrap">
               <button class="ep-b" data-edit="${u.id}">Edit</button>
               <button class="ep-b" data-reset="${u.id}">Reset password</button>
               ${me ? "" : `<button class="ep-b" data-toggle="${u.id}">${u.is_active ? "Deactivate" : "Reactivate"}</button>`}
@@ -45,8 +45,8 @@ function render() {
   const title = facilityFilter === "" ? "All Facilities" : esc(facilityName.get(Number(facilityFilter)) || "Facility");
   root().innerHTML = `<div class="ep-pane">
     <div class="ep-pane-head"><span>${title}</span>
-      <div style="display:flex;align-items:center;gap:10px">
-        <select class="input" id="staff-facility-filter" style="width:auto">
+      <div class="d-flex items-center gap-10px">
+        <select class="input w-auto" id="staff-facility-filter">
           <option value="">All facilities</option>
           ${facilities.map((f) => `<option value="${f.id}" ${facilityFilter === String(f.id) ? "selected" : ""}>${esc(f.name)}</option>`).join("")}
         </select>

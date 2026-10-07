@@ -20,20 +20,20 @@ const TABS = [["matrix", "Mapping matrix"], ["list", "Mapping requests"]];
 
 function skeleton() {
   const controls = {
-    list: `<label class="ep-k">State&nbsp;<select class="input" id="list-state" style="width:auto">${[["pending", "Pending"], ["approved", "Approved"], ["suspended", "Suspended"], ["rejected", "Rejected"], ["", "All"]]
+    list: `<label class="ep-k">State&nbsp;<select class="input w-auto" id="list-state">${[["pending", "Pending"], ["approved", "Approved"], ["suspended", "Suspended"], ["rejected", "Rejected"], ["", "All"]]
       .map(([v, l]) => `<option value="${v}" ${v === listFilters.state ? "selected" : ""}>${l}</option>`)
       .join("")}</select></label>
-      <label class="ep-k">Level&nbsp;<select class="input" id="list-scope" style="width:auto">${[["", "Category & item"], ["category", "Category only"], ["item", "Item only"]]
+      <label class="ep-k">Level&nbsp;<select class="input w-auto" id="list-scope">${[["", "Category & item"], ["category", "Category only"], ["item", "Item only"]]
       .map(([v, l]) => `<option value="${v}" ${v === listFilters.scope ? "selected" : ""}>${l}</option>`)
       .join("")}</select></label>`,
   };
-  root().innerHTML = `<div style="display:flex;flex-direction:column;gap:16px">
-    <div style="font-size:13px;color:rgba(32,30,29,.7);max-width:900px;line-height:1.5">Many-to-many eligibility matrix — the single source of truth for who can be invited at tender time. Categories and items are mapped separately: an approved category mapping makes a vendor eligible for the items in it, and an item-level mapping can add to that or suspend one item. Click a cell to open the mapping's details — scope, history and the actions valid for its state.</div>
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  root().innerHTML = `<div class="d-flex flex-col gap-16px">
+    <div class="fs-13px text-ink-70 maxw-900px lh-1-5">Many-to-many eligibility matrix — the single source of truth for who can be invited at tender time. Categories and items are mapped separately: an approved category mapping makes a vendor eligible for the items in it, and an item-level mapping can add to that or suspend one item. Click a cell to open the mapping's details — scope, history and the actions valid for its state.</div>
+    <div class="d-flex items-center gap-14px flex-wrap">
       <div class="ep-seg">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? "on" : ""}">${l}</button>`).join("")}</div>
       ${controls[tab] || ""}
     </div>
-    <div class="ep-pane" id="mapping-panel" style="overflow:auto"></div>
+    <div class="ep-pane overflow-auto" id="mapping-panel"></div>
   </div>`;
   root().querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => ((tab = b.dataset.tab), draw())));
   root().querySelector("#list-state")?.addEventListener("change", (e) => ((listFilters.state = e.target.value), draw()));

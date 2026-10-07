@@ -11,6 +11,8 @@ from app.models.product_master import ProcurementType, ProductMaster
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
+from app.models.tender_line_exclusion import TenderLineExclusion
+from app.models.vendor import Vendor, VendorStatus
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
 from app.models.tender_attachment import TenderLineAttachment, TenderLineAttachmentKind
 from app.services import document_store
@@ -25,6 +27,9 @@ from app.schemas.tender import (
     LineItemOut,
     RejectionPayload,
     TenderCreate,
+    ExcludedVendorOut,
+    GuestInviteCreate,
+    VendorRemovalCreate,
     TenderInviteOut,
     TenderOut,
 )
@@ -32,6 +37,8 @@ from app.security import get_current_user, require_role
 from app.services.audit import changed, record, snapshot
 from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, escalate, resolve_required_tier
 from app.services.eligibility import resolve_eligible_vendors
+from app.services.open_links import facility_name, link_state, new_token
+from app.services.ratings import rating_score
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
 
@@ -82,6 +89,8 @@ def create_tender(
 ):
     _validate_facility(payload.facility_id, db)
     tender = Tender(**payload.model_dump(exclude={"line_items"}), created_by_id=user.id)
+    if tender.open_tender:
+        tender.open_link_token = new_token()
     db.add(tender)
     db.flush()
     _set_line_items(tender, payload.line_items, db)
@@ -226,8 +235,13 @@ def update_draft_tender(
     header_keys = list(payload.model_dump(exclude={"line_items"}).keys())
     old = snapshot(tender, header_keys)
     old_lines = len(tender.line_items)
+    was_open = tender.open_tender
     for field, value in payload.model_dump(exclude={"line_items"}).items():
         setattr(tender, field, value)
+    if tender.open_tender and not was_open:
+        tender.open_link_token = new_token()
+    if not tender.open_tender:
+        tender.open_link_token = None
     _set_line_items(tender, payload.line_items, db)
     before, after = changed(old, snapshot(tender, header_keys))
     if old_lines != len(payload.line_items):
@@ -378,57 +392,232 @@ def download_line_attachment(
 
 @router.get("/{tender_id}/eligibility-preview", response_model=list[LineItemEligibilityOut])
 def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
-    """Spec §6.5 — computed on demand, doesn't persist anything. Persisting
-    the resolved list as `TenderInvite` rows only happens at submit/approve
-    time (`_persist_invites` below), since that's what §6.5 calls "what the
-    Approving Authority reviews" and "what actual publish notifies" — a
-    stable snapshot, not a live query re-run on every page view."""
+    """Spec §6.5 — computed on demand, doesn't persist anything. Guest invites are
+    the saved officer decisions and show with their reason. Vendors the officer
+    removed are listed separately with their reason."""
 
     tender = _load_tender(tender_id, db)
+    source = "open" if tender.open_tender else "system"
     results = []
     for li in tender.line_items:
         threshold = li.min_rating_threshold_override if li.min_rating_threshold_override is not None else tender.min_rating_threshold
-        eligible = resolve_eligible_vendors(li, db)
+        guests = {
+            g.vendor_id: g
+            for g in db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source == "guest").all()
+        }
+        exclusions = db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == li.id).all()
+        excluded_ids = {x.vendor_id for x in exclusions}
+        eligible = [
+            EligibleVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score, source=source)
+            for e in resolve_eligible_vendors(li, db)
+            if e.vendor.id not in guests and e.vendor.id not in excluded_ids
+        ]
+        eligible += [
+            EligibleVendorOut(vendor_id=g.vendor.id, legal_name=g.vendor.legal_name, rating_score=g.rating_at_resolution, source="guest", reason=g.reason)
+            for g in guests.values()
+        ]
+        removed = [ExcludedVendorOut(vendor_id=x.vendor_id, legal_name=db.get(Vendor, x.vendor_id).legal_name, reason=x.reason) for x in exclusions]
         results.append(
             LineItemEligibilityOut(
                 line_item_id=li.id,
                 product_name=li.product.name,
                 product_master_id=li.product_master_id,
                 threshold_applied=threshold,
-                eligible_vendors=[
-                    EligibleVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score)
-                    for e in eligible
-                ],
+                eligible_vendors=eligible,
+                removed_vendors=removed,
             )
         )
     return results
 
 
-def _persist_invites(tender: Tender, db: Session) -> list[str]:
-    """Recomputes and overwrites the system-resolved invite list for every
-    line item. Returns the ids of any line item left with zero eligible
-    vendors, per spec §6.5: "the system blocks that line from moving to
-    approval" — there's no manual-override escape hatch yet (deferred to
-    Phase 7's override engine), so this phase's block is unconditional."""
+def _resolve_line(li: TenderLineItem, source: str, db: Session) -> tuple[bool, dict]:
+    """Recomputes one line's invites. A guest invite survives while its vendor is
+    Active, and a vendor the officer removed stays out. Returns whether the line
+    ended with no invite at all, and the resolution record for audit."""
 
+    guests = db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source == "guest").all()
+    for guest in guests:
+        if guest.vendor.status != VendorStatus.ACTIVE:
+            db.delete(guest)
+    db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source != "guest").delete(synchronize_session=False)
+    invited = {g.vendor_id for g in guests if g.vendor.status == VendorStatus.ACTIVE}
+    removed = {x.vendor_id for x in db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == li.id).all()}
+    eligible = [e for e in resolve_eligible_vendors(li, db) if e.vendor.id not in invited and e.vendor.id not in removed]
+    for e in eligible:
+        db.add(TenderInvite(tender_line_item_id=li.id, vendor_id=e.vendor.id, source=source, rating_at_resolution=e.rating_score))
+    db.flush()
+    entry = {
+        "line_item_id": li.id,
+        "product": li.product.name,
+        "eligible": [{"vendor_id": e.vendor.id, "vendor": e.vendor.legal_name, "rating": e.rating_score} for e in eligible],
+        "guests": [{"vendor_id": g.vendor_id, "reason": g.reason} for g in guests if g.vendor_id in invited],
+    }
+    return (not invited and not eligible), entry
+
+
+def _persist_invites(tender: Tender, db: Session) -> list[str]:
+    """Recomputes the invite list for every line. Returns the names of lines
+    left with no invite at all. Spec 6.5 blocks only a tender where no line has
+    one, so a held-back line doesn't block the others."""
+
+    source = "open" if tender.open_tender else "system"
     zero_eligible: list[str] = []
     resolution: list[dict] = []  # spec 6.5: the computation is kept as an audit record
     for li in tender.line_items:
-        db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id).delete()
-        eligible = resolve_eligible_vendors(li, db)
-        resolution.append(
-            {
-                "line_item_id": li.id,
-                "product": li.product.name,
-                "eligible": [{"vendor_id": e.vendor.id, "vendor": e.vendor.legal_name, "rating": e.rating_score} for e in eligible],
-            }
-        )
-        if not eligible:
+        no_invite, entry = _resolve_line(li, source, db)
+        resolution.append(entry)
+        if no_invite:
             zero_eligible.append(li.product.name)
-            continue
-        for e in eligible:
-            db.add(TenderInvite(tender_line_item_id=li.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
     return zero_eligible, resolution
+
+
+def _line_of(tender: Tender, line_item_id: int) -> TenderLineItem:
+    line = next((li for li in tender.line_items if li.id == line_item_id), None)
+    if line is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Line item not found on this tender")
+    return line
+
+
+@router.post("/{tender_id}/open-link/regenerate", response_model=TenderOut)
+def regenerate_open_link(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """A new link; the old one stops working at once."""
+
+    tender = _load_tender(tender_id, db)
+    if not tender.open_tender:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only an Open Tender has a registration link")
+    tender.open_link_token = new_token()
+    record(db, "tender.open_link_regenerated", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id)
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.delete("/{tender_id}/open-link", response_model=TenderOut)
+def disable_open_link(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Turns the registration link off. The tender stays an Open Tender; only
+    the link goes. Regenerating brings a link back."""
+
+    tender = _load_tender(tender_id, db)
+    tender.open_link_token = None
+    record(db, "tender.open_link_disabled", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id)
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.post("/{tender_id}/lines/{line_item_id}/guest-invites", response_model=TenderInviteOut, status_code=status.HTTP_201_CREATED)
+def add_guest_invite(
+    tender_id: int,
+    line_item_id: int,
+    payload: GuestInviteCreate,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Officer invites an Active vendor the rules didn't select, with a reason
+    (2026-10-06). Only while Draft, and never on an Open Tender (which already
+    invites every Active vendor)."""
+
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    if tender.open_tender:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An Open Tender already invites every Active vendor")
+    line = _line_of(tender, line_item_id)
+    vendor = db.get(Vendor, payload.vendor_id)
+    if vendor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
+    if vendor.status != VendorStatus.ACTIVE:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only Active, approved vendors can be invited")
+    if db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This vendor is already invited to this line")
+    invite = TenderInvite(
+        tender_line_item_id=line.id,
+        vendor_id=vendor.id,
+        source="guest",
+        reason=payload.reason,
+        rating_at_resolution=rating_score(vendor.id, line.procurement_type, db),
+    )
+    db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id == vendor.id).delete(
+        synchronize_session=False
+    )
+    db.add(invite)
+    record(
+        db, "tender.guest_invited", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        after={"line_item_id": line.id, "vendor_id": vendor.id, "vendor": vendor.legal_name}, reason=payload.reason,
+    )
+    db.commit()
+    db.refresh(invite)
+    return invite
+
+
+@router.post("/{tender_id}/lines/{line_item_id}/vendor-removals", status_code=status.HTTP_204_NO_CONTENT)
+def remove_vendors_from_line(
+    tender_id: int,
+    line_item_id: int,
+    payload: VendorRemovalCreate,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Takes one or more vendors off a line, whether the rules or the officer put
+    them there, and keeps them off through recalculation. One reason covers the
+    whole selection (2026-10-06). All or nothing: any unknown vendor refuses the
+    lot. Not on an Open Tender, which invites every Active vendor by definition."""
+
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    if tender.open_tender:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An Open Tender invites every Active vendor; turn Open tender off to change the list")
+    line = _line_of(tender, line_item_id)
+    vendors = [db.get(Vendor, vid) for vid in payload.vendor_ids]
+    if any(v is None for v in vendors):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One of the vendors was not found")
+    for vendor in vendors:
+        db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).delete(synchronize_session=False)
+        existing = db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id == vendor.id).first()
+        if existing is None:
+            db.add(TenderLineExclusion(tender_line_item_id=line.id, vendor_id=vendor.id, reason=payload.reason))
+        else:
+            existing.reason = payload.reason
+        record(
+            db, "tender.vendor_removed", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+            after={"line_item_id": line.id, "vendor_id": vendor.id, "vendor": vendor.legal_name}, reason=payload.reason,
+        )
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{tender_id}/lines/{line_item_id}/vendor-removals/{vendor_id}", status_code=status.HTTP_204_NO_CONTENT)
+def restore_vendor_on_line(
+    tender_id: int,
+    line_item_id: int,
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
+):
+    """Undoes a removal: the rules decide again for this vendor on this line."""
+
+    tender = _load_tender(tender_id, db)
+    _require_draft(tender)
+    line = _line_of(tender, line_item_id)
+    exclusion = db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id == vendor_id).first()
+    if exclusion is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This vendor isn't removed from this line")
+    db.delete(exclusion)
+    db.flush()
+    _resolve_line(line, "open" if tender.open_tender else "system", db)
+    record(
+        db, "tender.vendor_restored", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        before={"line_item_id": line.id, "vendor_id": vendor_id, "reason": exclusion.reason},
+    )
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{tender_id}/submit-for-approval", response_model=TenderOut)

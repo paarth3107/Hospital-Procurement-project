@@ -22,8 +22,10 @@ from app.routers import (
     mappings,
     overrides,
     products,
+    open_links,
     po_files,
     ratings,
+    search,
     staff,
     subcategories,
     tender_review,
@@ -126,6 +128,8 @@ app.include_router(vendors.router)
 app.include_router(facilities.router)
 app.include_router(categories.router)
 app.include_router(subcategories.router)
+app.include_router(search.router)
+app.include_router(open_links.router)
 app.include_router(products.router)
 app.include_router(mappings.router)
 app.include_router(ratings.router)

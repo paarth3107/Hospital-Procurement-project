@@ -28,11 +28,11 @@ export function renderMappingList(container, data, refresh, filters) {
               suspended: [["Reinstate", "reinstate", true]],
             }[m.state] || [];
             return `<tr>
-              <td class="ep-cell" style="font-weight:600">${esc(vendor ? vendor.legal_name : "—")}</td>
+              <td class="ep-cell fw-600">${esc(vendor ? vendor.legal_name : "—")}</td>
               <td class="ep-cell">${isCategory ? "Category" : "Item"}</td>
               <td class="ep-cell">${esc(target || "—")}</td>
               <td class="ep-cell">${stateTag(m.state)}</td>
-              <td class="ep-cell" style="text-align:right;white-space:nowrap">${acts
+              <td class="ep-cell text-right nowrap">${acts
                 .map(([label, act, primary]) => `<button class="ep-b"${primary ? ' data-v="p"' : ""} data-row="${i}" data-act="${act}">${label}</button>`)
                 .join(" ")}</td>
             </tr>`;

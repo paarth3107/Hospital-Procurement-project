@@ -27,13 +27,13 @@ export function itemRequirements(product, category, docsByKey) {
 
 export function requirementNote(req) {
   if (!req.items.length) return "";
-  return `<div class="ep-sub" style="margin-left:22px">Needs: ${req.items
+  return `<div class="ep-sub ml-22px">Needs: ${req.items
     .map((i) =>
       i.ok
-        ? `<span style="font-weight:600">${esc(i.label)} ✓</span>`
+        ? `<span class="fw-600">${esc(i.label)} ✓</span>`
         : i.other
-        ? `<span style="color:#173fb0;font-weight:600">${esc(i.label)}</span> <button type="button" class="ep-b" style="padding:1px 8px" data-upload-other="${esc(i.entry.slice(6).trim())}">Upload</button>`
-        : `<span style="color:#173fb0;font-weight:600">${esc(i.label)}</span> <button type="button" class="ep-b" style="padding:1px 8px" data-upload-req="${esc(i.entry)}">Upload</button>`
+        ? `<span class="text-primary-dark fw-600">${esc(i.label)}</span> <button type="button" class="ep-b padding-1px-8px" data-upload-other="${esc(i.entry.slice(6).trim())}">Upload</button>`
+        : `<span class="text-primary-dark fw-600">${esc(i.label)}</span> <button type="button" class="ep-b padding-1px-8px" data-upload-req="${esc(i.entry)}">Upload</button>`
     )
     .join(", ")}</div>`;
 }

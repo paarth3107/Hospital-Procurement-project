@@ -36,21 +36,21 @@ function noteOf(rating) {
 
 export function scorecardHtml(vendor, rating, type, canAdjust) {
   const score = rating ? rating.overall_score.toFixed(0) : "NR";
-  const scoreColor = !rating ? "rgba(32,30,29,.45)" : rating.overall_score >= 75 ? "#1d4ed8" : "#201e1d";
-  return `<div class="ep-pane" style="padding:15px 16px;display:flex;flex-direction:column;gap:11px">
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <div style="flex:1"><div style="font-size:14.5px;font-weight:800;line-height:1.2">${esc(vendor.legal_name)}</div>${kicker(`V-${vendor.id} · ${type}`)}</div>
-      <div style="text-align:right"><div style="font-size:30px;font-weight:800;line-height:1;color:${scoreColor}">${score}</div>${kicker(tierOf(rating))}</div>
+  const scoreColorClass = !rating ? "score-color-none" : rating.overall_score >= 75 ? "score-color-good" : "score-color-mid";
+  return `<div class="ep-pane padding-15px-16px d-flex flex-col gap-11px">
+    <div class="d-flex items-start gap-10px">
+      <div class="flex-1"><div class="fs-14-5px fw-800 lh-1-2">${esc(vendor.legal_name)}</div>${kicker(`V-${vendor.id} · ${type}`)}</div>
+      <div class="text-right"><div class="fs-30px fw-800 lh-1 ${scoreColorClass}">${score}</div>${kicker(tierOf(rating))}</div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:6px">${PARAMS.map(([label, field]) => {
+    <div class="d-flex flex-col gap-6px">${PARAMS.map(([label, field]) => {
       const v = rating ? rating[field] : null;
       const has = v !== null && v !== undefined;
       return `<div>
-        <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:rgba(32,30,29,.68)">${label}</span><span style="font-weight:600">${has ? Math.round(v) + "%" : "n/a"}</span></div>
-        <div class="ep-bar" style="height:5px;margin-top:3px"><div style="width:${has ? v : 0}%;background:${has && v >= 75 ? "#1d4ed8" : "rgba(32,30,29,.5)"}"></div></div>
+        <div class="d-flex justify-between fs-11-5px"><span class="text-ink-68">${label}</span><span class="fw-600">${has ? Math.round(v) + "%" : "n/a"}</span></div>
+        <div class="ep-bar h-5px mt-3px ${has && v >= 75 ? "bar-good" : "bar-mid"}"><div style="--bar-w:${has ? v : 0}%"></div></div>
       </div>`;
     }).join("")}</div>
-    <div style="font-size:11.5px;color:rgba(32,30,29,.6);line-height:1.4">${esc(noteOf(rating))}</div>
-    ${canAdjust ? `<button class="ep-b" style="align-self:flex-start" data-adjust="${vendor.id}">Manual adjustment</button>` : ""}
+    <div class="fs-11-5px text-ink-60 lh-1-4">${esc(noteOf(rating))}</div>
+    ${canAdjust ? `<button class="ep-b self-start" data-adjust="${vendor.id}">Manual adjustment</button>` : ""}
   </div>`;
 }

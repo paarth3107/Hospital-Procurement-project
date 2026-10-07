@@ -114,13 +114,13 @@ function detailsRowHtml(row, i, p, fields) {
   const catalogSpec = attrSummary(p);
   return `<tr class="li-details-row" data-row="${i}">
     <td class="ep-cell" colspan="12">
-      <div class="hint" style="margin-bottom:10px"><b>Catalog spec (from the master item, reference only):</b> ${esc(catalogSpec)}</div>
+      <div class="hint mb-10px"><b>Catalog spec (from the master item, reference only):</b> ${esc(catalogSpec)}</div>
       ${
         fields.length
-          ? `<div class="line-details-fields" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px">${fields.map((f) => fieldHtml(f, row.line_details?.[f.name])).join("")}</div>`
+          ? `<div class="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">${fields.map((f) => fieldHtml(f, row.line_details?.[f.name])).join("")}</div>`
           : '<div class="hint">Nothing else to add for this line -- the catalog spec above covers it.</div>'
       }
-      <div class="ep-k" style="margin-top:16px;margin-bottom:6px">Attachments (spec §6.4)</div>
+      <div class="ep-k mt-16px mb-6px">Attachments (spec §6.4)</div>
       <div class="li-attachments" data-row="${i}">${attachmentsHtml(row.attachments, p.procurement_type)}</div>
     </td>
   </tr>`;
@@ -137,7 +137,7 @@ function rowHtml(row, i) {
   return `<tr class="li-row" data-row="${i}">
     <td class="ep-cell li-rownum">${i + 1}</td>
     <td class="ep-cell"><input class="input${codeInvalid ? " invalid" : ""}" list="li-catalog-codes" data-row="${i}" data-col="0" data-field="product_code_input" value="${esc(row.product_code_input)}" placeholder="code"></td>
-    <td class="ep-cell li-product-name">${p ? `${esc(p.name)} <span class="ep-sub">${esc(p.procurement_type)}</span>` : codeInvalid ? '<span style="color:#ae1800">unknown code</span>' : ""}</td>
+    <td class="ep-cell li-product-name">${p ? `${esc(p.name)} <span class="ep-sub">${esc(p.procurement_type)}</span>` : codeInvalid ? '<span class="text-danger-700">unknown code</span>' : ""}</td>
     <td class="ep-cell"><input class="input" type="number" step="any" min="0" data-row="${i}" data-col="1" data-field="qty" value="${row.qty ?? ""}"></td>
     <td class="ep-cell"><input class="input" type="number" step="any" min="0" data-row="${i}" data-col="2" data-field="estimated_price" value="${row.estimated_price ?? ""}"></td>
     <td class="ep-cell"><select class="input" data-row="${i}" data-col="3" data-field="technical_eval_method">
@@ -146,10 +146,10 @@ function rowHtml(row, i) {
     </select></td>
     <td class="ep-cell">${qcbs ? `<input class="input" type="number" step="1" min="0" data-row="${i}" data-col="4" data-field="technical_weight" value="${row.technical_weight ?? ""}">` : '<span class="hint">—</span>'}</td>
     <td class="ep-cell">${qcbs ? `<input class="input" type="number" step="1" min="0" data-row="${i}" data-col="5" data-field="price_weight" value="${row.price_weight ?? ""}">` : '<span class="hint">—</span>'}</td>
-    <td class="ep-cell" style="text-align:center"><input type="checkbox" data-row="${i}" data-col="6" data-field="split_award_allowed" ${row.split_award_allowed ? "checked" : ""}></td>
+    <td class="ep-cell text-center"><input type="checkbox" data-row="${i}" data-col="6" data-field="split_award_allowed" ${row.split_award_allowed ? "checked" : ""}></td>
     <td class="ep-cell"><input class="input" type="number" step="0.1" min="0" max="100" data-row="${i}" data-col="7" data-field="min_rating_threshold_override" value="${row.min_rating_threshold_override ?? ""}" placeholder="default"></td>
     <td class="ep-cell li-total">${total ? inr(total) : "—"}</td>
-    <td class="ep-cell" style="white-space:nowrap">
+    <td class="ep-cell nowrap">
       <button type="button" class="ep-b li-details-btn" data-row="${i}" ${p ? "" : "disabled"}>${expanded ? "Hide" : "Details"}</button>
       <button type="button" class="ep-b remove-line-btn" data-row="${i}">✕</button>
     </td>
@@ -167,7 +167,7 @@ function render() {
       </table>
     </div>
     <datalist id="li-catalog-codes">${products.map((p) => `<option value="${esc(p.code)}">${esc(p.name)}</option>`).join("")}</datalist>
-    <div class="hint" style="margin-top:8px">${rows.length} row(s) · total estimated value ${inr(totalBudget())}</div>
+    <div class="hint mt-8px">${rows.length} row(s) · total estimated value ${inr(totalBudget())}</div>
   `;
   container().querySelectorAll(".line-details-fields").forEach(wireConditionalFields);
   onChange();
@@ -267,7 +267,7 @@ container().addEventListener("input", (e) => {
     const p = code ? products.find((x) => x.code.trim().toLowerCase() === code) : null;
     el.classList.toggle("invalid", !!code && !p);
     const nameCell = el.closest("tr").querySelector(".li-product-name");
-    if (nameCell) nameCell.innerHTML = p ? `${esc(p.name)} <span class="ep-sub">${esc(p.procurement_type)}</span>` : code ? '<span style="color:#ae1800">unknown code</span>' : "";
+    if (nameCell) nameCell.innerHTML = p ? `${esc(p.name)} <span class="ep-sub">${esc(p.procurement_type)}</span>` : code ? '<span class="text-danger-700">unknown code</span>' : "";
     return;
   }
   if (NUMERIC_FIELDS.has(field)) {
@@ -494,9 +494,9 @@ csvFileInput.addEventListener("change", async () => {
   const errBox = document.getElementById("li-import-errors");
   if (errors.length) {
     errBox.hidden = false;
-    errBox.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${imported.length} row(s) added, ${errors.length} row(s) need fixing before they can be added:</div><ul style="margin:0;padding-left:18px">${errors
+    errBox.innerHTML = `<div class="fw-700 mb-6px">${imported.length} row(s) added, ${errors.length} row(s) need fixing before they can be added:</div><ul class="margin-0 pl-18px">${errors
       .map((e) => `<li>${esc(e)}</li>`)
-      .join("")}</ul><div class="hint" style="margin-top:6px">Fix these rows in your file and upload just them again — the rows already added above don't need to be re-uploaded.</div>`;
+      .join("")}</ul><div class="hint mt-6px">Fix these rows in your file and upload just them again — the rows already added above don't need to be re-uploaded.</div>`;
   } else {
     errBox.hidden = true;
     errBox.innerHTML = "";

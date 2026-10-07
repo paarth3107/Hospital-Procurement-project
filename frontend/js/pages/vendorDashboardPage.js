@@ -5,6 +5,7 @@ import { openTenderBid } from "./bid/bidPage.js";
 import { notificationsHtml, wireNotifications } from "./vendorNotifications.js";
 import { scorecardHtml } from "./ratings/scorecard.js";
 import { switchView, refreshChrome } from "../nav.js";
+import { kpiStrip as kpiTiles } from "./dashboard/kpi.js";
 import { esc, kicker, tag, stateTag, th, emptyRow, fmtDateTime, inr, pageSlice, paginationBar, wirePagination } from "../kit.js";
 
 // ---- Vendor portal home: tenders the vendor is invited to (grouped one row
@@ -30,12 +31,29 @@ const NOTES = {
   suspended: "Your account is suspended: you can't bid or be invited to new tenders until it's reinstated. See the note on your profile.",
 };
 
+// The Open Tender this vendor registered through stays listed for them while
+// they wait for approval (2026-10-06).
+async function registeredTenderNote() {
+  try {
+    const t = await api("/vendor-portal/registered-tender");
+    if (!t) return "";
+    const lead = {
+      unpublished: "is not published yet. It will be listed here once it's published.",
+      open: "is listed for you. You can bid on it once your registration is approved.",
+      closed: "has closed for bidding.",
+    }[t.state];
+    return `<div class="ep-note"><span><b>${esc(t.title)}</b>, the open tender you registered for, ${lead}</span></div>`;
+  } catch (err) {
+    return "";
+  }
+}
+
 async function statusNote(vendor) {
   if (vendor.status !== "active") {
     const why = ["suspended", "info_requested", "rejected"].includes(vendor.status) && vendor.rejection_reason ? ` Reason: ${vendor.rejection_reason}` : "";
     return `<div class="ep-note"><span>${esc((NOTES[vendor.status] || "Your registration is not active yet.") + why)}</span>${
       ["info_requested", "suspended"].includes(vendor.status) ? '<button class="ep-b" id="goto-profile">Open profile</button>' : ""
-    }</div>`;
+    }</div>${await registeredTenderNote()}`;
   }
   try {
     const [mappings, reqs] = await Promise.all([api("/vendor-portal/mappings"), api("/vendor-portal/documents/requirements")]);
@@ -64,15 +82,12 @@ function kpiStrip(openCount, bids, ratings) {
   const awarded = bids.filter((b) => b.outcome && b.outcome.startsWith("Awarded")).length;
   const ratingValue = ratings.length === 1 ? ratings[0].overall_score.toFixed(0) : ratings.length ? String(ratings.length) : "—";
   const ratingSub = ratings.length === 1 ? ratings[0].procurement_type : ratings.length ? "type(s) rated" : "not yet rated";
-  const cells = [
-    ["Open Invitations", openCount, "you can bid now"],
-    ["Bids Submitted", submitted, "prices sealed until deadline"],
-    ["Awarded", awarded, "line(s) won"],
-    ["My Rating", ratingValue, ratingSub],
-  ];
-  return `<div class="ep-kpis">${cells
-    .map(([label, value, sub]) => `<div class="ep-kpi">${kicker(label)}<div class="ep-kpi-value">${esc(value)}</div><div class="ep-sub">${esc(sub)}</div></div>`)
-    .join("")}</div>`;
+  return kpiTiles([
+    ["Open Invitations", openCount, "you can bid now", null, "file-text", "primary"],
+    ["Bids Submitted", submitted, "prices sealed until deadline", null, "check-square", "info"],
+    ["Awarded", awarded, "line(s) won", null, "award", "success"],
+    ["My Rating", ratingValue, ratingSub, null, "star", "warning"],
+  ]);
 }
 
 // Rating visibility (2026-09-30): a vendor previously had no way to see their
@@ -81,11 +96,11 @@ function kpiStrip(openCount, bids, ratings) {
 function ratingPanel(ratings) {
   if (!ratings.length) {
     return `<div class="ep-pane ep-pane-pad"><div class="ep-k">Your Rating</div>
-      <div class="hint" style="margin-top:8px">You haven't been rated yet — this starts once you're approved for a category and begin supplying under it.</div></div>`;
+      <div class="hint mt-8px">You haven't been rated yet — this starts once you're approved for a category and begin supplying under it.</div></div>`;
   }
   return `<div class="ep-pane">
     <div class="ep-pane-head"><span>Your Rating</span><span class="ep-k">one score per procurement type you're rated in</span></div>
-    <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">${ratings
+    <div class="padding-16px d-grid grid-cols-repeatauto-fitminmax260px1fr gap-14px">${ratings
       .map((r) => scorecardHtml(state.vendor, r, r.procurement_type, false))
       .join("")}</div>
   </div>`;
@@ -140,15 +155,15 @@ function tenderRow(group) {
     ? tag(`${submitted} of ${lines.length} submitted`, "att")
     : tag("Not started", "att");
   const timeCell = t.bid_due_date
-    ? `<div style="font-weight:600">${t.can_bid ? timeRemaining(t.bid_due_date) : "closed"}</div><div class="ep-sub">${fmtDateTime(t.bid_due_date)}</div>`
+    ? `<div class="fw-600">${t.can_bid ? timeRemaining(t.bid_due_date) : "closed"}</div><div class="ep-sub">${fmtDateTime(t.bid_due_date)}</div>`
     : "—";
   return `<tr>
-    <td class="ep-cell"><div style="font-weight:700">${esc(t.title)}</div><div class="ep-sub">#${t.tender_id} · ${esc(t.facility_name)}</div></td>
-    <td class="ep-cell" style="font-size:12px">${esc(t.tender_type)}</td>
-    <td class="ep-cell" style="font-size:12.5px">${lines.length}</td>
-    <td class="ep-cell" style="font-size:12.5px">${timeCell}</td>
+    <td class="ep-cell"><div class="fw-700">${esc(t.title)}</div><div class="ep-sub">#${t.tender_id} · ${esc(t.facility_name)}</div></td>
+    <td class="ep-cell fs-12px">${esc(t.tender_type)}</td>
+    <td class="ep-cell fs-12-5px">${lines.length}</td>
+    <td class="ep-cell fs-12-5px">${timeCell}</td>
     <td class="ep-cell">${statusTag}</td>
-    <td class="ep-cell" style="text-align:right;white-space:nowrap">
+    <td class="ep-cell text-right nowrap">
       ${
         t.can_bid || submitted > 0
           ? `<button class="ep-b" data-v="p" data-prepare-bid="${t.tender_id}">${submitted > 0 ? "View Bid" : "Prepare Bid"}</button>`
@@ -167,8 +182,8 @@ function renderTenderList(lineRows, closedCount, openLinesCount) {
     totalPages,
     html: `<div class="ep-pane">
       <div class="ep-pane-head"><span>Open Invitations</span>
-        <div style="display:flex;align-items:center;gap:14px">
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(32,30,29,.7)">
+        <div class="d-flex items-center gap-14px">
+          <label class="d-flex items-center gap-6px fs-12px fw-400 tt-none ls-0 text-ink-70">
             <input type="checkbox" id="show-closed-invites" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
           </label>
           <span class="ep-k">${openLinesCount} biddable</span>
@@ -192,7 +207,7 @@ function bidsPane(bids) {
         ? pageItems
             .map(
               (b) => `<tr><td class="ep-cell">${esc(b.tender_title)}</td><td class="ep-cell">${esc(b.product_name)}</td><td class="ep-cell">${b.qty}</td>
-                <td class="ep-cell" style="font-weight:700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell" style="font-size:12.5px;font-weight:600">${b.outcome ? esc(b.outcome) : `<span class="ep-sub">${b.submitted_at ? "Awaiting result" : "—"}</span>`}</td></tr>`
+                <td class="ep-cell fw-700">${b.unit_price == null ? "—" : inr(b.unit_price)}</td><td class="ep-cell">${stateTag(b.status)}</td><td class="ep-cell fs-12-5px fw-600">${b.outcome ? esc(b.outcome) : `<span class="ep-sub">${b.submitted_at ? "Awaiting result" : "—"}</span>`}</td></tr>`
             )
             .join("")
         : emptyRow(6, "No bids yet.")
@@ -217,7 +232,7 @@ function render(note, tenders, bids, notes, ratings, docs) {
 
   const { html: invitationsHtml, page: invitesPageClamped } = renderTenderList(lineRows, closedCount, openLines.length);
 
-  root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">${note}${expiryNote(docs)}${notificationsHtml(notes)}${kpiStrip(openLines.length, bids, ratings)}${closingSoonNote}${invitationsHtml}${bidsPane(bids)}${ratingPanel(ratings)}</div>`;
+  root().innerHTML = `<div class="d-flex flex-col gap-18px">${note}${expiryNote(docs)}${notificationsHtml(notes)}${kpiStrip(openLines.length, bids, ratings)}${closingSoonNote}${invitationsHtml}${bidsPane(bids)}${ratingPanel(ratings)}</div>`;
   wireNotifications(root(), () => { loadVendorDashboard(); refreshChrome(); });
   root().querySelector("#goto-profile")?.addEventListener("click", () => switchView("vendor-categories"));
   root().querySelector("#goto-profile-docs")?.addEventListener("click", () => switchView("vendor-categories"));

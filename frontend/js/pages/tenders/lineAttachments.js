@@ -39,18 +39,18 @@ export function attachmentsHtml(attachments, procurementType) {
   return slots
     .map(([kind, mandatory]) => {
       const mine = (attachments || []).filter((a) => a.kind === kind);
-      return `<div data-slot="${kind}" style="padding-bottom:8px;border-bottom:1px solid rgba(32,30,29,.15)">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-weight:600;font-size:12.5px">${KIND_LABELS[kind]}</span>
+      return `<div data-slot="${kind}" class="pb-8px border-bottom-1px-solid-ink-15">
+        <div class="d-flex items-center gap-10px flex-wrap">
+          <span class="fw-600 fs-12-5px">${KIND_LABELS[kind]}</span>
           ${mandatory ? tag(mine.length ? "provided" : "required", mine.length ? "pos" : "att") : '<span class="ep-sub">optional</span>'}
-          <button type="button" class="ep-b li-att-upload" data-upload="${kind}" style="margin-left:auto;padding:2px 8px">Upload</button>
+          <button type="button" class="ep-b li-att-upload ml-auto padding-2px-8px" data-upload="${kind}">Upload</button>
         </div>
         ${mine
           .map(
-            (f) => `<div style="display:flex;gap:10px;align-items:center;margin-top:5px;font-size:12px">
+            (f) => `<div class="d-flex gap-10px items-center mt-5px fs-12px">
               <a href="#" class="li-att-view" data-view-att="${f.id}">${esc(f.original_filename)}</a>
               <span class="ep-sub">${(f.size_bytes / 1024).toFixed(0)} KB${f.custom_label ? " · " + esc(f.custom_label) : ""}</span>
-              <button type="button" class="ep-b li-att-remove" data-remove-att="${f.id}" style="padding:0 8px" aria-label="Remove">×</button>
+              <button type="button" class="ep-b li-att-remove padding-0-8px" data-remove-att="${f.id}" aria-label="Remove">×</button>
             </div>`
           )
           .join("")}

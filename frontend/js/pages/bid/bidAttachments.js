@@ -8,20 +8,20 @@ const ACCEPT = ".pdf,.docx,.xlsx,.jpg,.jpeg,.png";
 
 export function attachmentsHtml(bid, req, locked) {
   const files = bid?.attachments || [];
-  return `<div style="display:flex;flex-direction:column;gap:12px">${req.slots
+  return `<div class="d-flex flex-col gap-12px">${req.slots
     .map((s) => {
       const mine = files.filter((f) => f.kind === s.kind);
-      return `<div data-slot="${s.kind}" style="padding-bottom:10px;border-bottom:1px solid rgba(32,30,29,.15)">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-weight:600">${esc(s.label)}</span>
+      return `<div data-slot="${s.kind}" class="pb-10px border-bottom-1px-solid-ink-15">
+        <div class="d-flex items-center gap-10px flex-wrap">
+          <span class="fw-600">${esc(s.label)}</span>
           <span data-mandatory-tag>${s.mandatory ? tag(mine.length ? "provided" : "required", mine.length ? "pos" : "att") : '<span class="ep-sub">optional</span>'}</span>
-          ${locked ? "" : `<button type="button" class="ep-b" data-upload="${s.kind}" style="margin-left:auto">Upload</button>`}
+          ${locked ? "" : `<button type="button" class="ep-b ml-auto" data-upload="${s.kind}">Upload</button>`}
         </div>
         ${mine
           .map(
-            (f) => `<div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:12.5px">
+            (f) => `<div class="d-flex gap-10px items-center mt-6px fs-12-5px">
               <a href="#" data-view-att="${f.id}">${esc(f.original_filename)}</a><span class="ep-sub">${(f.size_bytes / 1024).toFixed(0)} KB${f.description ? " · " + esc(f.description) : ""}</span>
-              ${locked ? "" : `<button type="button" class="ep-b" data-remove-att="${f.id}" style="padding:0 8px" aria-label="Remove">×</button>`}</div>`
+              ${locked ? "" : `<button type="button" class="ep-b padding-0-8px" data-remove-att="${f.id}" aria-label="Remove">×</button>`}</div>`
           )
           .join("")}
       </div>`;

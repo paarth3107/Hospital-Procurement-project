@@ -10,10 +10,10 @@ import { showResult } from "../../ui.js";
 export function openSubCategoryForm(host, subCategory, categories, onSaved, onCancel) {
   host.hidden = false;
   host.innerHTML = `
-    <form class="catalog-form ep-form" style="gap:16px">
-      <div style="font-size:18px;font-weight:800">${subCategory ? "Edit" : "New"} sub-category</div>
+    <form class="catalog-form ep-form gap-16px">
+      <div class="fs-18px fw-800">${subCategory ? "Edit" : "New"} sub-category</div>
       <div class="ep-pane ep-pane-pad">
-        <div class="ep-form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="ep-form-grid grid-cols-1fr-1fr">
           <div class="ep-field"><div class="ep-k">Category</div>
             <select class="input" name="category_id" ${subCategory ? "disabled" : ""}>
               ${categories.map((c) => `<option value="${c.id}" ${subCategory?.category_id === c.id ? "selected" : ""}>${esc(c.name)} (${esc(c.procurement_type)})</option>`).join("")}
@@ -21,7 +21,7 @@ export function openSubCategoryForm(host, subCategory, categories, onSaved, onCa
           <div class="ep-field"><div class="ep-k">Name</div><input class="input" name="name" required value="${esc(subCategory?.name ?? "")}"></div>
         </div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div class="d-flex gap-8px">
         <button type="submit" class="ep-b" data-v="p">${subCategory ? "Save changes" : "Add sub-category"}</button>
         <button type="button" class="ep-b cancel-btn">Cancel</button>
       </div>

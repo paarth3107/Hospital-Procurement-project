@@ -17,8 +17,8 @@ let page = 0;
 function renderInbox() {
   const { pageItems: rows, totalPages, page: clamped } = pageSlice(allRows, page);
   page = clamped;
-  root().innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">
-      <div class="hint" style="max-width:900px;line-height:1.5">The gate that actually publishes a tender and notifies vendors. Open a tender to review all of its details before deciding. Each submission is a numbered round; a rejection returns it to Draft with mandatory comments, and repeated rejections escalate to the next approving tier.</div>
+  root().innerHTML = `<div class="d-flex flex-col gap-18px">
+      <div class="hint maxw-900px lh-1-5">The gate that actually publishes a tender and notifies vendors. Open a tender to review all of its details before deciding. Each submission is a numbered round; a rejection returns it to Draft with mandatory comments, and repeated rejections escalate to the next approving tier.</div>
       <div class="ep-pane">
         <div class="ep-pane-head"><span>Approval Inbox</span><span class="ep-k">${allRows.length} pending</span></div>
         <table class="ep-table">${th("Tender", "Round", "Value", "Required tier", "Bids close", "")}<tbody>${
@@ -26,12 +26,12 @@ function renderInbox() {
             ? rows
                 .map(
                   ({ t, round, review }) => `<tr>
-                    <td class="ep-cell"><div style="font-weight:600">${esc(t.title)}</div><div class="ep-sub">#${t.id}${t.department ? " · " + esc(t.department) : ""} · ${review.lines.length} line(s)</div>${review.warnings.length ? `<div class="ep-sub" style="color:#ae1800">${review.warnings.length} warning(s)</div>` : ""}</td>
+                    <td class="ep-cell"><div class="fw-600">${esc(t.title)}</div><div class="ep-sub">#${t.id}${t.department ? " · " + esc(t.department) : ""} · ${review.lines.length} line(s)</div>${review.warnings.length ? `<div class="ep-sub text-danger-700">${review.warnings.length} warning(s)</div>` : ""}</td>
                     <td class="ep-cell">${t.round_number}</td>
-                    <td class="ep-cell" style="font-weight:600">${inr(review.total_estimated_value)}</td>
+                    <td class="ep-cell fw-600">${inr(review.total_estimated_value)}</td>
                     <td class="ep-cell">${tag(round ? "Tier " + round.required_tier : "—", "att")}</td>
-                    <td class="ep-cell" style="font-size:12.5px">${fmtDateTime(t.bid_due_date)}</td>
-                    <td class="ep-cell" style="text-align:right"><button class="ep-b" data-v="p" data-review="${t.id}">Review</button></td></tr>`
+                    <td class="ep-cell fs-12-5px">${fmtDateTime(t.bid_due_date)}</td>
+                    <td class="ep-cell text-right"><button class="ep-b" data-v="p" data-review="${t.id}">Review</button></td></tr>`
                 )
                 .join("")
             : emptyRow(6, "Nothing is waiting for approval.")

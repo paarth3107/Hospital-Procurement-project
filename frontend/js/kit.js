@@ -24,13 +24,13 @@ export const btn = (label, { primary = false, attrs = "" } = {}) =>
   `<button class="ep-b"${primary ? ' data-v="p"' : ""} ${attrs}>${label}</button>`;
 
 // A ruled panel with an optional header bar (title left, kicker/actions right).
-export const pane = (title, right, body, extraStyle = "") =>
-  `<div class="ep-pane" style="${extraStyle}">${
+export const pane = (title, right, body) =>
+  `<div class="ep-pane">${
     title ? `<div class="ep-pane-head"><span>${title}</span>${right ? `<span class="ep-k">${right}</span>` : ""}</div>` : ""
   }${body}</div>`;
 
 export const th = (...labels) => `<thead><tr>${labels.map((l) => `<th class="ep-th">${l}</th>`).join("")}</tr></thead>`;
-export const emptyRow = (cols, text) => `<tr><td class="ep-cell" colspan="${cols}" style="color:rgba(32,30,29,.55)">${text}</td></tr>`;
+export const emptyRow = (cols, text) => `<tr><td class="ep-cell text-ink-55" colspan="${cols}">${text}</td></tr>`;
 
 export const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : "—");
 export const fmtDateTime = (iso) =>
@@ -62,7 +62,7 @@ export function pageSlice(items, page, pageSize = PAGE_SIZE) {
 
 export function paginationBar(page, totalPages, prevId, nextId) {
   if (totalPages <= 1) return "";
-  return `<div style="display:flex;justify-content:center;align-items:center;gap:14px;padding:12px 0">
+  return `<div class="d-flex justify-center items-center gap-14px padding-12px-0">
     <button class="ep-b" id="${prevId}" ${page <= 0 ? "disabled" : ""}>‹ Previous</button>
     <span class="ep-sub">Page ${page + 1} of ${totalPages}</span>
     <button class="ep-b" id="${nextId}" ${page >= totalPages - 1 ? "disabled" : ""}>Next ›</button>

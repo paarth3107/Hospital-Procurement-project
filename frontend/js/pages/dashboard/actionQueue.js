@@ -38,10 +38,10 @@ export function actionQueue(s) {
     ? tasks
         .map(
           (t, i) => `<tr>
-            <td class="ep-cell"><div style="font-weight:600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
-            <td class="ep-cell" style="font-size:12px">${esc(t.ref)}</td>
-            <td class="ep-cell" style="font-size:12px;color:${t.hot ? "#ae1800" : "rgba(32,30,29,.7)"}">${esc(t.due)}</td>
-            <td class="ep-cell" style="text-align:right"><button class="ep-b" data-task="${i}">Open</button></td>
+            <td class="ep-cell"><div class="fw-600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
+            <td class="ep-cell fs-12px">${esc(t.ref)}</td>
+            <td class="ep-cell fs-12px ${t.hot ? "text-danger-700" : "text-ink-70"}">${esc(t.due)}</td>
+            <td class="ep-cell text-right"><button class="ep-b" data-task="${i}">Open</button></td>
           </tr>`
         )
         .join("")

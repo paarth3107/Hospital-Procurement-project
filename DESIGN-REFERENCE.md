@@ -1,61 +1,42 @@
-# Design reference — Modernist prototype (condensed)
+# Design reference — Vuexy-based system
 
-Source folder (on the user's machine, outside the repo): `C:\Users\Paart\Downloads\design_handoff_eprocurement\`
-- `prototype\E-Procurement Prototype.dc.html` — **the main file** (14 screens, all behaviour).
-- `index.html` — the developer handoff spec (rules below are from it); `README.md` — same, condensed.
-- `prototype\support.js` — runtime for the prototype only; not part of the design.
-- `prototype\_ds\modernist-*\styles.css` — the design-system tokens/components (source of truth for the look; they match the tokens below).
-- `reference\functional-specification.txt` — text of the original functional spec the prototype was built from.
+Target look: the Vuexy admin template (vertical-menu demo), adopted 2026-10-06 by user direction.
+It replaces the earlier Modernist prototype (Archivo, `#ec3013`, radius 0), which no longer applies.
 
-Where the handoff spec and the prototype disagree, the prototype is correct. Where either
-disagrees with `CLAUDE.md` / `E-Procurement-Spec-v2.md`, **ask the user** (see CLAUDE.md
-"Active Questions").
+Where this file and the code disagree, the code (`frontend/design-system.css`, `frontend/styles.css`)
+is the truth. Retune values in `design-system.css` only; `styles.css` references tokens and never
+hardcodes colour.
 
-## Tokens
-| Token | Value | Use |
-|---|---|---|
-| bg | `#f3f2f2` | page ground, input fills |
-| surface | `#eae9e9` | panels, sidebar, cards |
-| ink | `#201e1d` | body text, dark tag fills |
-| accent | `#ec3013` | primary button, L1 marker, bars |
-| accent-700 / 900 / 100 | `#ae1800` / `#7c1405` / `#ffe0d9` | accent text / text on tint / positive tag fill |
-| neutral-300 | `#d7d3d3` | Service tag, escalated |
-| strong rule | `2px solid rgba(32,30,29,.4)` | dividers, table head |
-| panel border | `1px solid rgba(32,30,29,.3)` | |
-| row rule | `1px solid rgba(32,30,29,.18)` | |
-| muted text | ink at .5–.6; secondary .65–.7 | |
-
-No green/blue anywhere. Positive = accent tint (`#ffe0d9` on `#7c1405`); terminal/negative =
-solid ink (`#201e1d` on `#f3f2f2`); neutral/in-progress = `rgba(32,30,29,.12)` on ink;
-attention = `rgba(236,48,19,.16)` on `#ae1800`; escalated = `#d7d3d3` on `#2d2b2b`.
-
-Type: Archivo only (400/600/700/800). Radius **0 everywhere**. Flush-left, never centred.
-Kicker/label: 10px/600, letter-spacing .11em, uppercase, ink .5. Table head: 10px/600, .09em,
-uppercase, on a 2px rule. Table cell 13.5px, padding 9px 10px, no zebra. Tag 10–10.5px/600
-uppercase, padding 2px 7–8px. Codes/refs in ui-monospace 12px. Button: 5px 11px, 12px/600,
-ghost = 1px ink-30% border; primary = accent fill `#f3f2f2` label; disabled = opacity .4.
-Hover: ghost `rgba(32,30,29,.09)`, primary `#dd2b0f`. Focus: 2px accent outline, 2px offset.
+## Tokens (`frontend/design-system.css`)
+- **Type:** Public Sans (400/500/600/700). Monospace `ui-monospace` for codes and refs.
+- **Radius:** 6px everywhere (`--radius`). Pills and avatars are the only round shapes.
+- **Primary:** `#7367f0` (`--primary`), hover `--primary-dark`, link hover `--primary-deep`. Labels on solid primary use `--on-solid`.
+- **Status:** danger `#ea5455` (`--danger`, tints `--danger-08/100`, text `--danger-700`); success `#28c76f` (`--success-bg`, `--success-text`); warning `#ff9f43`; info `#00cfe8`.
+- **Surfaces:** page `--page-bg`, cards `--surface`, sidebar `--sidebar-bg`, table heads `--surface-subtle`.
+- **Ink:** body text `--ink`. Every muted or rule colour is `--ink-NN` (opacity steps of `--ink-rgb`), so changing the ink base recolours all of them.
+- **Elevation:** `--card-shadow` for cards and the app bar, `--dialog-shadow` for dialogs and menus.
+- **Dark theme:** `[data-theme="dark"]` on `<html>` overrides the surface, page and ink tokens. The choice is stored per viewer in `localStorage` and applied by an inline script before first paint.
 
 ## Shell
-Sidebar 238px (`#eae9e9`, 2px right rule): brand `MEDIPROC` + kicker, role-scoped nav heading,
-flat nav list (button 9px 14px 9px 17px, 13.5px/600, 3px left border that turns accent when
-active + `rgba(236,48,19,.08)` fill + `#ae1800` label, optional right badge), identity block
-pinned at the bottom. Header: kicker (module) + 24px title on a 2px bottom rule. Content
-24px 28px, 22px gap. Panels: surface fill, 1px border, optional 2px-ruled header bar,
-optional 3px accent left border for urgency. Toast bottom-left, ink fill, 3px accent left
-border, auto-dismiss 4200ms; modal 560px, 2px ink border, scrim `rgba(45,43,43,.5)`.
+- **Sidebar** (260px, white, `#sidebar`): brand mark, section heading (role-specific), then the nav. Staff nav is grouped into collapsible sections (Vendors, Catalog, Tenders, Administration); vendor nav is flat. A group is hidden when none of its pages are visible to the role. Collapsed state is remembered per viewer.
+- **Active nav item:** purple gradient pill with white label and a soft shadow. Count badges use the danger colour, or the on-solid colour on the active item.
+- **App bar** (`#appbar`, shown only when logged in): search (Ctrl/⌘+K), dark-mode toggle, notifications bell with a dot when anything needs attention, and the account menu. Search is staff-only (`GET /api/v1/search`).
+- **Page header:** kicker and 22px title, no rule underneath. Content sits on the page background in 22px gaps.
 
-## Screens (14) — internal: dash, vendors, master, mapping, rating, create, publish, evaluate, po, overrides; vendor: vTenders, vBid, vPo, vProfile
-Key structures worth copying when building each (details in the prototype):
-- **vendors:** 340px queue list | detail (identity, KYC docs table, decision bar Approve / Reject / Request info).
-- **master:** All/Item/Asset/Service segment filter; table Code, Name+spec, Type tag, Category breadcrumb (`Cat › Sub`), type-specific attrs, price band, vendor count.
-- **mapping:** vendor × category grid, cells MAPPED / PENDING / —; click opens a detail dialog (facts, versioned history, SKUs in scope, Approve/Suspend). *(Our build currently acts directly on a cell click — pending user decision.)*
-- **rating:** weight strip (25/25/20/15/15) + 3-up scorecards with parameter bars, tiers Preferred ≥85 / Qualified ≥75 / Watch, floor 70.
-- **create:** header field grid + one panel per line item (attrs by type | mandatory attachment checklist) + gate bar.
-- **publish:** per line: filter-chain bars, excluded chips with reasons, invite list (System qualified / Manually invited / Guest invite), zero-vendor block.
-- **evaluate (centrepiece):** per-line comparative tables (L-rank, optional T-rank/tech score, vendor, rating, unit, tax, landed, total, qualification, Award), technical criteria strip, split slider (50–100 step 5, min split 30%), sticky award summary.
-- **overrides:** six-state engine strip + inbox table.
-- **vendor screens:** invitation banner + invitations table; quotation per-line panels (unit price, GST, lead time, validity, exact-match declaration + mandatory deviation reason, remark, attachments, sealed-bid submit gate); awards/POs; company profile + document vault + category chips.
+## Components (`frontend/styles.css`)
+- **Panel (`.ep-pane`):** surface, radius, card shadow. Header `.ep-pane-head` at 16px/600, body `.ep-pane-pad`.
+- **Button (`.ep-b`):** 13px/500, 1px ink border, radius. Primary is `data-v="p"`: purple fill with a soft shadow.
+- **Table:** uppercase 12px/600 header on an 18% ink rule. Rows 14px with 12% ink rules and a light hover.
+- **Pills (`.ep-tag`):** 12px/500, capitalised, tinted by `data-t` (`pos`, `att`, `neg`, `esc`, `asset`, `service`).
+- **KPI tile (`.ep-kpi`):** separate card, 28px value.
+- **Segmented control (`.ep-seg`):** grey track with a white active segment in primary text.
+- **Inputs:** `.input` from `design-system.css`, 38px min height, 6px radius, primary focus ring.
+- **Dialogs and modals:** surface, radius, dialog shadow, scrim from `--scrim`.
 
-## Prototype rules already implemented there (server-side in a real build)
-Landed = unit × (1+tax%); L-rank among Qualified only, ascending landed, tie-break higher rating; T-rank by weighted technical score, cut-off 70 (Asset) / 65 (other); split value = landed(L1)·qty·pct + landed(L2)·qty·(1−pct); non-L1 award needs an override; eligibility = Active ∩ mapping ∩ rating ≥ threshold ∩ compliance current, ordered by rating, capped at max invites; a line with zero eligible vendors is held back while other lines publish (**open question — our build blocks the whole submission**).
+## Charts
+ApexCharts, with our own data only. Colours come from the tokens above so charts follow the theme.
+
+## Not yet built (see the phase plan)
+- Icons in the sidebar and cards (Vuexy uses icon avatars on every tile).
+- Dashboard widgets and charts, and the page-by-page restyle beyond the shell.
+- Mobile sidebar drawer (the sidebar currently stacks above content below 900px).

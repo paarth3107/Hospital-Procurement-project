@@ -34,18 +34,18 @@ function render() {
     ? files
         .map(
           (f) => `<tr>
-              <td class="ep-cell"><div style="font-weight:700">${esc(f.batch_id)}</div><div class="ep-sub">tender #${f.tender_id} · ${esc(f.tender_title)}</div></td>
+              <td class="ep-cell"><div class="fw-700">${esc(f.batch_id)}</div><div class="ep-sub">tender #${f.tender_id} · ${esc(f.tender_title)}</div></td>
               <td class="ep-cell">${esc(f.vendor_name)}<div class="ep-sub">${esc(f.vendor_code)}</div></td>
-              <td class="ep-cell" style="font-size:12.5px">${f.lines} line(s)<div style="font-weight:600">${inr(f.total_incl_tax)}</div></td>
-              <td class="ep-cell" style="font-size:12.5px">${esc(f.approved_by)}<div class="ep-sub">${esc(fmtDateTime(f.generated_at))}</div></td>
-              <td class="ep-cell" style="text-align:right;white-space:nowrap">
+              <td class="ep-cell fs-12-5px">${f.lines} line(s)<div class="fw-600">${inr(f.total_incl_tax)}</div></td>
+              <td class="ep-cell fs-12-5px">${esc(f.approved_by)}<div class="ep-sub">${esc(fmtDateTime(f.generated_at))}</div></td>
+              <td class="ep-cell text-right nowrap">
                 <button class="ep-b" data-dl="${f.id}:${esc(f.batch_id)}:csv">CSV</button> <button class="ep-b" data-dl="${f.id}:${esc(f.batch_id)}:xml">XML</button>
               </td></tr>`
         )
         .join("")
     : emptyRow(5, "No PO data files yet. They are generated when an Approving Authority approves the last line of a tender.");
   root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>PO Data Files</span><span class="ep-k">${allFiles.length}</span></div>
-      <div style="padding:10px 16px" class="hint">This system's job ends at the file. Download it as CSV or XML and hand it to the ERP team. Files carry vendor GSTIN and prices, so only Procurement Admin / Category Manager can download them.</div>
+      <div class="hint padding-10px-16px">This system's job ends at the file. Download it as CSV or XML and hand it to the ERP team. Files carry vendor GSTIN and prices, so only Procurement Admin / Category Manager can download them.</div>
       <table class="ep-table">${th("Batch", "Vendor", "Value", "Approved by", "")}<tbody>${rows}</tbody></table>
       ${paginationBar(page, totalPages, "pofiles-prev", "pofiles-next")}</div>`;
   root().querySelectorAll("[data-dl]").forEach((b) => b.addEventListener("click", () => download(...b.dataset.dl.split(":").map((x, i) => (i === 0 ? Number(x) : x)))));

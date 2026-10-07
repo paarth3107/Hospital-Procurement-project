@@ -18,12 +18,12 @@ export async function renderTenderEvaluation(container, tenderId, { onBack, resu
   }
   const reload = () => renderTenderEvaluation(container, tenderId, { onBack, resultEl });
 
-  container.innerHTML = `<div style="display:flex;flex-direction:column;gap:18px">
+  container.innerHTML = `<div class="d-flex flex-col gap-18px">
     <div><button class="ep-b" id="ev-back">← All tenders</button></div>
-    <div class="ep-pane ep-pane-pad" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
-      <div style="flex:1;min-width:260px">${kicker(`Tender #${detail.tender_id} · ${detail.tender_type.toUpperCase()} · ${detail.facility_name}`)}
-        <h4 style="margin:4px 0 3px;font-size:21px">${esc(detail.tender_title)}</h4><div class="ep-sub">${detail.lines.length} line(s)</div></div>
-      <div>${kicker("Bids close")}<div style="font-weight:700;margin-top:3px">${esc(fmtDateTime(detail.bid_due_date))}</div></div>
+    <div class="ep-pane ep-pane-pad d-flex gap-24px items-center flex-wrap">
+      <div class="flex-1 minw-260px">${kicker(`Tender #${detail.tender_id} · ${detail.tender_type.toUpperCase()} · ${detail.facility_name}`)}
+        <h4 class="margin-4px-0-3px fs-21px">${esc(detail.tender_title)}</h4><div class="ep-sub">${detail.lines.length} line(s)</div></div>
+      <div>${kicker("Bids close")}<div class="fw-700 mt-3px">${esc(fmtDateTime(detail.bid_due_date))}</div></div>
     </div>
     ${detail.lines.map((l) => `<div class="ep-pane" data-line-block="${l.summary.line_item_id}">${lineBlockHtml(l)}</div>`).join("")}
   </div>`;

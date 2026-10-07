@@ -78,6 +78,7 @@ class TenderCreate(BaseModel):
     min_rating_threshold: float = 0.0
     min_invites: int | None = None
     max_invites: int | None = None
+    open_tender: bool = False
     publish_date: datetime | None = None
     bid_due_date: datetime | None = None
     terms_and_conditions: str | None = None
@@ -95,6 +96,8 @@ class TenderOut(BaseModel):
     min_rating_threshold: float
     min_invites: int | None
     max_invites: int | None
+    open_tender: bool
+    open_link_token: str | None = None  # staff only: the Open Tender registration link
     publish_date: datetime | None
     bid_due_date: datetime | None
     terms_and_conditions: str | None
@@ -141,6 +144,50 @@ class EligibleVendorOut(BaseModel):
     vendor_id: int
     legal_name: str
     rating_score: float
+    source: str = "system"  # system | open | guest
+    reason: str | None = None  # guest invites only
+
+
+def _clean_reason(v: str, what: str) -> str:
+    v = v.strip()
+    if not v:
+        raise ValueError(f"A reason is required to {what}")
+    if len(v) > 500:
+        raise ValueError("Keep the reason to 500 characters")
+    return v
+
+
+class GuestInviteCreate(BaseModel):
+    vendor_id: int
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_required(cls, v: str) -> str:
+        return _clean_reason(v, "invite a vendor outside the eligibility rules")
+
+
+class VendorRemovalCreate(BaseModel):
+    vendor_ids: list[int]
+    reason: str
+
+    @field_validator("vendor_ids")
+    @classmethod
+    def at_least_one(cls, v: list[int]) -> list[int]:
+        if not v:
+            raise ValueError("Choose at least one vendor to remove")
+        return sorted(set(v))
+
+    @field_validator("reason")
+    @classmethod
+    def reason_required(cls, v: str) -> str:
+        return _clean_reason(v, "remove a vendor from this line")
+
+
+class ExcludedVendorOut(BaseModel):
+    vendor_id: int
+    legal_name: str
+    reason: str
 
 
 class LineItemEligibilityOut(BaseModel):
@@ -149,6 +196,7 @@ class LineItemEligibilityOut(BaseModel):
     product_master_id: int
     threshold_applied: float
     eligible_vendors: list[EligibleVendorOut]
+    removed_vendors: list[ExcludedVendorOut] = []
 
 
 class ApprovalRoundOut(BaseModel):
@@ -171,6 +219,7 @@ class TenderInviteOut(BaseModel):
     vendor_id: int
     source: str
     rating_at_resolution: float
+    reason: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
