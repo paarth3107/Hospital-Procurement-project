@@ -59,6 +59,8 @@ function updateGate() {
   if (!form.elements.facility_id.value) problem = ["Facility missing", "Select a facility before sending it for approval."];
   else if (!form.elements.title.value.trim()) problem = ["Title missing", "Give the tender a title before sending it for approval."];
   else if (!form.elements.bid_due_date.value) problem = ["Bid due date missing", "A bid due date is required before the tender can be sent for approval."];
+  else if (form.elements.is_rate_contract.checked && (!form.elements.contract_start_date.value || !form.elements.contract_end_date.value))
+    problem = ["Contract dates missing", "A rate contract needs both a contract start and end date before it can be sent for approval."];
   else if (rows.length === 0) problem = ["No line items", "Add at least one line item."];
   else if (firstRowProblem()) problem = ["Line item incomplete", firstRowProblem()];
   bar.style.borderLeftColor = problem ? "#ec3013" : "#201e1d";
@@ -117,6 +119,10 @@ export async function openTenderForm(tender) {
     el.open_tender.checked = !!tender.open_tender;
     syncOpenTender();
     renderOpenLink(tender);
+    el.is_rate_contract.checked = !!tender.is_rate_contract;
+    el.contract_start_date.value = tender.contract_start_date || "";
+    el.contract_end_date.value = tender.contract_end_date || "";
+    syncRateContract();
     el.terms_and_conditions.value = tender.terms_and_conditions || "";
     el.bid_due_date.value = tender.bid_due_date ? toLocalInputValue(tender.bid_due_date) : "";
     el.publish_date.value = tender.publish_date ? toLocalInputValue(tender.publish_date) : "";
@@ -127,6 +133,7 @@ export async function openTenderForm(tender) {
     startWithOneBlankRow();
     hideTenderDetail();
     renderOpenLink(null);
+    syncRateContract();
   }
 
   document.getElementById("tender-form-title").textContent = tender ? `Tender #${tender.id}` : "Tender header";
@@ -201,6 +208,10 @@ function buildPayload() {
     min_invites: data.min_invites ? Number(data.min_invites) : null,
     max_invites: data.max_invites ? Number(data.max_invites) : null,
     open_tender: data.open_tender === "on",
+    is_rate_contract: data.is_rate_contract === "on",
+    // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
+    contract_start_date: data.is_rate_contract === "on" ? data.contract_start_date || null : null,
+    contract_end_date: data.is_rate_contract === "on" ? data.contract_end_date || null : null,
     terms_and_conditions: data.terms_and_conditions?.trim() || null,
     publish_date: data.publish_date ? new Date(data.publish_date).toISOString() : null,
     bid_due_date: data.bid_due_date ? new Date(data.bid_due_date).toISOString() : null,
@@ -222,6 +233,8 @@ function submitProblem() {
   if (!form.elements.facility_id.value) return "Select a facility before submitting for approval.";
   if (!form.elements.title.value.trim()) return "Give the tender a title before submitting for approval.";
   if (!form.elements.bid_due_date.value) return "Bid Due Date is required to submit for approval.";
+  if (form.elements.is_rate_contract.checked && (!form.elements.contract_start_date.value || !form.elements.contract_end_date.value))
+    return "A rate contract needs both a contract start and end date before it can be submitted for approval.";
   if (getRows().length === 0) return "Add at least one line item to submit for approval.";
   return null;
 }
@@ -311,3 +324,13 @@ function syncOpenTender() {
   if (!openTenderBox.checked) renderOpenLink(null);
 }
 openTenderBox.addEventListener("change", syncOpenTender);
+
+// Rate contract (2026-10-07): the contract start/end date fields only matter,
+// and only show, while the flag is on.
+const rateContractBox = document.querySelector('#tender-form [name="is_rate_contract"]');
+function syncRateContract() {
+  const show = rateContractBox.checked;
+  document.getElementById("rate-contract-start-field").hidden = !show;
+  document.getElementById("rate-contract-end-field").hidden = !show;
+}
+rateContractBox.addEventListener("change", syncRateContract);

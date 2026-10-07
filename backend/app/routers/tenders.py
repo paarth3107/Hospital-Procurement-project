@@ -641,6 +641,8 @@ def submit_for_approval(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A tender needs at least one line item before submission")
     if not tender.bid_due_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be set before submission")
+    if tender.is_rate_contract and (not tender.contract_start_date or not tender.contract_end_date):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract start and end dates must be set before submission")
 
     # qty/QCBS-weights are optional at draft-save time (schemas/tender.py) so
     # a line can be saved -- and have documents attached -- as soon as it

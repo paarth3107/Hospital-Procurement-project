@@ -271,10 +271,11 @@
                 <option value="rfq">RFQ — price only</option>
                 <option value="rfp">RFP — technical + commercial</option>
               </select></div>
-            <div class="ep-field">
-              <label class="ep-check"><input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle"> Rate contract</label>
-              <div class="hint mt-4px">Not wired up yet.</div>
-            </div>
+            <div class="ep-field"><div class="ep-k">Rate contract</div>
+              <label class="ep-check ep-check-field"><input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle"> The vendor supplies at this price for a fixed period</label>
+              <div class="hint mt-4px">Adds a contract start and end date below.</div></div>
+            <div class="ep-field" id="rate-contract-start-field" hidden><div class="ep-k">Contract start date</div><input class="input" name="contract_start_date" type="date"></div>
+            <div class="ep-field" id="rate-contract-end-field" hidden><div class="ep-k">Contract end date</div><input class="input" name="contract_end_date" type="date"></div>
             <div class="ep-field"><div class="ep-k">Department</div><input class="input" name="department"></div>
             <div class="ep-field"><div class="ep-k">Publish date (optional)</div><input class="input" name="publish_date" type="datetime-local"></div>
             <div class="ep-field"><div class="ep-k">Bid due date</div><input class="input" name="bid_due_date" type="datetime-local"></div>

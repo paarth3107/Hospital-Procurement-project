@@ -1,19 +1,20 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, false, func
+from sqlalchemy import Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, false, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
 class TenderType(str, enum.Enum):
-    """Spec §6.2. Open Tender is not a type: it is the `open_tender` flag on a
-    tender (2026-10-06), because it changes who is invited, not how the
-    tender runs."""
+    """Spec §6.2. Neither Open Tender nor Rate Contract is a type here: each is
+    a flag on a tender (`open_tender` 2026-10-06, `is_rate_contract` 2026-10-07),
+    because each changes one thing about how the tender runs -- who's invited,
+    or how long the agreed price binds -- not RFQ/RFP's actual difference
+    (price-only vs technical + commercial)."""
 
     RFQ = "rfq"
     RFP = "rfp"
-    RATE_CONTRACT = "rate_contract"
 
 
 class TenderStatus(str, enum.Enum):
@@ -58,6 +59,14 @@ class Tender(Base):
     open_tender = Column(Boolean, nullable=False, default=False, server_default=false())
     # The link a new vendor registers through to bid on this Open Tender (2026-10-06).
     open_link_token = Column(String, unique=True, nullable=True)
+    # Rate Contract (2026-10-07): the vendor who wins a line commits to supply at
+    # that price for this window, and the hospital buys against it for that long
+    # -- a flag, not a tender type, same reasoning as open_tender above. Both
+    # dates are required before submission (tenders.py), same split as
+    # facility_id/title: a Draft tolerates them unset.
+    is_rate_contract = Column(Boolean, nullable=False, default=False, server_default=false())
+    contract_start_date = Column(Date, nullable=True)
+    contract_end_date = Column(Date, nullable=True)
 
     publish_date = Column(DateTime(timezone=True), nullable=True)
     bid_due_date = Column(DateTime(timezone=True), nullable=True)

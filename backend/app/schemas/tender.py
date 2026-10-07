@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -79,10 +79,22 @@ class TenderCreate(BaseModel):
     min_invites: int | None = None
     max_invites: int | None = None
     open_tender: bool = False
+    is_rate_contract: bool = False
+    contract_start_date: date | None = None
+    contract_end_date: date | None = None
     publish_date: datetime | None = None
     bid_due_date: datetime | None = None
     terms_and_conditions: str | None = None
     line_items: list[LineItemCreate] = []
+
+    @model_validator(mode="after")
+    def contract_dates_ordered(self):
+        # Required-together is enforced at submit-for-approval (tenders.py), same
+        # split as facility_id/title -- a Draft tolerates either being unset. This
+        # only rejects a pair that's already self-contradictory.
+        if self.contract_start_date and self.contract_end_date and self.contract_end_date <= self.contract_start_date:
+            raise ValueError("Contract end date must be after the start date")
+        return self
 
 
 class TenderOut(BaseModel):
@@ -98,6 +110,9 @@ class TenderOut(BaseModel):
     max_invites: int | None
     open_tender: bool
     open_link_token: str | None = None  # staff only: the Open Tender registration link
+    is_rate_contract: bool
+    contract_start_date: date | None
+    contract_end_date: date | None
     publish_date: datetime | None
     bid_due_date: datetime | None
     terms_and_conditions: str | None

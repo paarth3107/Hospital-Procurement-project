@@ -12,7 +12,7 @@ const root = () => document.getElementById("tender-list-root");
 const resultEl = () => document.getElementById("tender-list-result");
 const editResultEl = () => document.getElementById("tender-result");
 
-const TYPE_LABEL = { rfq: "RFQ", rfp: "RFP", rate_contract: "Rate contract" };
+const TYPE_LABEL = { rfq: "RFQ", rfp: "RFP" };
 
 // Awarded / No award are done -- nothing left to act on. Kept out of the
 // list by default (they pile up forever otherwise); a checkbox reveals them
@@ -43,7 +43,7 @@ function render() {
               (t) => `<tr>
                 <td class="ep-cell ep-mono fs-12px">#${t.id}</td>
                 <td class="ep-cell"><div class="fw-600">${esc(t.title)}</div><div class="ep-sub">${esc(t.department || "")}</div></td>
-                <td class="ep-cell">${tag(TYPE_LABEL[t.tender_type] || t.tender_type, "esc")}</td>
+                <td class="ep-cell">${tag(TYPE_LABEL[t.tender_type] || t.tender_type, "esc")}${t.is_rate_contract ? " " + tag("Rate contract", "att") : ""}</td>
                 <td class="ep-cell">${stateTag(t.status)}</td>
                 <td class="ep-cell fs-12-5px">${fmtDateTime(t.bid_due_date)}</td>
                 <td class="ep-cell">${t.round_number}</td>
