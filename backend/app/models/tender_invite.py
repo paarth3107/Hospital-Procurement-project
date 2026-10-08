@@ -1,7 +1,7 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class TenderInvite(Base):
@@ -17,11 +17,11 @@ class TenderInvite(Base):
     id = Column(Integer, primary_key=True)
     tender_line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
-    source = Column(String, nullable=False, default="system")
+    source = Column(String(255), nullable=False, default="system")
     rating_at_resolution = Column(Float, nullable=False)
     # Required for source == "guest": why an officer invited a vendor the rules didn't select.
     reason = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     line_item = relationship("TenderLineItem", back_populates="invites")
     vendor = relationship("Vendor")

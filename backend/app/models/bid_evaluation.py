@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import JSON, Column, DateTime, Enum, Float, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Column, Enum, Float, ForeignKey, Integer, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class TechnicalDecision(str, enum.Enum):
@@ -27,8 +27,8 @@ class BidEvaluation(Base):
     scores = Column(JSON, nullable=False, default=dict)  # criterion -> 0..100 (scored lines only)
     weighted_score = Column(Float, nullable=True)  # this evaluator's weighted total (scored lines only)
     comments = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
 
     bid = relationship("Bid", backref="evaluations")
     evaluator = relationship("UserAccount")
@@ -48,7 +48,7 @@ class BidTechnicalResult(Base):
     consolidated_score = Column(Float, nullable=True)
     t_rank = Column(Integer, nullable=True)
     reason = Column(Text, nullable=True)
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
+    recorded_at = Column(UTCDateTime(), server_default=func.now())
 
     bid = relationship("Bid", backref="technical_result", uselist=False)
 
@@ -64,4 +64,4 @@ class BidAttachmentView(Base):
     id = Column(Integer, primary_key=True)
     attachment_id = Column(Integer, ForeignKey("bid_attachments.id"), nullable=False, index=True)
     viewer_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False)
-    viewed_at = Column(DateTime(timezone=True), server_default=func.now())
+    viewed_at = Column(UTCDateTime(), server_default=func.now())

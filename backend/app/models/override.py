@@ -1,9 +1,8 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, String, Text, func
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 from app.models.user_account import Role
 
 
@@ -94,28 +93,28 @@ class OverrideRequest(Base):
     id = Column(Integer, primary_key=True)
     override_type = Column(Enum(OverrideType), nullable=False, index=True)
 
-    entity_type = Column(String, nullable=False)
+    entity_type = Column(String(255), nullable=False)
     entity_id = Column(Integer, nullable=True)
-    entity_label = Column(String, nullable=True)
+    entity_label = Column(String(255), nullable=True)
     facility_id = Column(Integer, ForeignKey("facilities.id"), nullable=True)
 
     initiator_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False)
     initiator_role = Column(Enum(Role), nullable=False)
 
-    reason_code = Column(String, nullable=False)
+    reason_code = Column(String(255), nullable=False)
     justification = Column(Text, nullable=False)
     # Free-form before/after the requester is asking to apply -- display/
     # record-keeping only in this pass (see class docstring).
-    proposed_change = Column(JSONB, nullable=True)
+    proposed_change = Column(JSON, nullable=True)
 
     status = Column(Enum(OverrideStatus), nullable=False, default=OverrideStatus.PENDING_APPROVAL, index=True)
     escalation_level = Column(Integer, nullable=False, default=0)
     required_approver_role = Column(Enum(Role), nullable=True)
     required_approver_min_tier = Column(Integer, nullable=True)
-    sla_due_at = Column(DateTime(timezone=True), nullable=True)
+    sla_due_at = Column(UTCDateTime(), nullable=True)
 
     decided_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decided_at = Column(UTCDateTime(), nullable=True)
     decision_reason = Column(Text, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(UTCDateTime(), server_default=func.now(), nullable=False)

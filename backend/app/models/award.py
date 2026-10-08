@@ -1,7 +1,7 @@
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 # Round status
 DRAFT, PENDING, APPROVED, REJECTED = "draft", "pending", "approved", "rejected"
@@ -28,8 +28,8 @@ class AwardRound(Base):
     id = Column(Integer, primary_key=True)
     line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False, index=True)
     round_number = Column(Integer, nullable=False)
-    status = Column(String, nullable=False, default=DRAFT)
-    kind = Column(String, nullable=False, default=AWARD)  # award | exclude (line left out of the award)
+    status = Column(String(255), nullable=False, default=DRAFT)
+    kind = Column(String(255), nullable=False, default=AWARD)  # award | exclude (line left out of the award)
 
     # What the system ranked first (L1, or C1 on QCBS lines) when the Officer recommended.
     system_top_bid_id = Column(Integer, ForeignKey("bids.id"), nullable=True)
@@ -38,15 +38,15 @@ class AwardRound(Base):
     is_override = Column(Boolean, nullable=False, default=False)
     officer_reason = Column(Text, nullable=True)
     recommended_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    recommended_at = Column(DateTime(timezone=True), server_default=func.now())
+    recommended_at = Column(UTCDateTime(), server_default=func.now())
 
-    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    submitted_at = Column(UTCDateTime(), nullable=True)
     required_tier = Column(Integer, nullable=True)  # resolved from the award value at submission
     award_value = Column(Float, nullable=True)
 
-    decision_kind = Column(String, nullable=True)
+    decision_kind = Column(String(255), nullable=True)
     decided_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decided_at = Column(UTCDateTime(), nullable=True)
     decision_comments = Column(Text, nullable=True)
 
     line_item = relationship("TenderLineItem")
@@ -66,7 +66,7 @@ class AwardAllocation(Base):
     round_id = Column(Integer, ForeignKey("award_rounds.id"), nullable=False, index=True)
     bid_id = Column(Integer, ForeignKey("bids.id"), nullable=False)
     share_pct = Column(Float, nullable=False)
-    stage = Column(String, nullable=False, default=PROPOSED)
+    stage = Column(String(255), nullable=False, default=PROPOSED)
 
     round = relationship("AwardRound", back_populates="allocations")
     bid = relationship("Bid")
@@ -85,18 +85,18 @@ class PoDataFile(Base):
     __tablename__ = "po_data_files"
 
     id = Column(Integer, primary_key=True)
-    batch_id = Column(String, nullable=False, unique=True)
+    batch_id = Column(String(255), nullable=False, unique=True)
     tender_id = Column(Integer, ForeignKey("tenders.id"), nullable=False, index=True)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
     version = Column(Integer, nullable=False, default=1)
-    status = Column(String, nullable=False, default="pending_upload")  # pending_upload | imported | import_failed | superseded
+    status = Column(String(255), nullable=False, default="pending_upload")  # pending_upload | imported | import_failed | superseded
     payload = Column(JSON, nullable=False)
-    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    generated_at = Column(UTCDateTime(), server_default=func.now())
     generated_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)  # the approving authority
     supersedes_id = Column(Integer, ForeignKey("po_data_files.id"), nullable=True)
-    erp_po_number = Column(String, nullable=True)
+    erp_po_number = Column(String(255), nullable=True)
     status_reason = Column(Text, nullable=True)  # ERP rejection reason, or the re-export reason
-    status_changed_at = Column(DateTime(timezone=True), nullable=True)
+    status_changed_at = Column(UTCDateTime(), nullable=True)
     status_changed_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
     tender = relationship("Tender")
@@ -113,10 +113,10 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
-    kind = Column(String, nullable=False)  # awarded | regret | technical_disqualified
-    title = Column(String, nullable=False)
+    kind = Column(String(255), nullable=False)  # awarded | regret | technical_disqualified
+    title = Column(String(255), nullable=False)
     body = Column(Text, nullable=False)
     tender_id = Column(Integer, ForeignKey("tenders.id"), nullable=True)
     data = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    read_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    read_at = Column(UTCDateTime(), nullable=True)

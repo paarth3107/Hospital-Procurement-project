@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class BidStatus(str, enum.Enum):
@@ -57,7 +57,7 @@ class Bid(Base):
     # tickbox plus, only when unticked, the specific deviations from the spec).
     compliant_full = Column(Boolean, nullable=False, default=False)  # vendor confirms full compliance, no deviations
     technical_compliance = Column(Text, nullable=True)  # deviations / what is not compliant, when compliant_full is False
-    brand_offered = Column(String, nullable=True)
+    brand_offered = Column(String(255), nullable=True)
     # Type-specific answers (shelf life for Items, warranty/installation/
     # training/spares for Assets, method statement/manpower/SLA for Services);
     # validated per procurement type in app/schemas/bid.py.
@@ -68,11 +68,11 @@ class Bid(Base):
     # fixed fields above don't cover.
     comments = Column(Text, nullable=True)
 
-    submitted_at = Column(DateTime(timezone=True), nullable=True)  # first submission (tie-break, spec §9.3)
-    amended_at = Column(DateTime(timezone=True), nullable=True)
-    withdrawn_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    submitted_at = Column(UTCDateTime(), nullable=True)  # first submission (tie-break, spec §9.3)
+    amended_at = Column(UTCDateTime(), nullable=True)
+    withdrawn_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
 
     line_item = relationship("TenderLineItem")
     vendor = relationship("Vendor")
@@ -85,12 +85,12 @@ class BidAttachment(Base):
     id = Column(Integer, primary_key=True)
     bid_id = Column(Integer, ForeignKey("bids.id"), nullable=False, index=True)
     kind = Column(Enum(BidAttachmentKind), nullable=False)
-    description = Column(String, nullable=True)
+    description = Column(String(255), nullable=True)
 
-    original_filename = Column(String, nullable=False)
-    content_type = Column(String, nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    content_type = Column(String(255), nullable=False)
     size_bytes = Column(Integer, nullable=False)
     content = Column(LargeBinary, nullable=False)
-    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    uploaded_at = Column(UTCDateTime(), server_default=func.now())
 
     bid = relationship("Bid", back_populates="attachments")

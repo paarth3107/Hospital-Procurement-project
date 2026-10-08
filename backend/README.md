@@ -36,6 +36,38 @@ Apply migrations:
 python -m alembic upgrade head
 ```
 
+### MySQL (2026-10-08 port)
+
+`DATABASE_URL` also accepts a MySQL instance:
+
+```
+DATABASE_URL=mysql+pymysql://user:password@host:3306/hospital_procurement?charset=utf8mb4
+```
+
+The existing 37 migrations are Postgres-specific history (enum `ALTER TYPE`
+statements, the audit_log trigger written in PL/pgSQL, a couple of one-time
+data-fix statements) and only replay cleanly against Postgres. For a
+**fresh MySQL database**, skip `alembic upgrade head` and instead build the
+schema straight from the current models, then sync Alembic's own bookkeeping
+to match so every migration written *from this point on* still applies to
+either dialect normally:
+
+```bash
+python -m app.init_db
+python -m alembic stamp head
+```
+
+`app/init_db.py` also creates the audit_log immutability trigger for
+whichever dialect it's run against. One real gap on MySQL: triggers never
+fire on `TRUNCATE` there (it's DDL, not DML, unlike Postgres) — if that
+guarantee needs to hold, revoke `DROP` on `audit_log` from the app's own DB
+user at the GRANT level instead; `init_db.py` prints this reminder when it
+runs against MySQL.
+
+Going forward, new migrations should stay dialect-portable (no raw
+Postgres-only SQL) so they keep applying to both Postgres and MySQL the same
+way these don't.
+
 Seed a facility, a Procurement Admin login, and one demo login per other
 staff role (for exercising the role-scoped frontend nav locally):
 

@@ -2,10 +2,10 @@ import enum
 
 from datetime import date, timedelta
 
-from sqlalchemy import Column, Date, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import Column, Date, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class VendorStatus(str, enum.Enum):
@@ -28,9 +28,9 @@ class Vendor(Base):
     id = Column(Integer, primary_key=True)
     status = Column(Enum(VendorStatus), nullable=False, default=VendorStatus.PENDING_VERIFICATION)
 
-    legal_name = Column(String, nullable=False)
-    gstin = Column(String, nullable=False, unique=True, index=True)
-    pan = Column(String, nullable=True, unique=True)
+    legal_name = Column(String(255), nullable=False)
+    gstin = Column(String(255), nullable=False, unique=True, index=True)
+    pan = Column(String(255), nullable=True, unique=True)
     # Set when the vendor registered through an Open Tender link, so the tender stays
     # listed for them and they are invited to it on approval.
     registered_via_tender_id = Column(Integer, ForeignKey("tenders.id"), nullable=True)
@@ -38,53 +38,53 @@ class Vendor(Base):
     # Spec 3.2 Company Details. Columns are nullable only because vendors
     # registered before these fields existed have no values; registration
     # itself requires them.
-    trade_name = Column(String, nullable=True)
-    entity_type = Column(String, nullable=True)
+    trade_name = Column(String(255), nullable=True)
+    entity_type = Column(String(255), nullable=True)
     year_of_incorporation = Column(Integer, nullable=True)
     registered_address = Column(Text, nullable=True)
     # Structured, not folded into registered_address's free text (2026-10-01):
     # a vendor's city/state are how staff will eventually filter/report on
     # "vendors in a location" -- unusable as buried text inside an address line.
-    city = Column(String, nullable=True)
-    state = Column(String, nullable=True)
-    pincode = Column(String, nullable=True)
+    city = Column(String(255), nullable=True)
+    state = Column(String(255), nullable=True)
+    pincode = Column(String(255), nullable=True)
     branch_locations = Column(Text, nullable=True)
     # Both optional, user-directed additions (2026-09-29): a second/alternate
     # address (correspondence, billing...) distinct from the registered
     # address, and the vendor's website.
     alternate_address = Column(Text, nullable=True)
-    website = Column(String, nullable=True)
+    website = Column(String(255), nullable=True)
 
     # Spec 3.2 Banking Details (the cancelled cheque / bank letter is a document).
-    bank_name = Column(String, nullable=True)
-    bank_account_number = Column(String, nullable=True)
-    bank_ifsc = Column(String, nullable=True)
+    bank_name = Column(String(255), nullable=True)
+    bank_account_number = Column(String(255), nullable=True)
+    bank_ifsc = Column(String(255), nullable=True)
 
     # Spec 3.2 Contact Details beyond the primary contact.
-    contact_designation = Column(String, nullable=True)
-    escalation_contact_name = Column(String, nullable=True)
-    escalation_contact_phone = Column(String, nullable=True)
-    escalation_contact_email = Column(String, nullable=True)
+    contact_designation = Column(String(255), nullable=True)
+    escalation_contact_name = Column(String(255), nullable=True)
+    escalation_contact_phone = Column(String(255), nullable=True)
+    escalation_contact_email = Column(String(255), nullable=True)
 
     # Spec 3.2 Commercial Terms (optional).
-    payment_terms = Column(String, nullable=True)
+    payment_terms = Column(String(255), nullable=True)
     delivery_lead_time_days = Column(Integer, nullable=True)
     min_order_value = Column(Float, nullable=True)
 
-    contact_person = Column(String, nullable=False)
+    contact_person = Column(String(255), nullable=False)
     # Unique like GSTIN: email is the vendor's login, and phone/PAN must
     # not be shared between two registrations (spec 3.5 duplicate check).
-    email = Column(String, nullable=False, unique=True)
-    phone = Column(String, nullable=True, unique=True)
+    email = Column(String(255), nullable=False, unique=True)
+    phone = Column(String(255), nullable=True, unique=True)
 
     # Set at registration (schemas/vendor.py's VendorCreate.password) so a
     # vendor can log in immediately and check status -- there's no email/SMS
     # adapter built yet to deliver a temp password later, so "set your own at
     # registration" is the only path that doesn't need one. Nullable only
     # for rows that predate this column; every new registration sets it.
-    hashed_password = Column(String, nullable=True)
+    hashed_password = Column(String(255), nullable=True)
 
-    category_declaration = Column(String, nullable=True)  # comma-separated for this first pass
+    category_declaration = Column(String(255), nullable=True)  # comma-separated for this first pass
 
     # Reused for both terminal Rejected and Info Requested -- either way
     # it's "the explanation for the vendor's current non-Active status",
@@ -92,8 +92,8 @@ class Vendor(Base):
     # gaining its own reason.
     rejection_reason = Column(Text, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    decided_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    decided_at = Column(UTCDateTime(), nullable=True)
     decided_by_id = Column(Integer, nullable=True)  # FK to user_accounts.id once approval history needs it
 
     documents = relationship("VendorDocument", back_populates="vendor", cascade="all, delete-orphan")
@@ -200,19 +200,19 @@ class VendorDocument(Base):
     doc_type = Column(Enum(VendorDocType), nullable=False)
     # Only for doc_type OTHER: what the document is (empty string otherwise,
     # so the unique constraint above treats standard types as one per vendor).
-    custom_label = Column(String, nullable=False, default="")
+    custom_label = Column(String(255), nullable=False, default="")
 
-    original_filename = Column(String, nullable=False)
-    content_type = Column(String, nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    content_type = Column(String(255), nullable=False)
     size_bytes = Column(Integer, nullable=False)
     content = Column(LargeBinary, nullable=False)
 
     status = Column(Enum(DocumentStatus), nullable=False, default=DocumentStatus.PENDING)
     rejection_reason = Column(Text, nullable=True)
     reviewed_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_at = Column(UTCDateTime(), nullable=True)
 
-    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    uploaded_at = Column(UTCDateTime(), server_default=func.now())
 
     # Spec 3.5: statutory documents carry expiry dates. Optional per document
     # (a GST certificate doesn't expire; a licence does).
@@ -253,4 +253,4 @@ class VendorStatusHistory(Base):
     to_status = Column(Enum(VendorStatus), nullable=False)
     reason = Column(Text, nullable=True)
     actor_id = Column(Integer, nullable=True)  # user_accounts.id; null = system / the vendor's own registration
-    at = Column(DateTime(timezone=True), server_default=func.now())
+    at = Column(UTCDateTime(), server_default=func.now())

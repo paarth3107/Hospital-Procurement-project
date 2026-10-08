@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class ProcurementType(str, enum.Enum):
@@ -26,14 +26,14 @@ class ProductCategory(Base):
     __table_args__ = (UniqueConstraint("name", "procurement_type", name="uq_category_name_type"),)
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    name = Column(String(255), nullable=False)
     procurement_type = Column(Enum(ProcurementType), nullable=False)
     min_mapping_rating = Column(Float, nullable=True)
     # Vendor documents a vendor must supply to be mapped to this category
     # (VendorDocType values, e.g. ["iso_certificate"]).
     required_documents = Column(JSON, nullable=False, default=list)
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     products = relationship("ProductMaster", back_populates="category_ref")
     sub_categories = relationship("ProductSubCategory", back_populates="category_ref")
@@ -51,10 +51,10 @@ class ProductSubCategory(Base):
     __table_args__ = (UniqueConstraint("name", "category_id", name="uq_subcategory_name_category"),)
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    name = Column(String(255), nullable=False)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=False)
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     category_ref = relationship("ProductCategory", back_populates="sub_categories")
     products = relationship("ProductMaster", back_populates="sub_category_ref")
@@ -64,9 +64,9 @@ class ProductMaster(Base):
     __tablename__ = "product_master"
 
     id = Column(Integer, primary_key=True)
-    code = Column(String, nullable=False, unique=True, index=True)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    code = Column(String(255), nullable=False, unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
     procurement_type = Column(Enum(ProcurementType), nullable=False)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=False)
     sub_category_id = Column(Integer, ForeignKey("product_sub_categories.id"), nullable=True)
@@ -74,8 +74,8 @@ class ProductMaster(Base):
     # Spec §4.2 core details. All optional -- whoever creates an entry picks
     # which of these apply to it (some items need a regulatory class or a
     # brand restriction, others don't).
-    unit_of_measure = Column(String, nullable=True)
-    regulatory_class = Column(String, nullable=True)
+    unit_of_measure = Column(String(255), nullable=True)
+    regulatory_class = Column(String(255), nullable=True)
     approved_brands = Column(JSON, nullable=False, default=list)
     reorder_level = Column(Float, nullable=True)
     price_band_min = Column(Float, nullable=True)
@@ -97,7 +97,7 @@ class ProductMaster(Base):
     type_specific_attrs = Column(JSON, nullable=False, default=dict)
 
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     category_ref = relationship("ProductCategory", back_populates="products")
     sub_category_ref = relationship("ProductSubCategory", back_populates="products")

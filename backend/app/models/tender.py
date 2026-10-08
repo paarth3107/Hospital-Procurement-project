@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, false, func
+from sqlalchemy import Boolean, Column, Date, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, false, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class TenderType(str, enum.Enum):
@@ -40,12 +40,12 @@ class Tender(Base):
     # everything downstream of that point (approval matrix, PO facility
     # code) genuinely needs a real one.
     facility_id = Column(Integer, ForeignKey("facilities.id"), nullable=True)
-    title = Column(String, nullable=False)
+    title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     tender_type = Column(Enum(TenderType), nullable=False)
     status = Column(Enum(TenderStatus), nullable=False, default=TenderStatus.DRAFT)
-    department = Column(String, nullable=True)
-    awarded_at = Column(DateTime(timezone=True), nullable=True)
+    department = Column(String(255), nullable=True)
+    awarded_at = Column(UTCDateTime(), nullable=True)
     # Spec §6.2: payment terms, delivery terms, penalty clauses, validity period.
     # A mandatory uploaded document (2026-10-07, user-directed), not free text --
     # vendors and approvers read the actual document rather than a typed summary.
@@ -53,11 +53,11 @@ class Tender(Base):
     # Draft tolerates it unset. Uploading again replaces whatever was there, so
     # there's only ever one -- one row embedded on Tender, not a child table,
     # since a tender never has more than one.
-    terms_document_filename = Column(String, nullable=True)
-    terms_document_content_type = Column(String, nullable=True)
+    terms_document_filename = Column(String(255), nullable=True)
+    terms_document_content_type = Column(String(255), nullable=True)
     terms_document_size = Column(Integer, nullable=True)
     terms_document_content = Column(LargeBinary, nullable=True)
-    terms_document_uploaded_at = Column(DateTime(timezone=True), nullable=True)
+    terms_document_uploaded_at = Column(UTCDateTime(), nullable=True)
     terms_document_uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
     # Spec §6.2 — tender-wide defaults, overridable per line item.
@@ -68,7 +68,7 @@ class Tender(Base):
     # rating filter and no cap. Activation status is still required.
     open_tender = Column(Boolean, nullable=False, default=False, server_default=false())
     # The link a new vendor registers through to bid on this Open Tender (2026-10-06).
-    open_link_token = Column(String, unique=True, nullable=True)
+    open_link_token = Column(String(255), unique=True, nullable=True)
     # Rate Contract (2026-10-07): the vendor who wins a line commits to supply at
     # that price for this window, and the hospital buys against it for that long
     # -- a flag, not a tender type, same reasoning as open_tender above. Both
@@ -80,16 +80,16 @@ class Tender(Base):
     # The signed rate contract agreement document (2026-10-07, user-directed) --
     # same single-document pattern as terms_document_* above. Required before
     # submission only when is_rate_contract is set (tenders.py).
-    rate_contract_document_filename = Column(String, nullable=True)
-    rate_contract_document_content_type = Column(String, nullable=True)
+    rate_contract_document_filename = Column(String(255), nullable=True)
+    rate_contract_document_content_type = Column(String(255), nullable=True)
     rate_contract_document_size = Column(Integer, nullable=True)
     rate_contract_document_content = Column(LargeBinary, nullable=True)
-    rate_contract_document_uploaded_at = Column(DateTime(timezone=True), nullable=True)
+    rate_contract_document_uploaded_at = Column(UTCDateTime(), nullable=True)
     rate_contract_document_uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
-    publish_date = Column(DateTime(timezone=True), nullable=True)
-    bid_due_date = Column(DateTime(timezone=True), nullable=True)
-    published_at = Column(DateTime(timezone=True), nullable=True)
+    publish_date = Column(UTCDateTime(), nullable=True)
+    bid_due_date = Column(UTCDateTime(), nullable=True)
+    published_at = Column(UTCDateTime(), nullable=True)
 
     # Spec §7.3 — increments on every (re)submission; Round 1 on first.
     round_number = Column(Integer, nullable=False, default=0)
@@ -100,7 +100,7 @@ class Tender(Base):
     consecutive_rejections = Column(Integer, nullable=False, default=0)
 
     created_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     facility = relationship("Facility")
     line_items = relationship("TenderLineItem", back_populates="tender", cascade="all, delete-orphan")

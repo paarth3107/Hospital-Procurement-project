@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Text, func
+from sqlalchemy import Column, Enum, ForeignKey, Integer, Text, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class RoundDecision(str, enum.Enum):
@@ -29,9 +29,9 @@ class TenderApprovalRound(Base):
     required_tier = Column(Integer, nullable=False)
 
     submitted_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    submitted_at = Column(DateTime(timezone=True), server_default=func.now())
+    submitted_at = Column(UTCDateTime(), server_default=func.now())
     reviewer_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
     comments = Column(Text, nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decided_at = Column(UTCDateTime(), nullable=True)
 
     tender = relationship("Tender", back_populates="approval_rounds")

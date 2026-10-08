@@ -3,7 +3,6 @@ import enum
 from sqlalchemy import (
     CheckConstraint,
     Column,
-    DateTime,
     Enum,
     ForeignKey,
     Integer,
@@ -14,7 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class MappingState(str, enum.Enum):
@@ -49,9 +48,9 @@ class VendorMapping(Base):
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
     state = Column(Enum(MappingState), nullable=False, default=MappingState.PENDING)
 
-    requested_at = Column(DateTime(timezone=True), server_default=func.now())
+    requested_at = Column(UTCDateTime(), server_default=func.now())
     decided_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decided_at = Column(UTCDateTime(), nullable=True)
     version = Column(Integer, nullable=False, default=1)
 
     vendor = relationship("Vendor")
@@ -73,6 +72,6 @@ class VendorMappingHistory(Base):
     to_state = Column(Enum(MappingState), nullable=False)
     reason = Column(Text, nullable=True)
     actor_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    at = Column(DateTime(timezone=True), server_default=func.now())
+    at = Column(UTCDateTime(), server_default=func.now())
 
     mapping = relationship("VendorMapping", back_populates="history")

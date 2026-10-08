@@ -56,9 +56,21 @@ PRESERVED_VENDOR_NAME = "Paarth PVT.Ltd"
 DIRECT_VENDOR_TABLES = {"vendor_mappings", "vendor_ratings", "vendor_documents", "vendor_status_history"}
 
 
-def _wipe_table(db, table: str, preserved_vendor_id: int | None) -> None:
-    if preserved_vendor_id is None:
+def _truncate(db, table: str, dialect: str) -> None:
+    # Postgres: RESTART IDENTITY resets the id sequence, CASCADE follows FKs
+    # so WIPE_TABLES' ordering doesn't have to be perfect. MySQL supports
+    # neither clause -- AUTO_INCREMENT already resets on an empty-table
+    # TRUNCATE there, and FK enforcement is instead turned off for the whole
+    # wipe by the caller (run(), below) rather than per statement.
+    if dialect == "mysql":
+        db.execute(text(f"TRUNCATE TABLE {table}"))
+    else:
         db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+
+
+def _wipe_table(db, table: str, preserved_vendor_id: int | None, dialect: str) -> None:
+    if preserved_vendor_id is None:
+        _truncate(db, table, dialect)
     elif table == "vendors":
         db.execute(text("DELETE FROM vendors WHERE id != :id"), {"id": preserved_vendor_id})
     elif table in DIRECT_VENDOR_TABLES:
@@ -74,7 +86,7 @@ def _wipe_table(db, table: str, preserved_vendor_id: int | None) -> None:
             {"id": preserved_vendor_id},
         )
     else:
-        db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+        _truncate(db, table, dialect)
 
 VENDORS = [
     dict(
@@ -436,8 +448,18 @@ def run():
         if preserved_vendor_id:
             print(f"Preserving vendor '{PRESERVED_VENDOR_NAME}' (id {preserved_vendor_id}) across the wipe...")
         print("Wiping business/domain data (facilities, staff logins, approval bands untouched)...")
-        for table in WIPE_TABLES:
-            _wipe_table(db, table, preserved_vendor_id)
+        dialect = db.bind.dialect.name
+        # MySQL (unlike Postgres' TRUNCATE ... CASCADE) enforces FKs across
+        # separate TRUNCATE statements even when WIPE_TABLES is ordered
+        # children-first, so FK checks are turned off for just this wipe.
+        if dialect == "mysql":
+            db.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+        try:
+            for table in WIPE_TABLES:
+                _wipe_table(db, table, preserved_vendor_id, dialect)
+        finally:
+            if dialect == "mysql":
+                db.execute(text("SET FOREIGN_KEY_CHECKS=1"))
         db.commit()
 
         creator = db.query(UserAccount).filter(UserAccount.role == Role.PROCUREMENT_OFFICER).first()

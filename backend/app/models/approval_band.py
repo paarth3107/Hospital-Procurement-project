@@ -20,4 +20,4 @@ class ApprovalBand(Base):
     min_value = Column(Float, nullable=False)
     max_value = Column(Float, nullable=True)  # NULL = open-ended (no upper bound)
     tier = Column(Integer, nullable=False)
-    label = Column(String, nullable=False)  # descriptive only, e.g. "Department Head"
+    label = Column(String(255), nullable=False)  # descriptive only, e.g. "Department Head"

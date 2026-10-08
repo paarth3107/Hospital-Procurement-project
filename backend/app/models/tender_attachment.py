@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, LargeBinary, String, func
+from sqlalchemy import Column, Enum, ForeignKey, Integer, LargeBinary, String, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class TenderLineAttachmentKind(str, enum.Enum):
@@ -32,13 +32,13 @@ class TenderLineAttachment(Base):
     id = Column(Integer, primary_key=True)
     tender_line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False, index=True)
     kind = Column(Enum(TenderLineAttachmentKind), nullable=False)
-    custom_label = Column(String, nullable=True)  # only for OTHER
+    custom_label = Column(String(255), nullable=True)  # only for OTHER
 
-    original_filename = Column(String, nullable=False)
-    content_type = Column(String, nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    content_type = Column(String(255), nullable=False)
     size_bytes = Column(Integer, nullable=False)
     content = Column(LargeBinary, nullable=False)
-    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    uploaded_at = Column(UTCDateTime(), server_default=func.now())
     uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
     line_item = relationship("TenderLineItem", back_populates="attachments")

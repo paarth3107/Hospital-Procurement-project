@@ -16,7 +16,14 @@ from app import models  # noqa: E402,F401  (imported so Base.metadata is populat
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Alembic's Config is backed by Python's configparser, which treats a bare
+# "%" as the start of its own %(name)s interpolation syntax -- so a
+# percent-encoded character in the URL (e.g. a password's "@" written as
+# "%40", 2026-10-08 MySQL port) needs its "%" doubled to "%%" here, or
+# configparser raises "invalid interpolation syntax" before a connection is
+# ever attempted. This only affects how the string is stored in this Config
+# object; doubling does not change what URL is actually connected to.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

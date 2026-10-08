@@ -11,7 +11,7 @@ class Facility(Base):
     __tablename__ = "facilities"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    legal_entity_code = Column(String, nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
+    legal_entity_code = Column(String(255), nullable=False, unique=True)
 
     users = relationship("UserAccount", back_populates="facility")

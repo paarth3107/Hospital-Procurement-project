@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 from app.models.product_master import ProcurementType
 
 # Spec §5.2 — illustrative seed weights, explicitly "to be finalized with
@@ -57,8 +57,8 @@ class VendorRating(Base):
     overall_score = Column(Float, nullable=False, default=0.0)
     is_provisional = Column(Boolean, nullable=False, default=True)
 
-    last_manual_update_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_manual_update_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     vendor = relationship("Vendor")
     history = relationship("RatingHistory", back_populates="rating", cascade="all, delete-orphan")
@@ -103,12 +103,12 @@ class RatingHistory(Base):
 
     id = Column(Integer, primary_key=True)
     rating_id = Column(Integer, ForeignKey("vendor_ratings.id"), nullable=False)
-    field = Column(String, nullable=False)
+    field = Column(String(255), nullable=False)
     old_value = Column(Float, nullable=True)
     new_value = Column(Float, nullable=False)
     comment = Column(Text, nullable=True)
     entered_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    entered_at = Column(DateTime(timezone=True), server_default=func.now())
+    entered_at = Column(UTCDateTime(), server_default=func.now())
 
     rating = relationship("VendorRating", back_populates="history")
 
@@ -139,4 +139,4 @@ class PriceCompetitivenessRecord(Base):
     bid_id = Column(Integer, ForeignKey("bids.id"), nullable=False)
     tender_line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False)
     price_score = Column(Float, nullable=False)  # 0-100: this bid vs. the lowest qualified bid on its line
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
+    recorded_at = Column(UTCDateTime(), server_default=func.now())

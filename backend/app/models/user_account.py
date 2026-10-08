@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class Role(str, enum.Enum):
@@ -22,9 +22,9 @@ class UserAccount(Base):
     __tablename__ = "user_accounts"
 
     id = Column(Integer, primary_key=True)
-    email = Column(String, nullable=False, unique=True, index=True)
-    hashed_password = Column(String, nullable=False)
-    full_name = Column(String, nullable=False)
+    email = Column(String(255), nullable=False, unique=True, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=False)
     role = Column(Enum(Role), nullable=False)
 
     # Nullable = scoped to every facility (e.g. System Admin). A single FK is
@@ -42,6 +42,6 @@ class UserAccount(Base):
     approval_tier = Column(Integer, nullable=True)
 
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     facility = relationship("Facility", back_populates="users")
