@@ -9,9 +9,12 @@ that spec.
 **Current stage: Phase 4 (Bidding) is in progress — vendor login and basic bid
 submission are built; full Bidding (technical submissions, price
 confidentiality enforcement, amend/withdraw) is not.**
-`wireframe/*.dc.html` (+ `wireframe/index.html`) remains the UI reference/click-through
-prototype; `IMPLEMENTATION-SPEC.md` is the architecture/module/API/data-model plan.
-Real code lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
+The `wireframe/` click-through prototype (2026-09-18 → 2026-10-08) has been removed —
+the real build superseded it and it's no longer needed as a reference.
+`IMPLEMENTATION-SPEC.md` is the architecture/module/API/data-model plan, and still
+cites the old wireframe screens by name in places as historical rationale for a
+decision; those mentions describe why something was built a certain way, not a
+file to go open. Real code lives in `backend/` (Python/FastAPI/SQLAlchemy/Alembic, see
 `backend/README.md` for setup/run instructions and exactly what's built vs. not)
 and `frontend/` (plain JS — no framework chosen yet, see IMPLEMENTATION-SPEC.md
 §12 open question 1). Phase 1 (vendor registration → approval, spec §3), Phase 2
@@ -154,8 +157,9 @@ and test business rules rather than duplicating workflow logic across
 modules. Don't hardcode hospital-specific approval values the spec calls
 configurable.
 
-## Wireframe-specific note
+## Wireframe (removed 2026-10-08)
 
-Per user preference: keep the wireframe (`wireframe/*.dc.html`) structurally
-correct first; do not spend effort on visual polish/beautification until the
-underlying screen flow and structure are confirmed.
+The `wireframe/` click-through prototype no longer exists — superseded by the
+real build (`frontend/` + `backend/`) and deleted since it stopped being
+needed as a reference. The "structure first, polish later" sequencing it was
+built under still applies to real feature work in general.
