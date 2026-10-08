@@ -29,7 +29,8 @@
       <button class="ep-navgroup-head" type="button" aria-expanded="true" data-icon="users"><span class="nav-label">Vendors</span><svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
       <div class="ep-navgroup-items">
       <button class="tab-btn ep-nav" id="queue-tab" data-view="queue" data-icon="user-check" hidden><span class="nav-label">Vendor List</span><span class="nav-badge" id="badge-queue"></span></button>
-      <button class="tab-btn ep-nav" id="mappings-tab" data-view="mappings" data-icon="layers" hidden><span class="nav-label">Vendor Mapping</span><span class="nav-badge" id="badge-mappings"></span></button>
+      <button class="tab-btn ep-nav" id="mappings-matrix-tab" data-view="mappings-matrix" data-icon="layers" hidden><span class="nav-label">Mapping Matrix</span></button>
+      <button class="tab-btn ep-nav" id="mappings-requests-tab" data-view="mappings-requests" data-icon="user-check" hidden><span class="nav-label">Mapping Requests</span><span class="nav-badge" id="badge-mappings"></span></button>
       <button class="tab-btn ep-nav" id="ratings-tab" data-view="ratings" data-icon="star" hidden><span class="nav-label">Ratings &amp; Scorecards</span></button>
       </div>
     </div>
@@ -249,9 +250,14 @@
     <div id="catalog-subcategories-result" class="result"></div>
   </section>
 
-  <section id="view-mappings" class="view" hidden>
-    <div id="mappings-root"></div>
-    <div id="mapping-result" class="result"></div>
+  <section id="view-mappings-matrix" class="view" hidden>
+    <div id="mapping-matrix-root"></div>
+    <div id="mapping-matrix-result" class="result"></div>
+  </section>
+
+  <section id="view-mappings-requests" class="view" hidden>
+    <div id="mapping-requests-root"></div>
+    <div id="mapping-requests-result" class="result"></div>
   </section>
 
   <section id="view-ratings" class="view" hidden>

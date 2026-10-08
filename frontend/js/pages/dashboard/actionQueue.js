@@ -2,7 +2,7 @@ import { state } from "../../state.js";
 import { switchView, ROLE_TABS } from "../../nav.js";
 import { preselectVendor } from "../vendorListPage.js";
 import { openTenderById } from "../tenders/tendersPage.js";
-import { esc, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
+import { esc, tag, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
 
 // ---- "My action queue": one row per thing that actually needs a human,
 // limited to screens this role can open. Shared across every role's
@@ -27,7 +27,7 @@ function buildTasks(s) {
     add("awards", { task: a.kind === "decide" ? `L1 approval — ${a.title}` : `Recommend award — ${a.title}`, detail: a.detail + (a.tier ? ` · tier ${a.tier}` : ""), ref: `#${a.tender_id}`, due: "today", hot: true });
   for (const t of s.pending_approval) add("approvals", { task: `Approve tender — ${t.title}`, detail: `Round ${t.round_number} · required tier ${t.required_tier}`, ref: `#${t.id}`, due: "today", hot: true });
   for (const m of s.pending_mappings)
-    add("mappings", { task: `Category mapping — ${m.vendor_name}`, detail: `Requesting: ${m.target_name} (${m.target_kind})`, ref: `Vendor #${m.vendor_id}`, due: "open" });
+    add("mappings-requests", { task: `Category mapping — ${m.vendor_name}`, detail: `Requesting: ${m.target_name} (${m.target_kind})`, ref: `Vendor #${m.vendor_id}`, due: "open" });
   for (const e of s.eval_workload)
     add("evaluation", { task: `Evaluate — ${e.product_name}`, detail: `${e.tender_title} · ${e.submitted_count} bid(s) submitted, bidding closed`, ref: `#${e.tender_id}`, due: "open", hot: true });
   for (const r of s.stale_ratings)
@@ -37,6 +37,12 @@ function buildTasks(s) {
     add("tenders", { task: `Complete and submit — ${t.title}`, detail: t.line_count ? `${t.line_count} line item(s) — not yet submitted for approval` : "No line items yet", ref: `#${t.id}`, due: "open", hot: true, tenderId: t.id });
   return tasks;
 }
+
+// "Due" as a pill, same convention every status/state column in the app
+// already uses (kit.js's tag()) instead of a lone coloured word: red for an
+// actual deadline (today), amber for flagged-urgent-but-open-ended, plain
+// for routine.
+const dueTag = (t) => (t.due === "today" ? tag("Due today", "neg") : tag("Open", t.hot ? "att" : ""));
 
 // Returns just the pane's skeleton -- wireActionQueue() below does the
 // actual (paginated) render, right after this is inserted into the page.
@@ -65,7 +71,7 @@ export function wireActionQueue(root, queue) {
             ({ t, i }) => `<tr>
               <td class="ep-cell"><div class="fw-600">${esc(t.task)}</div><div class="ep-sub">${esc(t.detail)}</div></td>
               <td class="ep-cell fs-12px">${esc(t.ref)}</td>
-              <td class="ep-cell fs-12px ${t.hot ? "text-danger-700" : "text-ink-70"}">${esc(t.due)}</td>
+              <td class="ep-cell">${dueTag(t)}</td>
               <td class="ep-cell text-right"><button class="ep-b" data-task="${i}">Open</button></td>
             </tr>`
           )

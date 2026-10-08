@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -21,6 +22,7 @@ from app.models.tender import TenderStatus
 from app.services.audit import record
 
 router = APIRouter(prefix="/api/v1/vendor-portal/bids", tags=["vendor-bids"])
+logger = logging.getLogger(__name__)
 
 BID_FIELDS = ("unit_price", "gst_percent", "other_duties", "delivery_lead_days", "quote_validity_days", "payment_terms", "compliant_full", "technical_compliance", "brand_offered", "comments")
 MAX_ATTACHMENTS_PER_BID = 20
@@ -298,13 +300,16 @@ def download_tender_rate_contract_document(tender_id: int, vendor: Vendor = Depe
 @router.put("/tender/{tender_id}", response_model=list[BidBulkSaveResult])
 def bulk_save_bids(tender_id: int, payload: BidBulkSave, vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
     """Saves many lines' bids in one request -- the grid's "Save all drafts"
-    button and CSV import (2026-10-01), mirroring the tender line-item bulk
-    save. Each line is its own SAVEPOINT: one line failing (e.g. a submit
-    attempt missing a mandatory field) doesn't lose another line's save in
-    the same batch, matching the CSV importer's own partial-success pattern.
-    Pre-sweeps the vendor's expiry status once up front rather than letting
-    assert_can_bid's own sweep fire (and possibly commit) from inside a
-    per-line savepoint."""
+    button (now the only way to save a draft, 2026-10-08 -- there's no
+    per-line Save button any more) and CSV import, mirroring the tender
+    line-item bulk save. Each line is its own SAVEPOINT: one line failing
+    (e.g. a submit attempt missing a mandatory field, or anything
+    unexpected) doesn't lose another line's save in the same batch, matching
+    the CSV importer's own partial-success pattern -- a blank, never-touched
+    line saves as an empty draft just like a filled-in one; it's never a
+    reason to fail. Pre-sweeps the vendor's expiry status once up front
+    rather than letting assert_can_bid's own sweep fire (and possibly
+    commit) from inside a per-line savepoint."""
 
     if sweep_vendor(db, vendor):
         db.commit()
@@ -319,11 +324,19 @@ def bulk_save_bids(tender_id: int, payload: BidBulkSave, vendor: Vendor = Depend
             with db.begin_nested():
                 bid = _apply_bid_save(db, vendor, line, line_save)
                 db.flush()
+            db.refresh(bid)
+            form = _form(db, vendor, line, bid)
         except HTTPException as e:
             results.append(BidBulkSaveResult(line_item_id=line.id, ok=False, error=str(e.detail)))
             continue
-        db.refresh(bid)
-        results.append(BidBulkSaveResult(line_item_id=line.id, ok=True, form=_form(db, vendor, line, bid)))
+        except Exception:
+            # Isolate this line's failure to its own result instead of
+            # letting it take the whole batch down -- the savepoint above
+            # already rolled this line back; everything else still commits.
+            logger.exception("Bulk bid save failed unexpectedly for line %s (vendor %s)", line.id, vendor.id)
+            results.append(BidBulkSaveResult(line_item_id=line.id, ok=False, error="Could not save this line — try again or contact support."))
+            continue
+        results.append(BidBulkSaveResult(line_item_id=line.id, ok=True, form=form))
     db.commit()
     return results
 

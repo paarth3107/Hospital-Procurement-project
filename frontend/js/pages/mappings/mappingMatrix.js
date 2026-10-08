@@ -98,7 +98,7 @@ function renderBody(body, data, refresh) {
   body.innerHTML = `
     <div class="ep-pane-pad">
       <div class="d-flex items-center justify-between gap-14px maxw-640px">
-        <div><div class="ep-k">Whole-category mapping</div><div class="fw-600">${esc(vendor.legal_name)} → "${esc(category.name)}"</div>
+        <div><div class="ep-k">Whole-category mapping</div><div class="fw-600">${esc(vendor.legal_name)} → ${esc(category.name)}</div>
           <div class="hint">Approves ${esc(vendor.legal_name)} for every item in this category.</div></div>
         ${statusButton(categoryState, 'data-category="1"')}
       </div>

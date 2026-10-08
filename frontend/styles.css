@@ -34,8 +34,12 @@ body.sidebar-collapsed .collapse-chevron { transform: rotate(180deg); }
 .ep-navgroup-head .nav-label { flex: 1; min-width: 0; white-space: nowrap; transition: opacity .2s ease; }
 .ep-navgroup-head .nav-chevron { margin-left: auto; flex: none; transition: transform .15s, opacity .2s ease; }
 .ep-navgroup.collapsed .nav-chevron { transform: rotate(-90deg); }
-.ep-navgroup.collapsed .ep-navgroup-items { display: none; }
-.ep-navgroup-items { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; }
+/* Vuexy-style slide (2026-10-08): max-height is pinned to a measured pixel
+   value right before each toggle (shell.js) and animated to/from 0 --
+   CSS alone can't transition to/from "auto". Whole-sidebar icon-rail
+   collapse (below) still hides this instantly with display:none, which
+   always wins over max-height -- that one stays a snap, not a slide. */
+.ep-navgroup-items { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; overflow: hidden; transition: max-height .25s ease; }
 .ep-navgroup-items .ep-nav { padding-left: 30px; }
 .ep-identity { margin-top: auto; border-top: 1px solid var(--ink-12); padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; white-space: nowrap; transition: opacity .2s ease; }
 .who-name { font-size: 14px; font-weight: 600; }
@@ -114,6 +118,7 @@ body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
 /* ---------- shell: page header + content ---------- */
 .ep-head { display: flex; align-items: flex-end; gap: 24px; padding: 28px 28px 6px; background: transparent; }
 .ep-head h3 { margin: 6px 0 0; font-size: 26px; font-weight: 600; }
+#page-kicker:empty { display: none; }
 .ep-head-facts { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 .ep-fact { text-align: right; }
 .ep-fact-value { font-size: 13px; font-weight: 600; }

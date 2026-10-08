@@ -22,7 +22,7 @@ import { drawVendorBase, vendorBase } from "./vendorBase.js";
 function kpiStrip(s) {
   return kpiTiles([
     ["Vendor KYC", s.vendors_pending_count, s.docs_to_verify.length ? `+${s.docs_to_verify.length} vendor(s) with documents to verify` : "new registrations awaiting review", "queue", "user-check", "primary"],
-    ["Mapping requests", s.mappings_pending_count, "vendor category / item eligibility", "mappings", "layers", "info"],
+    ["Mapping requests", s.mappings_pending_count, "vendor category / item eligibility", "mappings-requests", "layers", "info"],
     ["Ready for technical evaluation", s.eval_workload.length, "bidding closed, not yet scored", "evaluation", "bar-chart", "success"],
     ["Ratings needing refresh", s.stale_ratings.length, "no manual update in 90+ days", "ratings", "star", "warning"],
   ]);

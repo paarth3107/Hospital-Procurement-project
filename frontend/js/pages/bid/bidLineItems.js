@@ -237,12 +237,13 @@ function rowResolved(row) {
   return rowProblems(row).length === 0;
 }
 
+// No per-row "Save draft" button (2026-10-08) -- Save All (bid-save-all-btn,
+// below) already saves every row, including ones left blank, in one request.
 function actionButtonsHtml(row, i) {
   const skipLocked = row.locked || row.status === "submitted";
-  const showSaveDraft = !row.locked && !row.skipped && row.status !== "submitted";
   return `<label class="ep-check mr-8px nowrap"><input type="checkbox" data-skip-row="${i}" ${row.skipped ? "checked" : ""} ${
     skipLocked ? "disabled" : ""
-  }> Skip</label>${showSaveDraft ? `<button type="button" class="ep-b" data-save-draft="${i}">Save draft</button>` : ""}`;
+  }> Skip</label>`;
 }
 
 function detailsRowHtml(row, i) {
@@ -384,16 +385,6 @@ async function ensureBidSaved(i) {
   applyForm(i, form);
   if (row.bid_id == null) throw new Error("Could not save this bid line — try again.");
   return row.bid_id;
-}
-
-async function saveRow(i) {
-  flushDetailsRow(i);
-  const row = rows[i];
-  const body = { ...buildBidPayload(row), submit: false };
-  const form = await api(`/vendor-portal/bids/line/${row.line_item_id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  applyForm(i, form);
-  expandedRows.delete(i); // Save draft closes its Details panel
-  render();
 }
 
 // Bulk-saves every unlocked, non-skipped row's current values as a draft in
@@ -558,16 +549,6 @@ container().addEventListener("click", async (e) => {
       expandedRows.add(i);
     }
     render();
-    return;
-  }
-  const draftBtn = e.target.closest("[data-save-draft]");
-  if (draftBtn) {
-    const i = Number(draftBtn.dataset.saveDraft);
-    try {
-      await saveRow(i);
-    } catch (err) {
-      alert(err.message);
-    }
     return;
   }
   const viewSpecAtt = e.target.closest("[data-view-spec-att]");

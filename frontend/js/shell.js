@@ -17,7 +17,7 @@ const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke
 // Badge id -> what it means, and the view that resolves it.
 const NOTIFICATIONS = [
   ["badge-queue", "Vendor registrations to review", "queue"],
-  ["badge-mappings", "Mapping requests waiting", "mappings"],
+  ["badge-mappings", "Mapping requests waiting", "mappings-requests"],
   ["badge-approvals", "Tender approvals waiting", "approvals"],
   ["badge-awards", "Award tasks", "awards"],
   ["badge-vendor-categories", "Documents still needed", "vendor-categories"],
@@ -221,6 +221,35 @@ function toggleSidebarCollapsed() {
   applySidebarCollapsed(next);
 }
 
+// Vuexy-style slide down/up for a nav-group's sub-items, instead of the old
+// instant display:none toggle. CSS can only transition max-height to/from a
+// real number, not "auto"/"none", so the pixel height is measured here right
+// before each toggle and cleared again once expanded (so later layout isn't
+// pinned to a stale height). `animate: false` is for the initial page-load
+// state (restoring a saved collapse shouldn't visibly animate).
+function setGroupCollapsed(group, collapsed, animate = true) {
+  const items = group.querySelector(".ep-navgroup-items");
+  group.classList.toggle("collapsed", collapsed);
+  group.querySelector(".ep-navgroup-head").setAttribute("aria-expanded", String(!collapsed));
+  if (!animate) {
+    items.style.maxHeight = collapsed ? "0px" : "";
+    return;
+  }
+  if (collapsed) {
+    items.style.maxHeight = items.scrollHeight + "px"; // pin the current (expanded) height first --
+    requestAnimationFrame(() => (items.style.maxHeight = "0px")); // then animate down to 0 from a real value
+  } else {
+    items.style.maxHeight = items.scrollHeight + "px"; // scrollHeight is accurate even while clipped at 0
+    items.addEventListener(
+      "transitionend",
+      (e) => {
+        if (e.propertyName === "max-height" && !group.classList.contains("collapsed")) items.style.maxHeight = "";
+      },
+      { once: true }
+    );
+  }
+}
+
 function initGroups() {
   const saved = (() => {
     try {
@@ -231,12 +260,9 @@ function initGroups() {
   })();
   document.querySelectorAll(".ep-navgroup").forEach((group) => {
     const key = group.dataset.group;
-    group.classList.toggle("collapsed", saved[key] === true);
-    group.querySelector(".ep-navgroup-head").setAttribute("aria-expanded", String(saved[key] !== true));
+    setGroupCollapsed(group, saved[key] === true, false);
     group.querySelector(".ep-navgroup-head").addEventListener("click", () => {
-      const collapsed = !group.classList.contains("collapsed");
-      group.classList.toggle("collapsed", collapsed);
-      group.querySelector(".ep-navgroup-head").setAttribute("aria-expanded", String(!collapsed));
+      setGroupCollapsed(group, !group.classList.contains("collapsed"));
       const all = {};
       document.querySelectorAll(".ep-navgroup.collapsed").forEach((g) => (all[g.dataset.group] = true));
       writeStored("navGroups", JSON.stringify(all));

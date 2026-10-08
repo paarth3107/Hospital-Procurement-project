@@ -9,7 +9,8 @@ import { loadList as loadCatalogList } from "./pages/catalog/productListPage.js"
 import { loadAddProduct as loadCatalogAdd } from "./pages/catalog/addProductPage.js";
 import { loadCategories as loadCatalogCategories } from "./pages/catalog/categoryListPage.js";
 import { loadSubCategories as loadCatalogSubcategories } from "./pages/catalog/subCategoryListPage.js";
-import { loadMappingsPage } from "./pages/mappings/mappingsPage.js";
+import { loadMappingMatrix } from "./pages/mappings/mappingMatrixPage.js";
+import { loadMappingRequests } from "./pages/mappings/mappingRequestsPage.js";
 import { loadRatingsPage } from "./pages/ratings/ratingsPage.js";
 import { loadVendorDashboard } from "./pages/vendorDashboardPage.js";
 import { loadVendorProfile } from "./pages/vendorProfilePage.js";
@@ -24,29 +25,33 @@ import { loadAwards } from "./pages/awards/awardsPage.js";
 import { loadPoFiles } from "./pages/po/poFilesPage.js";
 import { closingSoonTenders } from "./pages/vendorNotifications.js";
 
-// Page header (kicker + title) per screen, as in the prototype.
+// Page header (kicker + title) per screen, as in the prototype. The "Module
+// N" kickers were dropped (2026-10-08) -- an internal spec-section label
+// that meant nothing to the person using the screen; #page-kicker collapses
+// to nothing when empty (styles.css), so these are just [, title] now.
 const PAGE_TITLES = {
-  dashboard: ["Overview", "Procurement Command Centre"],
-  queue: ["Module 1", "Vendor List"],
-  "vendor-view": ["Module 1", "Vendor Profile"],
-  "catalog-list": ["Module 2", "Product List"],
-  "catalog-add": ["Module 2", "Add Product"],
-  "catalog-categories": ["Module 2", "Category List"],
-  "catalog-subcategories": ["Module 2", "Sub-Category List"],
-  mappings: ["Module 2", "Vendor–Product Eligibility Matrix"],
-  ratings: ["Module 3", "Vendor Rating & Scorecard"],
-  tenders: ["Module 4", "E-Tender Creation"],
-  "tender-edit": ["Module 4", "E-Tender Creation"],
-  approvals: ["Module 4B", "E-Tender Approval"],
+  dashboard: ["Overview", "Dashboard"],
+  queue: ["", "Vendor List"],
+  "vendor-view": ["", "Vendor Profile"],
+  "catalog-list": ["", "Product List"],
+  "catalog-add": ["", "Add Product"],
+  "catalog-categories": ["", "Category List"],
+  "catalog-subcategories": ["", "Sub-Category List"],
+  "mappings-matrix": ["", "Mapping Matrix"],
+  "mappings-requests": ["", "Mapping Requests"],
+  ratings: ["", "Vendor Rating & Scorecard"],
+  tenders: ["", "E-Tender Creation"],
+  "tender-edit": ["", "E-Tender Creation"],
+  approvals: ["", "E-Tender Approval"],
   staff: ["Administration", "Staff Accounts"],
   audit: ["Administration", "Audit Log"],
   bid: ["Vendor Portal", "Prepare Bid"],
-  evaluation: ["Module 6", "Bid Evaluation"],
-  awards: ["Module 6-7", "L1 Recommendation & Approval"],
-  pofiles: ["Module 7", "PO Data Files For The ERP"],
+  evaluation: ["", "Bid Evaluation"],
+  awards: ["", "L1 Recommendation & Approval"],
+  pofiles: ["", "PO Data Files For The ERP"],
   "vendor-dashboard": ["Vendor Portal", "Dashboard"],
-  "vendor-profile": ["Module 1", "Company Profile & Documents"],
-  "vendor-categories": ["Module 1", "Category Declaration"],
+  "vendor-profile": ["", "Company Profile & Documents"],
+  "vendor-categories": ["", "Category Declaration"],
 };
 
 function setPageHead(view) {
@@ -109,7 +114,15 @@ export function switchView(view) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     const active = btn.dataset.view === tabView;
     btn.classList.toggle("active", active);
-    if (active) btn.closest(".ep-navgroup")?.classList.remove("collapsed");
+    if (active) {
+      const group = btn.closest(".ep-navgroup");
+      group?.classList.remove("collapsed");
+      // Clear the inline max-height shell.js's slide animation pins on
+      // collapse -- just dropping the class isn't enough to re-reveal it now
+      // that this is a height transition rather than a display:none toggle.
+      const items = group?.querySelector(".ep-navgroup-items");
+      if (items) items.style.maxHeight = "";
+    }
   });
   if (view === "dashboard") loadDashboard();
   if (view === "queue") loadVendors();
@@ -118,7 +131,8 @@ export function switchView(view) {
   if (view === "catalog-add") loadCatalogAdd();
   if (view === "catalog-categories") loadCatalogCategories();
   if (view === "catalog-subcategories") loadCatalogSubcategories();
-  if (view === "mappings") loadMappingsPage();
+  if (view === "mappings-matrix") loadMappingMatrix();
+  if (view === "mappings-requests") loadMappingRequests();
   if (view === "ratings") loadRatingsPage();
   if (view === "vendor-dashboard") loadVendorDashboard();
   if (view === "vendor-profile") loadVendorProfile();
@@ -149,13 +163,14 @@ document.querySelectorAll(".back-link, .link-btn[data-view]").forEach((btn) => {
 // "logged in staff sees everything". Kept in one place so a new tab only
 // needs one line here, not a scattered set of if/role checks.
 const CATALOG_VIEWS = ["catalog-list", "catalog-add", "catalog-categories", "catalog-subcategories"];
+const MAPPING_VIEWS = ["mappings-matrix", "mappings-requests"];
 export const ROLE_TABS = {
   procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
   // Procurement Admin and Category Manager are one job (KYC, mapping, catalog, ratings).
-  category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "evaluation", "pofiles"],
-  procurement_admin: ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "evaluation", "pofiles"],
+  category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles"],
+  procurement_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles"],
   approving_authority: ["dashboard", "approvals", "awards"],
-  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
+  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
 };
 export const DEFAULT_VIEW_BY_ROLE = {
   procurement_officer: "dashboard",
@@ -164,7 +179,7 @@ export const DEFAULT_VIEW_BY_ROLE = {
   approving_authority: "dashboard",
   system_admin: "dashboard",
 };
-export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", ...CATALOG_VIEWS, "mappings", "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"];
+export const ALL_STAFF_TAB_VIEWS = ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"];
 
 // Staff login is the default entry screen (2026-10-07); Vendor login and
 // Registration are one click away from it (and from each other), each with
@@ -243,6 +258,10 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   switchView("login");
 });
 
-// Staff login is the default entry point now (2026-10-07) -- there's no
-// separate chooser page to go "home" to.
-document.getElementById("brand-home-link").addEventListener("click", () => switchView("login"));
+// Logged in, the brand goes to that session's own dashboard (staff or
+// vendor) rather than the login screen -- logged out, there's no separate
+// chooser page to go "home" to, so it's the login screen itself.
+document.getElementById("brand-home-link").addEventListener("click", () => {
+  if (!state.token) return switchView("login");
+  switchView(state.actorType === "vendor" ? "vendor-dashboard" : DEFAULT_VIEW_BY_ROLE[state.user?.role] || "dashboard");
+});

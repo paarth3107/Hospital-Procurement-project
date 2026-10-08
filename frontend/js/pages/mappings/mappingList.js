@@ -1,8 +1,10 @@
-import { esc, stateTag, th, emptyRow, pageSlice, paginationBar, wirePagination } from "../../kit.js";
+import { esc, stateTag, th, emptyRow, pageSlice, paginationBar, wirePagination, imgPlaceholder } from "../../kit.js";
 import { approveMapping, rejectMapping, suspendMapping, reinstateMapping } from "./mappingActions.js";
 
 // "All mappings": every mapping row (category- and item-level), filtered by
-// state and level, with the actions valid for each row's state.
+// state and level, with the actions valid for each row's state. Vendor cell
+// (avatar placeholder + name) and a combined Mapping cell (target + level
+// subtitle) match the Vuexy-style table used by Vendor List / Product List.
 let page = 0;
 
 export function renderMappingList(container, data, refresh, filters) {
@@ -15,7 +17,7 @@ export function renderMappingList(container, data, refresh, filters) {
   const { pageItems: rows, totalPages, page: clamped } = pageSlice(filtered, page);
   page = clamped;
 
-  container.innerHTML = `<table class="ep-table">${th("Vendor", "Level", "Target", "State", "")}<tbody>${
+  container.innerHTML = `<table class="ep-table">${th("Vendor", "Mapping", "State", "")}<tbody>${
     rows.length
       ? rows
           .map((m, i) => {
@@ -28,9 +30,16 @@ export function renderMappingList(container, data, refresh, filters) {
               suspended: [["Reinstate", "reinstate", true]],
             }[m.state] || [];
             return `<tr>
-              <td class="ep-cell fw-600">${esc(vendor ? vendor.legal_name : "—")}</td>
-              <td class="ep-cell">${isCategory ? "Category" : "Item"}</td>
-              <td class="ep-cell">${esc(target || "—")}</td>
+              <td class="ep-cell">
+                <div class="d-flex items-center gap-12px">
+                  ${imgPlaceholder("image", "sm")}
+                  <div class="minw-0">
+                    <div class="fw-600 ep-clip">${esc(vendor ? vendor.legal_name : "—")}</div>
+                    ${vendor ? `<div class="ep-sub">V-${vendor.id}</div>` : ""}
+                  </div>
+                </div>
+              </td>
+              <td class="ep-cell">${esc(target || "—")}<div class="ep-sub">${isCategory ? "Category" : "Item"}</div></td>
               <td class="ep-cell">${stateTag(m.state)}</td>
               <td class="ep-cell text-right nowrap">${acts
                 .map(([label, act, primary]) => `<button class="ep-b"${primary ? ' data-v="p"' : ""} data-row="${i}" data-act="${act}">${label}</button>`)
@@ -38,7 +47,7 @@ export function renderMappingList(container, data, refresh, filters) {
             </tr>`;
           })
           .join("")
-      : emptyRow(5, "No mappings match.")
+      : emptyRow(4, "No mappings match.")
   }</tbody></table>
   ${paginationBar(page, totalPages, "mapping-list-prev", "mapping-list-next")}`;
 
