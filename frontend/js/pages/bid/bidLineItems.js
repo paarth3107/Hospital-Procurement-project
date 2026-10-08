@@ -239,11 +239,15 @@ function rowResolved(row) {
 
 // No per-row "Save draft" button (2026-10-08) -- Save All (bid-save-all-btn,
 // below) already saves every row, including ones left blank, in one request.
+// Skip is a toggle switch, not a checkbox (2026-10-08) -- it reads as "a
+// state this line is in", not "an action", unlike Details next to it.
 function actionButtonsHtml(row, i) {
   const skipLocked = row.locked || row.status === "submitted";
-  return `<label class="ep-check mr-8px nowrap"><input type="checkbox" data-skip-row="${i}" ${row.skipped ? "checked" : ""} ${
-    skipLocked ? "disabled" : ""
-  }> Skip</label>`;
+  return `<label class="ep-switch mr-8px nowrap">
+    <input type="checkbox" data-skip-row="${i}" ${row.skipped ? "checked" : ""} ${skipLocked ? "disabled" : ""}>
+    <span class="ep-switch-track"><span class="ep-switch-knob"></span></span>
+    <span class="ep-switch-label">Skip</span>
+  </label>`;
 }
 
 function detailsRowHtml(row, i) {

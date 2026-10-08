@@ -1,7 +1,17 @@
 import { API_BASE, api, apiHeaders } from "../../api.js";
 import { showResult } from "../../ui.js";
-import { esc, tag, th, emptyRow, fmtDateTime, roleLabel } from "../../kit.js";
+import { esc, tag, emptyRow, fmtDateTime, roleLabel } from "../../kit.js";
 import { openAuditDetail, actionLabel } from "./auditDetail.js";
+
+// Fixed column widths in px (2026-10-08) -- table-layout: fixed, scoped to
+// this table only via .audit-table so every other .ep-table keeps
+// auto-sizing. These are ratios the table scales to fit 100% of its
+// container, not literal sizes, so columns stay proportionate to each other;
+// Reason/change is the one column with room to give (its text is already
+// capped at 70 chars with a Read more toggle), so it's the one kept
+// narrower, leaving every other column its real content width.
+const AUDIT_COLS = [["When", 150], ["Who", 170], ["Role", 170], ["Action", 240], ["Record", 240], ["Reason / change", 220], ["", 110]];
+const auditHead = `<thead><tr>${AUDIT_COLS.map(([label, px]) => `<th class="ep-th" style="width:${px}px">${label}</th>`).join("")}</tr></thead>`;
 
 // ---- Audit log (System Admin, read-only): every recorded action with who,
 // what, when and why. Filterable, paginated, exportable to CSV. ----
@@ -41,7 +51,7 @@ function summary(row) {
 
 function render() {
   const select = (name, label, values, current) =>
-    `<select class="input w-auto" data-f="${name}"><option value="">${label}</option>${values
+    `<select class="input" data-f="${name}"><option value="">${label}</option>${values
       .map(([v, l]) => `<option value="${esc(v)}" ${v === current ? "selected" : ""}>${esc(l)}</option>`)
       .join("")}</select>`;
   const pages = Math.max(1, Math.ceil(data.total / data.page_size));
@@ -50,15 +60,16 @@ function render() {
         .map(
           (r) => `<tr>
             <td class="ep-cell fs-12px nowrap">${esc(fmtDateTime(r.occurred_at))}</td>
-            <td class="ep-cell"><div class="fw-600">${esc(r.actor_type === "system" ? "System" : r.actor_name || "—")}</div><div class="ep-sub">${esc(roleLabel(r.actor_role || r.actor_type))}</div></td>
+            <td class="ep-cell fw-600">${esc(r.actor_type === "system" ? "System" : r.actor_name || "—")}</td>
+            <td class="ep-cell">${esc(roleLabel(r.actor_role || r.actor_type))}</td>
             <td class="ep-cell">${esc(actionLabel(r.action))}${r.imported ? ` ${tag("imported")}` : ""}</td>
-            <td class="ep-cell"><div class="fw-600">${esc(r.entity_label || `${r.entity_type} #${r.entity_id ?? ""}`)}</div><div class="ep-sub">${esc(RECORD_TYPE[r.entity_type] || r.entity_type)}${r.entity_id != null ? ` · #${r.entity_id}` : ""}</div></td>
+            <td class="ep-cell fw-600">${esc(r.entity_label || `${r.entity_type} #${r.entity_id ?? ""}`)}</td>
             <td class="ep-cell ep-sub maxw-280px">${reasonCell(r)}</td>
             <td class="ep-cell text-right"><button class="ep-b" data-detail="${r.id}">Details</button></td>
           </tr>`
         )
         .join("")
-    : emptyRow(6, "No entries match these filters.");
+    : emptyRow(7, "No entries match these filters.");
   root().innerHTML = `<div class="ep-pane">
     <div class="ep-pane-head"><span>Audit Log</span><span class="ep-k">${data.total} entries · read-only</span></div>
     <div class="ep-pane-pad border-bottom-1px-solid-ink-18 filter-grid">
@@ -69,12 +80,12 @@ function render() {
         <div class="ep-field"><div class="ep-k">From</div><input class="input" type="date" data-f="date_from" value="${esc(filters.date_from)}"></div>
         <div class="ep-field"><div class="ep-k">To</div><input class="input" type="date" data-f="date_to" value="${esc(filters.date_to)}"></div>
         <div class="filter-actions">
-          <button class="ep-b" id="audit-reset">Reset</button>
           <button class="ep-b" data-v="p" id="audit-apply">Apply</button>
+          <button class="ep-b" id="audit-reset">Reset</button>
           <button class="ep-b" id="audit-export">Export CSV</button>
         </div>
     </div>
-    <table class="ep-table">${th("When", "Who", "Action", "Record", "Reason / change", "")}<tbody>${rows}</tbody></table>
+    <div class="overflow-auto"><table class="ep-table audit-table">${auditHead}<tbody>${rows}</tbody></table></div>
     <div class="padding-10px-14px d-flex gap-10px items-center justify-end">
       <span class="ep-sub">Page ${page} of ${pages}</span>
       <button class="ep-b" id="audit-prev" ${page <= 1 ? "disabled" : ""}>Previous</button>

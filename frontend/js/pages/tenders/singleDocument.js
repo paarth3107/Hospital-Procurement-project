@@ -13,14 +13,14 @@ function fmtSize(bytes) {
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(0)} KB`;
 }
 
-export function singleDocument({ boxId, endpoint, fieldPrefix, slug, label, requiredLabel }) {
+export function singleDocument({ boxId, endpoint, fieldPrefix, slug, label, requiredLabel, noTenderHint }) {
   const box = () => document.getElementById(boxId);
   const sel = (action) => `[data-${slug}-${action}]`;
 
   function render(tender, onChange = () => {}) {
     const el = box();
     if (!tender) {
-      el.innerHTML = `<div class="hint">Save as Draft first, then upload the document.</div>`;
+      el.innerHTML = noTenderHint === false ? "" : `<div class="hint">Save as Draft first, then upload the document.</div>`;
       return;
     }
     const filename = tender[`${fieldPrefix}_filename`];

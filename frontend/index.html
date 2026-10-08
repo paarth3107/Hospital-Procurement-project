@@ -294,14 +294,22 @@
             <div class="ep-field"><div class="ep-k">Publish date (optional)</div><input class="input" name="publish_date" type="datetime-local"></div>
             <div class="ep-field"><div class="ep-k">Bid due date</div><input class="input" name="bid_due_date" type="datetime-local"></div>
             <div class="ep-field"><div class="ep-k">Default rating threshold</div><input class="input input-narrow" name="min_rating_threshold" type="number" step="0.1" value="0"></div>
-            <div class="ep-field col-span-2">
+            <div class="ep-field col-span-4">
               <div class="tender-option-row">
                 <div class="tender-option">
-                  <label class="ep-check ep-check-field"><input type="checkbox" name="open_tender"> Open tender</label>
+                  <label class="ep-switch ep-check-field">
+                    <input type="checkbox" name="open_tender">
+                    <span class="ep-switch-track"><span class="ep-switch-knob"></span></span>
+                    <span class="ep-switch-label">Open tender</span>
+                  </label>
                   <div id="open-link-box" class="mt-10px" hidden></div>
                 </div>
                 <div class="tender-option">
-                  <label class="ep-check ep-check-field"><input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle"> Rate contract</label>
+                  <label class="ep-switch ep-check-field">
+                    <input type="checkbox" name="is_rate_contract" id="tender-rate-contract-toggle">
+                    <span class="ep-switch-track"><span class="ep-switch-knob"></span></span>
+                    <span class="ep-switch-label">Rate contract</span>
+                  </label>
                   <div class="d-flex gap-10px mt-10px">
                     <div id="rate-contract-start-field" hidden><div class="ep-k">Start date</div><input class="input" name="contract_start_date" type="date"></div>
                     <div id="rate-contract-end-field" hidden><div class="ep-k">End date</div><input class="input" name="contract_end_date" type="date"></div>

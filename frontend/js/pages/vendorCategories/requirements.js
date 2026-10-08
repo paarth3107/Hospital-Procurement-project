@@ -1,5 +1,5 @@
 import { docLabel, entryKey } from "../../constants.js";
-import { esc } from "../../kit.js";
+import { esc, tag } from "../../kit.js";
 
 // The documents a vendor must supply to request a category / an item, checked
 // against what is already in their Document vault. Asked for right here,
@@ -25,15 +25,20 @@ export function itemRequirements(product, category, docsByKey) {
   return requirementsFor(entries, docsByKey);
 }
 
-export function requirementNote(req) {
+// A pill per required document (2026-10-08, was a "Needs: X, Y" sentence) --
+// green and labelled when it's already on file, a clickable "Upload" pill
+// wired to the same data-upload-req/data-upload-other attributes the page's
+// existing upload handlers already listen for, when it's missing. Reads at a
+// glance in the request table instead of as a paragraph under the name.
+export function requirementPills(req) {
   if (!req.items.length) return "";
-  return `<div class="ep-sub ml-22px">Needs: ${req.items
+  return `<div class="vc-doc-pills">${req.items
     .map((i) =>
       i.ok
-        ? `<span class="fw-600">${esc(i.label)} ✓</span>`
-        : i.other
-        ? `<span class="text-primary-dark fw-600">${esc(i.label)}</span> <button type="button" class="ep-b padding-1px-8px" data-upload-other="${esc(i.entry.slice(6).trim())}">Upload</button>`
-        : `<span class="text-primary-dark fw-600">${esc(i.label)}</span> <button type="button" class="ep-b padding-1px-8px" data-upload-req="${esc(i.entry)}">Upload</button>`
+        ? tag(i.label, "pos")
+        : `<button type="button" class="ep-tag ep-tag-action" data-t="att" data-upload-${i.other ? "other" : "req"}="${esc(
+            i.other ? i.entry.slice(6).trim() : i.entry
+          )}">Upload ${esc(i.label)}</button>`
     )
-    .join(", ")}</div>`;
+    .join("")}</div>`;
 }

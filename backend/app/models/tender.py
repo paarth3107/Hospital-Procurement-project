@@ -56,7 +56,11 @@ class Tender(Base):
     terms_document_filename = Column(String(255), nullable=True)
     terms_document_content_type = Column(String(255), nullable=True)
     terms_document_size = Column(Integer, nullable=True)
-    terms_document_content = Column(LargeBinary, nullable=True)
+    # length hint (2026-10-08) -- MySQL maps a bare LargeBinary to BLOB, a 64KB
+    # cap; the hint picks MEDIUMBLOB (16MB) instead, matching document_store's
+    # own 10MB upload limit. Postgres/sqlite ignore the hint (BYTEA/BLOB already
+    # unbounded), so this is MySQL-only in effect.
+    terms_document_content = Column(LargeBinary(length=16_777_215), nullable=True)
     terms_document_uploaded_at = Column(UTCDateTime(), nullable=True)
     terms_document_uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
@@ -83,7 +87,7 @@ class Tender(Base):
     rate_contract_document_filename = Column(String(255), nullable=True)
     rate_contract_document_content_type = Column(String(255), nullable=True)
     rate_contract_document_size = Column(Integer, nullable=True)
-    rate_contract_document_content = Column(LargeBinary, nullable=True)
+    rate_contract_document_content = Column(LargeBinary(length=16_777_215), nullable=True)
     rate_contract_document_uploaded_at = Column(UTCDateTime(), nullable=True)
     rate_contract_document_uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 

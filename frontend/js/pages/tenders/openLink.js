@@ -20,7 +20,7 @@ export function renderOpenLink(tender) {
   el.hidden = false;
   el.innerHTML = `
     <div class="ep-k">Registration link</div>
-    <div class="d-flex gap-10px items-center flex-wrap mt-6px">
+    <div class="d-flex gap-10px items-center flex-nowrap mt-6px">
       ${token ? '<button type="button" class="ep-b copy-link-btn" data-v="p" data-open-copy>Copy link</button>' : ""}
       <button type="button" class="ep-b" data-open-new>${token ? "New link" : "Turn on"}</button>
       ${token ? '<button type="button" class="ep-b" data-open-off>Turn off</button>' : ""}

@@ -5,10 +5,16 @@ import { esc, kicker, fmtDateTime, roleLabel } from "../../kit.js";
 const overlay = document.getElementById("app-dialog");
 const box = document.getElementById("app-dialog-box");
 
+// "tender.vendor_removed" -> "Tender → Vendor Removed" -- each word
+// capitalized (2026-10-08, was a lowercase "tender · vendor removed"), an
+// arrow instead of a dot since a dot alone didn't read as "domain, then what
+// happened to it".
+const titleCase = (s) => s.split(" ").filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+
 export const actionLabel = (action) => {
   const [domain, ...rest] = action.split(".");
   const verb = rest.join(".").replace(/_/g, " ");
-  return `${domain} · ${verb}`;
+  return verb ? `${titleCase(domain)} → ${titleCase(verb)}` : titleCase(domain);
 };
 
 const pretty = (value) => {

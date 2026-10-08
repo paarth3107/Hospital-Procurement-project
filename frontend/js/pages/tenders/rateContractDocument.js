@@ -10,4 +10,5 @@ export const { render: renderRateContractDocument, hasDocument: hasRateContractD
   slug: "rate-contract",
   label: "Rate Contract agreement",
   requiredLabel: "Required before submission.",
+  noTenderHint: false,
 });

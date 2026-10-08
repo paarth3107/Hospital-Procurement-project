@@ -46,7 +46,7 @@ const STATE_TONE = {
 };
 export const stateTag = (state) => tag(String(state || "—").replace(/_/g, " "), STATE_TONE[state] ?? "");
 
-const TYPE_TONE = { item: "", asset: "asset", service: "service" };
+const TYPE_TONE = { item: "item", asset: "asset", service: "service" };
 export const typeTag = (type) => tag(type, TYPE_TONE[type] ?? "");
 
 export const btn = (label, { primary = false, attrs = "" } = {}) =>

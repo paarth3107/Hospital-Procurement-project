@@ -134,7 +134,11 @@ body:not(:has(#sidebar:not([hidden]))) .ep-content:has(#view-register:not([hidde
 body:has(#sidebar:not([hidden])) .ep-appbar,
 body:has(#sidebar:not([hidden])) .ep-head,
 body:has(#sidebar:not([hidden])) .ep-content { max-width: 1320px; margin-left: auto; margin-right: auto; }
-.view { display: flex; flex-direction: column; gap: 26px; }
+/* The audit log's table (7 columns, each with real content to show) is
+   cramped at the shared 1320px -- wider just for this view instead of
+   shrinking the table further. */
+body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { max-width: 1500px; }
+.view { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
 .view[hidden] { display: none; }
 
 /* ---------- components ---------- */
@@ -142,6 +146,9 @@ body:has(#sidebar:not([hidden])) .ep-content { max-width: 1320px; margin-left: a
 .ep-cell { padding: 17px 20px; border-bottom: 1px solid var(--ink-12); font-size: 15px; vertical-align: middle; }
 .ep-th { padding: 15px 20px; border-bottom: 1px solid var(--ink-18); font-size: 13px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-60); text-align: left; font-weight: 600; }
 .ep-table { width: 100%; border-collapse: collapse; }
+.audit-table { table-layout: fixed; }
+.audit-table .ep-cell { overflow-wrap: break-word; }
+.audit-table .ep-th, .audit-table .ep-cell { text-align: center; }
 .ep-table tbody tr:hover .ep-cell { background: var(--ink-03); }
 .ep-table tr:last-child .ep-cell { border-bottom: 0; }
 
@@ -166,17 +173,20 @@ body:has(#sidebar:not([hidden])) .ep-content { max-width: 1320px; margin-left: a
 button.ep-tag { border: 0; font-family: inherit; }
 .ep-tag-action { cursor: pointer; }
 .ep-tag-action:hover { filter: brightness(.95); }
-.vendor-panel { margin-top: 10px; padding: 12px 14px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); }
+/* A vendor chip marked for removal (2026-10-08) -- click toggles this instead
+   of opening a separate picker; the chip itself is the selection. */
+.ep-tag-action.marked-remove { background: var(--danger-100); color: var(--danger-700); }
+.ep-tag-action.marked-remove:hover { filter: brightness(.97); }
 .invite-row .input { width: auto; min-height: 34px; padding: 5px 10px; font-size: 14px; }
 .invite-row select.input { width: 240px; }
 .invite-row input.input { width: 220px; }
 .ep-link { background: none; border: 0; padding: 0; color: var(--primary); font-size: 12px; font-weight: 500; cursor: pointer; }
 .ep-link:hover { color: var(--primary-dark); text-decoration: underline; }
 .fs-11px { font-size: 11px; }
-.ep-pane { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); }
+.ep-pane { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); min-width: 0; }
 .ep-pane-head { padding: 24px 26px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 18px; font-weight: 600; }
 .ep-pane-pad { padding: 26px; }
-.ep-b { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink-25); background: var(--surface); border-radius: var(--radius); cursor: pointer; font-size: 14px; font-weight: 500; padding: 10px 20px; color: var(--ink); white-space: nowrap; }
+.ep-b { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink-25); background: var(--surface); border-radius: var(--radius); cursor: pointer; font-size: 14px; font-weight: 500; padding: 10px 20px; color: var(--ink); white-space: nowrap; vertical-align: middle; }
 .ep-b:hover { background: var(--ink-06); }
 .ep-b[data-v="p"] { background: var(--primary); border-color: var(--primary); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .35); }
 .ep-b[data-v="p"]:hover { background: var(--primary-dark); }
@@ -205,8 +215,9 @@ button.ep-tag { border: 0; font-family: inherit; }
 .ep-tag[data-t="att"] { background: var(--primary-14); color: var(--primary-dark); }
 .ep-tag[data-t="neg"] { background: var(--danger-100); color: var(--danger-700); }
 .ep-tag[data-t="esc"] { background: var(--tag-neutral-bg); color: var(--tag-neutral-text); }
+.ep-tag[data-t="item"] { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
 .ep-tag[data-t="asset"] { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
-.ep-tag[data-t="service"] { background: var(--tag-neutral-bg); color: var(--tag-neutral-text); }
+.ep-tag[data-t="service"] { background: var(--primary-14); color: var(--primary-dark); }
 .ep-box { min-height: 34px; padding: 7px 10px; background: var(--page-bg); border: 1px solid var(--ink-18); border-radius: var(--radius); font-size: 13.5px; font-weight: 500; }
 .ep-bar { height: 8px; border-radius: var(--radius); background: var(--ink-12); overflow: hidden; }
 .ep-bar > div { height: 100%; width: var(--bar-w, 100%); background: var(--bar-color, var(--primary)); border-radius: var(--radius); }
@@ -223,6 +234,23 @@ button.ep-tag { border: 0; font-family: inherit; }
 .chip-approved { background: var(--success-bg); color: var(--success-text); }
 .chip-pending { background: var(--ink-12); color: var(--ink); }
 .chip-rejected, .chip-suspended { background: var(--danger-100); color: var(--danger-700); }
+
+/* Vendor category/item request panel (2026-10-08) -- a real scrollable table
+   instead of a flex-wrapped cloud of checkbox pills, since the real catalog
+   runs into the 100s of categories/items. Column header stays put while the
+   body scrolls; a category group row (Items tab only) toggles the rows under
+   it, collapsed by default. */
+.vc-request-list { max-height: 460px; overflow: auto; border: 1px solid var(--ink-18); border-radius: var(--radius); }
+.vc-request-list .ep-th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.vc-col-check { width: 1%; white-space: nowrap; padding-left: 16px !important; padding-right: 8px !important; }
+.vc-col-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+.vc-col-check input[type="checkbox"]:disabled { cursor: not-allowed; }
+.vc-name-cell { display: flex; align-items: center; gap: 11px; }
+.vc-doc-pills { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+.vc-group-row td { background: var(--surface-subtle); cursor: pointer; user-select: none; font-weight: 600; }
+.vc-group-row:hover td { background: var(--ink-06); }
+.vc-chev { color: var(--ink-40); transition: transform .15s ease; flex: none; }
+.vc-group-row.expanded .vc-chev { transform: rotate(90deg); }
 .ep-note { padding: 12px 16px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); border-left: 3px solid var(--primary); font-size: 13px; line-height: 1.45; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .ep-note.warn { background: var(--danger-08); border-left-color: var(--danger); }
 .ep-seg { display: inline-flex; padding: 3px; gap: 3px; background: var(--ink-06); border-radius: var(--radius); }
@@ -289,13 +317,31 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .input-narrow { max-width: 110px; }
 /* Open tender and Rate contract: same checkbox-plus-extra-fields shape, shown side by
    side so the two stay visually paired regardless of which one's extra fields are shown. */
-.tender-option-row { display: flex; gap: 24px; flex-wrap: wrap; }
-.tender-option { flex: 1; min-width: 220px; }
+.tender-option-row { display: flex; gap: 40px; flex-wrap: wrap; }
+.tender-option { flex: 1; min-width: 260px; }
 .tender-option input[type="date"] { max-width: 150px; }
 .input.invalid { border-color: var(--danger); background: var(--danger-08); }
 .ep-check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .ep-check-field { min-height: 42px; }
 .ep-check input[type=checkbox] { width: 17px; height: 17px; }
+
+/* Vuexy-style toggle switch (2026-10-08) -- a real checkbox underneath
+   (keeps .checked/change/name/focus/keyboard all working exactly as
+   before), visually hidden and driven purely by the :checked sibling
+   selector below, so no JS is needed to animate it. Used wherever a plain
+   checkbox read as "an action" rather than "a state" (vendor bid grid's
+   Skip, tender creation's Open tender / Rate contract). */
+.ep-switch { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; vertical-align: middle; }
+.ep-switch input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ep-switch-track { width: 34px; height: 20px; border-radius: 999px; background: var(--ink-18); position: relative; flex: none; transition: background .18s ease; }
+.ep-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(var(--ink-rgb), .35); transition: transform .18s ease; }
+.ep-switch input:checked ~ .ep-switch-track { background: var(--primary); }
+.ep-switch input:checked ~ .ep-switch-track .ep-switch-knob { transform: translateX(14px); }
+.ep-switch-label { font-size: 13px; font-weight: 500; color: var(--ink-70); }
+.ep-switch input:checked ~ .ep-switch-label { color: var(--ink); font-weight: 600; }
+.ep-switch input:disabled ~ .ep-switch-track { opacity: .5; }
+.ep-switch:has(input:disabled) { cursor: not-allowed; }
+.ep-switch input:focus-visible ~ .ep-switch-track { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* document drop zones */
 .dropzone { border: 1.5px dashed var(--ink-30); border-radius: var(--radius); background: var(--surface); padding: 18px; font-size: 13px; color: var(--ink-60); cursor: pointer; }
@@ -555,6 +601,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .d-inline-flex { display: inline-flex; }
 .flex-col { flex-direction: column; }
 .flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
 .items-center { align-items: center; }
 .items-start { align-items: flex-start; }
 .items-end { align-items: flex-end; }

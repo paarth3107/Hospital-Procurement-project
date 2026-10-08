@@ -37,7 +37,10 @@ class TenderLineAttachment(Base):
     original_filename = Column(String(255), nullable=False)
     content_type = Column(String(255), nullable=False)
     size_bytes = Column(Integer, nullable=False)
-    content = Column(LargeBinary, nullable=False)
+    # length hint (2026-10-08) -- MySQL maps a bare LargeBinary to BLOB (64KB
+    # cap); the hint picks MEDIUMBLOB (16MB) instead, matching document_store's
+    # own 10MB upload limit. No effect on Postgres/sqlite.
+    content = Column(LargeBinary(length=16_777_215), nullable=False)
     uploaded_at = Column(UTCDateTime(), server_default=func.now())
     uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
