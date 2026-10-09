@@ -290,15 +290,6 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
    where a real category image lands later. */
 .ep-category-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .ep-category-card-head { display: flex; gap: 14px; align-items: center; }
-.ep-pipeline { display: flex; align-items: stretch; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); }
-.ep-stage { flex: 1; padding: 22px 24px; border-right: 1px solid var(--ink-12); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.ep-stage:last-child { border-right: 0; }
-.ep-stage-dot { width: 22px; height: 22px; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; border-radius: 50%; }
-.ep-stage-dot-on { background: var(--primary); color: var(--on-solid); }
-.ep-stage-dot-off { background: var(--ink-12); color: var(--ink-70); }
-.ep-stage-bar { height: 4px; margin-top: auto; border-radius: var(--radius); }
-.ep-stage-bar-on { background: var(--primary); }
-.ep-stage-bar-off { background: var(--ink-12); }
 .ep-grid { display: grid; gap: 26px; align-items: start; }
 .ep-mono { font-family: ui-monospace, Menlo, monospace; }
 .ep-row-btn { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--ink-12); border-left: 3px solid transparent; padding: 11px 14px; cursor: pointer; background: var(--surface); }

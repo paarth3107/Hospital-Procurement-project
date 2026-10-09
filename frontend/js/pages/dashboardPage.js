@@ -1,7 +1,9 @@
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { showResult } from "../ui.js";
-import { esc, kicker, fmtDate } from "../kit.js";
+import { esc, fmtDate } from "../kit.js";
+import { icon } from "../icons.js";
+import { donut } from "../charts.js";
 import { actionQueue, wireActionQueue } from "./dashboard/actionQueue.js";
 import { renderOfficerDashboard } from "./dashboard/officerDashboard.js";
 import { renderApprovingAuthorityDashboard } from "./dashboard/approvingAuthorityDashboard.js";
@@ -26,30 +28,56 @@ function kpiStrip(s) {
   ]);
 }
 
-function pipeline(s) {
-  const v = s.vendors_by_status;
-  const stages = [
-    ["Vendor registration", `${v.active || 0} active · ${(v.pending_verification || 0) + (v.info_requested || 0)} in queue`, (v.active || 0) > 0],
-    ["Master & mapping", `${s.catalog_entries_count} entries · ${s.mappings_approved_count} mappings`, s.catalog_entries_count > 0 && s.mappings_approved_count > 0],
-    ["Rating refresh", s.last_rating_update ? `last manual update ${fmtDate(s.last_rating_update)}` : "no manual entries yet", !!s.last_rating_update],
-    ["Tender & publishing", `${s.lines_published} of ${s.lines_total} live lines published`, s.lines_total > 0 && s.lines_published === s.lines_total],
-    ["Bid → L1 → PO", `${s.bids_submitted_count} bid(s) received`, s.bids_submitted_count > 0],
+// Vuexy-style pipeline card (2026-10-09) -- same donut + icon-row tracker
+// component as the Procurement Officer's and Category Manager's own
+// dashboards (2026-09-29/2026-10-07), not the plain list I tried first.
+// Each stage is the *current backlog* sitting at that step, the same thing
+// their stage counts mean (e.g. the Officer's "pending_approval_count" is
+// tenders waiting right now, not a cumulative total) -- here: vendors
+// awaiting KYC, mapping requests awaiting decision, ratings overdue for
+// manual refresh, tenders awaiting E-Tender Approval, and lines whose
+// bidding closed but technical evaluation isn't done. All five are already
+// top-level fields on the generic /dashboard/stats payload every role gets
+// (stale_ratings and eval_workload in particular -- unused by the old
+// pipeline() despite being right there), so this needed no backend change.
+function stages(s) {
+  return [
+    ["Vendor registration", "users", "primary", "awaiting KYC decision", s.vendors_pending_count],
+    ["Master & mapping", "layers", "info", "mapping requests awaiting decision", s.mappings_pending_count],
+    ["Rating refresh", "star", "warning", "manual update overdue (90+ days)", s.stale_ratings.length],
+    ["Tender & publishing", "clock", "danger", "tenders awaiting E-Tender Approval", s.pending_approval_count],
+    ["Bid → L1 → PO", "check-square", "success", "line(s) ready for technical evaluation", s.eval_workload.length],
   ];
-  return `<div>
-    <div class="ep-k mb-9px">Procurement pipeline</div>
-    <div class="ep-pipeline">${stages
-      .map(
-        ([name, note, done], i) => `<div class="ep-stage">
-          <div class="d-flex items-center gap-7px">
-            <span class="ep-stage-dot ${done ? "ep-stage-dot-on" : "ep-stage-dot-off"}">${i + 1}</span>
-            <span class="fs-12-5px fw-800">${esc(name)}</span>
-          </div>
-          <div class="ep-sub lh-1-4">${esc(note)}</div>
-          <div class="ep-stage-bar ${done ? "ep-stage-bar-on" : "ep-stage-bar-off"}"></div>
-        </div>`
-      )
-      .join("")}</div>
+}
+
+function tracker(s) {
+  const rows = stages(s)
+    .map(
+      ([label, ic, tone, note, count]) => `<div class="d-flex items-center gap-12px">
+        <span class="ep-kpi-icon tone-${tone}">${icon(ic, 20)}</span>
+        <div class="flex-1 minw-0"><div class="fw-600">${esc(label)}</div><div class="ep-sub">${esc(note)}</div></div>
+        <span class="fw-800 fs-16px">${count}</span>
+      </div>`
+    )
+    .join("");
+  return `<div class="ep-pane">
+    <div class="ep-pane-head"><span>Procurement Pipeline</span><span class="ep-k">where the system-wide backlog sits, now</span></div>
+    <div class="ep-pane-pad d-flex flex-wrap gap-24px items-center">
+      <div id="sa-stage-chart" class="flex-1 minw-0"></div>
+      <div class="d-flex flex-col gap-16px flex-1 minw-0">${rows}</div>
+    </div>
   </div>`;
+}
+
+function drawStageChart(s) {
+  const el = document.getElementById("sa-stage-chart");
+  if (!el) return;
+  donut(el, {
+    labels: stages(s).map(([label]) => label),
+    series: stages(s).map(([, , , , count]) => count),
+    pickColors: (p) => [p.primary, p.info, p.warning, p.danger, p.success],
+    height: 240,
+  });
 }
 
 export async function loadDashboard() {
@@ -75,11 +103,12 @@ export async function loadDashboard() {
     const queue = actionQueue(s);
     root.innerHTML = `<div class="d-flex flex-col gap-22px">
       ${kpiStrip(s)}
-      ${pipeline(s)}
+      ${tracker(s)}
       <div class="ep-grid grid-cols-1-45fr-1fr">${queue.html}${vendorBase(s)}</div>
     </div>`;
     wireActionQueue(root, queue);
     drawVendorBase(s);
+    drawStageChart(s);
     resultEl.textContent = "";
   } catch (err) {
     showResult(resultEl, "Could not load dashboard: " + err.message, false);

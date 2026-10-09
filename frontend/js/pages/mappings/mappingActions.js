@@ -6,7 +6,17 @@ import { modalPrompt, modalConfirm, modalChoose, modalAlert } from "../../modal.
 // the item matrix and the mapping list. Each returns true if something
 // changed, so the caller knows to refresh.
 
-const resultEl = () => document.getElementById("mapping-result");
+// Shared by two separate pages (Mapping Matrix, Mapping Requests -- Module 2's
+// split, 2026-10-08), each with its own result div; this pointed at neither
+// (a leftover "mapping-result" id from before the split), so showResult()
+// threw on a null element and the click handler's refresh() after it never
+// ran -- approve/reject actually succeeded, the row just didn't update until
+// a full page reload refetched. Pick whichever of the two is on the
+// currently visible page.
+const resultEl = () =>
+  document.getElementById("mapping-matrix-result")?.closest("[hidden]")
+    ? document.getElementById("mapping-requests-result")
+    : document.getElementById("mapping-matrix-result");
 const post = (path, body) =>
   api(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { method: "POST" });
 

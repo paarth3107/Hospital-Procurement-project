@@ -29,7 +29,7 @@ export function vendorBase(s) {
       </div>`
   ).join("");
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Vendor base</span><span class="ep-k">${total} vendor(s)</span></div>
+    <div class="ep-pane-head"><span>Vendor Base</span><span class="ep-k">${total} vendor(s)</span></div>
     <div class="ep-pane-pad">
       ${
         total

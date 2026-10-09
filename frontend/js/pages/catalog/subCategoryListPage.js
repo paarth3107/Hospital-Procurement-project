@@ -31,7 +31,7 @@ function showForm(open) {
 
 function render() {
   root().innerHTML = `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Sub-categories</span><span class="d-flex items-center gap-10px"><span class="ep-k">used by the vendor-mapping drill-down</span><button class="ep-b" data-new="subcategory">+ New sub-category</button></span></div>
+    <div class="ep-pane-head"><span>Sub-Categories</span><span class="d-flex items-center gap-10px"><span class="ep-k">used by the vendor-mapping drill-down</span><button class="ep-b" data-new="subcategory">+ New sub-category</button></span></div>
     <table class="ep-table">${th("Name", "Category", "Type", "")}<tbody>${
       subCategories.length
         ? subCategories

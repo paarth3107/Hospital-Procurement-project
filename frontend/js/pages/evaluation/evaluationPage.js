@@ -39,7 +39,7 @@ function render() {
         )
         .join("")
     : emptyRow(6, showClosed ? "No published tenders yet." : "Nothing in progress. Closed tenders are hidden -- tick the box above to see them.");
-  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders to Evaluate</span>
+  root().innerHTML = `<div class="ep-pane"><div class="ep-pane-head"><span>Tenders To Evaluate</span>
     <label class="d-flex items-center gap-6px fs-12px fw-400 tt-none ls-0 text-ink-70">
       <input type="checkbox" id="show-closed-eval" ${showClosed ? "checked" : ""}> Show closed/awarded (${closedCount})
     </label></div>

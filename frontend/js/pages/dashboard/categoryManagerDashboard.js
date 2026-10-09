@@ -51,7 +51,7 @@ function tracker(c) {
     )
     .join("");
   return `<div class="ep-pane">
-    <div class="ep-pane-head"><span>Procurement pipeline</span><span class="ep-k">technical evaluation, where it sits now</span></div>
+    <div class="ep-pane-head"><span>Procurement Pipeline</span><span class="ep-k">technical evaluation, where it sits now</span></div>
     <div class="ep-pane-pad d-flex flex-wrap gap-24px items-center">
       <div id="cm-stage-chart" class="flex-1 minw-0"></div>
       <div class="d-flex flex-col gap-16px flex-1 minw-0">${rows}</div>

@@ -69,7 +69,7 @@ export async function renderReview(container, tenderId, { onBack, onDecided, res
       fact("Terms &amp; conditions", r.terms_document_filename ? `<button type="button" class="ep-b" id="rv-terms-download">${esc(r.terms_document_filename)} — download</button>` : null, 4),
       ...(r.is_rate_contract ? [fact("Rate contract agreement", r.rate_contract_document_filename ? `<button type="button" class="ep-b" id="rv-rate-contract-download">${esc(r.rate_contract_document_filename)} — download</button>` : null, 4)] : []),
     ]))}
-    ${pane(`Line items (${r.lines.length})`, `<span class="ep-k">${r.lines.filter((l) => l.held_back).length} would be held back</span>`, r.lines.map(lineHtml).join(""))}
+    ${pane(`Line Items (${r.lines.length})`, `<span class="ep-k">${r.lines.filter((l) => l.held_back).length} would be held back</span>`, r.lines.map(lineHtml).join(""))}
     ${pane("Approval History", "", rounds)}
     <div class="ep-pane ep-pane-pad">
       ${
