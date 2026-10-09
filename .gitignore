@@ -7,3 +7,7 @@ backend/**/__pycache__/
 backend/*.db
 backend/.env
 
+
+# Claude's own working notes (moved out of git tracking 2026-10-09)
+*.md
+.claude-notes/
