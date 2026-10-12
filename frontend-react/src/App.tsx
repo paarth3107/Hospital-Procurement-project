@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { NavigateSync } from "./lib/router";
 import { AuthBoot } from "./shell/AuthBoot";
+import { AuthLayout } from "./shell/AuthLayout";
 import { ProtectedLayout } from "./shell/ProtectedLayout";
 import { RootRedirect } from "./shell/RootRedirect";
 import { StaffLoginPage } from "./pages/auth/StaffLoginPage";
@@ -57,9 +58,11 @@ export function App() {
       <AuthBoot />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
-        <Route path="/login" element={<StaffLoginPage />} />
-        <Route path="/vendor-login" element={<VendorLoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<StaffLoginPage />} />
+          <Route path="/vendor-login" element={<VendorLoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Route>
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/queue" element={<VendorListPage />} />
