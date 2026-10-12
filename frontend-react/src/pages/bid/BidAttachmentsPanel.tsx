@@ -1,0 +1,65 @@
+import { Tag } from "../../components/Tag";
+import type { BidAttachment, BidRequirements } from "../../lib/types";
+
+// Ported 1:1 from frontend/js/pages/bid/bidAttachments.js -- attachments
+// for one line's bid (spec 8.3): one slot per document the line type
+// calls for, mandatory ones flagged. Uploading needs a saved bid, so the
+// caller passes `ensureBid()` which saves a draft first when none exists
+// yet.
+export function BidAttachmentsPanel({
+  attachments,
+  req,
+  locked,
+  onUpload,
+  onRemove,
+  onView,
+}: {
+  attachments: BidAttachment[];
+  req: BidRequirements;
+  locked: boolean;
+  onUpload: (kind: string) => void;
+  onRemove: (attachmentId: number) => void;
+  onView: (attachmentId: number) => void;
+}) {
+  return (
+    <div className="d-flex flex-col gap-12px">
+      {req.slots.map((s) => {
+        const mine = attachments.filter((f) => f.kind === s.kind);
+        return (
+          <div data-slot={s.kind} className="pb-10px border-bottom-1px-solid-ink-15" key={s.kind}>
+            <div className="d-flex items-center gap-10px flex-wrap">
+              <span className="fw-600">{s.label}</span>
+              <span data-mandatory-tag="">{s.mandatory ? <Tag text={mine.length ? "provided" : "required"} tone={mine.length ? "pos" : "att"} /> : <span className="ep-sub">optional</span>}</span>
+              {!locked && (
+                <button type="button" className="ep-b ml-auto" onClick={() => onUpload(s.kind)}>
+                  Upload
+                </button>
+              )}
+            </div>
+            {mine.map((f) => (
+              <div className="d-flex gap-10px items-center mt-6px fs-12-5px" key={f.id}>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onView(f.id);
+                  }}
+                >
+                  {f.original_filename}
+                </a>
+                <span className="ep-sub">
+                  {(f.size_bytes / 1024).toFixed(0)} KB{f.description ? " · " + f.description : ""}
+                </span>
+                {!locked && (
+                  <button type="button" className="ep-b padding-0-8px" aria-label="Remove" onClick={() => onRemove(f.id)}>
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

@@ -1,0 +1,652 @@
+/* MedSource UI, Vuexy-based (user-directed 2026-10-06). Tokens live in
+   design-system.css; this file holds the component and shell rules and only
+   references those tokens, so light/dark and any recolouring follow for free. */
+
+button { font-family: inherit; }
+a { color: var(--primary); }
+a:hover { color: var(--primary-dark); }
+[hidden] { display: none !important; }
+input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(--primary); }
+
+/* ---------- shell: sidebar ---------- */
+.ep-side { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--sidebar-bg); box-shadow: 0 0 22px 0 rgba(var(--ink-rgb), .06); display: flex; flex-direction: column; z-index: 50; overflow-x: hidden; overflow-y: auto; transition: width .25s ease, box-shadow .25s ease; }
+.ep-brand { display: flex; align-items: center; gap: 12px; padding: 26px 26px 22px; cursor: pointer; }
+.ep-brand-mark { width: 28px; height: 28px; flex: none; border-radius: var(--radius); background: var(--primary); color: var(--on-solid); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+.ep-brand-name { font-size: 18px; font-weight: 600; line-height: 1.1; white-space: nowrap; min-width: 0; transition: opacity .2s ease; }
+.sidebar-collapse-btn { margin-left: auto; flex: none; }
+.sidebar-collapse-btn .collapse-chevron { transition: transform .25s ease; }
+body.sidebar-collapsed .collapse-chevron { transform: rotate(180deg); }
+.ep-navhead { padding: 18px 26px 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-50); font-weight: 600; white-space: nowrap; transition: opacity .2s ease; }
+.ep-navlist { display: flex; flex-direction: column; gap: 4px; padding: 6px 14px 18px; }
+.ep-nav { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 16px; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--ink); }
+.ep-nav:hover { background: var(--ink-06); }
+.ep-nav.active { background: linear-gradient(118deg, var(--primary), rgba(var(--primary-rgb), .7)); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .4); }
+.ep-nav .nav-label { flex: 1; min-width: 0; white-space: nowrap; transition: opacity .2s ease; }
+.ep-nav .nav-icon, .ep-navgroup-head .nav-icon { flex: none; opacity: .85; }
+/* A true circle for a single digit; padding lets it widen into a rounded
+   capsule (still fully round at both ends) rather than squashing for 2+ digits. */
+.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px; font-weight: 600; flex: none; transition: opacity .2s ease; }
+.ep-nav .nav-badge { background: var(--danger); color: var(--on-solid); }
+.ep-nav .nav-badge:empty { display: none; }
+.ep-nav.active .nav-badge { background: var(--on-solid); color: var(--primary); }
+.ep-navgroup-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--ink); text-align: left; }
+.ep-navgroup-head:hover { background: var(--ink-06); }
+.ep-navgroup-head .nav-label { flex: 1; min-width: 0; white-space: nowrap; transition: opacity .2s ease; }
+.ep-navgroup-head .nav-chevron { margin-left: auto; flex: none; transition: transform .15s, opacity .2s ease; }
+.ep-navgroup.collapsed .nav-chevron { transform: rotate(-90deg); }
+/* Vuexy-style slide (2026-10-08): max-height is pinned to a measured pixel
+   value right before each toggle (shell.js) and animated to/from 0 --
+   CSS alone can't transition to/from "auto". Whole-sidebar icon-rail
+   collapse (below) still hides this instantly with display:none, which
+   always wins over max-height -- that one stays a snap, not a slide. */
+.ep-navgroup-items { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; overflow: hidden; transition: max-height .25s ease; }
+.ep-navgroup-items .ep-nav { padding-left: 30px; }
+.ep-identity { margin-top: auto; border-top: 1px solid var(--ink-12); padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; white-space: nowrap; transition: opacity .2s ease; }
+.who-name { font-size: 14px; font-weight: 600; }
+.verified-tick { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--primary); color: var(--on-solid); font-size: 9px; line-height: 1; vertical-align: middle; }
+.who-role { font-size: 12px; color: var(--ink-60); margin-top: 2px; }
+
+/* Collapsed sidebar (Vuexy-style, 2026-10-07): a thin icon rail. Checked
+   against the real Vuexy template -- nothing about a row's own layout
+   changes (padding, alignment); only the sidebar's own width animates, and
+   the icons (flex: none, fixed size) stay exactly where they always are.
+   Labels fade out over the same .25s as the width, so the two motions read
+   as one smooth shrink instead of text popping in/out mid-animation, and
+   overflow-x: hidden on .ep-side quietly crops whatever the width leaves no
+   room for. Hovering flies the rail back out over the page (box-shadow only,
+   main's own margin doesn't move) for a quick glance without committing to
+   it. ".sidebar-peek" is tracked in JS (shell.js's mouseenter/mouseleave) and
+   explicitly cleared the moment the sidebar is collapsed, rather than read
+   live off CSS :hover -- :hover is still true right after the click that
+   collapsed it (the pointer hasn't moved, it's resting on the toggle it just
+   pressed), so a plain :hover rule shows the sidebar as if nothing happened. */
+body.sidebar-collapsed .ep-side { width: 76px; }
+body.sidebar-collapsed .ep-side.sidebar-peek { width: 280px; box-shadow: 0 0 32px 0 rgba(var(--ink-rgb), .18); }
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-brand-name,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-navhead,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-identity,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .nav-label,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .nav-badge,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .nav-chevron,
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .sidebar-collapse-btn { opacity: 0; pointer-events: none; }
+/* Sub-items collapse along with the rail (2026-10-07) -- a wall of undifferentiated
+   icons with no group headings to break them up defeats the point of a thin rail.
+   This never touches .ep-navgroup's own "collapsed" class or its saved preference
+   (initGroups() in shell.js) -- it's purely a display override while the rail is
+   narrow, so expanding the sidebar (or peeking it) reveals each group exactly as
+   the user last left it, not forced back open. */
+body.sidebar-collapsed .ep-side:not(.sidebar-peek) .ep-navgroup-items { display: none; }
+
+/* ---------- shell: main + app bar ---------- */
+main { min-width: 0; }
+body:has(#sidebar:not([hidden])) main { margin-left: 280px; transition: margin-left .25s ease; }
+body.sidebar-collapsed:has(#sidebar:not([hidden])) main { margin-left: 76px; }
+.ep-appbar { display: none; align-items: center; gap: 16px; margin: 24px 28px 0; padding: 14px 20px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); position: relative; z-index: 40; }
+body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
+.ep-search { position: relative; flex: 1; max-width: 460px; }
+.ep-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-50); pointer-events: none; }
+.ep-search input { padding-left: 38px; min-height: 36px; border-color: transparent; background: var(--page-bg); }
+.ep-search input:focus { border-color: var(--primary); }
+.ep-search-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--dialog-shadow); padding: 6px; max-height: 360px; overflow-y: auto; }
+.ep-search-group { padding: 8px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-50); font-weight: 600; }
+.ep-search-item { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 8px 10px; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; text-align: left; font-size: 13.5px; color: var(--ink); }
+.ep-search-item:hover, .ep-search-item:focus { background: var(--ink-06); outline: none; }
+.ep-search-item .ep-sub { white-space: nowrap; }
+.ep-appbar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ep-icon-btn { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; color: var(--ink-70); }
+.ep-icon-btn:hover { background: var(--ink-06); color: var(--ink); }
+.ep-icon-btn .ep-dot { position: absolute; top: 8px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.ep-icon-btn .ep-dot:empty, .ep-icon-btn .ep-dot[hidden] { display: none; }
+.ep-dropdown-wrap { position: relative; }
+.ep-dropdown { position: absolute; top: calc(100% + 8px); right: 0; min-width: 300px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--dialog-shadow); padding: 8px; z-index: 60; }
+.ep-dropdown-head { padding: 10px 12px 8px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--ink-12); margin-bottom: 4px; }
+.ep-dropdown-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 9px 12px; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; text-align: left; font-size: 13.5px; color: var(--ink); }
+.ep-dropdown-item:hover { background: var(--ink-06); }
+.ep-dropdown-item .nav-badge { background: var(--primary-14); color: var(--primary-dark); }
+.ep-dropdown-empty { padding: 14px 12px; font-size: 13px; color: var(--ink-60); }
+/* The bell's richer vendor rows (shell.js's bellRowsHtml): a title line plus
+   a body sentence, unlike .ep-dropdown-item's single-line label+count. */
+.ep-dropdown.ep-dropdown-wide { min-width: 360px; max-width: 380px; }
+.ep-notif-item { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; text-align: left; color: var(--ink); }
+.ep-notif-item:hover { background: var(--ink-06); }
+.ep-notif-dismiss { flex: none; border: 0; background: transparent; color: var(--ink-50); font-size: 13px; line-height: 1; padding: 3px 7px; border-radius: 50%; cursor: pointer; }
+.ep-notif-dismiss:hover { background: var(--ink-12); color: var(--ink); }
+.ep-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-14); color: var(--primary-dark); font-weight: 600; font-size: 13px; border: 0; cursor: pointer; }
+.ep-user-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px 10px; border-bottom: 1px solid var(--ink-12); margin-bottom: 4px; }
+.ep-user-head .ep-avatar { cursor: default; }
+
+/* ---------- shell: page header + content ---------- */
+.ep-head { display: flex; align-items: flex-end; gap: 24px; padding: 28px 28px 6px; background: transparent; }
+.ep-head h3 { margin: 6px 0 0; font-size: 26px; font-weight: 600; }
+#page-kicker:empty { display: none; }
+.ep-head-facts { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.ep-fact { text-align: right; }
+.ep-fact-value { font-size: 13px; font-weight: 600; }
+.ep-fact-rule { width: 1px; height: 30px; background: var(--ink-18); }
+.ep-content { padding: 26px 28px 56px; display: flex; flex-direction: column; gap: 26px; }
+body:not(:has(#sidebar:not([hidden]))) .ep-content { max-width: 980px; margin: 0 auto; padding-top: 32px; }
+body:not(:has(#sidebar:not([hidden]))) .ep-content:has(#view-register:not([hidden])) { max-width: 1360px; }
+/* Vuexy-style (2026-10-07): the page keeps a comfortable fixed width and
+   recenters in whatever room the sidebar leaves, rather than every card and
+   grid column stretching to fill the extra space when it collapses. Only
+   margin-left/right are set, not the margin shorthand, so each element's own
+   top/bottom spacing above is untouched. */
+body:has(#sidebar:not([hidden])) .ep-appbar,
+body:has(#sidebar:not([hidden])) .ep-head,
+body:has(#sidebar:not([hidden])) .ep-content { max-width: 1320px; margin-left: auto; margin-right: auto; }
+/* The audit log's table (7 columns, each with real content to show) is
+   cramped at the shared 1320px -- wider just for this view instead of
+   shrinking the table further. */
+body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { max-width: 1500px; }
+.view { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+.view[hidden] { display: none; }
+
+/* ---------- components ---------- */
+.ep-k { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-60); font-weight: 600; }
+.ep-cell { padding: 17px 20px; border-bottom: 1px solid var(--ink-12); font-size: 15px; vertical-align: middle; }
+.ep-th { padding: 15px 20px; border-bottom: 1px solid var(--ink-18); font-size: 13px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-60); text-align: left; font-weight: 600; }
+.ep-table { width: 100%; border-collapse: collapse; }
+.audit-table { table-layout: fixed; }
+.audit-table .ep-cell { overflow-wrap: break-word; }
+.audit-table .ep-th, .audit-table .ep-cell { text-align: center; }
+/* Catalog Product List (2026-10-09): without a fixed layout, the browser
+   auto-sizes every column from only the currently visible rows -- switching
+   the Item/Asset/Service tab changed which rows were visible, which visibly
+   resized the whole table between tabs even though it's the same component.
+   Pinned percentages per column keep the layout constant regardless of
+   which rows are shown. Scoped to this one table, same as .audit-table.
+   7 columns -- "Type-specific attributes" was dropped (user-directed): it's
+   covered by Edit/a future Product Detail screen, not duplicated here, and
+   dropping it gave Edit/Deactivate real room to sit side by side. */
+.catalog-product-table { table-layout: fixed; }
+.catalog-product-table .ep-cell { overflow-wrap: break-word; }
+.catalog-product-table th:nth-child(1) { width: 30%; }
+.catalog-product-table th:nth-child(2) { width: 15%; }
+.catalog-product-table th:nth-child(3) { width: 9%; }
+.catalog-product-table th:nth-child(4) { width: 12%; }
+.catalog-product-table th:nth-child(5) { width: 8%; }
+.catalog-product-table th:nth-child(6) { width: 9%; }
+.catalog-product-table th:nth-child(7) { width: 17%; }
+.ep-table tbody tr:hover .ep-cell { background: var(--ink-03); }
+.ep-table tr:last-child .ep-cell { border-bottom: 0; }
+
+/* Tender line-item grid: scrolls instead of paginating -- this is active data
+   entry, not a read list (2026-09-30). */
+.li-grid-wrap { max-height: 620px; overflow: auto; border: 1px solid var(--ink-12); border-radius: var(--radius); }
+.li-grid { min-width: 1100px; }
+.li-grid thead th { position: sticky; top: 0; background: var(--surface-subtle); z-index: 1; }
+.li-grid .ep-cell { padding: 5px 6px; }
+.li-grid .li-rownum { color: var(--ink-45); font-size: 12px; text-align: right; }
+.li-grid input.input, .li-grid select.input { min-height: 32px; padding: 4px 8px; font-size: 13px; }
+.li-grid input[type="checkbox"] { width: 16px; height: 16px; }
+.li-grid input[data-field="technical_weight"], .li-grid input[data-field="price_weight"] { width: 72px; }
+.li-grid .li-total { font-weight: 600; white-space: nowrap; }
+.li-details-row td { background: var(--ink-03); padding: 14px !important; }
+.ep-sub { font-size: 13px; color: var(--ink-60); }
+.filter-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 16px; align-items: end; }
+.filter-grid > .ep-field { min-width: 0; }
+.filter-wide { grid-column: span 2; }
+.filter-actions { grid-column: span 3; display: flex; justify-content: flex-end; gap: 10px; }
+.ep-clip { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.ep-tag { border: 0; font-family: inherit; }
+.ep-tag-action { cursor: pointer; }
+.ep-tag-action:hover { filter: brightness(.95); }
+/* A vendor chip marked for removal (2026-10-08) -- click toggles this instead
+   of opening a separate picker; the chip itself is the selection. */
+.ep-tag-action.marked-remove { background: var(--danger-100); color: var(--danger-700); }
+.ep-tag-action.marked-remove:hover { filter: brightness(.97); }
+.invite-row .input { width: auto; min-height: 34px; padding: 5px 10px; font-size: 14px; }
+.invite-row select.input { width: 240px; }
+.invite-row input.input { width: 220px; }
+.ep-link { background: none; border: 0; padding: 0; color: var(--primary); font-size: 12px; font-weight: 500; cursor: pointer; }
+.ep-link:hover { color: var(--primary-dark); text-decoration: underline; }
+.fs-11px { font-size: 11px; }
+.ep-pane { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); min-width: 0; }
+.ep-pane-head { padding: 24px 26px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 18px; font-weight: 600; }
+.ep-pane-pad { padding: 26px; }
+.ep-b { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink-25); background: var(--surface); border-radius: var(--radius); cursor: pointer; font-size: 14px; font-weight: 500; padding: 10px 20px; color: var(--ink); white-space: nowrap; vertical-align: middle; }
+.ep-b:hover { background: var(--ink-06); }
+.ep-b[data-v="p"] { background: var(--primary); border-color: var(--primary); color: var(--on-solid); box-shadow: 0 2px 6px rgba(var(--primary-rgb), .35); }
+.ep-b[data-v="p"]:hover { background: var(--primary-dark); }
+.ep-b:disabled { opacity: .45; cursor: not-allowed; }
+/* Vuexy-style pagination (2026-10-07): circular page pills + chevron arrows,
+   the active page filled solid primary -- replaces the old plain
+   "‹ Previous / Page X of Y / Next ›" text bar everywhere paginationBar()
+   is used (kit.js), so every paginated list in the app picked this up at once. */
+.ep-pagination { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 16px 0 4px; flex-wrap: wrap; }
+.ep-page-btn, .ep-page-arrow { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-65); font-size: 13.5px; font-weight: 500; cursor: pointer; }
+.ep-page-btn:hover, .ep-page-arrow:hover:not(:disabled) { background: var(--primary-08); color: var(--primary); }
+.ep-page-btn.active { background: var(--primary); color: var(--on-solid); font-weight: 700; box-shadow: 0 2px 6px rgba(var(--primary-rgb), .35); }
+.ep-page-arrow { font-size: 17px; }
+.ep-page-arrow:disabled { opacity: .35; cursor: not-allowed; }
+.ep-page-ellipsis { color: var(--ink-40); padding: 0 2px; font-size: 13.5px; }
+/* Brief confirmation after a copy -- a colour change and a pop, no popup dialog.
+   The :hover variant is repeated so it still wins while the pointer is still
+   sitting on the button right after the click that triggered it. min-width is
+   set to fit "Copy link" (the wider of the two states), with "Copied!"
+   centered, so the button doesn't resize when the text swaps. */
+.copy-link-btn { min-width: 108px; justify-content: center; }
+.ep-b.copy-success, .ep-b.copy-success:hover { background: var(--success); border-color: var(--success); color: var(--on-solid); animation: copy-pop .35s ease; }
+@keyframes copy-pop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.ep-tag { display: inline-block; font-size: 13px; font-weight: 500; text-transform: capitalize; padding: 4px 12px; border-radius: var(--radius-badge); white-space: nowrap; background: var(--ink-12); color: var(--ink); }
+.ep-tag[data-t="pos"] { background: var(--success-bg); color: var(--success-text); }
+.ep-tag[data-t="att"] { background: var(--primary-14); color: var(--primary-dark); }
+.ep-tag[data-t="neg"] { background: var(--danger-100); color: var(--danger-700); }
+.ep-tag[data-t="esc"] { background: var(--tag-neutral-bg); color: var(--tag-neutral-text); }
+.ep-tag[data-t="item"] { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+.ep-tag[data-t="asset"] { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.ep-tag[data-t="service"] { background: var(--primary-14); color: var(--primary-dark); }
+.ep-box { min-height: 34px; padding: 7px 10px; background: var(--page-bg); border: 1px solid var(--ink-18); border-radius: var(--radius); font-size: 13.5px; font-weight: 500; }
+.ep-bar { height: 8px; border-radius: var(--radius); background: var(--ink-12); overflow: hidden; }
+.ep-bar > div { height: 100%; width: var(--bar-w, 100%); background: var(--bar-color, var(--primary)); border-radius: var(--radius); }
+.bar-good > div { background: var(--primary); }
+.bar-mid > div { background: var(--ink-40); }
+.score-color-good { color: var(--primary); }
+.score-color-mid { color: var(--ink); }
+.score-color-none { color: var(--ink-45); }
+.eligibility-line { padding: 10px 14px; margin-bottom: 10px; border-left: 3px solid; border-radius: var(--radius); }
+.eligibility-none { border-left-color: var(--danger); background: var(--danger-08); }
+.eligibility-short { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.eligibility-ok { border-left-color: var(--ink-30); background: var(--ink-04); }
+.vc-chip { font-size: 12px; padding: 4px 10px; font-weight: 500; border-radius: var(--radius-badge); }
+.chip-approved { background: var(--success-bg); color: var(--success-text); }
+.chip-pending { background: var(--ink-12); color: var(--ink); }
+.chip-rejected, .chip-suspended { background: var(--danger-100); color: var(--danger-700); }
+
+/* Vendor category/item request panel (2026-10-08) -- a real scrollable table
+   instead of a flex-wrapped cloud of checkbox pills, since the real catalog
+   runs into the 100s of categories/items. Column header stays put while the
+   body scrolls; a category group row (Items tab only) toggles the rows under
+   it, collapsed by default. */
+.vc-request-list { max-height: 460px; overflow: auto; border: 1px solid var(--ink-18); border-radius: var(--radius); }
+.vc-request-list .ep-th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.vc-col-check { width: 1%; white-space: nowrap; padding-left: 16px !important; padding-right: 8px !important; }
+.vc-col-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+.vc-col-check input[type="checkbox"]:disabled { cursor: not-allowed; }
+.vc-name-cell { display: flex; align-items: center; gap: 11px; }
+.vc-doc-pills { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+.vc-group-row td { background: var(--surface-subtle); cursor: pointer; user-select: none; font-weight: 600; }
+.vc-group-row:hover td { background: var(--ink-06); }
+.vc-chev { color: var(--ink-40); transition: transform .15s ease; flex: none; }
+.vc-group-row.expanded .vc-chev { transform: rotate(90deg); }
+.ep-note { padding: 12px 16px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); border-left: 3px solid var(--primary); font-size: 13px; line-height: 1.45; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.ep-note.warn { background: var(--danger-08); border-left-color: var(--danger); }
+.ep-seg { display: inline-flex; padding: 3px; gap: 3px; background: var(--ink-06); border-radius: var(--radius); }
+.ep-seg button { border: 0; background: transparent; padding: 9px 18px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--ink-70); border-radius: calc(var(--radius) - 2px); }
+.ep-seg button:hover { color: var(--ink); }
+.ep-seg button.on { background: var(--surface); color: var(--primary); box-shadow: 0 1px 4px rgba(var(--ink-rgb), .12); }
+.ep-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.ep-kpi { background: var(--surface); padding: 26px 26px; border-radius: var(--radius); box-shadow: var(--card-shadow); }
+button.ep-kpi { border: none; font: inherit; text-align: left; width: 100%; cursor: pointer; }
+button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
+.ep-kpi-value { font-size: 32px; font-weight: 600; line-height: 1.15; margin-top: 6px; }
+.assign-list { padding: 2px 26px 8px; }
+.assign-row { padding: 14px 0; border-bottom: 1px solid var(--ink-07); }
+.assign-row:last-child { border-bottom: none; }
+.assign-ring { position: relative; width: 46px; height: 46px; flex: none; border-radius: 50%; background: conic-gradient(var(--ring-color, var(--primary)) calc(var(--ring-value) * 1%), var(--ink-12) 0); }
+.assign-ring-hole { position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: var(--ink); }
+.ring-tone-success { --ring-color: var(--success); }
+.ring-tone-warning { --ring-color: var(--warning); }
+.ring-tone-danger { --ring-color: var(--danger); }
+.ring-tone-muted { --ring-color: var(--ink-40); }
+.assign-chevron { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: var(--radius); background: var(--surface-subtle); color: var(--ink-70); cursor: pointer; }
+.assign-chevron:hover { background: var(--ink-09); }
+.ep-kpi-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: var(--radius-badge); background: var(--primary-14); color: var(--primary); }
+.ep-kpi-icon.tone-success { background: var(--success-bg); color: var(--success-text); }
+.ep-kpi-icon.tone-info { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+.ep-kpi-icon.tone-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.ep-kpi-icon.tone-danger { background: var(--danger-100); color: var(--danger); }
+.ep-kpi-icon.tone-muted { background: var(--tag-neutral-bg); color: var(--tag-neutral-text); }
+/* Reserved image slots (2026-10-07, kit.js's imgPlaceholder()) -- catalog
+   rows/cards and the Add Product image card today, vendor logos later. */
+.ep-thumb { flex: none; display: grid; place-items: center; background: var(--ink-06); color: var(--ink-35); border-radius: var(--radius); overflow: hidden; }
+.ep-thumb-sm { width: 40px; height: 40px; }
+.ep-thumb-md { width: 56px; height: 56px; }
+.ep-thumb-lg { width: 100%; min-height: 180px; border: 1.5px dashed var(--ink-25); background: var(--surface-subtle); }
+/* Category List tab: a card per category (Vuexy's ecommerce category-list
+   grid) instead of a table row -- the icon placeholder above doubles as
+   where a real category image lands later. */
+.ep-category-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.ep-category-card-head { display: flex; gap: 14px; align-items: center; }
+.ep-grid { display: grid; gap: 26px; align-items: start; }
+.ep-mono { font-family: ui-monospace, Menlo, monospace; }
+.ep-row-btn { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--ink-12); border-left: 3px solid transparent; padding: 11px 14px; cursor: pointer; background: var(--surface); }
+.ep-row-btn.sel { background: var(--primary-08); border-left-color: var(--primary); }
+.result { padding: 11px 14px; font-size: 13px; white-space: pre-wrap; line-height: 1.45; border-radius: var(--radius); }
+.result.ok { background: var(--success-bg); color: var(--success-text); }
+.result.err { background: var(--danger-08); color: var(--danger-700); }
+.result:empty { display: none; }
+.hint { color: var(--ink-60); font-size: 14px; line-height: 1.6; margin: 0; }
+
+/* forms */
+.ep-form { display: flex; flex-direction: column; gap: 14px; }
+.ep-field > .ep-k, .ep-field > label { display: block; margin-bottom: 5px; }
+.ep-form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 24px; }
+.ep-form-grid > div { min-width: 0; }
+.input-narrow { max-width: 110px; }
+/* Open tender and Rate contract: same checkbox-plus-extra-fields shape, shown side by
+   side so the two stay visually paired regardless of which one's extra fields are shown. */
+.tender-option-row { display: flex; gap: 40px; flex-wrap: wrap; }
+.tender-option { flex: 1; min-width: 260px; }
+.tender-option input[type="date"] { max-width: 150px; }
+.input.invalid { border-color: var(--danger); background: var(--danger-08); }
+.ep-check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.ep-check-field { min-height: 42px; }
+.ep-check input[type=checkbox] { width: 17px; height: 17px; }
+
+/* Vuexy-style toggle switch (2026-10-08) -- a real checkbox underneath
+   (keeps .checked/change/name/focus/keyboard all working exactly as
+   before), visually hidden and driven purely by the :checked sibling
+   selector below, so no JS is needed to animate it. Used wherever a plain
+   checkbox read as "an action" rather than "a state" (vendor bid grid's
+   Skip, tender creation's Open tender / Rate contract). */
+.ep-switch { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; vertical-align: middle; }
+.ep-switch input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ep-switch-track { width: 34px; height: 20px; border-radius: 999px; background: var(--ink-18); position: relative; flex: none; transition: background .18s ease; }
+.ep-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(var(--ink-rgb), .35); transition: transform .18s ease; }
+.ep-switch input:checked ~ .ep-switch-track { background: var(--primary); }
+.ep-switch input:checked ~ .ep-switch-track .ep-switch-knob { transform: translateX(14px); }
+.ep-switch-label { font-size: 13px; font-weight: 500; color: var(--ink-70); }
+.ep-switch input:checked ~ .ep-switch-label { color: var(--ink); font-weight: 600; }
+.ep-switch input:disabled ~ .ep-switch-track { opacity: .5; }
+.ep-switch:has(input:disabled) { cursor: not-allowed; }
+.ep-switch input:focus-visible ~ .ep-switch-track { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* document drop zones */
+.dropzone { border: 1.5px dashed var(--ink-30); border-radius: var(--radius); background: var(--surface); padding: 18px; font-size: 13px; color: var(--ink-60); cursor: pointer; }
+.dropzone:hover, .dropzone.dragover { background: var(--primary-08); border-color: var(--primary); color: var(--ink); }
+.dropzone input[type="file"] { display: none; }
+.dropzone.has-file { border-style: solid; border-color: var(--primary); color: var(--ink); }
+.dropzone.invalid { border-color: var(--danger); background: var(--danger-08); color: var(--danger-700); }
+
+/* matrix */
+.matrix-btn { width: 100%; height: 34px; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 600; }
+.matrix-btn[data-s="approved"] { background: var(--primary-14); color: var(--primary-dark); }
+.matrix-btn[data-s="none"] { background: transparent; border: 1px solid var(--ink-20); color: var(--ink-55); }
+.matrix-btn:hover { filter: brightness(.96); }
+
+/* dialogs and the generic confirm/prompt modal */
+.dialog-overlay, .modal-overlay { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; padding: 16px; }
+.dialog-overlay { z-index: 900; }
+.modal-overlay { z-index: 1000; }
+.dialog-overlay[hidden], .modal-overlay[hidden] { display: none; }
+.dialog-box, .modal-box { background: var(--surface); border-radius: var(--radius); box-shadow: var(--dialog-shadow); }
+.dialog-box { width: 720px; max-width: 100%; max-height: 92vh; overflow: auto; }
+.modal-box { width: 560px; max-width: 100%; }
+.dlg-head { padding: 18px 22px; border-bottom: 1px solid var(--ink-12); display: flex; align-items: flex-start; gap: 14px; }
+.dlg-head h4 { margin: 4px 0 2px; font-size: 19px; font-weight: 600; }
+.dlg-body { padding: 18px 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.dlg-foot { padding: 14px 22px; border-top: 1px solid var(--ink-12); display: flex; align-items: center; gap: 10px; }
+.dlg-foot .hint { flex: 1; }
+.fact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.fact-value { font-size: 13.5px; font-weight: 500; margin-top: 3px; line-height: 1.4; }
+.hist { border-left: 2px solid var(--ink-18); padding: 1px 0 1px 10px; }
+.hist-when { font-size: 12px; color: var(--ink-55); }
+.modal-box h3 { margin: 0; padding: 18px 22px; border-bottom: 1px solid var(--ink-12); font-size: 19px; font-weight: 600; }
+.modal-box p#modal-message { margin: 0; padding: 18px 22px 0; font-size: 13.5px; color: var(--ink-72); line-height: 1.5; }
+#modal-body { padding: 12px 22px 0; }
+#modal-body input[type="text"], #modal-body select { width: 100%; min-height: 38px; padding: 7px 12px; font: inherit; font-size: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--ink-20); border-radius: var(--radius); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; margin-top: 16px; border-top: 1px solid var(--ink-12); }
+.modal-actions button { border: 1px solid var(--ink-25); background: var(--surface); border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 500; padding: 7px 14px; color: var(--ink); }
+.modal-actions button:hover { background: var(--ink-06); }
+/* .modal-confirm-btn is the class equivalent of #modal-confirm-btn (2026-10-09,
+   React migration) -- React-rendered confirm dialogs (own portal, never the
+   vanilla #modal-overlay node -- see .claude-notes/REACT-MIGRATION-PLAN.md)
+   use the class so they don't need to collide with the vanilla modal's id. */
+#modal-confirm-btn, .modal-confirm-btn { background: var(--primary); border-color: var(--primary); color: var(--on-solid); }
+#modal-confirm-btn:hover, .modal-confirm-btn:hover { background: var(--primary-dark); }
+#modal-confirm-btn.danger, .modal-confirm-btn.danger { background: var(--danger); border-color: var(--danger); }
+
+/* landing / auth */
+.landing-title { font-size: 34px; font-weight: 600; letter-spacing: -.01em; }
+.back-link, .link-btn { background: none; border: 0; padding: 0; color: var(--ink-60); font-size: 13px; font-weight: 500; cursor: pointer; align-self: flex-start; }
+.back-link:hover, .link-btn:hover { color: var(--primary); }
+
+.ep-menu-btn { display: none; }
+@media (max-width: 900px) {
+  .ep-side { transform: translateX(-100%); transition: transform .2s; }
+  .ep-side.open { transform: none; }
+  .ep-menu-btn { display: grid; }
+  body:has(#sidebar:not([hidden])) main { margin-left: 0; }
+  /* The icon-rail collapse is a desktop idea -- the mobile drawer already
+     slides fully off-screen, so always show it full width and drop the toggle. */
+  body.sidebar-collapsed .ep-side { width: 280px; }
+  .sidebar-collapse-btn { display: none; }
+  .ep-kpis { grid-template-columns: repeat(2, 1fr); }
+  .dlg-body { grid-template-columns: 1fr; }
+  .grid-cols-2fr-1fr { grid-template-columns: 1fr; }
+}
+
+/* ---- Utility classes generated from what was previously inline style="..."
+   (2026-10-01). One property (or one token-backed property) per class --
+   combine several on one element instead of writing a new inline style. */
+.bg-ink-30 { background: var(--ink-30); }
+.bg-ink-35 { background: var(--ink-35); }
+.bg-ink-40 { background: var(--ink-40); }
+.bg-page-bg { background: var(--page-bg); }
+.flex-var { flex: var(--flex); }
+.border-1px-solid-ink-20 { border: 1px solid var(--ink-20); }
+.border-1px-solid-ink-22 { border: 1px solid var(--ink-22); }
+.border-1px-solid-ink-30 { border: 1px solid var(--ink-30); }
+.border-bottom-1px-solid-ink-12 { border-bottom: 1px solid var(--ink-12); }
+.border-bottom-1px-solid-ink-15 { border-bottom: 1px solid var(--ink-15); }
+.border-bottom-1px-solid-ink-18 { border-bottom: 1px solid var(--ink-18); }
+.border-bottom-2px-solid-ink-40 { border-bottom: 2px solid var(--ink-40); }
+.border-left-3px-solid-danger { border-left: 3px solid var(--danger); }
+.border-left-3px-solid-primary { border-left: 3px solid var(--primary); }
+/* Tender Editor's submit gate bar (2026-10-09, React port): "ready to
+   submit" toggles this neutral border/text instead of the default
+   -danger styling, replacing the vanilla page's inline
+   bar.style.borderLeftColor/title.style.color overrides -- a class swap,
+   not a hardcoded color, so re-skinning the ink tone stays a one-place
+   edit (styles.css's --ink token) same as everywhere else in the app. */
+.border-left-3px-solid-ink { border-left: 3px solid var(--ink); }
+.border-top-1px-solid-ink-12 { border-top: 1px solid var(--ink-12); }
+.border-top-1px-solid-ink-15 { border-top: 1px solid var(--ink-15); }
+.border-top-1px-solid-ink-18 { border-top: 1px solid var(--ink-18); }
+.border-top-1px-solid-ink-20 { border-top: 1px solid var(--ink-20); }
+.border-top-1px-solid-ink-25 { border-top: 1px solid var(--ink-25); }
+.border-top-2px-solid-ink-40 { border-top: 2px solid var(--ink-40); }
+.col-span-1 { grid-column: span 1; }
+.col-span-2 { grid-column: span 2; }
+.col-span-3 { grid-column: span 3; }
+.col-span-4 { grid-column: span 4; }
+.flex-2 { flex: 2; }
+.fs-10-5px { font-size: 10.5px; }
+.fs-11-5px { font-size: 11.5px; }
+.fs-12-5px { font-size: 12.5px; }
+.fs-12px { font-size: 12px; }
+.fs-13-5px { font-size: 13.5px; }
+.fs-13px { font-size: 13px; }
+.fs-14-5px { font-size: 14.5px; }
+.fs-14px { font-size: 14px; }
+.fs-15px { font-size: 15px; }
+.fs-16px { font-size: 16px; }
+.fs-18px { font-size: 18px; }
+.fs-20px { font-size: 20px; }
+.fs-21px { font-size: 21px; }
+.fs-22px { font-size: 22px; }
+.fs-24px { font-size: 24px; }
+.fs-30px { font-size: 30px; }
+.fw-400 { font-weight: 400; }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+.fw-800 { font-weight: 800; }
+.gap-10px { gap: 10px; }
+.gap-10px-16px { gap: 10px 16px; }
+.gap-10px-18px { gap: 10px 18px; }
+.gap-10px-22px { gap: 10px 22px; }
+.gap-11px { gap: 11px; }
+.gap-12px { gap: 12px; }
+.gap-13px-16px { gap: 13px 16px; }
+.gap-14px { gap: 14px; }
+.gap-14px-16px { gap: 14px 16px; }
+.gap-14px-18px { gap: 14px 18px; }
+.gap-16px { gap: 16px; }
+.gap-18px { gap: 18px; }
+.gap-1px { gap: 1px; }
+.gap-20px { gap: 20px; }
+.gap-22px { gap: 22px; }
+.gap-24px { gap: 24px; }
+.gap-26px { gap: 26px; }
+.gap-6px { gap: 6px; }
+.gap-7px { gap: 7px; }
+.gap-8px { gap: 8px; }
+.gap-8px-18px { gap: 8px 18px; }
+.gap-8px-22px { gap: 8px 22px; }
+.grid-cols-1-45fr-1fr { grid-template-columns: 1.45fr 1fr; }
+.grid-cols-1fr-1fr { grid-template-columns: 1fr 1fr; }
+.grid-cols-1fr-1fr-1fr { grid-template-columns: 1fr 1fr 1fr; }
+.grid-cols-340px-1fr { grid-template-columns: 340px 1fr; }
+.grid-cols-2fr-1fr { grid-template-columns: 2fr 1fr; }
+.grid-cols-repeat31fr { grid-template-columns: repeat(3,1fr); }
+.grid-cols-repeat41fr { grid-template-columns: repeat(4,1fr); }
+.grid-cols-repeatauto-fitminmax260px1fr { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }
+.h-2px { height: 2px; }
+.h-32px { height: 32px; }
+.h-5px { height: 5px; }
+.lh-1 { line-height: 1; }
+.lh-1-2 { line-height: 1.2; }
+.lh-1-3 { line-height: 1.3; }
+.lh-1-4 { line-height: 1.4; }
+.lh-1-45 { line-height: 1.45; }
+.lh-1-5 { line-height: 1.5; }
+.ls-0 { letter-spacing: 0; }
+.margin-0 { margin: 0; }
+.margin-0-0-10px { margin: 0 0 10px; }
+.margin-0-0-12px { margin: 0 0 12px; }
+.margin-12px-0-6px { margin: 12px 0 6px; }
+.margin-14px-0-8px { margin: 14px 0 8px; }
+.margin-15px-0-11px { margin: 15px 0 11px; }
+.margin-16px-0-12px { margin: 16px 0 12px; }
+.margin-4px-0-3px { margin: 4px 0 3px; }
+.margin-4px-0-8px { margin: 4px 0 8px; }
+.margin-6px-0 { margin: 6px 0; }
+.margin-6px-0-0-26px { margin: 6px 0 0 26px; }
+.margin-8px-0-2px-24px { margin: 8px 0 2px 24px; }
+.maxh-70vh { max-height: 70vh; }
+.maxh-76vh { max-height: 76vh; }
+.maxw-220px { max-width: 220px; }
+.maxw-280px { max-width: 280px; }
+.maxw-290px { max-width: 290px; }
+.maxw-340px { max-width: 340px; }
+.maxw-380px { max-width: 380px; }
+.maxw-460px { max-width: 460px; }
+.maxw-640px { max-width: 640px; }
+.maxw-900px { max-width: 900px; }
+.mb-10px { margin-bottom: 10px; }
+.mb-12px { margin-bottom: 12px; }
+.mb-14px { margin-bottom: 14px; }
+.mb-16px { margin-bottom: 16px; }
+.mb-18px { margin-bottom: 18px; }
+.mb-4px { margin-bottom: 4px; }
+.mb-6px { margin-bottom: 6px; }
+.mb-8px { margin-bottom: 8px; }
+.mb-9px { margin-bottom: 9px; }
+.minh-40px { min-height: 40px; }
+.minw-0 { min-width: 0; }
+.minw-200px { min-width: 200px; }
+.minw-210px { min-width: 210px; }
+.minw-220px { min-width: 220px; }
+.minw-230px { min-width: 230px; }
+.minw-260px { min-width: 260px; }
+.ml-22px { margin-left: 22px; }
+.mr-6px { margin-right: 6px; }
+.mr-8px { margin-right: 8px; }
+.mt-10px { margin-top: 10px; }
+.mt-11px { margin-top: 11px; }
+.mt-12px { margin-top: 12px; }
+.mt-14px { margin-top: 14px; }
+.mt-16px { margin-top: 16px; }
+.mt-2px { margin-top: 2px; }
+.mt-3px { margin-top: 3px; }
+.mt-4px { margin-top: 4px; }
+.mt-5px { margin-top: 5px; }
+.mt-6px { margin-top: 6px; }
+.mt-7px { margin-top: 7px; }
+.mt-8px { margin-top: 8px; }
+.mt-9px { margin-top: 9px; }
+.padding-0 { padding: 0; }
+.padding-0-7px { padding: 0 7px; }
+.padding-0-8px { padding: 0 8px; }
+.padding-10px-12px { padding: 10px 12px; }
+.padding-10px-14px { padding: 10px 14px; }
+.padding-10px-16px { padding: 10px 16px; }
+.padding-12px-0 { padding: 12px 0; }
+.padding-12px-14px { padding: 12px 14px; }
+.padding-12px-16px { padding: 12px 16px; }
+.padding-12px-18px { padding: 12px 18px; }
+.padding-12px-18px-0 { padding: 12px 18px 0; }
+.padding-14px-16px { padding: 14px 16px; }
+.padding-14px-18px-18px { padding: 14px 18px 18px; }
+.padding-15px-16px { padding: 15px 16px; }
+.padding-16px { padding: 16px; }
+.padding-16px-18px { padding: 16px 18px; }
+.padding-1px-10px { padding: 1px 10px; }
+.padding-1px-8px { padding: 1px 8px; }
+.padding-2px-8px { padding: 2px 8px; }
+.padding-5px-0 { padding: 5px 0; }
+.padding-6px-0 { padding: 6px 0; }
+.padding-6px-16px-14px { padding: 6px 16px 14px; }
+.padding-8px-0 { padding: 8px 0; }
+.padding-8px-10px { padding: 8px 10px; }
+.pb-10px { padding-bottom: 10px; }
+.pb-16px { padding-bottom: 16px; }
+.pb-8px { padding-bottom: 8px; }
+.pl-18px { padding-left: 18px; }
+.pt-10px { padding-top: 10px; }
+.pt-12px { padding-top: 12px; }
+.pt-13px { padding-top: 13px; }
+.pt-16px { padding-top: 16px; }
+.text-danger-700 { color: var(--danger-700); }
+.text-primary-dark { color: var(--primary-dark); }
+.text-primary-deep { color: var(--primary-deep); }
+.text-ink-55 { color: var(--ink-55); }
+.text-ink-60 { color: var(--ink-60); }
+.text-ink-62 { color: var(--ink-62); }
+.text-ink-65 { color: var(--ink-65); }
+.text-ink-68 { color: var(--ink-68); }
+.text-ink-70 { color: var(--ink-70); }
+.text-warning { color: var(--warning); }
+.w-150px { width: 150px; }
+.w-34pct { width: 34%; }
+.w-60px { width: 60px; }
+.w-90px { width: 90px; }
+
+/* ---- Keyword utility classes (2026-10-01) -- were accidentally omitted
+   when the utility classes above were first generated; added now. */
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+.d-inline-block { display: inline-block; }
+.d-inline-flex { display: inline-flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.items-baseline { align-items: baseline; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.nowrap { white-space: nowrap; }
+.pre-wrap { white-space: pre-wrap; }
+.italic { font-style: italic; }
+.tt-none { text-transform: none; }
+.cursor-pointer { cursor: pointer; }
+.overflow-auto { overflow: auto; }
+.w-auto { width: auto; }
+.w-full { width: 100%; }
+.ml-auto { margin-left: auto; }
+.flex-1 { flex: 1; }
+.flex-none { flex: none; }
+.border-0 { border: 0; }
+.bg-transparent { background: transparent; }
+.bg-none { background: none; }
+.resize-y { resize: vertical; }
+.pe-none { pointer-events: none; }
+.self-start { align-self: flex-start; }
+.break-word { word-break: break-word; }
+.font-serif { font-family: serif; }
