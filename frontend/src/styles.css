@@ -330,6 +330,10 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .tender-option { flex: 1; min-width: 260px; }
 .tender-option input[type="date"] { max-width: 150px; }
 .input.invalid { border-color: var(--danger); background: var(--danger-08); }
+/* On-the-spot field validation (2026-10-13): the error line directly under
+   a field, shown as soon as the user leaves it with something wrong in it
+   -- not just the red border above, and not only discovered at submit. */
+.field-error { color: var(--danger-700); font-size: 12.5px; margin-top: 4px; line-height: 1.4; }
 .ep-check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .ep-check-field { min-height: 42px; }
 .ep-check input[type=checkbox] { width: 17px; height: 17px; }

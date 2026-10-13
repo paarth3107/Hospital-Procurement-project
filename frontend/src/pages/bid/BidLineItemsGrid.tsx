@@ -2,6 +2,7 @@ import { forwardRef, Fragment, useImperativeHandle, useState } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { inr } from "../../lib/format";
 import { vendorCatalogSpec } from "../../lib/attrSummary";
+import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
 import { Tag, StateTag } from "../../components/Tag";
@@ -233,12 +234,23 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
     picker.type = "file";
     picker.accept = ".pdf,.docx,.xlsx,.jpg,.jpeg,.png";
     picker.addEventListener("change", async () => {
-      if (!picker.files?.[0]) return;
+      const file = picker.files?.[0];
+      if (!file) return;
+      // Real bug, found 2026-10-13: `accept=` above is just a picker hint
+      // ("All files" overrides it), and nothing ever actually checked the
+      // picked file before sending it -- a disallowed type/oversized file
+      // only got rejected by the backend's own document_store.validate(),
+      // after the upload round-trip. See lib/fileValidation.ts.
+      const typeErr = fileTypeError(file, { allowOffice: true });
+      if (typeErr) {
+        window.alert(typeErr);
+        return;
+      }
       try {
         const id = rows[i].bid_id ?? (await ensureBidSaved(i));
         const fd = new FormData();
         fd.append("kind", kind);
-        fd.append("file", picker.files[0]);
+        fd.append("file", file);
         await api(`/vendor-portal/bids/${id}/attachments`, { method: "POST", body: fd });
         const form = await api<BidForm>(`/vendor-portal/bids/line/${rows[i].line_item_id}`);
         updateRow(i, (r) => applyForm(r, form));

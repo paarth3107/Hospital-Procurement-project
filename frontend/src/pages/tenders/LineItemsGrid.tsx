@@ -2,6 +2,7 @@ import { forwardRef, Fragment, useImperativeHandle, useRef, useState } from "rea
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { inr } from "../../lib/format";
 import { attrSummary } from "../../lib/attrSummary";
+import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
 import { useModal } from "../../components/useModal";
@@ -269,13 +270,24 @@ export const LineItemsGrid = forwardRef<
     picker.type = "file";
     picker.accept = ".pdf,.docx,.xlsx,.jpg,.jpeg,.png";
     picker.addEventListener("change", async () => {
-      if (!picker.files?.[0]) return;
+      const file = picker.files?.[0];
+      if (!file) return;
+      // Real bug, found 2026-10-13: `accept=` above is just a picker hint
+      // ("All files" overrides it), and nothing ever actually checked the
+      // picked file before sending it -- a disallowed type/oversized file
+      // only got rejected by the backend's own document_store.validate(),
+      // after the upload round-trip. See lib/fileValidation.ts.
+      const typeErr = fileTypeError(file, { allowOffice: true });
+      if (typeErr) {
+        window.alert(typeErr);
+        return;
+      }
       try {
         const lineId = await ensureLineSaved(i);
         const fd = new FormData();
         fd.append("kind", kind);
         if (customLabel) fd.append("custom_label", customLabel);
-        fd.append("file", picker.files[0]);
+        fd.append("file", file);
         const att = await api(`/tenders/${tenderId}/line-items/${lineId}/attachments`, { method: "POST", body: fd });
         updateRow(i, (r) => ({ ...r, attachments: [...r.attachments, att as LineItemRow["attachments"][number]] }));
       } catch (err) {

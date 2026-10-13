@@ -1,15 +1,28 @@
 import { useRef, useState } from "react";
 import { VENDOR_DOC_TYPES, acceptFor, type VendorDocTypeDef } from "../../lib/constants";
+import { fileTypeError } from "../../lib/fileValidation";
 
 // Ported from frontend/js/pages/register/registerDocuments.js's single
 // dropzone -- one per VENDOR_DOC_TYPES entry. `chosenFiles` (keyed by doc
 // type) lives in the parent (RegisterPage), not here, since the parent also
 // needs it at submit time and for the "missing mandatory document"
 // highlight -- this component just renders one zone and reports picks up
-// via `onFile`.
+// via `onFile`. `accept=` on the hidden input is kept too (it still makes
+// the OS file picker show the right files by default), but it's no longer
+// the only thing standing between a wrong file type and acceptance -- see
+// fileValidation.ts.
 export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTypeDef; file: File | null; invalid: boolean; onFile: (f: File) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [rejection, setRejection] = useState<string | null>(null);
+
+  const tryFile = (f: File | undefined) => {
+    if (!f) return;
+    const err = fileTypeError(f, { allowSpreadsheets: !!t.spreadsheet });
+    setRejection(err);
+    if (!err) onFile(f);
+  };
+
   return (
     <div className="ep-pane padding-12px-14px">
       <div className="d-flex justify-between items-center mb-8px">
@@ -19,7 +32,7 @@ export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTyp
         </span>
       </div>
       <div
-        className={`dropzone${file ? " has-file" : ""}${invalid ? " invalid" : ""}${dragOver ? " dragover" : ""}`}
+        className={`dropzone${file ? " has-file" : ""}${invalid || rejection ? " invalid" : ""}${dragOver ? " dragover" : ""}`}
         data-doc-type={t.value}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
@@ -30,8 +43,7 @@ export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTyp
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          const f = e.dataTransfer.files[0];
-          if (f) onFile(f);
+          tryFile(e.dataTransfer.files[0]);
         }}
       >
         <span className="dz-text">{file ? `${file.name} (${(file.size / 1024).toFixed(0)} KB) — click or drop to replace` : "Drop a file here, or click to browse"}</span>
@@ -40,11 +52,12 @@ export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTyp
           type="file"
           accept={acceptFor(t)}
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onFile(f);
+            tryFile(e.target.files?.[0]);
+            e.target.value = ""; // lets picking the same (still-rejected) file again re-trigger onChange
           }}
         />
       </div>
+      {rejection && <div className="field-error">{rejection}</div>}
       {t.expires && (
         <div className="ep-field mt-8px">
           <div className="ep-k">Valid till</div>

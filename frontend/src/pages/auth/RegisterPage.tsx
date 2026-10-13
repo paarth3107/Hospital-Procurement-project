@@ -5,6 +5,15 @@ import { CITIES_BY_STATE, INDIAN_STATES, OTHER_CITY, VENDOR_DOC_TYPES } from "..
 import { OpenLinkNote } from "./OpenLinkNote";
 import { DocumentDropzones } from "./registerDocuments";
 import { OtherDocsSection, type OtherDocsHandle } from "./registerOtherDocs";
+import { FIELD_VALIDATORS } from "./registerValidation";
+
+// The error line directly under a field, shown as soon as the user leaves
+// it with something invalid in it -- see registerValidation.ts for what
+// "invalid" means per field. Renders nothing until that field has actually
+// been checked once.
+function FieldError({ errors, name }: { errors: Record<string, string>; name: string }) {
+  return errors[name] ? <div className="field-error">{errors[name]}</div> : null;
+}
 
 const MANDATORY_DOC_TYPES = VENDOR_DOC_TYPES.filter((t) => t.mandatory).map((t) => t.value);
 
@@ -29,6 +38,7 @@ export function RegisterPage() {
   const [chosenFiles, setChosenFiles] = useState<Map<string, File>>(new Map());
   const [invalidTypes, setInvalidTypes] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{ message: string; ok: boolean } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const formRef = useRef<HTMLFormElement>(null);
   const step1Ref = useRef<HTMLDivElement>(null);
   const step2Ref = useRef<HTMLDivElement>(null);
@@ -38,6 +48,45 @@ export function RegisterPage() {
   const cities = CITIES_BY_STATE[stateValue] || [];
   const cityIsOther = cityValue === OTHER_CITY;
 
+  // Runs one field's validator (registerValidation.ts) and records the
+  // result -- shared by the on-blur check below and validateStep1()'s
+  // final sweep, so "leave the field" and "click Continue without ever
+  // touching it" both go through the same rule per field.
+  function checkField(name: string, value: string) {
+    const validator = FIELD_VALIDATORS[name];
+    if (!validator) return null;
+    const err = validator(value);
+    setFieldErrors((prev) => (prev[name] === (err ?? "") ? prev : { ...prev, [name]: err ?? "" }));
+    return err;
+  }
+
+  // Delegated on the whole step-1 pane rather than one handler per field
+  // (~20 of them) -- React's onBlur bubbles through a parent like any other
+  // synthetic event, so this fires for whichever field was actually left.
+  const onStep1Blur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    if (t.name) checkField(t.name, t.value);
+  };
+  // Clears the red border + inline message live, the moment what's typed
+  // becomes valid again -- without this, fixing a flagged field would still
+  // look wrong until the user blurred it a second time.
+  const onStep1Input = (e: React.FormEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    // GSTIN/PAN/IFSC are only ever valid in uppercase (registerValidation.ts's
+    // regexes, copied from the backend's own @field_validators, require it)
+    // -- forced here rather than left to the user to remember, same as the
+    // backend does to whatever it receives (.strip().upper()) anyway. A
+    // same-length transform like this doesn't disturb the cursor position.
+    if ((t.name === "gstin" || t.name === "pan" || t.name === "bank_ifsc") && t.value !== t.value.toUpperCase()) t.value = t.value.toUpperCase();
+    // Real bug, found 2026-10-13: the Phone field took letters and had no
+    // length limit at all. A vendor's phone number is a 10-digit Indian
+    // mobile number (6-9 lead digit) -- digits-only and capped at 10 are
+    // enforced live here, not just flagged after the fact on blur.
+    if (t.name === "phone" && t.value !== t.value.replace(/\D/g, "").slice(0, 10)) t.value = t.value.replace(/\D/g, "").slice(0, 10);
+    t.classList?.remove("invalid");
+    if (t.name && fieldErrors[t.name]) checkField(t.name, t.value);
+  };
+
   function validateStep1(): boolean {
     // Held in an object, not a plain `let` -- TS's control-flow narrowing
     // doesn't track a reassignment made inside a .forEach() callback against
@@ -46,7 +95,12 @@ export function RegisterPage() {
     // that limitation.
     const found: { el: HTMLElement | null } = { el: null };
     step1Ref.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input:not([type=file]), select, textarea").forEach((input) => {
-      const bad = !input.checkValidity();
+      // Real validation now (registerValidation.ts), not just the browser's
+      // own checkValidity() -- that only knows required/length/pattern, not
+      // that a GSTIN/PAN/IFSC/phone needs a real shape, so this also covers
+      // a field that's never been individually blurred before Continue was clicked.
+      const ruleErr = checkField(input.name, input.value);
+      const bad = ruleErr !== null && ruleErr !== undefined ? true : !input.checkValidity();
       input.classList.toggle("invalid", bad);
       if (bad && !found.el) found.el = input;
     });
@@ -108,6 +162,7 @@ export function RegisterPage() {
       form.reset();
       setStateValue("");
       setCityValue("");
+      setFieldErrors({});
       setChosenFiles(new Map());
       setInvalidTypes(new Set());
       otherDocsRef.current?.reset();
@@ -138,7 +193,7 @@ export function RegisterPage() {
         </button>
       </div>
       <form ref={formRef} className="ep-form gap-18px" noValidate onSubmit={submit}>
-        <div className="d-flex flex-col gap-18px" hidden={step !== 1} ref={step1Ref} onInput={(e) => (e.target as HTMLElement).classList.remove("invalid")}>
+        <div className="d-flex flex-col gap-18px" hidden={step !== 1} ref={step1Ref} onBlur={onStep1Blur} onInput={onStep1Input}>
           <div className="ep-pane">
             <div className="ep-pane-head">
               <span>Company Details</span>
@@ -148,6 +203,7 @@ export function RegisterPage() {
                 <div className="ep-field col-span-2">
                   <div className="ep-k">Legal name</div>
                   <input className="input" name="legal_name" required />
+                  <FieldError errors={fieldErrors} name="legal_name" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Trade name (optional)</div>
@@ -161,10 +217,12 @@ export function RegisterPage() {
                       <option key={t}>{t}</option>
                     ))}
                   </select>
+                  <FieldError errors={fieldErrors} name="entity_type" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Year of incorporation</div>
                   <input className="input" name="year_of_incorporation" type="number" min={1800} max={2100} required />
+                  <FieldError errors={fieldErrors} name="year_of_incorporation" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Website (optional)</div>
@@ -173,6 +231,7 @@ export function RegisterPage() {
                 <div className="ep-field col-span-4">
                   <div className="ep-k">Address line</div>
                   <textarea className="input" name="registered_address" rows={2} required />
+                  <FieldError errors={fieldErrors} name="registered_address" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">State</div>
@@ -193,6 +252,7 @@ export function RegisterPage() {
                       </option>
                     ))}
                   </select>
+                  <FieldError errors={fieldErrors} name="state" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">City</div>
@@ -205,16 +265,19 @@ export function RegisterPage() {
                     ))}
                     <option value={OTHER_CITY}>Other (type it in)</option>
                   </select>
+                  <FieldError errors={fieldErrors} name="city" />
                 </div>
                 {cityIsOther && (
                   <div className="ep-field">
                     <div className="ep-k">City (type it in)</div>
                     <input className="input" name="city_other" required />
+                    <FieldError errors={fieldErrors} name="city_other" />
                   </div>
                 )}
                 <div className="ep-field">
                   <div className="ep-k">Pincode</div>
                   <input className="input" name="pincode" maxLength={6} pattern="\d{6}" title="6 digits" placeholder="6 digits" required />
+                  <FieldError errors={fieldErrors} name="pincode" />
                 </div>
                 <div className="ep-field col-span-4">
                   <div className="ep-k">Alternate / correspondence address (optional)</div>
@@ -236,10 +299,12 @@ export function RegisterPage() {
                 <div className="ep-field col-span-2">
                   <div className="ep-k">GSTIN (15 characters)</div>
                   <input className="input" name="gstin" required maxLength={15} minLength={15} />
+                  <FieldError errors={fieldErrors} name="gstin" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">PAN</div>
                   <input className="input" name="pan" required maxLength={10} />
+                  <FieldError errors={fieldErrors} name="pan" />
                 </div>
               </div>
             </div>
@@ -253,14 +318,17 @@ export function RegisterPage() {
                 <div className="ep-field">
                   <div className="ep-k">Bank name</div>
                   <input className="input" name="bank_name" required />
+                  <FieldError errors={fieldErrors} name="bank_name" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Account number</div>
                   <input className="input" name="bank_account_number" required inputMode="numeric" />
+                  <FieldError errors={fieldErrors} name="bank_account_number" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">IFSC</div>
                   <input className="input" name="bank_ifsc" required maxLength={11} />
+                  <FieldError errors={fieldErrors} name="bank_ifsc" />
                 </div>
               </div>
             </div>
@@ -274,30 +342,37 @@ export function RegisterPage() {
                 <div className="ep-field">
                   <div className="ep-k">Primary contact person</div>
                   <input className="input" name="contact_person" required />
+                  <FieldError errors={fieldErrors} name="contact_person" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Designation</div>
                   <input className="input" name="contact_designation" required />
+                  <FieldError errors={fieldErrors} name="contact_designation" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Phone</div>
-                  <input className="input" name="phone" required />
+                  <input className="input" name="phone" required inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" />
+                  <FieldError errors={fieldErrors} name="phone" />
                 </div>
                 <div className="ep-field col-span-4">
                   <div className="ep-k">Email (your login)</div>
                   <input className="input" name="email" type="email" required />
+                  <FieldError errors={fieldErrors} name="email" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Escalation contact name</div>
                   <input className="input" name="escalation_contact_name" required />
+                  <FieldError errors={fieldErrors} name="escalation_contact_name" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Escalation phone</div>
                   <input className="input" name="escalation_contact_phone" required />
+                  <FieldError errors={fieldErrors} name="escalation_contact_phone" />
                 </div>
                 <div className="ep-field">
                   <div className="ep-k">Escalation email (optional)</div>
                   <input className="input" name="escalation_contact_email" type="email" />
+                  <FieldError errors={fieldErrors} name="escalation_contact_email" />
                 </div>
               </div>
             </div>
@@ -311,6 +386,7 @@ export function RegisterPage() {
                 <div className="ep-field col-span-4">
                   <div className="ep-k">Password (8+ characters)</div>
                   <input className="input" name="password" type="password" required minLength={8} />
+                  <FieldError errors={fieldErrors} name="password" />
                 </div>
               </div>
             </div>

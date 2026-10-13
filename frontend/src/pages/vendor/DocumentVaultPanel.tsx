@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { fmtDate } from "../../lib/format";
 import { acceptFor, VENDOR_DOC_TYPES } from "../../lib/constants";
+import { fileTypeError } from "../../lib/fileValidation";
 import { Tag, StateTag, ExpiryTag } from "../../components/Tag";
 import { useModal } from "../../components/useModal";
 import type { VendorDocument } from "../../lib/types";
@@ -19,6 +20,7 @@ interface Entry {
   mandatory: boolean;
   expires: boolean;
   accept: string;
+  allowSpreadsheets: boolean;
   doc: VendorDocument | undefined;
   custom: boolean;
 }
@@ -49,10 +51,30 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
 
   const byType = new Map(docs.filter((d) => d.doc_type !== "other").map((d) => [d.doc_type, d]));
   const entries: Entry[] = [
-    ...VENDOR_DOC_TYPES.map((t) => ({ key: t.value, type: t.value, label: t.label, mandatory: t.mandatory, expires: !!t.expires, accept: acceptFor(t), doc: byType.get(t.value), custom: false })),
+    ...VENDOR_DOC_TYPES.map((t) => ({
+      key: t.value,
+      type: t.value,
+      label: t.label,
+      mandatory: t.mandatory,
+      expires: !!t.expires,
+      accept: acceptFor(t),
+      allowSpreadsheets: !!t.spreadsheet,
+      doc: byType.get(t.value),
+      custom: false,
+    })),
     ...docs
       .filter((d) => d.doc_type === "other")
-      .map((d) => ({ key: "other:" + d.custom_label, type: "other", label: d.custom_label, mandatory: false, expires: true, accept: ".pdf,.jpg,.jpeg,.png", doc: d, custom: true })),
+      .map((d) => ({
+        key: "other:" + d.custom_label,
+        type: "other",
+        label: d.custom_label,
+        mandatory: false,
+        expires: true,
+        accept: ".pdf,.jpg,.jpeg,.png",
+        allowSpreadsheets: false,
+        doc: d,
+        custom: true,
+      })),
   ];
   const draftCount = docs.filter((d) => d.status === "draft").length;
 
@@ -201,7 +223,20 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
                     onChange={(ev) => {
                       const file = ev.target.files?.[0];
                       ev.target.value = "";
-                      if (file) upload(e, file);
+                      if (!file) return;
+                      // Real bug, found 2026-10-13: `accept=` above is just a
+                      // picker hint ("All files" overrides it) and this field
+                      // has no drag-and-drop to begin with, but nothing ever
+                      // actually checked the picked file before sending it --
+                      // a disallowed type/oversized file only got rejected by
+                      // the backend's own document_store.validate(), after
+                      // the upload round-trip. See lib/fileValidation.ts.
+                      const typeErr = fileTypeError(file, { allowSpreadsheets: e.allowSpreadsheets });
+                      if (typeErr) {
+                        setResult({ message: typeErr, ok: false });
+                        return;
+                      }
+                      upload(e, file);
                     }}
                   />
                 </td>

@@ -1,4 +1,5 @@
 import { api, API_BASE, apiHeaders } from "../../lib/api";
+import { fileTypeError } from "../../lib/fileValidation";
 import { useModal } from "../../components/useModal";
 import type { Tender } from "../../lib/types";
 
@@ -39,12 +40,26 @@ export function SingleDocumentField({
     if (!tender) return;
     const picker = document.createElement("input");
     picker.type = "file";
-    picker.accept = ".pdf,.doc,.docx";
+    // `.doc` (legacy Word) was listed here but was never actually accepted
+    // server-side -- only `.docx` is in document_store.py's OFFICE_CONTENT_
+    // TYPES; corrected alongside adding the real check below.
+    picker.accept = ".pdf,.jpg,.jpeg,.png,.docx,.xlsx";
     picker.addEventListener("change", async () => {
-      if (!picker.files?.[0]) return;
+      const file = picker.files?.[0];
+      if (!file) return;
+      // Real bug, found 2026-10-13: `accept=` above is just a picker hint,
+      // and nothing ever actually checked the picked file before sending
+      // it -- a disallowed type/oversized file only got rejected by the
+      // backend's own document_store.validate(), after the upload
+      // round-trip. See lib/fileValidation.ts.
+      const typeErr = fileTypeError(file, { allowOffice: true });
+      if (typeErr) {
+        await alertAsync(typeErr);
+        return;
+      }
       try {
         const fd = new FormData();
-        fd.append("file", picker.files[0]);
+        fd.append("file", file);
         const updated = await api<Tender>(`/tenders/${tender.id}/${endpoint}`, { method: "POST", body: fd });
         onChange(updated);
       } catch (err) {
