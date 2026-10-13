@@ -4,7 +4,7 @@
 // the vanilla app's login flow already writes, rather than importing
 // state.js directly, so this bundle has zero dependency on the old frontend's
 // internals -- just a shared contract (the key name) on the same origin.
-export const API_BASE = "http://103.209.146.49:8005/api/v1";
+export const API_BASE = "/api/v1";
 
 function authHeaders(extra?: HeadersInit): HeadersInit {
   const token = sessionStorage.getItem("token");
