@@ -14,7 +14,7 @@ ADMIN_EMAIL = "admin@medsource.local"
 ADMIN_PASSWORD = "changeme123"
 
 # One demo login per staff role beyond Procurement Admin, so the role-scoped
-# nav (frontend-react/src/lib/constants.ts's ROLE_TABS) can actually be
+# nav (frontend/src/lib/constants.ts's ROLE_TABS) can actually be
 # clicked through locally instead of only ever being tested as the one
 # super-role account. All of these are scoped to the first (default) facility.
 DEMO_STAFF = [

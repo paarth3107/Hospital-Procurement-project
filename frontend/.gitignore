@@ -8,7 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# dist is NOT ignored here -- it's the build output backend/app/main.py
+# actually serves, and this project commits it (no build step in the
+# Docker image/deploy) rather than building on the server.
 dist-ssr
 *.local
 

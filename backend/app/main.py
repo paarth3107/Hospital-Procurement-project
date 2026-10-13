@@ -155,6 +155,12 @@ app.include_router(vendor_documents.router)
 app.include_router(dashboard.router)
 app.include_router(overrides.router)
 
-frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
+# `frontend/` is now the Vite project itself (source + its own package.json/
+# node_modules), not just build output -- `dist/` inside it is the actual
+# built static site (2026-10-12, folders consolidated after the React
+# migration's Final Phase: one `frontend/`, not a separate source tree next
+# to it). `npm run build` (inside frontend/) writes here; nothing else in
+# frontend/ is ever served.
+frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if frontend_dir.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")

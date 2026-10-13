@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini ./alembic.ini
-COPY frontend /app/frontend
+COPY frontend/dist /app/frontend/dist
 
 EXPOSE 8000
 
