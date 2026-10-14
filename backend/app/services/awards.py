@@ -44,6 +44,26 @@ def latest_round(db: Session, line: TenderLineItem) -> AwardRound | None:
     return db.query(AwardRound).filter(AwardRound.line_item_id == line.id).order_by(AwardRound.round_number.desc()).first()
 
 
+def latest_rounds_for_lines(db: Session, line_ids: list[int]) -> dict[int, AwardRound]:
+    """Batched form of latest_round() (2026-10-14, performance) -- one query
+    for a whole set of lines instead of one per line. The dashboard's
+    recommend_tasks()/tasks_for()/awaiting_decision() and
+    dashboard.py's _tender_progress_pct() all used to call latest_round()
+    once per published line, independently of each other -- for a system
+    with any real number of published tenders, that's hundreds of redundant
+    round trips to recompute the exact same thing three separate times in
+    one dashboard load. Keeps only the highest round_number per
+    line_item_id, matching latest_round()'s own ORDER BY ... .first()."""
+    if not line_ids:
+        return {}
+    by_line: dict[int, AwardRound] = {}
+    for r in db.query(AwardRound).filter(AwardRound.line_item_id.in_(line_ids)).all():
+        current = by_line.get(r.line_item_id)
+        if current is None or r.round_number > current.round_number:
+            by_line[r.line_item_id] = r
+    return by_line
+
+
 def rounds_for(db: Session, line: TenderLineItem) -> list[AwardRound]:
     return db.query(AwardRound).filter(AwardRound.line_item_id == line.id).order_by(AwardRound.round_number).all()
 
@@ -347,16 +367,21 @@ def _notify_outcome(db: Session, tender: Tender, rounds: list[AwardRound]) -> No
         )
 
 
-def recommend_tasks(db: Session) -> list[dict]:
+def recommend_tasks(db: Session, published_tenders: list[Tender] | None = None, rounds_by_line: dict[int, AwardRound] | None = None) -> list[dict]:
     """Lines ready for the Officer to recommend on or submit -- system-wide,
     not tied to any one officer (recommend isn't tier-gated, unlike decide
     below). Factored out of tasks_for so the Approving Authority's dashboard
     can track this stage too (it can't act on it, but it's directly upstream
-    of what the AA does act on)."""
+    of what the AA does act on). Accepts the dashboard's already-fetched
+    published tenders and already-batched round-per-line lookup (2026-10-14,
+    performance) so this doesn't re-run either query itself; computes its
+    own if called standalone (every other caller)."""
+    tenders = published_tenders if published_tenders is not None else db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+    if rounds_by_line is None:
+        rounds_by_line = latest_rounds_for_lines(db, [li.id for t in tenders for li in published_lines(t)])
     out = []
-    tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
     for t in tenders:
-        states = [(li, latest_round(db, li)) for li in published_lines(t) if li.technical_closed_at is not None]
+        states = [(li, rounds_by_line.get(li.id)) for li in published_lines(t) if li.technical_closed_at is not None]
         if not states:
             continue
         todo = [li for li, r in states if line_state(r) in ("none", "returned")]
@@ -366,19 +391,24 @@ def recommend_tasks(db: Session) -> list[dict]:
     return out
 
 
-def tasks_for(db: Session, user: UserAccount) -> list[dict]:
+def tasks_for(
+    db: Session, user: UserAccount, published_tenders: list[Tender] | None = None, rounds_by_line: dict[int, AwardRound] | None = None
+) -> list[dict]:
     """Award-stage work waiting on this user, for the dashboard's action queue:
     the Officer's lines still needing a recommendation, the Approving
     Authority's submitted recommendations they may decide."""
     from app.models.user_account import Role
 
+    tenders = published_tenders if published_tenders is not None else db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+    if rounds_by_line is None:
+        rounds_by_line = latest_rounds_for_lines(db, [li.id for t in tenders for li in published_lines(t)])
+
     out = []
     if user.role in (Role.PROCUREMENT_OFFICER, Role.SYSTEM_ADMIN):
-        out += recommend_tasks(db)
+        out += recommend_tasks(db, tenders, rounds_by_line)
     if user.role in (Role.APPROVING_AUTHORITY, Role.SYSTEM_ADMIN):
-        tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
         for t in tenders:
-            states = [(li, latest_round(db, li)) for li in published_lines(t) if li.technical_closed_at is not None]
+            states = [(li, rounds_by_line.get(li.id)) for li in published_lines(t) if li.technical_closed_at is not None]
             if not states:
                 continue
             pend = [r for _, r in states if r is not None and r.status == PENDING and can_approve_tier(user, r.required_tier)]
@@ -387,19 +417,23 @@ def tasks_for(db: Session, user: UserAccount) -> list[dict]:
     return out
 
 
-def awaiting_decision(db: Session) -> list[tuple[Tender, TenderLineItem]]:
+def awaiting_decision(
+    db: Session, published_tenders: list[Tender] | None = None, rounds_by_line: dict[int, AwardRound] | None = None
+) -> list[tuple[Tender, TenderLineItem]]:
     """Lines with a recommendation already submitted and not yet decided.
     Pure tracking, not an action item: there's nothing for the Officer to do
     here -- either the Approving Authority approves it and the tender
     auto-finalizes (maybe_finalize), or rejects it and it returns to
     tasks_for()'s "recommend" bucket as the next round."""
+    tenders = published_tenders if published_tenders is not None else db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
+    if rounds_by_line is None:
+        rounds_by_line = latest_rounds_for_lines(db, [li.id for t in tenders for li in published_lines(t)])
     out = []
-    tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).order_by(Tender.id).all()
     for t in tenders:
         for li in published_lines(t):
             if li.technical_closed_at is None:
                 continue
-            rnd = latest_round(db, li)
+            rnd = rounds_by_line.get(li.id)
             if rnd is not None and rnd.status == PENDING:
                 out.append((t, li))
     return out

@@ -146,7 +146,7 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
     <div className="ep-pane">
       <div className="ep-pane-head">
         <span>Document Vault</span>
-        <span className="ep-k">PDF, JPG or PNG · max 10 MB · an expired document suspends bidding until renewed</span>
+        <span className="ep-k">PDF, JPG or PNG · max 2 MB · an expired document suspends bidding until renewed</span>
       </div>
       <table className="ep-table">
         <thead>

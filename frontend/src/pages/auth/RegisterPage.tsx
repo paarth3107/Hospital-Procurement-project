@@ -666,7 +666,7 @@ export function RegisterPage() {
         )}
 
         <div className="d-flex flex-col gap-18px" hidden={step !== 2} ref={step2Ref}>
-          <div className="ep-k">Documents · PDF, JPG or PNG, max 10 MB each (the catalogue may also be a spreadsheet) · each uploads as soon as you pick it</div>
+          <div className="ep-k">Documents · PDF, JPG or PNG, max 2 MB each (the catalogue may also be a spreadsheet) · each uploads as soon as you pick it</div>
           <DocumentDropzones docState={docState} invalidTypes={invalidTypes} onPick={uploadDoc} />
           <div className="ep-pane">
             <div className="ep-pane-head">

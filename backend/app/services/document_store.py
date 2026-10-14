@@ -21,7 +21,7 @@ OFFICE_CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024  # 2MB (reduced from 10MB, 2026-10-14, user-directed)
 
 
 class DocumentValidationError(ValueError):

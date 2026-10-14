@@ -387,7 +387,10 @@ def download_line_attachment(
 ):
     line = _load_line_item(tender_id, line_item_id, db)
     att = _load_attachment(line, attachment_id)
-    return Response(content=att.content, media_type=att.content_type, headers={"Content-Disposition": f'inline; filename="{att.original_filename}"'})
+    return Response(
+        content=att.content, media_type=att.content_type,
+        headers={"Content-Disposition": f'inline; filename="{att.original_filename}"'},
+    )
 
 
 @router.post("/{tender_id}/terms-document", response_model=TenderOut, status_code=status.HTTP_201_CREATED)

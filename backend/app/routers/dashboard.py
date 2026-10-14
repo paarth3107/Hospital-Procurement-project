@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
+from app.models.award import AwardRound
 from app.models.bid import Bid, BidStatus
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
@@ -54,7 +55,7 @@ def _live_expiry_docs(db: Session):
     )
 
 
-def _tender_progress_pct(db: Session, tender: Tender, now: datetime) -> int:
+def _tender_progress_pct(tender: Tender, now: datetime, rounds_by_line: dict[int, AwardRound]) -> int:
     """Where a tender sits in its own lifecycle, for the Officer's dashboard ring
     (product decision, 2026-10-07). Fixed checkpoints reached by an event, not by
     time elapsed -- a tender sitting past its bid deadline with no bids hasn't
@@ -73,7 +74,7 @@ def _tender_progress_pct(db: Session, tender: Tender, now: datetime) -> int:
         return 40
     if any(li.technical_closed_at is None for li in lines):
         return 55
-    states = [award_rules.line_state(award_rules.latest_round(db, li)) for li in lines]
+    states = [award_rules.line_state(rounds_by_line.get(li.id)) for li in lines]
     if any(s in ("none", "draft", "returned") for s in states):
         return 65
     decided = sum(1 for s in states if s in ("approved", "excluded"))
@@ -84,7 +85,14 @@ def _tender_progress_pct(db: Session, tender: Tender, now: datetime) -> int:
 
 
 def _officer_stats(
-    db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_approval_count: int, bid_counts: dict[int, int], draft_tenders: list[Tender]
+    db: Session,
+    user: UserAccount,
+    award_tasks_raw: list[dict],
+    pending_approval_count: int,
+    bid_counts: dict[int, int],
+    draft_tenders: list[Tender],
+    published_tenders: list[Tender],
+    rounds_by_line: dict[int, AwardRound],
 ) -> DashboardOfficerOut | None:
     """Procurement Officer's own tender-lifecycle pipeline (product decision,
     2026-09-29 -- the spec has no dashboard requirements). Deliberately
@@ -99,7 +107,7 @@ def _officer_stats(
 
     recommend_by_tender = {t["tender_id"]: t["lines"] for t in award_tasks_raw if t["kind"] == "recommend"}
     decision_by_tender: dict[int, int] = {}
-    for t, _li in award_rules.awaiting_decision(db):
+    for t, _li in award_rules.awaiting_decision(db, published_tenders, rounds_by_line):
         decision_by_tender[t.id] = decision_by_tender.get(t.id, 0) + 1
 
     tenders = (
@@ -134,7 +142,7 @@ def _officer_stats(
             DashboardOfficerTenderOut(
                 id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
                 lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decision_by_tender.get(t.id, 0),
-                lines_total=len(t.line_items), progress_pct=_tender_progress_pct(db, t, now),
+                lines_total=len(t.line_items), progress_pct=_tender_progress_pct(t, now, rounds_by_line),
             )
             for t in tenders
         ],
@@ -142,7 +150,13 @@ def _officer_stats(
 
 
 def _approving_authority_stats(
-    db: Session, user: UserAccount, award_tasks_raw: list[dict], pending_your_approval: list[tuple[Tender, TenderApprovalRound]], bid_counts: dict[int, int]
+    db: Session,
+    user: UserAccount,
+    award_tasks_raw: list[dict],
+    pending_your_approval: list[tuple[Tender, TenderApprovalRound]],
+    bid_counts: dict[int, int],
+    published_tenders: list[Tender],
+    rounds_by_line: dict[int, AwardRound],
 ) -> DashboardApprovingAuthorityOut | None:
     """Approving Authority's own pipeline, mirroring the Officer's dashboard
     (product decision, 2026-10-07): the two gates this role decides -- E-Tender
@@ -159,7 +173,7 @@ def _approving_authority_stats(
     required_tier_by_tender = {t.id: r.required_tier for t, r in pending_your_approval}
 
     decide_by_tender = {t["tender_id"]: t["lines"] for t in award_tasks_raw if t["kind"] == "decide"}
-    recommend_by_tender = {t["tender_id"]: t["lines"] for t in award_rules.recommend_tasks(db)}
+    recommend_by_tender = {t["tender_id"]: t["lines"] for t in award_rules.recommend_tasks(db, published_tenders, rounds_by_line)}
 
     tenders = (
         db.query(Tender)
@@ -182,14 +196,16 @@ def _approving_authority_stats(
                 id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
                 needs_your_approval=t.id in decidable_tender_ids, required_tier=required_tier_by_tender.get(t.id),
                 lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decide_by_tender.get(t.id, 0),
-                lines_total=len(t.line_items), progress_pct=_tender_progress_pct(db, t, now),
+                lines_total=len(t.line_items), progress_pct=_tender_progress_pct(t, now, rounds_by_line),
             )
             for t in tenders
         ],
     )
 
 
-def _category_manager_stats(db: Session, user: UserAccount, open_tenders_count: int, awaiting_evaluation_count: int) -> DashboardCategoryManagerOut | None:
+def _category_manager_stats(
+    db: Session, user: UserAccount, open_tenders_count: int, awaiting_evaluation_count: int, published_tenders: list[Tender], rounds_by_line: dict[int, AwardRound]
+) -> DashboardCategoryManagerOut | None:
     """Category Manager / Procurement Admin's own mini pipeline -- just the
     technical-evaluation stage of a tender's lifecycle this role touches
     (product decision, 2026-10-07, mirrors _officer_stats/
@@ -199,7 +215,7 @@ def _category_manager_stats(db: Session, user: UserAccount, open_tenders_count: 
     if user.role not in (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN):
         return None
 
-    evaluated_count = sum(t["lines"] for t in award_rules.recommend_tasks(db))
+    evaluated_count = sum(t["lines"] for t in award_rules.recommend_tasks(db, published_tenders, rounds_by_line))
     return DashboardCategoryManagerOut(live_count=open_tenders_count, awaiting_evaluation_count=awaiting_evaluation_count, evaluated_count=evaluated_count)
 
 
@@ -213,13 +229,23 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     award_rules.sweep_no_bid_lines(db)  # at the moment it matters: this is what "still Published" claims are read from
     now = datetime.now(timezone.utc)
 
-    draft_tenders = db.query(Tender).filter(Tender.status == TenderStatus.DRAFT).order_by(Tender.created_at).all()
-
-    open_tenders = (
-        db.query(Tender)
-        .filter(Tender.status == TenderStatus.PUBLISHED, Tender.bid_due_date > now)
-        .order_by(Tender.bid_due_date)
-        .all()
+    # Batched (2026-10-14, performance): draft/open/pending-approval/published/
+    # recently-published used to each be their own separate `tenders` query --
+    # five round trips to slice the same small table five different ways. On
+    # a remote DB where a trivial query can itself take hundreds of ms, that's
+    # five times the cost for no reason: there are only a handful of tenders
+    # in any real system here, so fetching them all once and filtering/sorting
+    # in Python is strictly cheaper.
+    # selectinload (2026-10-14, performance): every tender's .line_items gets
+    # touched somewhere below (progress_pct, lines_total, published_lines) --
+    # without this, each access lazy-loads that one tender's lines
+    # separately (one query per tender). One extra query up front for every
+    # tender's lines at once, instead.
+    all_tenders = db.query(Tender).options(selectinload(Tender.line_items)).all()
+    draft_tenders = sorted((t for t in all_tenders if t.status == TenderStatus.DRAFT), key=lambda t: t.created_at)
+    open_tenders = sorted(
+        (t for t in all_tenders if t.status == TenderStatus.PUBLISHED and t.bid_due_date is not None and t.bid_due_date > now),
+        key=lambda t: t.bid_due_date,
     )
     bid_counts = dict(
         db.query(TenderLineItem.tender_id, func.count(Bid.id))
@@ -229,7 +255,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         .all()
     )
 
-    pending_approval_all = db.query(Tender).filter(Tender.status == TenderStatus.PENDING_APPROVAL).all()
+    pending_approval_all = [t for t in all_tenders if t.status == TenderStatus.PENDING_APPROVAL]
     rounds_by_tender = {
         r.tender_id: r
         for r in db.query(TenderApprovalRound).filter(
@@ -257,7 +283,13 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
             VendorStatusHistory.to_status == VendorStatus.PENDING_VERIFICATION,
         )
     }
-    registered_vendors_count = db.query(Vendor).count()
+    # vendors_by_status's GROUP BY already has the total as a sum of its
+    # values (2026-10-14, performance) -- a separate COUNT(*) query for
+    # registered_vendors_count was paying for the same number twice.
+    vendors_by_status = {
+        status.value: count for status, count in db.query(Vendor.status, func.count(Vendor.id)).group_by(Vendor.status).all()
+    }
+    registered_vendors_count = sum(vendors_by_status.values())
     # Documents uploaded by vendors who are already Active/Suspended (e.g. answering a
     # newly added item requirement): nothing else in the queue would surface them.
     docs_to_verify = [
@@ -271,22 +303,28 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     ]
     bids_submitted_count = db.query(Bid).filter(Bid.status == BidStatus.SUBMITTED).count()
 
-    recently_published = (
-        db.query(Tender)
-        .filter(Tender.status == TenderStatus.PUBLISHED, Tender.published_at.isnot(None))
-        .order_by(Tender.published_at.desc())
-        .limit(5)
-        .all()
-    )
+    recently_published = sorted(
+        (t for t in all_tenders if t.status == TenderStatus.PUBLISHED and t.published_at is not None),
+        key=lambda t: t.published_at,
+        reverse=True,
+    )[:5]
 
-    vendors_by_status = {
-        status.value: count for status, count in db.query(Vendor.status, func.count(Vendor.id)).group_by(Vendor.status).all()
-    }
-    published_tenders = db.query(Tender).filter(Tender.status == TenderStatus.PUBLISHED).all()
+    published_tenders = [t for t in all_tenders if t.status == TenderStatus.PUBLISHED]
     published_lines = [li for t in published_tenders for li in t.line_items]
     held_lines = [li for li in published_lines if not li.published]
 
-    award_tasks_raw = award_rules.tasks_for(db, user)
+    # Batched (2026-10-14, performance): recommend_tasks()/tasks_for()/
+    # awaiting_decision()/_tender_progress_pct() each used to call
+    # latest_round() once per published line independently of each other --
+    # for any real number of published tenders, that's hundreds of redundant
+    # round trips recomputing the exact same "latest round per line" data
+    # three separate times in a single dashboard load, almost certainly the
+    # dominant cost behind this page specifically being slow. One query,
+    # shared by every one of them below.
+    actually_published_lines = [li for t in published_tenders for li in award_rules.published_lines(t)]
+    rounds_by_line = award_rules.latest_rounds_for_lines(db, [li.id for li in actually_published_lines])
+
+    award_tasks_raw = award_rules.tasks_for(db, user, published_tenders, rounds_by_line)
 
     # Category Manager's own queues (product decision, 2026-09-30): itemized
     # like the KYC tasks, instead of a single aggregate count each.
@@ -337,10 +375,15 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         for r in stale_rating_rows
     ]
 
+    # Computed once, not twice (2026-10-14, performance) -- this was the same
+    # query re-run back to back just to count two different expiry_states
+    # out of its results.
+    live_expiry_docs = _live_expiry_docs(db)
+
     return DashboardStatsOut(
-        officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts, draft_tenders),
-        approving_authority=_approving_authority_stats(db, user, award_tasks_raw, pending_your_approval, bid_counts),
-        category_manager=_category_manager_stats(db, user, len(open_tenders), len(eval_workload_lines)),
+        officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts, draft_tenders, published_tenders, rounds_by_line),
+        approving_authority=_approving_authority_stats(db, user, award_tasks_raw, pending_your_approval, bid_counts, published_tenders, rounds_by_line),
+        category_manager=_category_manager_stats(db, user, len(open_tenders), len(eval_workload_lines), published_tenders, rounds_by_line),
         vendors_by_status=vendors_by_status,
         catalog_entries_count=db.query(ProductMaster).filter(ProductMaster.active.is_(True)).count(),
         mappings_approved_count=db.query(VendorMapping).filter(VendorMapping.state == MappingState.APPROVED).count(),
@@ -349,8 +392,8 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         lines_published=len(published_lines) - len(held_lines),
         last_rating_update=db.query(func.max(VendorRating.last_manual_update_at)).scalar(),
         next_bid_close=open_tenders[0].bid_due_date if open_tenders else None,
-        docs_expiring_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expiring"),
-        docs_expired_count=sum(1 for d in _live_expiry_docs(db) if d.expiry_state == "expired"),
+        docs_expiring_count=sum(1 for d in live_expiry_docs if d.expiry_state == "expiring"),
+        docs_expired_count=sum(1 for d in live_expiry_docs if d.expiry_state == "expired"),
         docs_to_verify=docs_to_verify,
         award_tasks=[DashboardAwardTaskOut(**t) for t in award_tasks_raw],
         pending_vendors=[DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids) for v in pending_vendor_rows[:10]],
