@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { roleLabel } from "../../lib/format";
 import { DEFAULT_VIEW_BY_ROLE } from "../../lib/constants";
 import { switchView, setAuthState } from "../../lib/bridge";
+import { PasswordField } from "../../components/PasswordField";
 import type { CurrentUser } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/staffLoginPage.js. The default form
@@ -53,13 +54,13 @@ export function StaffLoginPage() {
         </div>
         <div className="ep-field">
           <div className="ep-k">Password</div>
-          <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <div className="d-flex items-center gap-14px">
           <button type="submit" className="ep-b" data-v="p">
             Log in
           </button>
-          <button type="button" className="link-btn">
+          <button type="button" className="link-btn self-center">
             Forgot password?
           </button>
         </div>

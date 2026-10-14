@@ -1,8 +1,9 @@
 from app.services.open_links import invite_newly_active_vendor, require_open_link_tender
 import logging
+import secrets
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -19,7 +20,11 @@ from app.models.vendor import (
     VendorStatusHistory,
 )
 from app.schemas.vendor import (
+    VendorCompleteRegistration,
     VendorCreate,
+    VendorDraftOut,
+    VendorDuplicateCheckRequest,
+    VendorDuplicateCheckResponse,
     VendorInfoRequest,
     VendorLookupOut,
     VendorMaskedOut,
@@ -84,12 +89,43 @@ REGISTRATION_DOCS = [
 ]
 
 
+def _duplicate_check(db: Session, gstin: str, pan: str, email: str, phone: str) -> None:
+    """Spec 3.5 duplicate check + 6.8.2 point 3 (Open Tender self-registration
+    matches an existing profile instead of duplicating). GSTIN, PAN, email
+    and phone must each be unique to one vendor (each a DB `unique=True`
+    column, app/models/vendor.py). Shared by create_draft_vendor() and
+    check_vendor_duplicates() -- one rule, one wording, not copy-pasted."""
+    for column, value, label in (
+        (Vendor.gstin, gstin, "GSTIN"),
+        (Vendor.pan, pan, "PAN"),
+        (Vendor.email, email, "email address"),
+        (Vendor.phone, phone, "phone number"),
+    ):
+        existing = db.query(Vendor).filter(column == value).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A vendor with this {label} is already registered (status: {existing.status.value})",
+            )
+
+
 @router.post("", response_model=VendorOut, status_code=status.HTTP_201_CREATED)
 async def register_vendor(request: Request, db: Session = Depends(get_db)):
-    """Spec 3.3 registration workflow. Deliberately the *only* vendor
-    creation path in this system -- the Open Tender public landing page and
-    the "invite a prospective vendor" flow both route here too (CLAUDE.md
-    PROJECT OVERRIDE: no lightweight/guest variant that skips this).
+    """Spec 3.3 registration workflow -- the original one-request version.
+
+    **Superseded (2026-10-13) by the three endpoints below** (create_draft_vendor
+    / upload_registration_document / complete_vendor_registration) as what the
+    actual registration form calls: bundling every (possibly up to 10MB each)
+    mandatory document into one multipart request alongside the vendor row,
+    all held in a single DB transaction until one final commit, is what made a
+    registration with several large documents take minutes and occasionally
+    500 (the transaction holds a SELECT+INSERT round trip to the DB per file,
+    serialized, before anything commits -- see
+    .claude-notes/REACT-MIGRATION-PLAN.md for the full diagnosis). Kept here,
+    unchanged, as a fallback/compatibility path rather than deleted outright,
+    since Open Tender self-registration and any other caller of this exact
+    route aren't something this pass re-verified -- not actively used by the
+    frontend form anymore, flagged as a cleanup candidate once that's confirmed.
 
     Multipart: every spec 3.2 field group plus the documents. The vendor row
     and all documents are saved in one transaction, so a registration can
@@ -143,21 +179,7 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
         msg = "; ".join(f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors())
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
 
-    # Spec 3.5 duplicate check + 6.8.2 point 3 (Open Tender self-registration
-    # matches an existing profile instead of duplicating). GSTIN, PAN, email
-    # and phone must each be unique to one vendor.
-    for column, value, label in (
-        (Vendor.gstin, payload.gstin, "GSTIN"),
-        (Vendor.pan, payload.pan, "PAN"),
-        (Vendor.email, payload.email, "email address"),
-        (Vendor.phone, payload.phone, "phone number"),
-    ):
-        existing = db.query(Vendor).filter(column == value).first()
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"A vendor with this {label} is already registered (status: {existing.status.value})",
-            )
+    _duplicate_check(db, payload.gstin, payload.pan, payload.email, payload.phone)
 
     uploads = {}
     for field, doc_type in REGISTRATION_DOCS:
@@ -181,7 +203,7 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
 
     linked_tender = require_open_link_tender((text_fields.get("open_link_token") or "").strip() or None, db)
     vendor = Vendor(
-        **payload.model_dump(exclude={"password", "category_declaration"}),
+        **payload.model_dump(exclude={"password", "category_declaration", "open_link_token"}),
         status=VendorStatus.PENDING_VERIFICATION,
         hashed_password=hash_password(payload.password),
     )
@@ -206,6 +228,172 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(vendor)
     return vendor
+
+
+@router.post("/draft", response_model=VendorDraftOut, status_code=status.HTTP_201_CREATED)
+def create_draft_vendor(payload: VendorCreate, db: Session = Depends(get_db)):
+    """Registration's new first step (2026-10-13, user-requested). Creates
+    the vendor row immediately in DRAFT status, with no documents at all --
+    each one is uploaded separately right after this, through
+    `POST /{vendor_id}/documents`, each in its own small transaction instead
+    of being bundled with every other document and the vendor row itself
+    into one giant transaction (`register_vendor` above, superseded by this
+    for the actual registration form -- see its own docstring for the full
+    diagnosis of why that was slow/unreliable with several large documents).
+    `complete_vendor_registration` below is what checks every mandatory
+    document is present and moves this to Pending Verification; nothing
+    here does yet. JSON, not multipart -- there's nothing to attach here.
+
+    Unauthenticated, same as register_vendor() -- a prospective vendor has
+    no token yet. The returned `registration_token` is the only thing that
+    lets this same (still-anonymous) browser prove it's the one allowed to
+    attach documents to this draft or finish it -- same capability-token
+    pattern as open_links.py's open_link_token."""
+
+    _duplicate_check(db, payload.gstin, payload.pan, payload.email, payload.phone)
+
+    linked_tender = require_open_link_tender((payload.open_link_token or "").strip() or None, db)
+    token = secrets.token_urlsafe(32)
+    vendor = Vendor(
+        **payload.model_dump(exclude={"password", "category_declaration", "open_link_token"}),
+        status=VendorStatus.DRAFT,
+        hashed_password=hash_password(payload.password),
+        registration_token=token,
+    )
+    db.add(vendor)
+    if linked_tender is not None:
+        vendor.registered_via_tender_id = linked_tender.id
+    db.flush()
+    db.add(VendorStatusHistory(vendor_id=vendor.id, from_status=None, to_status=VendorStatus.DRAFT, reason="Registration started"))
+    record(
+        db, "vendor.registration_started", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
+        after={"status": VendorStatus.DRAFT}, reason="Registration started",
+    )
+    db.commit()
+    db.refresh(vendor)
+    return VendorDraftOut(id=vendor.id, registration_token=token)
+
+
+def _authorize_draft(db: Session, vendor_id: int, registration_token: str) -> Vendor:
+    """Shared by upload_registration_document() and
+    complete_vendor_registration() -- the registration_token has to match
+    AND the vendor has to still actually be Draft (so a token can't be
+    replayed after registration already completed, or reused against a
+    vendor some staff decision has since moved elsewhere)."""
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if vendor is None or vendor.status != VendorStatus.DRAFT or not vendor.registration_token or vendor.registration_token != registration_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired registration session")
+    return vendor
+
+
+@router.post("/{vendor_id}/documents", response_model=VendorDocumentOut, status_code=status.HTTP_201_CREATED)
+async def upload_registration_document(
+    vendor_id: int,
+    registration_token: str = Form(...),
+    doc_type: VendorDocType = Form(...),
+    custom_label: str | None = Form(None),
+    valid_till: date | None = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """One document per request (2026-10-13, user-requested) -- its own
+    small transaction (one validate + one upsert + one commit), not bundled
+    with every other document into one giant one. Scoped to this one
+    still-incomplete registration by `registration_token`, since there's no
+    login yet to authenticate this request the normal way."""
+
+    vendor = _authorize_draft(db, vendor_id, registration_token)
+    label = (custom_label or "").strip()
+    if doc_type == VendorDocType.OTHER and not label:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Say what this document is (custom_label)")
+    if doc_type != VendorDocType.OTHER:
+        label = ""
+    content = await file.read()
+    doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+@router.delete("/{vendor_id}/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_registration_document(vendor_id: int, doc_id: int, registration_token: str, db: Session = Depends(get_db)):
+    """Lets a dropzone's "replace" pick a different file without leaving the
+    old upload behind under a stale doc_type/custom_label pairing -- not
+    needed for the standard mandatory/optional slots (store_document()
+    upserts by doc_type there), only for a free-label "other" document
+    whose label the vendor changes after already uploading one."""
+    vendor = _authorize_draft(db, vendor_id, registration_token)
+    doc = db.query(VendorDocument).filter(VendorDocument.id == doc_id, VendorDocument.vendor_id == vendor.id).first()
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    db.delete(doc)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{vendor_id}/complete-registration", response_model=VendorOut)
+def complete_vendor_registration(vendor_id: int, payload: VendorCompleteRegistration, db: Session = Depends(get_db)):
+    """Final step (2026-10-13, user-requested) -- checks every mandatory
+    document has actually been uploaded (the same MANDATORY_DOC_TYPES check
+    register_vendor() always did, just moved here now that documents arrive
+    one at a time instead of all at once), then flips the vendor from Draft
+    to Pending Verification -- the same transition registering always
+    produced, just at the end of Step 2 instead of inside one giant request.
+    `registration_token` is cleared so it can't be replayed afterward."""
+
+    vendor = _authorize_draft(db, vendor_id, payload.registration_token)
+    have = {d.doc_type for d in db.query(VendorDocument).filter(VendorDocument.vendor_id == vendor.id).all()}
+    missing = [dt.value for dt in MANDATORY_DOC_TYPES if dt not in have]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Mandatory document(s) missing: {', '.join(sorted(missing))}")
+
+    vendor.registration_token = None
+    vendor.status = VendorStatus.PENDING_VERIFICATION
+    db.add(VendorStatusHistory(vendor_id=vendor.id, from_status=VendorStatus.DRAFT, to_status=VendorStatus.PENDING_VERIFICATION, reason="Registered"))
+    record(
+        db, "vendor.registered", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
+        after={"status": VendorStatus.PENDING_VERIFICATION}, reason="Registered",
+    )
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
+
+@router.post("/check-duplicates", response_model=VendorDuplicateCheckResponse)
+def check_vendor_duplicates(payload: VendorDuplicateCheckRequest, db: Session = Depends(get_db)):
+    """Lightweight pre-flight duplicate check (2026-10-13, user-requested) --
+    the registration form's Step 1 "Continue" calls this before advancing to
+    Step 2, so an already-registered GSTIN/PAN/email/phone surfaces right on
+    the page that field is on, instead of only being discovered at the real
+    submit after documents are already attached. Unauthenticated, same as
+    `POST /vendors` itself -- a prospective vendor has no token yet.
+
+    Same uniqueness rule as register_vendor()'s own check just above (GSTIN/
+    PAN/email/phone are each a DB `unique=True` column on Vendor, see
+    app/models/vendor.py) and the same normalization VendorCreate's own
+    validators apply (uppercase GSTIN/PAN, lowercase email, phone stripped to
+    digits + a leading "+"), so a match here is guaranteed to also be
+    rejected by the real submit, and nothing here flags something that
+    submit would actually accept. Every field is optional and independently
+    checked -- a blank one is simply skipped, not an error."""
+
+    checks: list[tuple[str, object, str, str]] = []
+    if payload.gstin.strip():
+        checks.append(("gstin", Vendor.gstin, payload.gstin.strip().upper(), "GSTIN"))
+    if payload.pan.strip():
+        checks.append(("pan", Vendor.pan, payload.pan.strip().upper(), "PAN"))
+    if payload.email.strip():
+        checks.append(("email", Vendor.email, payload.email.strip().lower(), "email address"))
+    if payload.phone.strip():
+        cleaned = "".join(ch for ch in payload.phone if ch.isdigit() or ch == "+")
+        checks.append(("phone", Vendor.phone, cleaned, "phone number"))
+
+    result: dict[str, str] = {}
+    for key, column, value, label in checks:
+        existing = db.query(Vendor).filter(column == value).first()
+        if existing:
+            result[key] = f"A vendor with this {label} is already registered (status: {existing.status.value})"
+    return VendorDuplicateCheckResponse(**result)
 
 
 @router.get("", response_model=list[VendorMaskedOut])

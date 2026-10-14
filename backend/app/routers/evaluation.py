@@ -38,7 +38,7 @@ from app.services import technical_evaluation as tech
 from app.services.audit import record
 from app.services.notifier import notify_vendor
 from app.services.bids import KIND_LABELS
-from app.services.ratings import rating_score, record_price_competitiveness, refresh_price_competitiveness
+from app.services.ratings import rating_score, rating_scores, record_price_competitiveness, refresh_price_competitiveness
 
 router = APIRouter(prefix="/api/v1/evaluation", tags=["evaluation"])
 
@@ -68,10 +68,11 @@ def _phase(line: TenderLineItem) -> str:
 def _summary(line: TenderLineItem, db: Session) -> LineSummaryOut:
     t = line.tender
     bids = tech.submitted_bids(line, db)
-    evaluated = 0
-    for b in bids:
-        if db.query(BidEvaluation).filter(BidEvaluation.bid_id == b.id).first():
-            evaluated += 1
+    # Batched (2026-10-13, performance): one query for the whole line instead
+    # of one BidEvaluation lookup per bid.
+    bid_ids = [b.id for b in bids]
+    evaluated_bid_ids = {bid_id for (bid_id,) in db.query(BidEvaluation.bid_id).filter(BidEvaluation.bid_id.in_(bid_ids)).distinct()} if bid_ids else set()
+    evaluated = len(evaluated_bid_ids)
     return LineSummaryOut(
         line_item_id=line.id, tender_id=t.id, tender_title=t.title, tender_type=t.tender_type, tender_status=t.status, product_name=line.product.name,
         procurement_type=line.procurement_type, qty=line.qty, bid_due_date=t.bid_due_date,
@@ -144,12 +145,28 @@ def line_detail(line_id: int, db: Session = Depends(get_db), user: UserAccount =
     closed = line.technical_closed_at is not None
     invites = db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id).all()
     bids = {b.vendor_id: b for b in tech.submitted_bids(line, db)}
+    # Batched (2026-10-13, performance): this used to run up to three queries
+    # (BidEvaluation list, BidEvaluation count, BidTechnicalResult) plus a
+    # rating_score() lookup PER INVITE -- on a line with many invites, each
+    # paying a full DB round trip, this was the single worst offender in the
+    # app. Four queries total for the whole line replace what used to be up
+    # to 4 x N.
+    bid_ids = [b.id for b in bids.values()]
+    evals_by_bid: dict[int, list[BidEvaluation]] = {}
+    if bid_ids and passed:
+        for e in db.query(BidEvaluation).filter(BidEvaluation.bid_id.in_(bid_ids)).all():
+            evals_by_bid.setdefault(e.bid_id, []).append(e)
+    results_by_bid: dict[int, BidTechnicalResult] = {}
+    if bid_ids and closed:
+        results_by_bid = {r.bid_id: r for r in db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id.in_(bid_ids)).all()}
+    ratings = rating_scores([inv.vendor_id for inv in invites], line.procurement_type, db)
+
     rows = []
     for inv in invites:
         bid = bids.get(inv.vendor_id)
         evals, result = [], None
         if bid is not None and passed and user.role in EVALUATORS:
-            all_evals = db.query(BidEvaluation).filter(BidEvaluation.bid_id == bid.id).all()
+            all_evals = evals_by_bid.get(bid.id, [])
             # Evaluators score independently: until the line is closed each sees only their own.
             shown = all_evals if closed else [e for e in all_evals if e.evaluator_id == user.id]
             evals = [
@@ -157,15 +174,15 @@ def line_detail(line_id: int, db: Session = Depends(get_db), user: UserAccount =
                 for e in shown
             ]
         if bid is not None and closed:  # the recorded outcome is visible to every viewer once the line is closed
-            res = db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id == bid.id).first()
+            res = results_by_bid.get(bid.id)
             if res:
                 result = ResultOut(outcome=res.outcome, consolidated_score=res.consolidated_score, t_rank=res.t_rank, reason=res.reason)
         rows.append(
             VendorBidRow(
-                vendor_id=inv.vendor_id, vendor_name=inv.vendor.legal_name, rating=rating_score(inv.vendor_id, line.procurement_type, db),
+                vendor_id=inv.vendor_id, vendor_name=inv.vendor.legal_name, rating=ratings[inv.vendor_id],
                 submitted=bid is not None, submitted_at=bid.submitted_at if bid else None, bid_id=bid.id if bid else None,
                 evaluations=evals,
-                evaluation_count=db.query(BidEvaluation).filter(BidEvaluation.bid_id == bid.id).count() if bid is not None and passed else 0,
+                evaluation_count=len(evals_by_bid.get(bid.id, [])) if bid is not None and passed else 0,
                 result=result,
             )
         )

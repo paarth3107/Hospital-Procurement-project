@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.bid import Bid
 from app.models.bid_evaluation import BidTechnicalResult, TechnicalDecision
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
-from app.services.ratings import rating_score
+from app.services.ratings import rating_scores
 from app.services.technical_evaluation import submitted_bids
 
 
@@ -48,12 +48,21 @@ def build_statement(line: TenderLineItem, db: Session) -> tuple[str, list[Row]]:
     if line.technical_closed_at is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prices open only after technical evaluation is closed for this line")
 
+    # Batched (2026-10-13, performance): one BidTechnicalResult query and one
+    # rating_scores() query for the whole line, instead of one of each per
+    # bid -- see awards.py/evaluation.py for the same fix, same reasoning
+    # (round-trip count dominates cost on a remote DB, not row volume).
+    bids = submitted_bids(line, db)
+    bid_ids = [b.id for b in bids]
+    results_by_bid = {r.bid_id: r for r in db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id.in_(bid_ids)).all()} if bid_ids else {}
+    ratings = rating_scores([b.vendor_id for b in bids], line.procurement_type, db)
+
     rows: list[Row] = []
-    for bid in submitted_bids(line, db):
-        result = db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id == bid.id).first()
+    for bid in bids:
+        result = results_by_bid.get(bid.id)
         if result is None:  # a bid submitted but never evaluated can't happen once closed; skip defensively
             continue
-        rows.append(Row(bid=bid, result=result, rating=rating_score(bid.vendor_id, line.procurement_type, db)))
+        rows.append(Row(bid=bid, result=result, rating=ratings[bid.vendor_id]))
 
     qualified = [r for r in rows if r.result.outcome == TechnicalDecision.QUALIFIED]
     for r in qualified:

@@ -40,8 +40,25 @@ const required =
   (v: string): string | null =>
     v.trim() ? null : `${label} is required.`;
 
+// User-directed (2026-10-13) -- the backend (vendor.py) has no length
+// constraint at all on any of these name-ish fields, just non-blank; these
+// min/max bounds are a pure client-side data-quality rule, not something
+// mirrored from the server. `optional` skips the "required" branch for
+// trade_name (it can be left blank entirely) but still bounds it once
+// something's actually typed.
+const boundedText =
+  (label: string, min: number, max: number, optional = false) =>
+  (v: string): string | null => {
+    const t = v.trim();
+    if (!t) return optional ? null : `${label} is required.`;
+    if (t.length < min) return `${label} must be at least ${min} characters.`;
+    if (t.length > max) return `${label} must be ${max} characters or fewer.`;
+    return null;
+  };
+
 export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> = {
-  legal_name: required("Legal name"),
+  legal_name: boundedText("Legal name", 2, 100),
+  trade_name: boundedText("Trade name", 2, 100, true),
   entity_type: required("Entity type"),
   year_of_incorporation: (v) => {
     if (!v.trim()) return "Year of incorporation is required.";
@@ -49,7 +66,8 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
     const thisYear = new Date().getFullYear();
     return Number.isInteger(n) && n >= 1800 && n <= thisYear ? null : `Enter a year between 1800 and ${thisYear}.`;
   },
-  registered_address: required("Address line"),
+  registered_address: boundedText("Address line", 10, 250),
+  alternate_address: boundedText("Alternate / correspondence address", 1, 250, true),
   state: required("State"),
   city: required("City"),
   city_other: required("City"),
@@ -74,8 +92,8 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
     if (!t) return "IFSC is required.";
     return IFSC_RE.test(t) ? null : "IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits).";
   },
-  contact_person: required("Primary contact person"),
-  contact_designation: required("Designation"),
+  contact_person: boundedText("Primary contact person", 2, 50),
+  contact_designation: boundedText("Designation", 2, 50),
   phone: (v) => {
     if (!v.trim()) return "Phone is required.";
     return INDIA_MOBILE_RE.test(v.trim()) ? null : "Enter a 10-digit mobile number starting with 6-9.";
@@ -84,7 +102,7 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
     if (!v.trim()) return "Email is required.";
     return EMAIL_RE.test(v.trim()) ? null : "Enter a valid email address.";
   },
-  escalation_contact_name: required("Escalation contact name"),
+  escalation_contact_name: boundedText("Escalation contact name", 2, 50),
   escalation_contact_phone: (v) => {
     if (!v.trim()) return "Escalation phone is required.";
     return phoneDigitCount(v) >= 7 ? null : "Enter a valid escalation phone number.";
@@ -92,8 +110,16 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
   // Optional field, and the backend doesn't format-check it either -- only
   // flagged if something was actually typed and it doesn't look like an email.
   escalation_contact_email: (v) => (v.trim() && !EMAIL_RE.test(v.trim()) ? "Enter a valid email address." : null),
+  // Mirrors backend/app/schemas/password.py's check_password_strength()
+  // exactly (2026-10-13, user-directed): 8-20 characters, at least one
+  // digit, one lowercase, one uppercase, one special character.
   password: (v) => {
     if (!v) return "Password is required.";
-    return v.length >= 8 ? null : "Password must be at least 8 characters.";
+    if (v.length < 8 || v.length > 20) return "Password must be 8-20 characters.";
+    if (!/[0-9]/.test(v)) return "Password must include at least one digit.";
+    if (!/[a-z]/.test(v)) return "Password must include at least one lowercase letter.";
+    if (!/[A-Z]/.test(v)) return "Password must include at least one uppercase letter.";
+    if (!/[^A-Za-z0-9]/.test(v)) return "Password must include at least one special character.";
+    return null;
   },
 };

@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { ROLE_LABELS } from "../../lib/format";
 import type { Facility, Role, StaffUser } from "../../lib/types";
 import { DialogShell } from "../../components/DialogShell";
+import { PasswordField } from "../../components/PasswordField";
 
 // Ported 1:1 from frontend/js/pages/staff/staffForm.js.
 export function StaffFormDialog({
@@ -60,8 +61,8 @@ export function StaffFormDialog({
         </div>
         {!editing && (
           <div className="ep-field">
-            <div className="ep-k">Initial password (min 8 characters)</div>
-            <input className="input" type="password" minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="ep-k">Initial password (8-20 characters, with at least one digit, lowercase, uppercase and special character)</div>
+            <PasswordField minLength={8} maxLength={20} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <div className="hint mt-4px">Share it with the person directly; there is no email delivery yet. Use Reset password later to change it.</div>
           </div>
         )}

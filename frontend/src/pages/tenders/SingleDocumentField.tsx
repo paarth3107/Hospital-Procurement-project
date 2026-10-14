@@ -1,5 +1,7 @@
-import { api, API_BASE, apiHeaders } from "../../lib/api";
+import { useState } from "react";
+import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { fileTypeError } from "../../lib/fileValidation";
+import { UploadProgress } from "../../components/CircularProgress";
 import { useModal } from "../../components/useModal";
 import type { Tender } from "../../lib/types";
 
@@ -34,10 +36,14 @@ export function SingleDocumentField({
   onChange: (updated: Tender) => void;
 }) {
   const { confirmAsync, alertAsync, modalElement } = useModal();
+  // Real bug, found 2026-10-13: nothing stopped a second click mid-upload,
+  // and nothing showed the user anything was even happening.
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const field = (t: Tender, suffix: string): unknown => (t as unknown as Record<string, unknown>)[`${fieldPrefix}_${suffix}`];
 
   const pickAndUpload = () => {
-    if (!tender) return;
+    if (!tender || uploading) return;
     const picker = document.createElement("input");
     picker.type = "file";
     // `.doc` (legacy Word) was listed here but was never actually accepted
@@ -57,13 +63,17 @@ export function SingleDocumentField({
         await alertAsync(typeErr);
         return;
       }
+      setUploading(true);
+      setUploadProgress(0);
       try {
         const fd = new FormData();
         fd.append("file", file);
-        const updated = await api<Tender>(`/tenders/${tender.id}/${endpoint}`, { method: "POST", body: fd });
+        const updated = await uploadWithProgress<Tender>(`/tenders/${tender.id}/${endpoint}`, fd, setUploadProgress);
         onChange(updated);
       } catch (err) {
         await alertAsync(err instanceof Error ? err.message : String(err));
+      } finally {
+        setUploading(false);
       }
     });
     picker.click();
@@ -109,21 +119,21 @@ export function SingleDocumentField({
         <div className="d-flex items-center gap-10px flex-wrap">
           <span className="fw-600">{filename}</span>
           <span className="ep-sub">{fmtSize(field(tender, "size") as number | null)}</span>
-          <button type="button" className="ep-b" onClick={download}>
+          <button type="button" className="ep-b" disabled={uploading} onClick={download}>
             Download
           </button>
-          <button type="button" className="ep-b" onClick={pickAndUpload}>
-            Replace
+          <button type="button" className="ep-b" disabled={uploading} onClick={pickAndUpload}>
+            {uploading ? <UploadProgress value={uploadProgress} /> : "Replace"}
           </button>
-          <button type="button" className="ep-b" onClick={remove}>
+          <button type="button" className="ep-b" disabled={uploading} onClick={remove}>
             Remove
           </button>
         </div>
       ) : (
         <div className="d-flex items-center gap-10px flex-wrap">
           <span className="fs-12px text-danger-700">{requiredLabel}</span>
-          <button type="button" className="ep-b" onClick={pickAndUpload}>
-            Upload document
+          <button type="button" className="ep-b" disabled={uploading} onClick={pickAndUpload}>
+            {uploading ? <UploadProgress value={uploadProgress} /> : "Upload document"}
           </button>
         </div>
       )}

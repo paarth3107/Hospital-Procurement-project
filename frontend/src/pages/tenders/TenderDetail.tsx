@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { useModal } from "../../components/useModal";
 import { StateTag, Tag } from "../../components/Tag";
-import type { ApprovalRound, CatalogProduct, LineItem, LineItemEligibility, TenderStatus, VendorLookup } from "../../lib/types";
+import type { ApprovalRound, CatalogProduct, EligibleVendor, ExcludedVendor, LineItem, LineItemEligibility, TenderStatus, VendorLookup } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderDetail.js. Shown below the
 // header form for a saved tender: which lines are live vs held back, a
@@ -215,6 +215,33 @@ function EligibilityPreview({
     load();
   }, [load]);
 
+  // User-directed (2026-10-13): adding a guest invite or removing a vendor
+  // used to re-fetch the whole tender's eligibility preview (every line,
+  // plus the tender and vendor-lookup calls) from the server, even though
+  // the officer's action only ever changes ONE line, and we already have
+  // every piece of data the new state needs in hand -- a guest invite is by
+  // definition a vendor the eligibility rules did NOT select, so there's
+  // nothing to re-check; its legal name is already in activeVendors and its
+  // rating_at_resolution comes straight back on the POST response. A removal
+  // just moves an entry that's already fully rendered from "eligible" to
+  // "removed" with the reason just typed. Neither needs the server asked
+  // again -- so this now patches `preview` in place instead of reloading it.
+  const onGuestAdded = (lineItemId: number, entry: EligibleVendor) =>
+    setPreview((prev) => prev && prev.map((p) => (p.line_item_id === lineItemId ? { ...p, eligible_vendors: [...p.eligible_vendors, entry] } : p)));
+
+  const onVendorsRemoved = (lineItemId: number, removed: ExcludedVendor[]) => {
+    const removedIds = new Set(removed.map((r) => r.vendor_id));
+    setPreview(
+      (prev) =>
+        prev &&
+        prev.map((p) =>
+          p.line_item_id === lineItemId
+            ? { ...p, eligible_vendors: p.eligible_vendors.filter((v) => !removedIds.has(v.vendor_id)), removed_vendors: [...p.removed_vendors, ...removed] }
+            : p
+        )
+    );
+  };
+
   const canEdit = tenderStatus === "draft" && !openTender;
 
   if (!preview) return null;
@@ -228,7 +255,17 @@ function EligibilityPreview({
       <div className="ep-pane-pad">
         {openTender && <div className="ep-note mb-10px">Open tender: every Active vendor is invited on every line.</div>}
         {preview.map((p) => (
-          <EligibilityLine key={p.line_item_id} p={p} tenderId={tenderId} minInvites={minInvites} canEdit={canEdit} activeVendors={activeVendors} onChanged={load} onAlert={alertAsync} />
+          <EligibilityLine
+            key={p.line_item_id}
+            p={p}
+            tenderId={tenderId}
+            minInvites={minInvites}
+            canEdit={canEdit}
+            activeVendors={activeVendors}
+            onGuestAdded={onGuestAdded}
+            onVendorsRemoved={onVendorsRemoved}
+            onAlert={alertAsync}
+          />
         ))}
       </div>
       {modalElement}
@@ -242,7 +279,8 @@ function EligibilityLine({
   minInvites,
   canEdit,
   activeVendors,
-  onChanged,
+  onGuestAdded,
+  onVendorsRemoved,
   onAlert,
 }: {
   p: LineItemEligibility;
@@ -250,7 +288,8 @@ function EligibilityLine({
   minInvites: number | null;
   canEdit: boolean;
   activeVendors: VendorLookup[];
-  onChanged: () => void;
+  onGuestAdded: (lineItemId: number, entry: EligibleVendor) => void;
+  onVendorsRemoved: (lineItemId: number, removed: ExcludedVendor[]) => void;
   onAlert: (message: string, title?: string) => Promise<void>;
 }) {
   const [marked, setMarked] = useState<Set<number>>(new Set());
@@ -278,16 +317,21 @@ function EligibilityLine({
 
   const confirmRemove = async () => {
     if (!marked.size) return onAlert("Click a vendor's chip to select it for removal.");
-    if (!removeReason.trim()) return onAlert("Give a reason. The removal is kept on record.");
+    const reason = removeReason.trim();
+    if (!reason) return onAlert("Give a reason. The removal is kept on record.");
     try {
       await api(`/tenders/${tenderId}/lines/${p.line_item_id}/vendor-removals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendor_ids: [...marked], reason: removeReason.trim() }),
+        body: JSON.stringify({ vendor_ids: [...marked], reason }),
       });
+      // Nothing to ask the server for -- every marked vendor is already
+      // fully rendered (name included) right above, and the reason was just
+      // typed in. Move them from eligible to removed locally.
+      const removed = p.eligible_vendors.filter((v) => marked.has(v.vendor_id)).map((v) => ({ vendor_id: v.vendor_id, legal_name: v.legal_name, reason }));
+      onVendorsRemoved(p.line_item_id, removed);
       setMarked(new Set());
       setRemoveReason("");
-      onChanged();
     } catch (err) {
       await onAlert(err instanceof Error ? err.message : String(err));
     }
@@ -295,16 +339,24 @@ function EligibilityLine({
 
   const addGuest = async () => {
     if (!guestVendorId) return onAlert("Choose a vendor to invite.");
-    if (!guestReason.trim()) return onAlert("Give a reason. Guests are invited outside the eligibility rules, so the reason is kept on record.");
+    const reason = guestReason.trim();
+    if (!reason) return onAlert("Give a reason. Guests are invited outside the eligibility rules, so the reason is kept on record.");
+    const vendorId = Number(guestVendorId);
     try {
-      await api(`/tenders/${tenderId}/lines/${p.line_item_id}/guest-invites`, {
+      const invite = await api<{ vendor_id: number; rating_at_resolution: number }>(`/tenders/${tenderId}/lines/${p.line_item_id}/guest-invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendor_id: Number(guestVendorId), reason: guestReason.trim() }),
+        body: JSON.stringify({ vendor_id: vendorId, reason }),
       });
+      // A guest invite is, by definition, a vendor the eligibility rules did
+      // NOT select -- there's nothing to re-check against those rules. The
+      // POST response already carries the resolved rating, and the vendor's
+      // name is already in activeVendors (it's where the dropdown came from),
+      // so the new entry can be built here instead of re-fetching anything.
+      const vendor = activeVendors.find((v) => v.id === vendorId);
+      onGuestAdded(p.line_item_id, { vendor_id: vendorId, legal_name: vendor?.legal_name ?? "", rating_score: invite.rating_at_resolution, source: "guest", reason });
       setGuestVendorId("");
       setGuestReason("");
-      onChanged();
     } catch (err) {
       await onAlert(err instanceof Error ? err.message : String(err));
     }

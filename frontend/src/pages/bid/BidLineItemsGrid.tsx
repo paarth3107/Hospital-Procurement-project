@@ -1,5 +1,5 @@
 import { forwardRef, Fragment, useImperativeHandle, useState } from "react";
-import { api, API_BASE, apiHeaders } from "../../lib/api";
+import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { inr } from "../../lib/format";
 import { vendorCatalogSpec } from "../../lib/attrSummary";
 import { fileTypeError } from "../../lib/fileValidation";
@@ -57,6 +57,9 @@ function effectiveRequirements(row: BidRow): BidRequirements {
 export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: number; onChange: () => void }>(function BidLineItemsGrid({ tenderId, onChange }, ref) {
   const [rows, setRowsState] = useState<BidRow[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  // "<row index>:<kind>" currently mid-upload, if any -- see BidAttachmentsPanel.tsx's own comment.
+  const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
+  const [attachmentProgress, setAttachmentProgress] = useState(0);
   const { confirmAsync, modalElement } = useModal();
 
   const setRows = (next: BidRow[]) => {
@@ -230,6 +233,7 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
   };
 
   const uploadAttachment = async (i: number, kind: string) => {
+    if (busyAttachment === `${i}:${kind}`) return;
     const picker = document.createElement("input");
     picker.type = "file";
     picker.accept = ".pdf,.docx,.xlsx,.jpg,.jpeg,.png";
@@ -246,16 +250,20 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
         window.alert(typeErr);
         return;
       }
+      setBusyAttachment(`${i}:${kind}`);
+      setAttachmentProgress(0);
       try {
         const id = rows[i].bid_id ?? (await ensureBidSaved(i));
         const fd = new FormData();
         fd.append("kind", kind);
         fd.append("file", file);
-        await api(`/vendor-portal/bids/${id}/attachments`, { method: "POST", body: fd });
+        await uploadWithProgress(`/vendor-portal/bids/${id}/attachments`, fd, setAttachmentProgress);
         const form = await api<BidForm>(`/vendor-portal/bids/line/${rows[i].line_item_id}`);
         updateRow(i, (r) => applyForm(r, form));
       } catch (err) {
         window.alert("Could not upload: " + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setBusyAttachment(null);
       }
     });
     picker.click();
@@ -492,6 +500,8 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
                             attachments={row.attachments}
                             req={req}
                             locked={disabled}
+                            busyKind={busyAttachment?.startsWith(`${i}:`) ? busyAttachment.slice(`${i}:`.length) : null}
+                            busyProgress={attachmentProgress}
                             onUpload={(kind) => uploadAttachment(i, kind)}
                             onRemove={(attId) => removeAttachment(i, attId)}
                             onView={(attId) => row.bid_id != null && viewAttachment(row.bid_id, attId)}

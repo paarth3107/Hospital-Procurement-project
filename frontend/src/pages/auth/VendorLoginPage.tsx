@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../lib/api";
 import { switchView, setAuthState } from "../../lib/bridge";
 import { OpenLinkNote } from "./OpenLinkNote";
+import { PasswordField } from "../../components/PasswordField";
 import type { VendorDetail } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/vendorLoginPage.js.
@@ -52,13 +53,13 @@ export function VendorLoginPage() {
         </div>
         <div className="ep-field">
           <div className="ep-k">Password</div>
-          <input className="input" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <div className="d-flex items-center gap-14px">
           <button type="submit" className="ep-b" data-v="p">
             Log in
           </button>
-          <button type="button" className="link-btn">
+          <button type="button" className="link-btn self-center">
             Forgot password?
           </button>
         </div>

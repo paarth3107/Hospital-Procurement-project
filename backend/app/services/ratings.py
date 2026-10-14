@@ -54,6 +54,23 @@ def rating_score(vendor_id: int, procurement_type: ProcurementType, db: Session)
     return rating.overall_score if rating else DEFAULT_RATING_SCORE
 
 
+def rating_scores(vendor_ids: list[int], procurement_type: ProcurementType, db: Session) -> dict[int, float]:
+    """Batched form of rating_score() (2026-10-13, performance) -- one query
+    for a whole set of vendors instead of one per vendor, for callers scoring
+    every bid/invite on a line at once (evaluation/commercial statement
+    screens). Same default-score fallback as the single-vendor version."""
+
+    if not vendor_ids:
+        return {}
+    rows = (
+        db.query(VendorRating)
+        .filter(VendorRating.vendor_id.in_(vendor_ids), VendorRating.procurement_type == procurement_type)
+        .all()
+    )
+    found = {r.vendor_id: r.overall_score for r in rows}
+    return {vid: found.get(vid, DEFAULT_RATING_SCORE) for vid in vendor_ids}
+
+
 def record_price_competitiveness(db: Session, vendor_id: int, procurement_type: ProcurementType, bid_id: int, line_item_id: int, price_score: float) -> None:
     """One row per bid (spec §5.2/§5.3's only system-computed sub-score),
     written once -- a bid's price and line don't change after the fact, so

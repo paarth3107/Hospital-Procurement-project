@@ -1,4 +1,5 @@
 import { Tag } from "../../components/Tag";
+import { UploadProgress } from "../../components/CircularProgress";
 import type { LineAttachment, ProcurementType, TenderLineAttachmentKind } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/lineAttachments.js (spec §6.4):
@@ -43,12 +44,20 @@ const SLOTS_BY_TYPE: Record<ProcurementType, [TenderLineAttachmentKind, boolean]
 export function AttachmentsPanel({
   attachments,
   procurementType,
+  busyKind,
+  busyProgress = 0,
   onUpload,
   onRemove,
   onView,
 }: {
   attachments: LineAttachment[];
   procurementType: ProcurementType;
+  // Real bug, found 2026-10-13: nothing stopped clicking Upload again on a
+  // slot already mid-upload (a (possibly large) file in flight), and
+  // nothing showed anything was happening -- see LineItemsGrid.tsx's/
+  // BidLineItemsGrid.tsx's own uploadAttachment().
+  busyKind?: TenderLineAttachmentKind | null;
+  busyProgress?: number;
   onUpload: (kind: TenderLineAttachmentKind) => void;
   onRemove: (attachmentId: number) => void;
   onView: (attachmentId: number) => void;
@@ -58,13 +67,14 @@ export function AttachmentsPanel({
     <>
       {slots.map(([kind, mandatory]) => {
         const mine = attachments.filter((a) => a.kind === kind);
+        const busy = busyKind === kind;
         return (
           <div className="pb-8px border-bottom-1px-solid-ink-15" key={kind}>
             <div className="d-flex items-center gap-10px flex-wrap">
               <span className="fw-600 fs-12-5px">{KIND_LABELS[kind]}</span>
               {mandatory ? <Tag text={mine.length ? "provided" : "required"} tone={mine.length ? "pos" : "att"} /> : <span className="ep-sub">optional</span>}
-              <button type="button" className="ep-b li-att-upload ml-auto padding-2px-8px" onClick={() => onUpload(kind)}>
-                Upload
+              <button type="button" className="ep-b li-att-upload ml-auto padding-2px-8px" disabled={busy} onClick={() => onUpload(kind)}>
+                {busy ? <UploadProgress value={busyProgress} /> : "Upload"}
               </button>
             </div>
             {mine.map((f) => (

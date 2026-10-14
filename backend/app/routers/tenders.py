@@ -543,14 +543,29 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
 
     tender = _load_tender(tender_id, db)
     source = "open" if tender.open_tender else "system"
+    # Batched (2026-10-13, performance): this used to run two queries
+    # (guest invites, exclusions) per line item -- one query of each for the
+    # whole tender replaces what used to be 2 x N.
+    line_ids = [li.id for li in tender.line_items]
+    guests_by_line: dict[int, dict[int, TenderInvite]] = {}
+    if line_ids:
+        for g in db.query(TenderInvite).filter(TenderInvite.tender_line_item_id.in_(line_ids), TenderInvite.source == "guest").all():
+            guests_by_line.setdefault(g.tender_line_item_id, {})[g.vendor_id] = g
+    exclusions_by_line: dict[int, list[TenderLineExclusion]] = {}
+    all_excluded_vendor_ids: set[int] = set()
+    if line_ids:
+        for x in db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id.in_(line_ids)).all():
+            exclusions_by_line.setdefault(x.tender_line_item_id, []).append(x)
+            all_excluded_vendor_ids.add(x.vendor_id)
+    excluded_vendor_names = {
+        v.id: v.legal_name for v in (db.query(Vendor).filter(Vendor.id.in_(all_excluded_vendor_ids)).all() if all_excluded_vendor_ids else [])
+    }
+
     results = []
     for li in tender.line_items:
         threshold = li.min_rating_threshold_override if li.min_rating_threshold_override is not None else tender.min_rating_threshold
-        guests = {
-            g.vendor_id: g
-            for g in db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source == "guest").all()
-        }
-        exclusions = db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == li.id).all()
+        guests = guests_by_line.get(li.id, {})
+        exclusions = exclusions_by_line.get(li.id, [])
         excluded_ids = {x.vendor_id for x in exclusions}
         eligible = [
             EligibleVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score, source=source)
@@ -561,7 +576,7 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
             EligibleVendorOut(vendor_id=g.vendor.id, legal_name=g.vendor.legal_name, rating_score=g.rating_at_resolution, source="guest", reason=g.reason)
             for g in guests.values()
         ]
-        removed = [ExcludedVendorOut(vendor_id=x.vendor_id, legal_name=db.get(Vendor, x.vendor_id).legal_name, reason=x.reason) for x in exclusions]
+        removed = [ExcludedVendorOut(vendor_id=x.vendor_id, legal_name=excluded_vendor_names[x.vendor_id], reason=x.reason) for x in exclusions]
         results.append(
             LineItemEligibilityOut(
                 line_item_id=li.id,
@@ -723,9 +738,16 @@ def remove_vendors_from_line(
     vendors = [db.get(Vendor, vid) for vid in payload.vendor_ids]
     if any(v is None for v in vendors):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One of the vendors was not found")
+    # Batched (2026-10-13, performance): one delete + one select for the
+    # whole selection, instead of one of each per vendor.
+    vendor_ids = [v.id for v in vendors]
+    db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id.in_(vendor_ids)).delete(synchronize_session=False)
+    existing_by_vendor = {
+        x.vendor_id: x
+        for x in db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id.in_(vendor_ids)).all()
+    }
     for vendor in vendors:
-        db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).delete(synchronize_session=False)
-        existing = db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id == vendor.id).first()
+        existing = existing_by_vendor.get(vendor.id)
         if existing is None:
             db.add(TenderLineExclusion(tender_line_item_id=line.id, vendor_id=vendor.id, reason=payload.reason))
         else:

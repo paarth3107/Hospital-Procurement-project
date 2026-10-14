@@ -334,6 +334,13 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
    a field, shown as soon as the user leaves it with something wrong in it
    -- not just the red border above, and not only discovered at submit. */
 .field-error { color: var(--danger-700); font-size: 12.5px; margin-top: 4px; line-height: 1.4; }
+/* Live "N/max" character counter next to a long-text field's label
+   (2026-10-13) -- updated by hand (see RegisterPage.tsx's onStep1Input),
+   these two fields aren't React-controlled. */
+.char-counter { font-size: 11px; color: var(--ink-50); font-variant-numeric: tabular-nums; }
+/* Red asterisk after a field's label, mandatory fields only (2026-10-13) --
+   non-mandatory fields simply carry no mark instead of an "(optional)" label. */
+.required-mark { color: var(--danger); margin-left: 2px; }
 .ep-check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .ep-check-field { min-height: 42px; }
 .ep-check input[type=checkbox] { width: 17px; height: 17px; }
@@ -403,6 +410,13 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 
 /* landing / auth */
 .landing-title { font-size: 34px; font-weight: 600; letter-spacing: -.01em; }
+/* align-self: flex-start here is for a .back-link/.link-btn sitting alone
+   in a VERTICAL flex column (the auth pages' own .view, VendorViewPage's
+   back-link) -- it stops it stretching to the column's full width. A
+   .link-btn placed inside a HORIZONTAL row instead (e.g. next to the "Log
+   in" button) needs the opposite override -- see .self-center below -- or
+   this same flex-start pins it to the row's top instead of vertically
+   centering it like its sibling. */
 .back-link, .link-btn { background: none; border: 0; padding: 0; color: var(--ink-60); font-size: 13px; font-weight: 500; cursor: pointer; align-self: flex-start; }
 .back-link:hover, .link-btn:hover { color: var(--primary); }
 
@@ -636,6 +650,19 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .text-right { text-align: right; }
 .text-center { text-align: center; }
 .nowrap { white-space: nowrap; }
+/* Fieldset used purely to disable a whole section (RegisterPage.tsx Step 1
+   once a draft vendor exists) -- strip the browser's default border/padding
+   so it doesn't look like a grouping box. */
+.fieldset-reset { border: none; padding: 0; margin: 0; min-width: 0; }
+/* Password show/hide toggle (2026-10-13) -- PasswordField.tsx. */
+.password-field { position: relative; width: 100%; }
+.password-field-input { width: 100%; padding-right: 40px; }
+.password-field-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-radius: var(--radius); color: var(--ink-50); cursor: pointer;
+}
+.password-field-toggle:hover { color: var(--ink); background: var(--ink-09); }
 .pre-wrap { white-space: pre-wrap; }
 .italic { font-style: italic; }
 .tt-none { text-transform: none; }
@@ -652,5 +679,6 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .resize-y { resize: vertical; }
 .pe-none { pointer-events: none; }
 .self-start { align-self: flex-start; }
+.self-center { align-self: center; }
 .break-word { word-break: break-word; }
 .font-serif { font-family: serif; }

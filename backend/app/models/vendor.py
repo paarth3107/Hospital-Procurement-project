@@ -86,6 +86,18 @@ class Vendor(Base):
 
     category_declaration = Column(String(255), nullable=True)  # comma-separated for this first pass
 
+    # Registration (2026-10-13) went from one giant multipart submit to an
+    # incremental flow -- a DRAFT vendor row is created first (no documents
+    # yet), then each document uploads on its own as the user picks it, then
+    # a final call flips the vendor to Pending Verification once every
+    # mandatory document is present. This random, opaque token (same
+    # capability-token pattern as open_links.py's open_link_token) is the
+    # only thing that lets the still-unauthenticated browser that just
+    # created this draft prove it's the one allowed to attach documents to
+    # it or finish it -- cleared (set back to null) once registration
+    # completes, so it can't be replayed afterward.
+    registration_token = Column(String(64), nullable=True)
+
     # Reused for both terminal Rejected and Info Requested -- either way
     # it's "the explanation for the vendor's current non-Active status",
     # not specifically a rejection; the column name predates Info Requested

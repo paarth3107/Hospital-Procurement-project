@@ -321,10 +321,22 @@ def _notify_outcome(db: Session, tender: Tender, rounds: list[AwardRound]) -> No
             tender.id, {"lines": len(items)},
         )
     regrets: dict[int, list[str]] = {}
+    # Batched (2026-10-13, performance): this used to run one Bid query per
+    # round AND one BidTechnicalResult query per bid inside that, each paying
+    # a full DB round trip -- on a remote DB that's the dominant cost, not
+    # row volume, so two IN(...) queries for the whole tender replace what
+    # used to be 1 + N queries.
+    line_ids = [r.line_item_id for r in rounds]
+    all_bids = db.query(Bid).filter(Bid.tender_line_item_id.in_(line_ids), Bid.status == BidStatus.SUBMITTED).all() if line_ids else []
+    bids_by_line: dict[int, list[Bid]] = {}
+    for b in all_bids:
+        bids_by_line.setdefault(b.tender_line_item_id, []).append(b)
+    bid_ids = [b.id for b in all_bids]
+    results_by_bid = {res.bid_id: res for res in db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id.in_(bid_ids)).all()} if bid_ids else {}
     for r in rounds:
         li = r.line_item
-        for bid in db.query(Bid).filter(Bid.tender_line_item_id == li.id, Bid.status == BidStatus.SUBMITTED).all():
-            res = db.query(BidTechnicalResult).filter(BidTechnicalResult.bid_id == bid.id).first()
+        for bid in bids_by_line.get(li.id, []):
+            res = results_by_bid.get(bid.id)
             if res and res.outcome == TechnicalDecision.QUALIFIED and bid.id not in awarded_bids:
                 regrets.setdefault(bid.vendor_id, []).append(li.product.name)
     for vendor_id, names in regrets.items():

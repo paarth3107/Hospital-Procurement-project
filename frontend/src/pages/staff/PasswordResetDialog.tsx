@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import type { StaffUser } from "../../lib/types";
 import { DialogShell } from "../../components/DialogShell";
+import { PasswordField } from "../../components/PasswordField";
 
 // Ported 1:1 from frontend/js/pages/staff/passwordDialog.js.
 export function PasswordResetDialog({ user, onClose, onDone }: { user: StaffUser; onClose: () => void; onDone: (message: string) => void }) {
@@ -23,8 +24,8 @@ export function PasswordResetDialog({ user, onClose, onDone }: { user: StaffUser
     <DialogShell kicker="Reset password" title={user.full_name}>
       <form className="ep-form padding-16px-18px bg-transparent border-0" onSubmit={submit}>
         <div className="ep-field">
-          <div className="ep-k">New password (min 8 characters)</div>
-          <input className="input" type="password" minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <div className="ep-k">New password (8-20 characters, with at least one digit, lowercase, uppercase and special character)</div>
+          <PasswordField minLength={8} maxLength={20} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         {error && <div className="result err">{error}</div>}
         <div className="d-flex justify-end gap-10px">

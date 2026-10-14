@@ -32,3 +32,44 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 export function apiHeaders(extra?: HeadersInit): HeadersInit {
   return authHeaders(extra);
 }
+
+// A file upload with real byte-level progress (2026-10-13, user-requested --
+// "make something like the circular progress indicator for file uploads").
+// `fetch` has no upload-progress API at all (only download progress, via a
+// manual ReadableStream reader on the response body) -- `XMLHttpRequest`'s
+// `upload.onprogress` is the only standard way to get this, so this is a
+// separate helper from `api()`, not an option added to it. Same error-
+// shape contract as `api()` (throws Error with the backend's `detail`
+// message on a non-2xx response) so callers don't need two different
+// catch-block shapes depending on which one they used.
+export function uploadWithProgress<T>(path: string, formData: FormData, onProgress: (fraction: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_BASE + path);
+    const headers = authHeaders() as Record<string, string>;
+    for (const key of Object.keys(headers)) xhr.setRequestHeader(key, headers[key]);
+    // No Content-Type set by hand -- same as fetch(formData), the browser
+    // fills in the multipart boundary itself only when left alone.
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      let body: unknown = null;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        // no body / not JSON
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body as T);
+      } else {
+        const detail = (body as { detail?: unknown } | null)?.detail;
+        const message = detail ?? xhr.statusText ?? `Upload failed (${xhr.status})`;
+        reject(new Error(typeof message === "string" ? message : JSON.stringify(message)));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onabort = () => reject(new Error("Upload cancelled"));
+    xhr.send(formData);
+  });
+}

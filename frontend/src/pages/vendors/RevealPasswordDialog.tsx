@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import { DialogShell } from "../../components/DialogShell";
+import { PasswordField } from "../../components/PasswordField";
 
 // Ported 1:1 from frontend/js/pages/vendorReveal.js's askRevealPassword().
 export function RevealPasswordDialog({
@@ -41,7 +42,7 @@ export function RevealPasswordDialog({
         <div className="hint">This is personal / financial information. Enter your own password to view it.</div>
         <div className="ep-field">
           <div className="ep-k">Your password</div>
-          <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+          <PasswordField autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
         </div>
         {error && <div className="result err">{error}</div>}
         <div className="d-flex justify-end gap-10px">

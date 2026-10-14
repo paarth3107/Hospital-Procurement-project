@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, API_BASE, apiHeaders } from "../../lib/api";
+import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { fmtDate } from "../../lib/format";
 import { acceptFor, VENDOR_DOC_TYPES } from "../../lib/constants";
 import { fileTypeError } from "../../lib/fileValidation";
 import { Tag, StateTag, ExpiryTag } from "../../components/Tag";
+import { UploadProgress } from "../../components/CircularProgress";
 import { useModal } from "../../components/useModal";
 import type { VendorDocument } from "../../lib/types";
 
@@ -30,6 +31,12 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ message: string; ok: boolean } | null>(null);
   const [validTill, setValidTill] = useState<Record<string, string>>({});
+  // Real bug, found 2026-10-13: nothing stopped a user from clicking
+  // Upload/Replace again while a (possibly large, up to 10MB) document was
+  // still mid-upload -- no feedback that anything was happening either, so
+  // the page just looked frozen. Tracks which entry's upload is in flight.
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const { confirmAsync, modalElement } = useModal();
 
@@ -85,13 +92,16 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
     fd.append("file", file);
     const vt = validTill[entry.key];
     if (vt) fd.append("valid_till", vt);
+    setUploadingKey(entry.key);
+    setUploadProgress(0);
     try {
-      // no JSON Content-Type: fetch sets the multipart boundary itself
-      await api("/vendor-portal/documents", { method: "POST", body: fd });
+      await uploadWithProgress("/vendor-portal/documents", fd, setUploadProgress);
       await load();
       onChanged?.();
     } catch (err) {
       setResult({ message: "Could not upload: " + (err instanceof Error ? err.message : String(err)), ok: false });
+    } finally {
+      setUploadingKey(null);
     }
   };
 
@@ -205,11 +215,11 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
                       onChange={(ev) => setValidTill((v) => ({ ...v, [e.key]: ev.target.value }))}
                     />
                   )}
-                  <button className="ep-b" onClick={() => fileInputs.current[e.key]?.click()}>
-                    {d ? "Replace" : "Upload"}
+                  <button className="ep-b" disabled={uploadingKey === e.key} onClick={() => fileInputs.current[e.key]?.click()}>
+                    {uploadingKey === e.key ? <UploadProgress value={uploadProgress} /> : d ? "Replace" : "Upload"}
                   </button>{" "}
                   {d && d.status !== "verified" && (
-                    <button className="ep-b" onClick={() => remove(d.id)}>
+                    <button className="ep-b" disabled={uploadingKey === e.key} onClick={() => remove(d.id)}>
                       Delete
                     </button>
                   )}

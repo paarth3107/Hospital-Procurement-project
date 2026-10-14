@@ -1,5 +1,5 @@
 import { forwardRef, Fragment, useImperativeHandle, useRef, useState } from "react";
-import { api, API_BASE, apiHeaders } from "../../lib/api";
+import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { inr } from "../../lib/format";
 import { attrSummary } from "../../lib/attrSummary";
 import { fileTypeError } from "../../lib/fileValidation";
@@ -77,6 +77,9 @@ export const LineItemsGrid = forwardRef<
   const [rows, setRowsState] = useState<LineItemRow[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  // "<row index>:<kind>" currently mid-upload, if any -- see AttachmentsPanel.tsx's own comment.
+  const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
+  const [attachmentProgress, setAttachmentProgress] = useState(0);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   const { promptAsync, modalElement } = useModal();
 
@@ -261,6 +264,7 @@ export const LineItemsGrid = forwardRef<
   }
 
   const uploadAttachment = async (i: number, kind: TenderLineAttachmentKind) => {
+    if (busyAttachment === `${i}:${kind}`) return;
     let customLabel: string | null = null;
     if (kind === "other") {
       customLabel = await promptAsync("What is this document?", "e.g. Site photograph");
@@ -282,16 +286,20 @@ export const LineItemsGrid = forwardRef<
         window.alert(typeErr);
         return;
       }
+      setBusyAttachment(`${i}:${kind}`);
+      setAttachmentProgress(0);
       try {
         const lineId = await ensureLineSaved(i);
         const fd = new FormData();
         fd.append("kind", kind);
         if (customLabel) fd.append("custom_label", customLabel);
         fd.append("file", file);
-        const att = await api(`/tenders/${tenderId}/line-items/${lineId}/attachments`, { method: "POST", body: fd });
+        const att = await uploadWithProgress(`/tenders/${tenderId}/line-items/${lineId}/attachments`, fd, setAttachmentProgress);
         updateRow(i, (r) => ({ ...r, attachments: [...r.attachments, att as LineItemRow["attachments"][number]] }));
       } catch (err) {
         window.alert("Could not upload: " + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setBusyAttachment(null);
       }
     });
     picker.click();
@@ -561,6 +569,8 @@ export const LineItemsGrid = forwardRef<
                           <AttachmentsPanel
                             attachments={row.attachments}
                             procurementType={p.procurement_type}
+                            busyKind={busyAttachment?.startsWith(`${i}:`) ? (busyAttachment.slice(`${i}:`.length) as TenderLineAttachmentKind) : null}
+                            busyProgress={attachmentProgress}
                             onUpload={(kind) => uploadAttachment(i, kind)}
                             onRemove={(attId) => removeAttachment(i, attId)}
                             onView={(attId) => row.id != null && viewAttachment(row.id, attId)}

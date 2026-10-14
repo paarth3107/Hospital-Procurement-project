@@ -1,43 +1,64 @@
 import { useRef, useState } from "react";
 import { VENDOR_DOC_TYPES, acceptFor, type VendorDocTypeDef } from "../../lib/constants";
 import { fileTypeError } from "../../lib/fileValidation";
+import { UploadProgress } from "../../components/CircularProgress";
 
-// Ported from frontend/js/pages/register/registerDocuments.js's single
-// dropzone -- one per VENDOR_DOC_TYPES entry. `chosenFiles` (keyed by doc
-// type) lives in the parent (RegisterPage), not here, since the parent also
-// needs it at submit time and for the "missing mandatory document"
-// highlight -- this component just renders one zone and reports picks up
-// via `onFile`. `accept=` on the hidden input is kept too (it still makes
-// the OS file picker show the right files by default), but it's no longer
-// the only thing standing between a wrong file type and acceptance -- see
-// fileValidation.ts.
-export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTypeDef; file: File | null; invalid: boolean; onFile: (f: File) => void }) {
+// User-directed rewrite (2026-10-13): every document used to just sit in
+// memory as a picked `File`, bundled with everything else into ONE giant
+// request only at final "Submit for verification" -- see RegisterPage.tsx's
+// own note on why that was slow/unreliable with several large documents.
+// Each dropzone now uploads ITS OWN file the moment it's picked/dropped,
+// right here, with its own progress ring -- `onPick` (RegisterPage.tsx) is
+// what actually POSTs it and reports progress back into `state`.
+export interface DocEntryState {
+  uploading: boolean;
+  progress: number;
+  error: string | null;
+  uploaded: { filename: string; sizeBytes: number } | null;
+}
+
+export const EMPTY_DOC_STATE: DocEntryState = { uploading: false, progress: 0, error: null, uploaded: null };
+
+export function DocumentDropzone({
+  t,
+  state,
+  invalid,
+  onPick,
+}: {
+  t: VendorDocTypeDef;
+  state: DocEntryState;
+  invalid: boolean;
+  onPick: (f: File) => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [rejection, setRejection] = useState<string | null>(null);
 
   const tryFile = (f: File | undefined) => {
-    if (!f) return;
+    if (!f || state.uploading) return;
     const err = fileTypeError(f, { allowSpreadsheets: !!t.spreadsheet });
     setRejection(err);
-    if (!err) onFile(f);
+    if (!err) onPick(f);
   };
+
+  const uploaded = state.uploaded;
+  const showInvalid = invalid || !!rejection || !!state.error;
 
   return (
     <div className="ep-pane padding-12px-14px">
       <div className="d-flex justify-between items-center mb-8px">
-        <span className="fs-13-5px fw-800">{t.label}</span>
-        <span className="ep-tag" data-t={t.mandatory ? "att" : undefined}>
-          {t.mandatory ? "Required" : "Optional"}
+        <span className="fs-13-5px fw-800">
+          {t.label}
+          {t.mandatory && <span className="required-mark">*</span>}
         </span>
       </div>
       <div
-        className={`dropzone${file ? " has-file" : ""}${invalid || rejection ? " invalid" : ""}${dragOver ? " dragover" : ""}`}
+        className={`dropzone${uploaded ? " has-file" : ""}${showInvalid ? " invalid" : ""}${dragOver ? " dragover" : ""}`}
         data-doc-type={t.value}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => !state.uploading && inputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
-          setDragOver(true);
+          if (!state.uploading) setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
@@ -46,7 +67,13 @@ export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTyp
           tryFile(e.dataTransfer.files[0]);
         }}
       >
-        <span className="dz-text">{file ? `${file.name} (${(file.size / 1024).toFixed(0)} KB) — click or drop to replace` : "Drop a file here, or click to browse"}</span>
+        {state.uploading ? (
+          <UploadProgress value={state.progress} />
+        ) : (
+          <span className="dz-text">
+            {uploaded ? `${uploaded.filename} (${(uploaded.sizeBytes / 1024).toFixed(0)} KB) — click or drop to replace` : "Drop a file here, or click to browse"}
+          </span>
+        )}
         <input
           ref={inputRef}
           type="file"
@@ -58,6 +85,7 @@ export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTyp
         />
       </div>
       {rejection && <div className="field-error">{rejection}</div>}
+      {state.error && <div className="field-error">{state.error}</div>}
       {t.expires && (
         <div className="ep-field mt-8px">
           <div className="ep-k">Valid till</div>
@@ -69,19 +97,19 @@ export function DocumentDropzone({ t, file, invalid, onFile }: { t: VendorDocTyp
 }
 
 export function DocumentDropzones({
-  chosenFiles,
+  docState,
   invalidTypes,
-  onFile,
+  onPick,
 }: {
-  chosenFiles: Map<string, File>;
+  docState: Record<string, DocEntryState>;
   invalidTypes: Set<string>;
-  onFile: (docType: string, f: File) => void;
+  onPick: (docType: string, f: File) => void;
 }) {
   const group = (title: string, types: VendorDocTypeDef[]) => (
     <div className="d-flex flex-col gap-12px" key={title}>
       <div className="ep-k">{title}</div>
       {types.map((t) => (
-        <DocumentDropzone key={t.value} t={t} file={chosenFiles.get(t.value) ?? null} invalid={invalidTypes.has(t.value)} onFile={(f) => onFile(t.value, f)} />
+        <DocumentDropzone key={t.value} t={t} state={docState[t.value] ?? EMPTY_DOC_STATE} invalid={invalidTypes.has(t.value)} onPick={(f) => onPick(t.value, f)} />
       ))}
     </div>
   );

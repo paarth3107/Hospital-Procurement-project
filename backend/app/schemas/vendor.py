@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from app.models.vendor import VendorStatus
+from app.schemas.password import check_password_strength
 
 # Spec §3.5: "Duplicate registration by GSTIN/PAN is blocked at submission."
 # A real GSTIN is 15 chars (2-digit state code + 10-char PAN + entity/checksum);
@@ -53,6 +54,11 @@ class VendorCreate(BaseModel):
     # before this; no email/SMS adapter exists to deliver a temp password
     # later, so "choose your own now" is the only path that doesn't need one).
     password: str
+    # Carries an Open Tender self-registration link's token through to
+    # require_open_link_tender() (not a Vendor column -- excluded from
+    # model_dump() wherever this schema builds a Vendor row). Optional: most
+    # registrations don't arrive via such a link.
+    open_link_token: str | None = None
 
     @field_validator("gstin")
     @classmethod
@@ -130,12 +136,47 @@ class VendorCreate(BaseModel):
             raise ValueError("Enter a valid phone number")
         return cleaned
 
-    @field_validator("password")
-    @classmethod
-    def password_length(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+    _pw = field_validator("password")(check_password_strength)
+
+
+class VendorDuplicateCheckRequest(BaseModel):
+    """Lightweight pre-flight check (2026-10-13, user-requested): lets the
+    registration form's Step 1 "Continue" catch an already-registered
+    GSTIN/PAN/email/phone immediately, rather than only discovering it at
+    final submit after Step 2's documents are already filled in. Every field
+    optional and un-validated here on purpose -- the client only ever sends
+    whatever Step 1 fields it already format-validated itself, and a blank
+    field is simply skipped rather than treated as an error."""
+
+    gstin: str = ""
+    pan: str = ""
+    email: str = ""
+    phone: str = ""
+
+
+class VendorDuplicateCheckResponse(BaseModel):
+    """One message per field that's already taken, `None` for a field that's
+    free (or wasn't sent) -- same wording register_vendor() itself raises,
+    so Step 1's inline error and the final submit's error never disagree."""
+
+    gstin: str | None = None
+    pan: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
+class VendorDraftOut(BaseModel):
+    """Registration's new first step (2026-10-13) -- deliberately NOT
+    VendorOut: nothing else about the draft vendor is exposed here, just
+    enough for the browser to attach documents to it and finish
+    registration, since there's no login yet to scope those calls by."""
+
+    id: int
+    registration_token: str
+
+
+class VendorCompleteRegistration(BaseModel):
+    registration_token: str
 
 
 class VendorLookupOut(BaseModel):

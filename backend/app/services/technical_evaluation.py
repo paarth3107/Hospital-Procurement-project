@@ -13,7 +13,7 @@ from app.models.bid import Bid, BidStatus
 from app.models.bid_evaluation import BidEvaluation, BidTechnicalResult, TechnicalDecision
 from app.models.product_master import ProcurementType
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
-from app.services.ratings import rating_score
+from app.services.ratings import rating_scores
 
 # Spec 9.2.5: minimum qualifying technical score (e.g. 60/100), "configurable per
 # line item". There is no per-line field yet, so this default applies to all.
@@ -106,7 +106,7 @@ class Consolidated:
     t_rank: int | None = None
 
 
-def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], db: Session) -> Consolidated:
+def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], rating: float) -> Consolidated:
     """Spec 9.2.3 steps 3-5. Any evaluator disqualifying disqualifies the bid.
     On a Qualify/Disqualify line (spec 9.2.1: "checked against mandatory
     technical compliance points; Qualifies or Disqualified, no numeric
@@ -118,7 +118,6 @@ def consolidate(line: TenderLineItem, bid: Bid, evals: list[BidEvaluation], db: 
     lines never rank since all qualified bids stand on equal footing (spec
     9.2.1). (Exclude-outlier averaging is the spec's other named method for
     scored lines; not built.)"""
-    rating = rating_score(bid.vendor_id, line.procurement_type, db)
     disq = [e for e in evals if e.decision == TechnicalDecision.DISQUALIFIED]
     if disq:
         return Consolidated(bid, TechnicalDecision.DISQUALIFIED, None, "; ".join(e.comments for e in disq if e.comments) or "Disqualified by evaluator", rating)
@@ -148,12 +147,23 @@ def consolidate_line(line: TenderLineItem, db: Session) -> list[Consolidated]:
     evaluation to decide whether a correction would change any bid's outcome
     or T-rank before deciding whether it must escalate)."""
 
+    # Batched (2026-10-13, performance): this used to run one BidEvaluation
+    # query AND one rating_score() query per bid, each a full DB round trip
+    # -- two IN(...) queries for the whole line replace what used to be
+    # 2 x N queries.
+    bids = submitted_bids(line, db)
+    bid_ids = [b.id for b in bids]
+    evals_by_bid: dict[int, list[BidEvaluation]] = {}
+    for e in db.query(BidEvaluation).filter(BidEvaluation.bid_id.in_(bid_ids)).all() if bid_ids else []:
+        evals_by_bid.setdefault(e.bid_id, []).append(e)
+    ratings = rating_scores([b.vendor_id for b in bids], line.procurement_type, db)
+
     results: list[Consolidated] = []
-    for bid in submitted_bids(line, db):
-        evals = db.query(BidEvaluation).filter(BidEvaluation.bid_id == bid.id).all()
+    for bid in bids:
+        evals = evals_by_bid.get(bid.id, [])
         if not evals:
             continue
-        results.append(consolidate(line, bid, evals, db))
+        results.append(consolidate(line, bid, evals, ratings[bid.vendor_id]))
     if is_scored(line):
         qualified = [r for r in results if r.outcome == TechnicalDecision.QUALIFIED]
         qualified.sort(key=lambda r: (-(r.score or 0), -r.rating, r.bid.submitted_at))
@@ -172,10 +182,11 @@ def close_technical(line: TenderLineItem, closer_id: int, db: Session) -> list[B
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Technical evaluation is already closed for this line")
     if not deadline_passed(line):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Technical evaluation opens only after the bid due date")
-    unevaluated = [
-        b.vendor.legal_name for b in submitted_bids(line, db)
-        if not db.query(BidEvaluation).filter(BidEvaluation.bid_id == b.id).first()
-    ]
+    bids = submitted_bids(line, db)
+    evaluated_bid_ids = {
+        bid_id for (bid_id,) in db.query(BidEvaluation.bid_id).filter(BidEvaluation.bid_id.in_([b.id for b in bids])).distinct()
+    } if bids else set()
+    unevaluated = [b.vendor.legal_name for b in bids if b.id not in evaluated_bid_ids]
     if unevaluated:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Evaluate every submitted bid first — not yet evaluated: " + ", ".join(unevaluated))
 

@@ -3,14 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from app.models.user_account import Role
-
-MIN_PASSWORD_LENGTH = 8
-
-
-def _check_password(v: str) -> str:
-    if len(v) < MIN_PASSWORD_LENGTH:
-        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
-    return v
+from app.schemas.password import check_password_strength as _check_password
 
 
 class StaffOut(BaseModel):
