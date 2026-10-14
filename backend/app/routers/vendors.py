@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.audit_log import AuditLog
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import (
     MANDATORY_DOC_TYPES,
@@ -25,6 +26,7 @@ from app.schemas.vendor import (
     VendorDraftOut,
     VendorDuplicateCheckRequest,
     VendorDuplicateCheckResponse,
+    VendorHistoryEntryOut,
     VendorInfoRequest,
     VendorLookupOut,
     VendorMaskedOut,
@@ -33,7 +35,6 @@ from app.schemas.vendor import (
     VendorRevealRequest,
     VendorReinstatement,
     VendorRejection,
-    VendorStatusHistoryOut,
 )
 from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejection
 from app.routers.vendor_documents import store_document
@@ -622,15 +623,60 @@ def blacklist_vendor(
     return vendor
 
 
-@router.get("/{vendor_id}/status-history", response_model=list[VendorStatusHistoryOut])
+# Bug report, 2026-10-14: document uploads/replacements/deletions/verify/
+# reject decisions were already recorded faithfully in the audit log --
+# the vendor profile's "Status History" just never read them, only
+# VendorStatusHistory's own status-transition rows. "Viewed" is
+# deliberately left out: it's an access log entry, not a change.
+DOCUMENT_HISTORY_ACTIONS = (
+    "vendor.document_uploaded",
+    "vendor.documents_submitted",
+    "vendor.document_deleted",
+    "vendor.document_verified",
+    "vendor.document_rejected",
+)
+
+
+def _document_history_label(row: AuditLog) -> str:
+    meta = row.meta or {}
+    doc = meta.get("document", "a document")
+    if row.action == "vendor.document_uploaded":
+        file = meta.get("file")
+        return f"Document uploaded — {doc}" + (f" ({file})" if file else "")
+    if row.action == "vendor.documents_submitted":
+        docs = meta.get("documents") or []
+        return "Documents submitted" + (f": {', '.join(docs)}" if docs else "")
+    if row.action == "vendor.document_deleted":
+        return f"Document removed — {doc}"
+    if row.action == "vendor.document_verified":
+        return f"Document verified — {doc}"
+    if row.action == "vendor.document_rejected":
+        return f"Document rejected — {doc}"
+    return row.action
+
+
+@router.get("/{vendor_id}/status-history", response_model=list[VendorHistoryEntryOut])
 def vendor_status_history(
     vendor_id: int,
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
     _load_vendor(vendor_id, db)
-    rows = db.query(VendorStatusHistory).filter(VendorStatusHistory.vendor_id == vendor_id).order_by(VendorStatusHistory.at).all()
-    return rows
+    status_rows = db.query(VendorStatusHistory).filter(VendorStatusHistory.vendor_id == vendor_id).all()
+    doc_rows = (
+        db.query(AuditLog)
+        .filter(AuditLog.entity_type == "vendor", AuditLog.entity_id == vendor_id, AuditLog.action.in_(DOCUMENT_HISTORY_ACTIONS))
+        .all()
+    )
+    entries = [
+        VendorHistoryEntryOut(id=f"status-{r.id}", at=r.at, from_status=r.from_status, to_status=r.to_status, reason=r.reason)
+        for r in status_rows
+    ] + [
+        VendorHistoryEntryOut(id=f"doc-{r.id}", at=r.occurred_at, label=_document_history_label(r), reason=r.reason)
+        for r in doc_rows
+    ]
+    entries.sort(key=lambda e: e.at)
+    return entries
 
 
 # ---- Document review (Category Manager / Procurement Admin / System Admin) ----

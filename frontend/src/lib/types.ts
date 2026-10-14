@@ -210,13 +210,17 @@ export interface ItemRequirement {
   documents: RequiredDocument[];
 }
 
+// Mirrors backend/app/schemas/vendor.py's VendorHistoryEntryOut exactly
+// (2026-10-14) -- a merged status-transition OR document-event row (label
+// set for the latter, from_status/to_status set for the former), since the
+// vendor profile's "Status History" now shows both in one timeline.
 export interface VendorStatusHistoryEntry {
-  id: number;
-  from_status: VendorStatus | null;
-  to_status: VendorStatus;
-  reason: string | null;
-  actor_id: number | null;
+  id: string;
   at: string;
+  from_status: VendorStatus | null;
+  to_status: VendorStatus | null;
+  label: string | null;
+  reason: string | null;
 }
 
 // Mirrors backend/app/schemas/product.py's CategoryOut/SubCategoryOut/ProductOut

@@ -34,8 +34,14 @@ export function HistoryPane({ history }: { history: VendorStatusHistoryEntry[] }
             <div className="hist" key={h.id}>
               <div className="hist-when">{fmtDateTime(h.at)}</div>
               <div className="fs-12px lh-1-4">
-                {h.from_status ? h.from_status.replace("_", " ") + " → " : ""}
-                <b>{h.to_status.replace("_", " ")}</b>
+                {h.label ? (
+                  <b>{h.label}</b>
+                ) : (
+                  <>
+                    {h.from_status ? h.from_status.replace("_", " ") + " → " : ""}
+                    <b>{h.to_status?.replace("_", " ")}</b>
+                  </>
+                )}
                 {h.reason ? " — " + h.reason : ""}
               </div>
             </div>

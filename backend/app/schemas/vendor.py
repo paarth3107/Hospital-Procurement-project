@@ -298,6 +298,26 @@ class VendorStatusHistoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VendorHistoryEntryOut(BaseModel):
+    """Bug report, 2026-10-14: the vendor profile's "Status History" only
+    ever showed status transitions (VendorStatusHistory), even though
+    document uploads/replacements/deletions/verify/reject decisions were
+    already being recorded faithfully -- just in the audit log, which this
+    screen never read from. This is the merged shape GET
+    /vendors/{id}/status-history now returns: a VendorStatusHistory row
+    (from_status/to_status set, label unset) or a document-related audit_log
+    row (label set, from_status/to_status unset), sorted together by time.
+    `id` is prefixed ("status-12" / "doc-345") since the two source tables'
+    own ids aren't unique against each other."""
+
+    id: str
+    at: datetime
+    from_status: VendorStatus | None = None
+    to_status: VendorStatus | None = None
+    label: str | None = None
+    reason: str | None = None
+
+
 class VendorReinstatement(BaseModel):
     """Optional for lifting a suspension; mandatory (enforced in the router)
     for reinstating a blacklisted vendor."""
