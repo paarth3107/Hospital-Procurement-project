@@ -11,8 +11,10 @@ import type { Tender } from "../../lib/types";
 // document, uploading again replaces it" fields on Tender, differing only
 // in which field/endpoint/label they use (same as the vanilla version's
 // factory function -- here, just a configurable component instead).
-// Usable only once the tender has a real id, same as a line item's own
-// attachments.
+// Works before the tender has a real id too, same as a line item's own
+// attachments: uploading silently saves a draft first via ensureSaved
+// (found 2026-10-14 -- this used to just show "Save as Draft first" or,
+// for the Rate Contract field specifically, nothing at all).
 function fmtSize(bytes: number | null | undefined): string {
   if (bytes == null) return "";
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(0)} KB`;
@@ -20,19 +22,24 @@ function fmtSize(bytes: number | null | undefined): string {
 
 export function SingleDocumentField({
   tender,
+  ensureSaved,
   endpoint,
   fieldPrefix,
   label,
   requiredLabel,
-  noTenderHint = true,
   onChange,
 }: {
   tender: Tender | null;
+  // The "no save-first wall" pattern LineItemsGrid's attachments already use
+  // (ensureLineSaved): a brand-new tender has no id to upload against yet,
+  // so silently save one instead of blocking the upload behind a separate,
+  // manual Save as Draft click -- real bug, found 2026-10-14 (the Rate
+  // Contract field didn't even show a hint in this state, just nothing).
+  ensureSaved: () => Promise<Tender>;
   endpoint: string;
   fieldPrefix: string;
   label: string;
   requiredLabel: string;
-  noTenderHint?: boolean;
   onChange: (updated: Tender) => void;
 }) {
   const { confirmAsync, alertAsync, modalElement } = useModal();
@@ -43,13 +50,16 @@ export function SingleDocumentField({
   const field = (t: Tender, suffix: string): unknown => (t as unknown as Record<string, unknown>)[`${fieldPrefix}_${suffix}`];
 
   const pickAndUpload = () => {
-    if (!tender || uploading) return;
+    if (uploading) return;
     const picker = document.createElement("input");
     picker.type = "file";
     // `.doc` (legacy Word) was listed here but was never actually accepted
     // server-side -- only `.docx` is in document_store.py's OFFICE_CONTENT_
-    // TYPES; corrected alongside adding the real check below.
-    picker.accept = ".pdf,.jpg,.jpeg,.png,.docx,.xlsx";
+    // TYPES; corrected alongside adding the real check below. `.xlsx` was
+    // also wrongly listed here (found 2026-10-14) -- this is a T&C/rate
+    // contract document, never a spreadsheet; see lib/fileValidation.ts's
+    // allowWord.
+    picker.accept = ".pdf,.jpg,.jpeg,.png,.docx";
     picker.addEventListener("change", async () => {
       const file = picker.files?.[0];
       if (!file) return;
@@ -58,7 +68,7 @@ export function SingleDocumentField({
       // it -- a disallowed type/oversized file only got rejected by the
       // backend's own document_store.validate(), after the upload
       // round-trip. See lib/fileValidation.ts.
-      const typeErr = fileTypeError(file, { allowOffice: true });
+      const typeErr = fileTypeError(file, { allowWord: true });
       if (typeErr) {
         await alertAsync(typeErr);
         return;
@@ -66,9 +76,10 @@ export function SingleDocumentField({
       setUploading(true);
       setUploadProgress(0);
       try {
+        const t = tender ?? (await ensureSaved());
         const fd = new FormData();
         fd.append("file", file);
-        const updated = await uploadWithProgress<Tender>(`/tenders/${tender.id}/${endpoint}`, fd, setUploadProgress);
+        const updated = await uploadWithProgress<Tender>(`/tenders/${t.id}/${endpoint}`, fd, setUploadProgress);
         onChange(updated);
       } catch (err) {
         await alertAsync(err instanceof Error ? err.message : String(err));
@@ -102,23 +113,14 @@ export function SingleDocumentField({
     }
   };
 
-  if (!tender) {
-    return (
-      <>
-        {!noTenderHint && <div className="hint">Save as Draft first, then upload the document.</div>}
-        {modalElement}
-      </>
-    );
-  }
-
-  const filename = field(tender, "filename") as string | null;
+  const filename = tender ? (field(tender, "filename") as string | null) : null;
 
   return (
     <>
       {filename ? (
         <div className="d-flex items-center gap-10px flex-wrap">
           <span className="fw-600">{filename}</span>
-          <span className="ep-sub">{fmtSize(field(tender, "size") as number | null)}</span>
+          <span className="ep-sub">{fmtSize(field(tender!, "size") as number | null)}</span>
           <button type="button" className="ep-b" disabled={uploading} onClick={download}>
             Download
           </button>

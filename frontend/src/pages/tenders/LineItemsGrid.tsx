@@ -1,10 +1,12 @@
 import { forwardRef, Fragment, useImperativeHandle, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { inr } from "../../lib/format";
 import { attrSummary } from "../../lib/attrSummary";
 import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
+import { Req } from "../../components/Req";
 import { useModal } from "../../components/useModal";
 import type { CatalogProduct, LineItem, TechnicalEvalMethod, TenderLineAttachmentKind } from "../../lib/types";
 import { blankRow, type LineItemPayload, type LineItemRow } from "./lineItemRow";
@@ -29,7 +31,7 @@ import { AttachmentsPanel } from "./AttachmentsPanel";
 //
 // Exposes the same function-shaped API the vanilla module exported (getRows,
 // rowsForPayload, firstRowProblem, totalBudget, setRows, applySavedLineItems,
-// startWithOneBlankRow) through a ref, since TenderForm (Stage 3/4) needs to
+// startWithBlankRows) through a ref, since TenderForm (Stage 3/4) needs to
 // call these at arbitrary points the same way tenderForm.js did -- not just
 // react to an onChange event.
 export interface LineItemsGridHandle {
@@ -39,8 +41,15 @@ export interface LineItemsGridHandle {
   totalBudget: () => number;
   setRows: (rows: LineItemRow[]) => void;
   applySavedLineItems: (items: LineItem[]) => void;
-  startWithOneBlankRow: () => void;
+  startWithBlankRows: () => void;
 }
+
+// A brand-new tender starts with a handful of empty rows ready to type into,
+// not just one -- found 2026-10-14, user-directed. An untouched blank row
+// (never got a code, qty or price typed into it) is silently dropped on
+// save/submit (isRowSavable/isRowBlank below), so there's no cost to always
+// having a few spares on screen.
+const DEFAULT_BLANK_ROWS = 5;
 
 // Spec §9.2.1: Item lines default to Qualify/Disqualify; Asset and Service
 // lines default to Scored Technical Ranking. Either can be changed freely --
@@ -65,6 +74,13 @@ const lineBudget = (row: LineItemRow): number => (row.qty && row.estimated_price
 // (firstRowProblem()) is for.
 const isRowSavable = (row: LineItemRow): boolean => !!row.product_master_id;
 
+// A row nobody has touched yet -- no code typed, no qty, no price. Default
+// blank rows (and any row left over after removing a filled one) are this;
+// submit validation skips them entirely instead of reporting them as
+// incomplete, same way they're already silently left out of the save
+// payload (isRowSavable above) -- found 2026-10-14, user-directed.
+const isRowBlank = (row: LineItemRow): boolean => !row.product_code_input.trim() && row.qty == null && row.estimated_price == null;
+
 export const LineItemsGrid = forwardRef<
   LineItemsGridHandle,
   {
@@ -82,8 +98,44 @@ export const LineItemsGrid = forwardRef<
   const [attachmentProgress, setAttachmentProgress] = useState(0);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   const { promptAsync, modalElement } = useModal();
+  // Real bug, found 2026-10-14: the product code cell used a native
+  // <input list="..."> + <datalist>, i.e. the browser's own stock
+  // autocomplete UI -- not styled like anything else in the app. Replaced
+  // with the same kind of dropdown panel QuickSearch.tsx uses
+  // (shell/QuickSearch.tsx's .ep-search-results pattern), just scoped to
+  // one row's cell instead of the topbar.
+  //
+  // Real bug, found 2026-10-14 (second pass): that first version anchored
+  // the panel with position:absolute inside the table cell -- it visually
+  // sank underneath the next row instead of floating over it (a table's own
+  // cell/row background painting order doesn't reliably respect z-index the
+  // way normal block boxes do). Rendered through a portal instead, exactly
+  // like every dialog in components/ already does (createPortal to
+  // document.body), positioned from the input's own getBoundingClientRect()
+  // so it's immune to the table/scroll-container it's triggered from.
+  const [codeDropdownRow, setCodeDropdownRow] = useState<number | null>(null);
+  const [codeHighlight, setCodeHighlight] = useState(0);
+  const [codeDropdownRect, setCodeDropdownRect] = useState<{ left: number; top: number; width: number } | null>(null);
 
   const productOf = (row: LineItemRow): CatalogProduct | undefined => products.find((p) => p.id === row.product_master_id);
+
+  function matchingProducts(query: string): CatalogProduct[] {
+    const q = query.trim().toLowerCase();
+    const list = q ? products.filter((p) => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) : products;
+    return list.slice(0, 50);
+  }
+
+  function openCodeDropdown(i: number, input: HTMLInputElement) {
+    const rect = input.getBoundingClientRect();
+    setCodeDropdownRow(i);
+    setCodeHighlight(0);
+    setCodeDropdownRect({ left: rect.left, top: rect.bottom + 4, width: Math.max(rect.width, 260) });
+  }
+
+  function pickProduct(i: number, p: CatalogProduct) {
+    updateRow(i, (r) => resolveProduct({ ...r, product_code_input: p.code }));
+    setCodeDropdownRow(null);
+  }
 
   // Re-resolves product_master_id from whatever's typed in the code cell.
   // Only called on commit (blur/change/paste/import), never on every
@@ -132,6 +184,7 @@ export const LineItemsGrid = forwardRef<
     firstRowProblem: () => {
       for (let i = 0; i < rows.length; i++) {
         const li = rows[i];
+        if (isRowBlank(li)) continue; // untouched -- silently dropped, not an error (isRowSavable above)
         const n = i + 1;
         if (!li.product_master_id) return `Row ${n}: needs a valid catalog entry — check the product code.`;
         if (!(li.qty! > 0)) return `Row ${n}: needs a quantity greater than zero.`;
@@ -191,16 +244,37 @@ export const LineItemsGrid = forwardRef<
         })
       );
     },
-    startWithOneBlankRow: () => {
+    startWithBlankRows: () => {
       setExpandedRows(new Set());
-      setRowsState([blankRow()]);
+      setRowsState(Array.from({ length: DEFAULT_BLANK_ROWS }, blankRow));
     },
   }));
 
   // ---- Typing / commit handlers ----
 
-  const onCodeInput = (i: number, value: string) => updateRow(i, (r) => ({ ...r, product_code_input: value }));
+  const onCodeInput = (i: number, value: string, input: HTMLInputElement) => {
+    updateRow(i, (r) => ({ ...r, product_code_input: value }));
+    openCodeDropdown(i, input);
+  };
   const onCodeCommit = (i: number) => updateRow(i, resolveProduct);
+  const onCodeKeyDown = (i: number, row: LineItemRow, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (codeDropdownRow !== i) return;
+    const matches = matchingProducts(row.product_code_input);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setCodeHighlight((h) => Math.min(h + 1, matches.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setCodeHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      if (matches[codeHighlight]) {
+        e.preventDefault();
+        pickProduct(i, matches[codeHighlight]);
+      }
+    } else if (e.key === "Escape") {
+      setCodeDropdownRow(null);
+    }
+  };
 
   const onNumericInput = (i: number, field: "qty" | "estimated_price" | "technical_weight" | "price_weight" | "min_rating_threshold_override", value: string) =>
     updateRow(i, (r) => ({ ...r, [field]: value === "" ? null : Number(value) }));
@@ -393,244 +467,300 @@ export const LineItemsGrid = forwardRef<
   // ---- Render ----
 
   const totalBudgetNow = rows.reduce((n, r) => n + lineBudget(r), 0);
+  const LINE_COLS = 9; // #, Product Code, Product Name, Qty, Est. Price/Unit, Eval Method, Split Award, Line Total, Actions
 
   return (
-    <div>
-      <div className="li-grid-wrap" onPaste={onGridPaste}>
-        <table className="ep-table li-grid">
-          <thead>
-            <tr>
-              {["#", "Product Code", "Product Name", "Qty", "Est. Price/Unit", "Eval Method", "Tech Wt", "Price Wt", "Split Award", "Min Rating", "Line Total", ""].map((h) => (
-                <th className="ep-th" key={h}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {!rows.length ? (
+    <div className="ep-pane">
+      <div className="ep-pane-head">
+        <span>Line items</span>
+        <span className="ep-k">
+          {rows.filter((r) => !isRowBlank(r)).length} line item(s) · total estimated value {inr(totalBudgetNow)}
+        </span>
+      </div>
+      <div className="ep-pane-pad">
+        <div className="hint mb-14px">each line is evaluated and awarded independently · click Details for type-specific fields, evaluation weights, and attachments</div>
+        <div className="li-grid-wrap" onPaste={onGridPaste} onScroll={() => setCodeDropdownRow(null)}>
+          <table className="ep-table li-grid">
+            <thead>
               <tr>
-                <td className="ep-cell hint" colSpan={12}>
-                  No line items yet — add a row or upload a CSV.
-                </td>
+                <th className="ep-th">#</th>
+                <th className="ep-th">
+                  Product Code
+                  <Req />
+                </th>
+                <th className="ep-th">Product Name</th>
+                <th className="ep-th">
+                  Qty
+                  <Req />
+                </th>
+                <th className="ep-th">Est. Price/Unit</th>
+                <th className="ep-th">Eval Method</th>
+                <th className="ep-th">Split Award</th>
+                <th className="ep-th">Line Total</th>
+                <th className="ep-th"></th>
               </tr>
-            ) : (
-              rows.map((row, i) => {
-                const p = productOf(row);
-                const codeTyped = row.product_code_input.trim() !== "";
-                const codeInvalid = codeTyped && !p;
-                const total = lineBudget(row);
-                const qcbs = row.technical_eval_method === "qcbs";
-                const expanded = expandedRows.has(i);
-                const detailFields = p ? LINE_DETAIL_FIELDS_BY_TYPE[p.procurement_type] || [] : [];
-                const detailsRaw = p ? initialFieldValues(detailFields, row.line_details) : {};
-                return (
-                  <Fragment key={i}>
-                    <tr className="li-row">
-                      <td className="ep-cell li-rownum">{i + 1}</td>
-                      <td className="ep-cell">
-                        <input
-                          className={`input${codeInvalid ? " invalid" : ""}`}
-                          list="li-catalog-codes"
-                          data-row={i}
-                          data-col={0}
-                          value={row.product_code_input}
-                          onChange={(e) => onCodeInput(i, e.target.value)}
-                          onBlur={() => onCodeCommit(i)}
-                          placeholder="code"
-                        />
-                      </td>
-                      <td className="ep-cell li-product-name">
-                        {p ? (
-                          <>
-                            {p.name} <span className="ep-sub">{p.procurement_type}</span>
-                          </>
-                        ) : codeInvalid ? (
-                          <span className="text-danger-700">unknown code</span>
-                        ) : (
-                          ""
-                        )}
-                      </td>
-                      <td className="ep-cell">
-                        <input
-                          className="input"
-                          type="number"
-                          step="any"
-                          min={0}
-                          data-row={i}
-                          data-col={1}
-                          value={row.qty ?? ""}
-                          onChange={(e) => onNumericInput(i, "qty", e.target.value)}
-                        />
-                      </td>
-                      <td className="ep-cell">
-                        <input
-                          className="input"
-                          type="number"
-                          step="any"
-                          min={0}
-                          data-row={i}
-                          data-col={2}
-                          value={row.estimated_price ?? ""}
-                          onChange={(e) => onNumericInput(i, "estimated_price", e.target.value)}
-                        />
-                      </td>
-                      <td className="ep-cell">
-                        <select
-                          className="input"
-                          data-row={i}
-                          data-col={3}
-                          value={row.technical_eval_method ?? ""}
-                          onChange={(e) => onEvalMethodChange(i, e.target.value)}
-                        >
-                          <option value="">{p ? "default" : "—"}</option>
-                          {EVAL_METHODS.map((m) => (
-                            <option value={m} key={m}>
-                              {EVAL_METHOD_SHORT[m]}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="ep-cell">
-                        {qcbs ? (
+            </thead>
+            <tbody>
+              {!rows.length ? (
+                <tr>
+                  <td className="ep-cell hint" colSpan={LINE_COLS}>
+                    No line items yet — add a row or upload a CSV.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row, i) => {
+                  const p = productOf(row);
+                  const codeTyped = row.product_code_input.trim() !== "";
+                  const codeInvalid = codeTyped && !p;
+                  const total = lineBudget(row);
+                  const qcbs = row.technical_eval_method === "qcbs";
+                  const expanded = expandedRows.has(i);
+                  const detailFields = p ? LINE_DETAIL_FIELDS_BY_TYPE[p.procurement_type] || [] : [];
+                  const detailsRaw = p ? initialFieldValues(detailFields, row.line_details) : {};
+                  return (
+                    <Fragment key={i}>
+                      <tr className="li-row">
+                        <td className="ep-cell li-rownum">{i + 1}</td>
+                        <td className="ep-cell li-code-cell">
                           <input
-                            className="input"
-                            type="number"
-                            step={1}
-                            min={0}
+                            className={`input${codeInvalid ? " invalid" : ""}`}
+                            autoComplete="off"
                             data-row={i}
-                            data-col={4}
-                            value={row.technical_weight ?? ""}
-                            onChange={(e) => onNumericInput(i, "technical_weight", e.target.value)}
-                          />
-                        ) : (
-                          <span className="hint">—</span>
-                        )}
-                      </td>
-                      <td className="ep-cell">
-                        {qcbs ? (
-                          <input
-                            className="input"
-                            type="number"
-                            step={1}
-                            min={0}
-                            data-row={i}
-                            data-col={5}
-                            value={row.price_weight ?? ""}
-                            onChange={(e) => onNumericInput(i, "price_weight", e.target.value)}
-                          />
-                        ) : (
-                          <span className="hint">—</span>
-                        )}
-                      </td>
-                      <td className="ep-cell text-center">
-                        <input type="checkbox" data-row={i} data-col={6} checked={row.split_award_allowed} onChange={(e) => onSplitAwardChange(i, e.target.checked)} />
-                      </td>
-                      <td className="ep-cell">
-                        <input
-                          className="input"
-                          type="number"
-                          step={0.1}
-                          min={0}
-                          max={100}
-                          data-row={i}
-                          data-col={7}
-                          value={row.min_rating_threshold_override ?? ""}
-                          onChange={(e) => onNumericInput(i, "min_rating_threshold_override", e.target.value)}
-                          placeholder="default"
-                        />
-                      </td>
-                      <td className="ep-cell li-total">{total ? inr(total) : "—"}</td>
-                      <td className="ep-cell nowrap">
-                        <button type="button" className="ep-b li-details-btn" disabled={!p} onClick={() => toggleDetails(i)}>
-                          {expanded ? "Hide" : "Details"}
-                        </button>{" "}
-                        <button type="button" className="ep-b remove-line-btn" onClick={() => removeRow(i)}>
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                    {expanded && p && (
-                      <tr className="li-details-row">
-                        <td className="ep-cell" colSpan={12}>
-                          <div className="hint mb-10px">
-                            <b>Catalog spec (from the master item, reference only):</b> {attrSummary(p)}
-                          </div>
-                          {detailFields.length ? (
-                            <div className="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">
-                              {detailFields.map((f) => (
-                                <FormField key={f.name} field={f} raw={detailsRaw} onChange={(_name, value) => updateLineDetail(i, f, value)} />
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="hint">Nothing else to add for this line -- the catalog spec above covers it.</div>
-                          )}
-                          <div className="ep-k mt-16px mb-6px">Attachments (spec §6.4)</div>
-                          <AttachmentsPanel
-                            attachments={row.attachments}
-                            procurementType={p.procurement_type}
-                            busyKind={busyAttachment?.startsWith(`${i}:`) ? (busyAttachment.slice(`${i}:`.length) as TenderLineAttachmentKind) : null}
-                            busyProgress={attachmentProgress}
-                            onUpload={(kind) => uploadAttachment(i, kind)}
-                            onRemove={(attId) => removeAttachment(i, attId)}
-                            onView={(attId) => row.id != null && viewAttachment(row.id, attId)}
+                            data-col={0}
+                            value={row.product_code_input}
+                            onChange={(e) => onCodeInput(i, e.target.value, e.target)}
+                            onFocus={(e) => openCodeDropdown(i, e.target)}
+                            onKeyDown={(e) => onCodeKeyDown(i, row, e)}
+                            onBlur={() => {
+                              onCodeCommit(i);
+                              setCodeDropdownRow((r) => (r === i ? null : r));
+                            }}
+                            placeholder="code"
                           />
                         </td>
+                        <td className="ep-cell li-product-name">
+                          {p ? (
+                            <>
+                              {p.name} <span className="ep-sub">{p.procurement_type}</span>
+                            </>
+                          ) : codeInvalid ? (
+                            <span className="text-danger-700">unknown code</span>
+                          ) : (
+                            ""
+                          )}
+                        </td>
+                        <td className="ep-cell">
+                          <input
+                            className="input"
+                            type="number"
+                            step="any"
+                            min={0}
+                            data-row={i}
+                            data-col={1}
+                            value={row.qty ?? ""}
+                            onChange={(e) => onNumericInput(i, "qty", e.target.value)}
+                          />
+                        </td>
+                        <td className="ep-cell">
+                          <input
+                            className="input"
+                            type="number"
+                            step="any"
+                            min={0}
+                            data-row={i}
+                            data-col={2}
+                            value={row.estimated_price ?? ""}
+                            onChange={(e) => onNumericInput(i, "estimated_price", e.target.value)}
+                          />
+                        </td>
+                        <td className="ep-cell">
+                          <select
+                            className="input"
+                            data-row={i}
+                            data-col={3}
+                            value={row.technical_eval_method ?? ""}
+                            onChange={(e) => onEvalMethodChange(i, e.target.value)}
+                          >
+                            <option value="">{p ? "default" : "—"}</option>
+                            {EVAL_METHODS.map((m) => (
+                              <option value={m} key={m}>
+                                {EVAL_METHOD_SHORT[m]}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="ep-cell text-center">
+                          <input type="checkbox" data-row={i} data-col={6} checked={row.split_award_allowed} onChange={(e) => onSplitAwardChange(i, e.target.checked)} />
+                        </td>
+                        <td className="ep-cell li-total">{total ? inr(total) : "—"}</td>
+                        <td className="ep-cell nowrap">
+                          <button type="button" className="ep-b li-details-btn" disabled={!p} onClick={() => toggleDetails(i)}>
+                            {expanded ? "Hide" : "Details"}
+                          </button>{" "}
+                          <button type="button" className="ep-b remove-line-btn" onClick={() => removeRow(i)}>
+                            ✕
+                          </button>
+                        </td>
                       </tr>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-      <datalist id="li-catalog-codes">
-        {products.map((p) => (
-          <option value={p.code} key={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </datalist>
-      <div className="hint mt-8px">
-        {rows.length} row(s) · total estimated value {inr(totalBudgetNow)}
-      </div>
-      <div className="d-flex gap-8px flex-wrap mt-10px">
-        <button type="button" className="ep-b" onClick={addRow}>
-          + Add line item
-        </button>
-        <button type="button" className="ep-b" onClick={add10Rows}>
-          + Add 10 line items
-        </button>
-        <button type="button" className="ep-b" onClick={downloadTemplate}>
-          Download CSV template
-        </button>
-        <button type="button" className="ep-b" onClick={() => csvFileInputRef.current?.click()}>
-          Upload CSV
-        </button>
-        <input
-          ref={csvFileInputRef}
-          type="file"
-          accept=".csv"
-          hidden
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            e.target.value = ""; // lets the same filename be re-uploaded later (e.g. after fixing rows)
-            if (file) await onCsvFileChosen(file);
-          }}
-        />
-      </div>
-      {importErrors.length > 0 && (
-        <div className="result err mt-10px">
-          <div className="fw-700 mb-6px">{importErrors.length} row(s) need fixing before they can be added:</div>
-          <ul className="margin-0 pl-18px">
-            {importErrors.map((e, idx) => (
-              <li key={idx}>{e}</li>
-            ))}
-          </ul>
-          <div className="hint mt-6px">Fix these rows in your file and upload just them again — rows already added don't need to be re-uploaded.</div>
+                      {expanded && p && (
+                        <tr className="li-details-row">
+                          <td className="ep-cell" colSpan={LINE_COLS}>
+                            <div className="li-details">
+                              <div className="li-details-section">
+                                <div className="li-details-section-title">Catalog spec (reference only)</div>
+                                <div className="hint">{attrSummary(p)}</div>
+                              </div>
+
+                              <div className="li-details-section">
+                                <div className="li-details-section-title">Evaluation &amp; scoring</div>
+                                <div className="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">
+                                  {qcbs && (
+                                    <div className="ep-field">
+                                      <div className="ep-k">
+                                        Technical weight
+                                        <Req />
+                                      </div>
+                                      <input
+                                        className="input"
+                                        type="number"
+                                        step={1}
+                                        min={0}
+                                        value={row.technical_weight ?? ""}
+                                        onChange={(e) => onNumericInput(i, "technical_weight", e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                  {qcbs && (
+                                    <div className="ep-field">
+                                      <div className="ep-k">
+                                        Price weight
+                                        <Req />
+                                      </div>
+                                      <input
+                                        className="input"
+                                        type="number"
+                                        step={1}
+                                        min={0}
+                                        value={row.price_weight ?? ""}
+                                        onChange={(e) => onNumericInput(i, "price_weight", e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="ep-field">
+                                    <div className="ep-k">Min rating threshold override</div>
+                                    <input
+                                      className="input"
+                                      type="number"
+                                      step={0.1}
+                                      min={0}
+                                      max={100}
+                                      value={row.min_rating_threshold_override ?? ""}
+                                      onChange={(e) => onNumericInput(i, "min_rating_threshold_override", e.target.value)}
+                                      placeholder="tender default"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {detailFields.length > 0 && (
+                                <div className="li-details-section">
+                                  <div className="li-details-section-title">Tender-specific details</div>
+                                  <div className="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">
+                                    {detailFields.map((f) => (
+                                      <FormField key={f.name} field={f} raw={detailsRaw} onChange={(_name, value) => updateLineDetail(i, f, value)} />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="li-details-section">
+                                <div className="li-details-section-title">Attachments (spec §6.4)</div>
+                                <AttachmentsPanel
+                                  attachments={row.attachments}
+                                  procurementType={p.procurement_type}
+                                  busyKind={busyAttachment?.startsWith(`${i}:`) ? (busyAttachment.slice(`${i}:`.length) as TenderLineAttachmentKind) : null}
+                                  busyProgress={attachmentProgress}
+                                  onUpload={(kind) => uploadAttachment(i, kind)}
+                                  onRemove={(attId) => removeAttachment(i, attId)}
+                                  onView={(attId) => row.id != null && viewAttachment(row.id, attId)}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+        <div className="d-flex gap-8px flex-wrap mt-14px">
+          <button type="button" className="ep-b" onClick={addRow}>
+            + Add line item
+          </button>
+          <button type="button" className="ep-b" onClick={add10Rows}>
+            + Add 10 line items
+          </button>
+          <button type="button" className="ep-b" onClick={downloadTemplate}>
+            Download CSV template
+          </button>
+          <button type="button" className="ep-b" onClick={() => csvFileInputRef.current?.click()}>
+            Upload CSV
+          </button>
+          <input
+            ref={csvFileInputRef}
+            type="file"
+            accept=".csv"
+            hidden
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = ""; // lets the same filename be re-uploaded later (e.g. after fixing rows)
+              if (file) await onCsvFileChosen(file);
+            }}
+          />
+        </div>
+        {importErrors.length > 0 && (
+          <div className="result err mt-10px">
+            <div className="fw-700 mb-6px">{importErrors.length} row(s) need fixing before they can be added:</div>
+            <ul className="margin-0 pl-18px">
+              {importErrors.map((e, idx) => (
+                <li key={idx}>{e}</li>
+              ))}
+            </ul>
+            <div className="hint mt-6px">Fix these rows in your file and upload just them again — rows already added don't need to be re-uploaded.</div>
+          </div>
+        )}
+      </div>
+      {codeDropdownRow != null &&
+        codeDropdownRect &&
+        createPortal(
+          (() => {
+            const matches = matchingProducts(rows[codeDropdownRow].product_code_input);
+            return (
+              <div className="li-code-results" style={{ position: "fixed", left: codeDropdownRect.left, top: codeDropdownRect.top, width: codeDropdownRect.width }}>
+                {matches.length ? (
+                  matches.map((prod, mi) => (
+                    <button
+                      type="button"
+                      className={`li-code-item${mi === codeHighlight ? " highlighted" : ""}`}
+                      key={prod.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickProduct(codeDropdownRow, prod)}
+                    >
+                      <span className="fw-600">{prod.code}</span>
+                      <span className="ep-sub">{prod.name}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="ep-dropdown-empty">No matching catalog item.</div>
+                )}
+              </div>
+            );
+          })(),
+          document.body
+        )}
       {modalElement}
     </div>
   );

@@ -27,6 +27,22 @@ const NOTES: Record<string, string> = {
   suspended: "Your account is suspended: you can't bid or be invited to new tenders until it's reinstated. See the note on your profile.",
 };
 
+// Real bug, found 2026-10-14: the Status column always showed the bid
+// DOCUMENT's own lifecycle status (draft/submitted/withdrawn -- it was
+// submitted and never withdrawn, which stays true forever), while the
+// separate Outcome column showed the award result once known -- so an
+// awarded bid displayed "Submitted" right next to "Awarded", reading as a
+// contradiction even though both fields were individually correct. Once
+// outcome is known, show it as the Status tag too (StateTag already has
+// awarded/no_award/disqualified tones); Outcome keeps the fuller text
+// (exact split-award quantity, etc.).
+function bidDisplayStatus(b: MyBid): string {
+  if (b.outcome?.startsWith("Awarded")) return "awarded";
+  if (b.outcome === "Not selected") return "no_award";
+  if (b.outcome === "Technically disqualified") return "disqualified";
+  return b.status;
+}
+
 function timeRemaining(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return "closed";
@@ -346,7 +362,7 @@ export function VendorDashboardPage() {
                   <td className="ep-cell">{b.qty}</td>
                   <td className="ep-cell fw-700">{b.unit_price == null ? "—" : inr(b.unit_price)}</td>
                   <td className="ep-cell">
-                    <StateTag state={b.status} />
+                    <StateTag state={bidDisplayStatus(b)} />
                   </td>
                   <td className="ep-cell fs-12-5px fw-600">{b.outcome ? b.outcome : <span className="ep-sub">{b.submitted_at ? "Awaiting result" : "—"}</span>}</td>
                 </tr>

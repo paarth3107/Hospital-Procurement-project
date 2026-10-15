@@ -14,17 +14,24 @@ export function TenderDetail({
   minInvites,
   isSystemAdmin,
   onResult,
+  refreshToken,
 }: {
   tenderId: number;
   tenderStatus: TenderStatus;
   minInvites: number | null;
   isSystemAdmin: boolean;
   onResult: (message: string, ok: boolean) => void;
+  // Bumped by the parent on every successful Save as Draft -- tenderId alone
+  // doesn't change across saves, so without this the panels below never
+  // re-fetched after one (real bug, found 2026-10-14: adding a line and
+  // saving left Eligible Vendors showing stale data until the tender was
+  // closed and reopened).
+  refreshToken: number;
 }) {
   return (
     <div className="d-flex flex-col gap-18px">
       <PublishStatusTable tenderId={tenderId} tenderStatus={tenderStatus} isSystemAdmin={isSystemAdmin} onResult={onResult} />
-      <EligibilityPreview tenderId={tenderId} tenderStatus={tenderStatus} minInvites={minInvites} onResult={onResult} />
+      <EligibilityPreview tenderId={tenderId} tenderStatus={tenderStatus} minInvites={minInvites} onResult={onResult} refreshToken={refreshToken} />
       <RoundsTable tenderId={tenderId} />
     </div>
   );
@@ -184,11 +191,13 @@ function EligibilityPreview({
   tenderStatus,
   minInvites,
   onResult,
+  refreshToken,
 }: {
   tenderId: number;
   tenderStatus: TenderStatus;
   minInvites: number | null;
   onResult: (message: string, ok: boolean) => void;
+  refreshToken: number;
 }) {
   const [preview, setPreview] = useState<LineItemEligibility[] | null>(null);
   const [activeVendors, setActiveVendors] = useState<VendorLookup[]>([]);
@@ -213,7 +222,8 @@ function EligibilityPreview({
 
   useEffect(() => {
     load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, refreshToken]);
 
   // User-directed (2026-10-13): adding a guest invite or removing a vendor
   // used to re-fetch the whole tender's eligibility preview (every line,

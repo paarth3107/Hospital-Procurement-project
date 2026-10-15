@@ -410,7 +410,7 @@ async def upload_terms_document(
     _require_draft(tender)
     content = await file.read()
     try:
-        document_store.validate(file.content_type or "", len(content), allow_office=True)
+        document_store.validate(file.content_type or "", len(content), allow_word=True)
     except document_store.DocumentValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     document_store.scan(content)
@@ -483,7 +483,7 @@ async def upload_rate_contract_document(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This tender isn't flagged as a rate contract")
     content = await file.read()
     try:
-        document_store.validate(file.content_type or "", len(content), allow_office=True)
+        document_store.validate(file.content_type or "", len(content), allow_word=True)
     except document_store.DocumentValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     document_store.scan(content)

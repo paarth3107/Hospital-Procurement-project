@@ -16,11 +16,16 @@ SPREADSHEET_CONTENT_TYPES = {
     "application/vnd.ms-excel",
     "text/csv",
 }
-# Spec 6.4.2 / 8.3.2: bid attachments also accept DOCX and XLSX.
+# Spec 6.4.2 / 8.3.2: bid/line-item attachments also accept DOCX and XLSX.
 OFFICE_CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
+# Terms & Conditions / Rate Contract agreement: a text document, never a
+# spreadsheet -- DOCX only, unlike the bid/line-item OFFICE_CONTENT_TYPES
+# above which spec 6.4.2/8.3.2 explicitly wants XLSX for too. Found 2026-10-14:
+# these two endpoints were wrongly passing allow_office=True and accepting XLSX.
+WORD_CONTENT_TYPES = {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024  # 2MB (reduced from 10MB, 2026-10-14, user-directed)
 
 
@@ -28,13 +33,19 @@ class DocumentValidationError(ValueError):
     pass
 
 
-def validate(content_type: str, size_bytes: int, allow_spreadsheets: bool = False, allow_office: bool = False) -> None:
+def validate(
+    content_type: str, size_bytes: int, allow_spreadsheets: bool = False, allow_office: bool = False, allow_word: bool = False
+) -> None:
     allowed = ALLOWED_CONTENT_TYPES | SPREADSHEET_CONTENT_TYPES if allow_spreadsheets else set(ALLOWED_CONTENT_TYPES)
     if allow_office:
         allowed |= OFFICE_CONTENT_TYPES
+    if allow_word:
+        allowed |= WORD_CONTENT_TYPES
     if content_type not in allowed:
         if allow_office:
             accepted = "PDF, DOCX, XLSX, JPG, and PNG"
+        elif allow_word:
+            accepted = "PDF, DOCX, JPG, and PNG"
         else:
             accepted = "PDF, JPG, PNG, or a spreadsheet (XLSX/CSV)" if allow_spreadsheets else "PDF, JPG, and PNG"
         raise DocumentValidationError(f"Unsupported file type '{content_type}' — {accepted} are accepted")

@@ -18,19 +18,25 @@
 const BASE_CONTENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const SPREADSHEET_CONTENT_TYPES = new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv"]);
 const OFFICE_CONTENT_TYPES = new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]);
+// Terms & Conditions / Rate Contract agreement: a text document, never a
+// spreadsheet -- DOCX only, unlike OFFICE_CONTENT_TYPES above which spec
+// 6.4.2/8.3.2 explicitly wants XLSX for too (real bid/line-item attachments).
+const WORD_CONTENT_TYPES = new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 export interface FileTypeOptions {
   allowSpreadsheets?: boolean; // vendor sample catalogue only
   allowOffice?: boolean; // tender/bid attachments only (DOCX + XLSX)
+  allowWord?: boolean; // tender T&C / rate contract documents only (DOCX, no XLSX)
 }
 
 export function fileTypeError(file: File, opts: FileTypeOptions = {}): string | null {
   const allowed = new Set(BASE_CONTENT_TYPES);
   if (opts.allowSpreadsheets) for (const t of SPREADSHEET_CONTENT_TYPES) allowed.add(t);
   if (opts.allowOffice) for (const t of OFFICE_CONTENT_TYPES) allowed.add(t);
+  if (opts.allowWord) for (const t of WORD_CONTENT_TYPES) allowed.add(t);
   if (!allowed.has(file.type)) {
-    const list = opts.allowOffice ? "PDF, JPG, PNG, DOCX or XLSX" : opts.allowSpreadsheets ? "PDF, JPG, PNG, XLSX, XLS or CSV" : "PDF, JPG or PNG";
+    const list = opts.allowOffice ? "PDF, JPG, PNG, DOCX or XLSX" : opts.allowWord ? "PDF, JPG, PNG or DOCX" : opts.allowSpreadsheets ? "PDF, JPG, PNG, XLSX, XLS or CSV" : "PDF, JPG or PNG";
     return `"${file.name}" isn't an accepted file type — ${list} only.`;
   }
   if (file.size === 0) return `"${file.name}" is empty.`;

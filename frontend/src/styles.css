@@ -173,14 +173,34 @@ body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { ma
 /* Tender line-item grid: scrolls instead of paginating -- this is active data
    entry, not a read list (2026-09-30). */
 .li-grid-wrap { max-height: 620px; overflow: auto; border: 1px solid var(--ink-12); border-radius: var(--radius); }
-.li-grid { min-width: 1100px; }
-.li-grid thead th { position: sticky; top: 0; background: var(--surface-subtle); z-index: 1; }
+.li-grid { min-width: 900px; }
+/* Was --surface-subtle (grey) -- found 2026-10-14: this card's whole point
+   was to look white like every other card, and a grey sticky header read as
+   a leftover, separate, not-quite-matching strip at the top of it. */
+.li-grid thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
 .li-grid .ep-cell { padding: 5px 6px; }
 .li-grid .li-rownum { color: var(--ink-45); font-size: 12px; text-align: right; }
 .li-grid input.input, .li-grid select.input { min-height: 32px; padding: 4px 8px; font-size: 13px; }
 .li-grid input[type="checkbox"] { width: 16px; height: 16px; }
-.li-grid input[data-field="technical_weight"], .li-grid input[data-field="price_weight"] { width: 72px; }
 .li-grid .li-total { font-weight: 600; white-space: nowrap; }
+/* Product code cell's own-styled autocomplete, replacing a native
+   <input list>/<datalist> (found 2026-10-14) -- same look as
+   shell/QuickSearch.tsx's .ep-search-results. Rendered through a portal to
+   document.body (position:fixed, coordinates set inline from the input's
+   own getBoundingClientRect()) rather than anchored inside the table cell --
+   found 2026-10-14 (second pass): anchored inside the cell, it visually
+   sank underneath the next row instead of floating over it, since a
+   table's cell/row background painting order doesn't reliably respect
+   z-index the way normal block boxes do. */
+.li-code-results { min-width: 260px; max-height: 240px; overflow-y: auto; background: var(--surface); border-radius: var(--radius); box-shadow: var(--dialog-shadow); padding: 6px; z-index: 70; }
+.li-code-item { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 7px 9px; border: 0; background: transparent; border-radius: var(--radius); cursor: pointer; text-align: left; font-size: 13px; color: var(--ink); white-space: nowrap; }
+.li-code-item:hover, .li-code-item.highlighted { background: var(--ink-06); }
+/* Details expansion -- grouped into labelled sections (catalog spec,
+   evaluation & scoring, tender-specific fields, attachments) instead of one
+   undifferentiated block (found 2026-10-14, user-directed: "not just thrown
+   on top"). */
+.li-details { display: flex; flex-direction: column; gap: 16px; }
+.li-details-section-title { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-60); margin-bottom: 10px; }
 .li-details-row td { background: var(--ink-03); padding: 14px !important; }
 .ep-sub { font-size: 13px; color: var(--ink-60); }
 .filter-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 16px; align-items: end; }

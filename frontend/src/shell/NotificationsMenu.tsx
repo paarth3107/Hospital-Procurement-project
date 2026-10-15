@@ -66,15 +66,15 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
   };
 
   if (isVendor) {
-    if (error) return <div className="ep-dropdown-wide"><div className="ep-dropdown-head">Notifications</div><div className="ep-dropdown-empty">Could not load notifications.</div></div>;
-    if (!notes || !tenders) return <div className="ep-dropdown-wide"><div className="ep-dropdown-head">Notifications</div><div className="ep-dropdown-empty">Loading…</div></div>;
+    if (error) return <div className="ep-dropdown ep-dropdown-wide"><div className="ep-dropdown-head">Notifications</div><div className="ep-dropdown-empty">Could not load notifications.</div></div>;
+    if (!notes || !tenders) return <div className="ep-dropdown ep-dropdown-wide"><div className="ep-dropdown-head">Notifications</div><div className="ep-dropdown-empty">Loading…</div></div>;
     const unread = notes.filter((n) => !n.read).slice(0, 6);
     const soon = closingSoonTenders(tenders);
     if (!unread.length && !soon.length) {
-      return <div className="ep-dropdown-wide"><div className="ep-dropdown-head">Notifications</div><div className="ep-dropdown-empty">You're all caught up.</div></div>;
+      return <div className="ep-dropdown ep-dropdown-wide"><div className="ep-dropdown-head">Notifications</div><div className="ep-dropdown-empty">You're all caught up.</div></div>;
     }
     return (
-      <div className="ep-dropdown-wide">
+      <div className="ep-dropdown ep-dropdown-wide">
         <div className="ep-dropdown-head">Notifications</div>
         {soon.map((t) => (
           <button
@@ -117,7 +117,7 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
 
   const rows = STAFF_ROWS.map((r) => ({ ...r, n: chrome[r.badge] })).filter((r) => r.n);
   return (
-    <div className="ep-dropdown-wide">
+    <div className="ep-dropdown ep-dropdown-wide">
       {rows.length ? (
         <>
           <div className="ep-dropdown-head">Needs your attention</div>

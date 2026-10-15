@@ -67,6 +67,12 @@ export function TenderEditorPage() {
   const [form, setForm] = useState<FormState>(BLANK_FORM);
   const [result, setResult] = useState<{ message: string; ok: boolean } | null>(null);
   const [linesVersion, setLinesVersion] = useState(0); // bumped by the grid's onChange -- forces a re-render so the gate (computed fresh below) picks up the new rows
+  // Real bug, found 2026-10-14: TenderDetail's Eligible Vendors panel only
+  // ever fetched once on mount (tenderId doesn't change across saves), so
+  // adding a line and clicking Save as Draft never refreshed it -- only
+  // closing and reopening the tender did (that remounts TenderDetail fresh).
+  // Bumped on every successful save and passed down so its effect re-runs.
+  const [refreshToken, setRefreshToken] = useState(0);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const gridRef = useRef<LineItemsGridHandle>(null);
   const { confirmAsync, modalElement } = useModal();
@@ -85,7 +91,7 @@ export function TenderEditorPage() {
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   // Real bug, found 2026-10-12: this effect calls gridRef.current?.setRows(...)
-  // (via openTender) or ?.startWithOneBlankRow() to populate the grid -- but
+  // (via openTender) or ?.startWithBlankRows() to populate the grid -- but
   // the render used to gate the ENTIRE tree (including <LineItemsGrid
   // ref={gridRef}> below) behind a `loaded` flag that only became true AFTER
   // this effect finished. So on every open of an existing tender, the grid
@@ -116,7 +122,7 @@ export function TenderEditorPage() {
         } else {
           setTender(null);
           setForm(BLANK_FORM);
-          gridRef.current?.startWithOneBlankRow();
+          gridRef.current?.startWithBlankRows();
         }
       } catch (err) {
         setLoadError("Could not load tender: " + (err instanceof Error ? err.message : String(err)));
@@ -147,26 +153,30 @@ export function TenderEditorPage() {
     gridRef.current?.setRows(mapApiLineItems(items, prods));
   }
 
-  function buildPayload() {
+  // `overrides` lets a caller save a field's new value immediately, before
+  // the setForm() that would normally carry it has actually re-rendered --
+  // see saveDraft's own comment below.
+  function buildPayload(overrides: Partial<FormState> = {}) {
+    const f = { ...form, ...overrides };
     return {
       // "" (nothing picked yet) must stay null, not Number("") === 0 -- 0
       // isn't a real facility id, and a Draft is allowed to not have one yet
       // (only Submit requires it).
-      facility_id: form.facility_id ? Number(form.facility_id) : null,
-      title: form.title,
-      description: form.description || null,
-      tender_type: form.tender_type,
-      department: form.department || null,
-      min_rating_threshold: form.min_rating_threshold ? Number(form.min_rating_threshold) : 0,
-      min_invites: form.min_invites ? Number(form.min_invites) : null,
-      max_invites: form.max_invites ? Number(form.max_invites) : null,
-      open_tender: form.open_tender,
-      is_rate_contract: form.is_rate_contract,
+      facility_id: f.facility_id ? Number(f.facility_id) : null,
+      title: f.title,
+      description: f.description || null,
+      tender_type: f.tender_type,
+      department: f.department || null,
+      min_rating_threshold: f.min_rating_threshold ? Number(f.min_rating_threshold) : 0,
+      min_invites: f.min_invites ? Number(f.min_invites) : null,
+      max_invites: f.max_invites ? Number(f.max_invites) : null,
+      open_tender: f.open_tender,
+      is_rate_contract: f.is_rate_contract,
       // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
-      contract_start_date: form.is_rate_contract ? form.contract_start_date || null : null,
-      contract_end_date: form.is_rate_contract ? form.contract_end_date || null : null,
-      publish_date: form.publish_date ? new Date(form.publish_date).toISOString() : null,
-      bid_due_date: form.bid_due_date ? new Date(form.bid_due_date).toISOString() : null,
+      contract_start_date: f.is_rate_contract ? f.contract_start_date || null : null,
+      contract_end_date: f.is_rate_contract ? f.contract_end_date || null : null,
+      publish_date: f.publish_date ? new Date(f.publish_date).toISOString() : null,
+      bid_due_date: f.bid_due_date ? new Date(f.bid_due_date).toISOString() : null,
       line_items: gridRef.current?.rowsForPayload() ?? [],
     };
   }
@@ -178,15 +188,28 @@ export function TenderEditorPage() {
   // check, and a draft must tolerate rows still being filled in.
   // rowsForPayload() already leaves out whatever isn't savable yet; this
   // only ever persists what actually is.
-  async function saveDraft(opts: { silent?: boolean } = {}): Promise<Tender> {
+  async function saveDraft(opts: { silent?: boolean; overrides?: Partial<FormState> } = {}): Promise<Tender> {
     if (currentStatus !== "draft") throw new Error("This tender can only be edited while Draft.");
-    const body = { headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload()) };
+    if (opts.overrides) setForm((f) => ({ ...f, ...opts.overrides }));
+    const body = { headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload(opts.overrides)) };
     const saved = tender ? await api<Tender>(`/tenders/${tender.id}`, { method: "PUT", ...body }) : await api<Tender>("/tenders", { method: "POST", ...body });
     setTender(saved);
     const items = await api<LineItem[]>(`/tenders/${saved.id}/line-items`);
     gridRef.current?.applySavedLineItems(items);
     if (!opts.silent) setResult({ message: `Tender #${saved.id} saved as draft.`, ok: true });
+    setRefreshToken((v) => v + 1);
     return saved;
+  }
+
+  // The "no save-first wall" pattern LineItemsGrid's attachments already use
+  // (ensureLineSaved -> onRequestSave), mirrored here for anything on the
+  // header that needs a real tender id to work at all (T&C/Rate Contract
+  // upload, the Open Tender link). Found 2026-10-14: these instead just sat
+  // there unusable/hidden with a "Save as Draft first" hint, forcing a
+  // separate manual save click for no real reason -- a silent save is just
+  // as safe (a Draft tolerates an incomplete header) and removes the step.
+  async function ensureSaved(): Promise<Tender> {
+    return tender ?? (await saveDraft({ silent: true }));
   }
 
   async function heldLineNames(tenderId: number): Promise<string[]> {
@@ -206,7 +229,10 @@ export function TenderEditorPage() {
       return "A rate contract needs both a contract start and end date before it can be submitted for approval.";
     if (form.is_rate_contract && !hasRateContractDocument) return "Upload the Rate Contract agreement before submitting for approval.";
     if (!hasTermsDocument) return "Upload the Terms & Conditions document before submitting for approval.";
-    if ((gridRef.current?.getRows().length ?? 0) === 0) return "Add at least one line item to submit for approval.";
+    // rowsForPayload() already leaves out untouched blank rows (the default
+    // 5 spares) -- counting raw getRows().length here would always pass
+    // trivially even with zero real line items (found 2026-10-14).
+    if ((gridRef.current?.rowsForPayload().length ?? 0) === 0) return "Add at least one line item to submit for approval.";
     return null;
   }
 
@@ -269,7 +295,10 @@ export function TenderEditorPage() {
     if (currentStatus !== "draft") {
       return { title: `Tender is ${currentStatus.replace("_", " ")}`, body: "It can't be edited in this state.", ready: false };
     }
-    const rows = gridRef.current?.getRows() ?? [];
+    // rowsForPayload() leaves out untouched blank rows (the default 5
+    // spares) -- raw getRows().length would always pass trivially even with
+    // zero real line items (found 2026-10-14).
+    const savableCount = gridRef.current?.rowsForPayload().length ?? 0;
     let problem: [string, string] | null = null;
     if (!form.facility_id) problem = ["Facility missing", "Select a facility before sending it for approval."];
     else if (!form.title.trim()) problem = ["Title missing", "Give the tender a title before sending it for approval."];
@@ -278,7 +307,7 @@ export function TenderEditorPage() {
       problem = ["Contract dates missing", "A rate contract needs both a contract start and end date before it can be sent for approval."];
     else if (form.is_rate_contract && !hasRateContractDocument) problem = ["Rate contract agreement missing", "Upload the Rate Contract agreement before sending it for approval."];
     else if (!hasTermsDocument) problem = ["Terms & conditions missing", "Upload the Terms & Conditions document before sending it for approval."];
-    else if (rows.length === 0) problem = ["No line items", "Add at least one line item."];
+    else if (savableCount === 0) problem = ["No line items", "Add at least one line item."];
     else {
       const fp = gridRef.current?.firstRowProblem() ?? null;
       if (fp) problem = ["Line item incomplete", fp];
@@ -287,7 +316,7 @@ export function TenderEditorPage() {
       title: problem ? problem[0] : "Ready to send for approval",
       body: problem
         ? problem[1]
-        : `${rows.length} line item(s) · estimated value ${inr(gridRef.current?.totalBudget() ?? 0)}. The approval tier is resolved from this value; approval publishes to the eligible vendors.`,
+        : `${savableCount} line item(s) · estimated value ${inr(gridRef.current?.totalBudget() ?? 0)}. The approval tier is resolved from this value; approval publishes to the eligible vendors.`,
       ready: !problem,
     };
   }
@@ -298,7 +327,7 @@ export function TenderEditorPage() {
   const g = gate();
 
   return (
-    <div>
+    <div className="d-flex flex-col gap-22px">
       <button className="back-link" onClick={() => switchView("tenders")}>
         ← Back to tenders
       </button>
@@ -375,7 +404,24 @@ export function TenderEditorPage() {
               <div className="tender-option-row">
                 <div className="tender-option">
                   <label className="ep-switch ep-check-field">
-                    <input type="checkbox" checked={form.open_tender} onChange={(e) => setField("open_tender", e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      checked={form.open_tender}
+                      onChange={async (e) => {
+                        const checked = e.target.checked;
+                        setField("open_tender", checked);
+                        // Turning it on needs a real tender id for the link
+                        // box below to show anything -- silently save instead
+                        // of leaving it hidden until a manual Save as Draft.
+                        if (checked) {
+                          try {
+                            await saveDraft({ silent: true, overrides: { open_tender: true } });
+                          } catch (err) {
+                            setResult({ message: "Could not turn on Open Tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
+                          }
+                        }
+                      }}
+                    />
                     <span className="ep-switch-track">
                       <span className="ep-switch-knob"></span>
                     </span>
@@ -410,11 +456,11 @@ export function TenderEditorPage() {
                         <div className="mt-6px">
                           <SingleDocumentField
                             tender={tender}
+                            ensureSaved={ensureSaved}
                             endpoint="rate-contract-document"
                             fieldPrefix="rate_contract_document"
                             label="Rate Contract agreement"
                             requiredLabel="Required before submission."
-                            noTenderHint={false}
                             onChange={setTender}
                           />
                         </div>
@@ -455,6 +501,7 @@ export function TenderEditorPage() {
               <div className="hint mb-4px">Payment terms, delivery terms, penalty clauses, validity period -- as a document.</div>
               <SingleDocumentField
                 tender={tender}
+                ensureSaved={ensureSaved}
                 endpoint="terms-document"
                 fieldPrefix="terms_document"
                 label="Terms & Conditions document"
@@ -466,11 +513,6 @@ export function TenderEditorPage() {
         </fieldset>
       </div>
 
-      <div className="d-flex items-center gap-12px flex-wrap">
-        <span className="fs-14px fw-800">Line items</span>
-        <span className="hint">each line is evaluated and awarded independently · click Details for type-specific fields</span>
-        <div className="flex-1"></div>
-      </div>
       <LineItemsGrid
         ref={gridRef}
         products={products}
@@ -509,6 +551,7 @@ export function TenderEditorPage() {
           minInvites={form.min_invites ? Number(form.min_invites) : null}
           isSystemAdmin={currentUser?.role === "system_admin"}
           onResult={(message, ok) => setResult({ message, ok })}
+          refreshToken={refreshToken}
         />
       )}
       {modalElement}

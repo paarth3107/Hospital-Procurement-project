@@ -4,6 +4,7 @@ import { switchView } from "../../lib/bridge";
 import { CITIES_BY_STATE, INDIAN_STATES, OTHER_CITY, VENDOR_DOC_TYPES } from "../../lib/constants";
 import { OpenLinkNote } from "./OpenLinkNote";
 import { PasswordField } from "../../components/PasswordField";
+import { Req } from "../../components/Req";
 import { StateTag } from "../../components/Tag";
 import { DocumentDropzones, type DocEntryState } from "./registerDocuments";
 import { OtherDocsSection, type OtherDocsHandle } from "./registerOtherDocs";
@@ -15,12 +16,6 @@ import { FIELD_VALIDATORS } from "./registerValidation";
 // been checked once.
 function FieldError({ errors, name }: { errors: Record<string, string>; name: string }) {
   return errors[name] ? <div className="field-error">{errors[name]}</div> : null;
-}
-
-// Mandatory fields get a red asterisk next to the label; non-mandatory ones
-// simply carry no mark (no "(optional)" text needed once that's the rule).
-function Req() {
-  return <span className="required-mark">*</span>;
 }
 
 const MANDATORY_DOC_TYPES = VENDOR_DOC_TYPES.filter((t) => t.mandatory).map((t) => t.value);
