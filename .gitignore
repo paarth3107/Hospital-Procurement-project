@@ -11,3 +11,8 @@ backend/.env
 # Claude's own working notes (moved out of git tracking 2026-10-09)
 *.md
 .claude-notes/
+
+#Misc
+E-Procurement-Spec-v2.md
+Hospital-Procurement-Overview.docx
+SPECIFICATIONS.md.txt
