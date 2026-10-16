@@ -4,6 +4,10 @@ import { AuthBoot } from "./shell/AuthBoot";
 import { AuthLayout } from "./shell/AuthLayout";
 import { ProtectedLayout } from "./shell/ProtectedLayout";
 import { RootRedirect } from "./shell/RootRedirect";
+// TopLoadingBar/LoadingBadge: unhooked for now (2026-10-15, user-directed),
+// kept on disk, not deleted -- LoadingOverlay below is being tried in their
+// place so the user can compare before deciding which one stays.
+import { LoadingOverlay } from "./shell/LoadingOverlay";
 import { StaffLoginPage } from "./pages/auth/StaffLoginPage";
 import { VendorLoginPage } from "./pages/auth/VendorLoginPage";
 import { RegisterPage } from "./pages/auth/RegisterPage";
@@ -54,6 +58,7 @@ import { PoFilesPage } from "./pages/po/PoFilesPage";
 export function App() {
   return (
     <HashRouter>
+      <LoadingOverlay />
       <NavigateSync />
       <AuthBoot />
       <Routes>

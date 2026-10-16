@@ -128,11 +128,21 @@ export function RegisterPage() {
   const onStep1Input = (e: React.FormEvent<HTMLFieldSetElement>) => {
     const t = e.target as unknown as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
     if ((t.name === "gstin" || t.name === "pan" || t.name === "bank_ifsc") && t.value !== t.value.toUpperCase()) t.value = t.value.toUpperCase();
-    if (t.name === "phone" && t.value !== t.value.replace(/\D/g, "").slice(0, 10)) t.value = t.value.replace(/\D/g, "").slice(0, 10);
+    // Real bug, found 2026-10-15: escalation_contact_phone had none of the
+    // phone field's own digits-only/10-char capping, live or otherwise --
+    // matched it exactly rather than duplicating a second, divergent rule.
+    if ((t.name === "phone" || t.name === "escalation_contact_phone") && t.value !== t.value.replace(/\D/g, "").slice(0, 10))
+      t.value = t.value.replace(/\D/g, "").slice(0, 10);
     // Real bug, found 2026-10-13: Pincode took letters -- `pattern`/`maxLength`
     // alone don't block invalid characters from being typed, only flag the
     // field invalid afterward. Digits-only and capped at 6, live, same as phone.
     if (t.name === "pincode" && t.value !== t.value.replace(/\D/g, "").slice(0, 6)) t.value = t.value.replace(/\D/g, "").slice(0, 6);
+    // Real bug, found 2026-10-15: `maxLength` is silently ignored on
+    // type="number" inputs by every browser -- it only ever worked on the
+    // text-like fields above (phone/pincode). Capped live instead, same
+    // pattern, since min/max alone only flag the field invalid afterward,
+    // they don't stop someone from typing a 5th+ digit in the first place.
+    if (t.name === "year_of_incorporation" && t.value.length > 4) t.value = t.value.slice(0, 4);
     // Live "N/250" counter + a hard stop at the max -- native `maxLength`
     // already blocks typing/paste past it, this is just the visible readout.
     if (t.name === "registered_address" || t.name === "alternate_address") {
@@ -419,7 +429,19 @@ export function RegisterPage() {
                     Year of incorporation
                     <Req />
                   </div>
-                  <input className="input" name="year_of_incorporation" type="number" min={1800} max={2100} required />
+                  {/* Real bug, found 2026-10-15: a number input changes its value on scroll
+                      whenever it's focused -- surprising if the page itself is scrolled with
+                      the cursor sitting over this field. Blur on wheel so scrolling the page
+                      just scrolls the page. */}
+                  <input
+                    className="input no-spinner"
+                    name="year_of_incorporation"
+                    type="number"
+                    min={1800}
+                    max={2100}
+                    required
+                    onWheel={(e) => e.currentTarget.blur()}
+                  />
                   <FieldError errors={fieldErrors} name="year_of_incorporation" />
                 </div>
                 <div className="ep-field">
@@ -623,7 +645,7 @@ export function RegisterPage() {
                     Escalation phone
                     <Req />
                   </div>
-                  <input className="input" name="escalation_contact_phone" required />
+                  <input className="input" name="escalation_contact_phone" required inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" />
                   <FieldError errors={fieldErrors} name="escalation_contact_phone" />
                 </div>
                 <div className="ep-field">

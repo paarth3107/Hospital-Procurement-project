@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { refreshChrome } from "../../lib/chromeStore";
 import { fmtDateTime, inr } from "../../lib/format";
 import { Tag, StateTag } from "../../components/Tag";
 import { useModal } from "../../components/useModal";
@@ -35,6 +36,11 @@ export function TenderAwardPanel({ tenderId, onBack }: { tenderId: number; onBac
   const onChanged = (message: string) => {
     setFlash(message);
     load();
+    // A recommendation/decision save changes badgeAwards -- found
+    // 2026-10-15, alongside removing AppShell's blanket per-navigation
+    // chrome refresh: that used to paper over this page never telling
+    // chromeStore an action happened at all.
+    refreshChrome();
   };
 
   const submit = async () => {
@@ -45,6 +51,7 @@ export function TenderAwardPanel({ tenderId, onBack }: { tenderId: number; onBac
       await api(`/awards/tenders/${tenderId}/submit`, { method: "POST" });
       setFlash("Submitted for L1 approval.");
       load();
+      refreshChrome();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

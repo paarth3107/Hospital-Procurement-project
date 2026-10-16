@@ -2,29 +2,21 @@ import { useEffect, useState } from "react";
 import { switchView } from "../../lib/bridge";
 import { loadCatalogData, takeEditingProductId } from "../../lib/catalogCache";
 import { setFlash } from "../../lib/flash";
-import type { CatalogProduct, Category, ProcurementType, SubCategory } from "../../lib/types";
-import { TypeTag } from "../../components/Tag";
+import type { CatalogProduct, Category, SubCategory } from "../../lib/types";
 import { ProductForm } from "./ProductForm";
-import { ITEM_FIELDS, ASSET_FIELDS, SERVICE_FIELDS } from "./catalogFieldDefs";
 
 // Ported 1:1 from frontend/js/pages/catalog/addProductPage.js. Doubles as
 // the edit screen, same as Vuexy's own Add Product page: Product List's
 // Edit button sets an id via the catalogData.js bridge and switches here,
 // which reads and clears it on load. Creating new shows a type switch
-// (Item/Asset/Service) above a blank form; editing fixes the type.
-const TYPE_OPTS: [ProcurementType, string][] = [
-  ["item", "Item"],
-  ["asset", "Asset"],
-  ["service", "Service"],
-];
-const FIELDS_BY_TYPE: Record<ProcurementType, typeof ITEM_FIELDS> = { item: ITEM_FIELDS, asset: ASSET_FIELDS, service: SERVICE_FIELDS };
-const LABEL_BY_TYPE: Record<ProcurementType, string> = { item: "Item", asset: "Asset", service: "Service" };
+// (Item/Asset/Service); editing fixes the type. The switch itself now
+// lives inside ProductForm (2026-10-15, user-directed) -- see its own
+// comment for why.
 
 export function AddProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
-  const [addType, setAddType] = useState<ProcurementType>("item");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,34 +49,9 @@ export function AddProductPage() {
   if (error) return <div className="result err">{error}</div>;
   if (!loaded) return null;
 
-  const type = editingProduct ? editingProduct.procurement_type : addType;
-
   return (
     <div className="d-flex flex-col gap-16px">
-      <div className="d-flex items-baseline gap-14px flex-wrap">
-        <span className="fs-18px fw-800">{editingProduct ? `Edit ${editingProduct.name}` : "Add a new catalog entry"}</span>
-        {editingProduct && <TypeTag type={editingProduct.procurement_type} />}
-      </div>
-      {!editingProduct && (
-        <div className="ep-seg self-start">
-          {TYPE_OPTS.map(([t, l]) => (
-            <button key={t} className={t === addType ? "on" : ""} onClick={() => setAddType(t)}>
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
-      <ProductForm
-        key={type}
-        procurementType={type}
-        typeLabel={LABEL_BY_TYPE[type]}
-        typeFields={FIELDS_BY_TYPE[type]}
-        product={editingProduct}
-        categories={categories}
-        subCategories={subCategories}
-        onSaved={onSaved}
-        onCancel={onCancel}
-      />
+      <ProductForm product={editingProduct} categories={categories} subCategories={subCategories} onSaved={onSaved} onCancel={onCancel} />
     </div>
   );
 }

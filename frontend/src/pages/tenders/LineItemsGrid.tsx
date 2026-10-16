@@ -2,7 +2,6 @@ import { forwardRef, Fragment, useImperativeHandle, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { inr } from "../../lib/format";
-import { attrSummary } from "../../lib/attrSummary";
 import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
@@ -540,9 +539,7 @@ export const LineItemsGrid = forwardRef<
                         </td>
                         <td className="ep-cell li-product-name">
                           {p ? (
-                            <>
-                              {p.name} <span className="ep-sub">{p.procurement_type}</span>
-                            </>
+                            p.name
                           ) : codeInvalid ? (
                             <span className="text-danger-700">unknown code</span>
                           ) : (
@@ -606,11 +603,6 @@ export const LineItemsGrid = forwardRef<
                         <tr className="li-details-row">
                           <td className="ep-cell" colSpan={LINE_COLS}>
                             <div className="li-details">
-                              <div className="li-details-section">
-                                <div className="li-details-section-title">Catalog spec (reference only)</div>
-                                <div className="hint">{attrSummary(p)}</div>
-                              </div>
-
                               <div className="li-details-section">
                                 <div className="li-details-section-title">Evaluation &amp; scoring</div>
                                 <div className="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">

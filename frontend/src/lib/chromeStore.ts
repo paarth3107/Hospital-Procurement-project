@@ -90,19 +90,30 @@ export async function refreshChrome() {
   }
   try {
     const s = await api<DashboardStatsForChrome>("/dashboard/stats");
-    state = {
-      ...state,
-      badgeQueue: s.vendors_pending_count + s.docs_to_verify.length,
-      badgeAwards: s.award_tasks.length,
-      badgeApprovals: s.pending_approval_count,
-      badgeMappings: s.mappings_pending_count,
-      openTendersCount: s.open_tenders_count,
-      nextBidClose: s.next_bid_close,
-    };
-    notify();
+    applyDashboardStats(s);
   } catch {
     // chrome is decorative; a failed refresh must never block the screen
   }
+}
+
+// Split out of refreshChrome() above (2026-10-15, found via the browser's
+// own network panel: landing on /dashboard fired two /dashboard/stats
+// requests at once -- this one from AppShell's refreshChrome(), a second,
+// separate one from DashboardPage.tsx's own full-stats fetch for its
+// actual content, same endpoint, same moment). DashboardPage now calls
+// this directly with the stats it already has instead of letting
+// AppShell's effect fetch the identical thing again for that one route.
+export function applyDashboardStats(s: DashboardStatsForChrome) {
+  state = {
+    ...state,
+    badgeQueue: s.vendors_pending_count + s.docs_to_verify.length,
+    badgeAwards: s.award_tasks.length,
+    badgeApprovals: s.pending_approval_count,
+    badgeMappings: s.mappings_pending_count,
+    openTendersCount: s.open_tenders_count,
+    nextBidClose: s.next_bid_close,
+  };
+  notify();
 }
 
 export function resetChromeState() {

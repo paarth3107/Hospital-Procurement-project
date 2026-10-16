@@ -3,8 +3,9 @@ import { api } from "../../lib/api";
 import { switchView, takePendingTenderId } from "../../lib/bridge";
 import { inr } from "../../lib/format";
 import { useModal } from "../../components/useModal";
+import { useAuthState } from "../../lib/authStore";
 import { StateTag } from "../../components/Tag";
-import type { CatalogProduct, CurrentUser, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
+import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
 import { mapApiLineItems } from "./lineItemRow";
 import { SingleDocumentField } from "./SingleDocumentField";
@@ -73,15 +74,11 @@ export function TenderEditorPage() {
   // closing and reopening the tender did (that remounts TenderDetail fresh).
   // Bumped on every successful save and passed down so its effect re-runs.
   const [refreshToken, setRefreshToken] = useState(0);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
+  // as DashboardPage -- the role is already in the shared auth store.
+  const currentUser = useAuthState().user;
   const gridRef = useRef<LineItemsGridHandle>(null);
   const { confirmAsync, modalElement } = useModal();
-
-  useEffect(() => {
-    api<CurrentUser>("/auth/me")
-      .then(setCurrentUser)
-      .catch(() => {});
-  }, []);
 
   const currentStatus: TenderStatus = tender?.status ?? "draft";
   const editable = currentStatus === "draft";

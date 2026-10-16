@@ -8,6 +8,44 @@ a:hover { color: var(--primary-dark); }
 [hidden] { display: none !important; }
 input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(--primary); }
 
+/* Thin bar across the very top of the viewport while any api() call is in
+   flight (lib/loadingStore.ts) -- found 2026-10-15, user-reported: most
+   pages render nothing while fetching, so a slow request looked identical
+   to a broken one. A sliding highlight on an indeterminate-width track,
+   same idea as GitHub/YouTube's own top-of-page loading bar. */
+.ep-top-loading-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 2000; background: var(--primary-14); overflow: hidden; }
+.ep-top-loading-bar::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: var(--primary);
+  animation: top-loading-slide 1.1s ease-in-out infinite;
+}
+@keyframes top-loading-slide { 0% { left: -40%; } 100% { left: 100%; } }
+
+/* The more explicit loading signal (user-directed 2026-10-15: the thin bar
+   above was "barely noticeable") -- a small non-blocking badge bottom-right
+   with a spinner + "Loading…" text, same show/hide timing as the bar above
+   (lib/loadingStore.ts's useDelayedFetching) so neither ever contradicts
+   the other. Never blocks the page -- pointer-events stay off so it can't
+   catch a click meant for something underneath it. */
+.ep-loading-badge {
+  position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; background: var(--surface); color: var(--ink); border-radius: var(--radius); box-shadow: var(--dialog-shadow);
+  font-size: 13.5px; font-weight: 600; pointer-events: none;
+}
+.ep-loading-spinner { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--ink-18); border-top-color: var(--primary); animation: ep-spin .7s linear infinite; }
+@keyframes ep-spin { to { transform: rotate(360deg); } }
+
+/* Comparison build (2026-10-15, user-directed) -- the declined "full
+   dimmed overlay" alternative to the badge above, hooked up temporarily so
+   it can actually be felt before picking one. Same --scrim the
+   dialog/modal overlays already use, for a dim the user already recognizes.
+   No card behind the spinner/text (user-directed) -- they sit directly on
+   the scrim, so both get a fixed light color rather than the theme's
+   --ink/--ink-18 (which assume a light card behind them). */
+.ep-loading-overlay { position: fixed; inset: 0; z-index: 2000; background: var(--scrim); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.ep-loading-overlay-text { color: #fff; font-size: 14px; font-weight: 600; }
+.ep-loading-spinner-lg { width: 30px; height: 30px; border-width: 3px; }
+.ep-loading-spinner-on-scrim { border-color: rgba(255, 255, 255, .3); border-top-color: #fff; }
+
 /* ---------- shell: sidebar ---------- */
 .ep-side { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--sidebar-bg); box-shadow: 0 0 22px 0 rgba(var(--ink-rgb), .06); display: flex; flex-direction: column; z-index: 50; overflow-x: hidden; overflow-y: auto; transition: width .25s ease, box-shadow .25s ease; }
 .ep-brand { display: flex; align-items: center; gap: 12px; padding: 26px 26px 22px; cursor: pointer; }
@@ -358,12 +396,23 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
    (2026-10-13) -- updated by hand (see RegisterPage.tsx's onStep1Input),
    these two fields aren't React-controlled. */
 .char-counter { font-size: 11px; color: var(--ink-50); font-variant-numeric: tabular-nums; }
+/* Hides a number input's native up/down spinner -- found 2026-10-15: the
+   onWheel blur on RegisterPage.tsx's year-of-incorporation field only
+   stopped the mouse-wheel-while-focused behavior; the spinner arrows
+   themselves (click or click-and-hold to step the value) are a separate
+   native control nothing else had touched. */
+.no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spinner { -moz-appearance: textfield; }
 /* Red asterisk after a field's label, mandatory fields only (2026-10-13) --
    non-mandatory fields simply carry no mark instead of an "(optional)" label. */
 .required-mark { color: var(--danger); margin-left: 2px; }
 .ep-check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .ep-check-field { min-height: 42px; }
 .ep-check input[type=checkbox] { width: 17px; height: 17px; }
+/* A radio option that's visible but not currently usable (e.g. Split-Award
+   or "recommend a different vendor" without enough qualifying bids, found
+   2026-10-15) -- greyed out with its own inline reason, not hidden outright. */
+.ep-check:has(input:disabled) { opacity: .55; cursor: not-allowed; }
 
 /* Vuexy-style toggle switch (2026-10-08) -- a real checkbox underneath
    (keeps .checked/change/name/focus/keyboard all working exactly as

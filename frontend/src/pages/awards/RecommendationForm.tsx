@@ -15,7 +15,16 @@ export function RecommendationForm({ line, onSave, saving, error }: { line: Awar
   const top = topRow(line);
   const cur = line.current && ["draft", "rejected"].includes(line.current.status) ? line.current : null;
   const others = rows.filter((r) => r.bid_id !== top?.bid_id);
-  const canSplit = line.split_award_allowed && rows.length >= 2;
+  // Real bug, found 2026-10-15: both options below used to just vanish
+  // entirely when there weren't enough qualifying bids to back them --
+  // Split-Award disappeared outright even though the line was flagged for
+  // it, and "recommend a different vendor" stayed selectable with nothing
+  // in its dropdown (rows.length only guards "zero bids at all", not "only
+  // one"). Shown greyed-out with why instead, so it's clear the feature is
+  // there but not usable yet, not missing.
+  const splitEligible = line.split_award_allowed;
+  const canSplit = splitEligible && rows.length >= 2;
+  const canRecommendOther = others.length > 0;
   const initialMode: Mode = cur?.kind === "exclude" ? "exclude" : cur && cur.proposed.length > 1 ? "split" : cur?.is_override ? "other" : "top";
   const initialProposed = new Map((cur?.proposed || []).map((a) => [a.bid_id, a.share_pct]));
 
@@ -64,10 +73,13 @@ export function RecommendationForm({ line, onSave, saving, error }: { line: Awar
         </span>
       </label>
       <label className="ep-check items-start mt-8px">
-        <input type="radio" disabled={rows.length === 0} checked={mode === "other"} onChange={() => setMode("other")} />
-        <span>Recommend a different vendor instead</span>
+        <input type="radio" disabled={!canRecommendOther} checked={mode === "other"} onChange={() => setMode("other")} />
+        <span>
+          Recommend a different vendor instead
+          {rows.length > 0 && !canRecommendOther && <span className="ep-sub"> — only one vendor submitted a qualifying bid on this line, so there's no alternative to recommend.</span>}
+        </span>
       </label>
-      {mode === "other" && (
+      {mode === "other" && canRecommendOther && (
         <div className="margin-6px-0-0-26px">
           <select className="input" value={otherBid} onChange={(e) => setOtherBid(e.target.value)}>
             {others.map((r) => (
@@ -78,11 +90,12 @@ export function RecommendationForm({ line, onSave, saving, error }: { line: Awar
           </select>
         </div>
       )}
-      {canSplit && (
+      {splitEligible && (
         <label className="ep-check items-start mt-8px">
-          <input type="radio" checked={mode === "split"} onChange={() => setMode("split")} />
+          <input type="radio" disabled={!canSplit} checked={mode === "split"} onChange={() => setMode("split")} />
           <span>
             Propose a split between vendors <span className="ep-sub">(each share at least {line.min_split_pct}%, total 100%)</span>
+            {!canSplit && <span className="ep-sub"> — only {rows.length} vendor{rows.length === 1 ? "" : "s"} submitted a qualifying bid; a split needs at least 2.</span>}
           </span>
         </label>
       )}

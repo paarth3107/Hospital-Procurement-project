@@ -2,36 +2,56 @@ import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { loadCatalogData } from "../../lib/catalogCache";
 import type { CatalogProduct, Category, ProcurementType, SubCategory } from "../../lib/types";
-import { Tag, TypeTag } from "../../components/Tag";
+import { Tag } from "../../components/Tag";
 import { Icon } from "../../lib/icons";
 import { FormField } from "../../components/FormField";
 import { useModal } from "../../components/useModal";
 import { initialFieldValues, readFieldValues, type FieldDef } from "../../lib/formFields";
 import { CoreDetailsSection, type CoreDetailsHandle } from "./CoreDetailsSection";
+import { ITEM_FIELDS, ASSET_FIELDS, SERVICE_FIELDS } from "./catalogFieldDefs";
+
+const TYPE_OPTS: [ProcurementType, string][] = [
+  ["item", "Item"],
+  ["asset", "Asset"],
+  ["service", "Service"],
+];
+const FIELDS_BY_TYPE: Record<ProcurementType, FieldDef[]> = { item: ITEM_FIELDS, asset: ASSET_FIELDS, service: SERVICE_FIELDS };
+const LABEL_BY_TYPE: Record<ProcurementType, string> = { item: "Item", asset: "Asset", service: "Service" };
 
 // Ported 1:1 from frontend/js/pages/catalog/productForm.js -- the one form
 // skeleton shared by the Item, Asset and Service forms. Item/Asset/Service
 // only differ in `procurementType`/`typeLabel`/`typeFields` (catalogFieldDefs.ts),
 // same as the vanilla itemForm.js/assetForm.js/serviceForm.js did.
+//
+// User-directed (2026-10-15): the Item/Asset/Service type switch used to
+// live above this whole form in AddProductPage.tsx, remounting the entire
+// form (every card, via a `key={type}` on <ProductForm>) on every type
+// change -- even though Item Information, Core Details, and everything on
+// the right only ever look the same regardless of type; only the type-
+// specific card's fields actually differ. Moved the switch (and the state
+// behind it) in here instead, between Core Details and the type-specific
+// card, so it's the only thing that visibly changes when the type changes
+// -- nothing above it remounts or loses what's been typed in.
 export function ProductForm({
-  procurementType,
-  typeLabel,
-  typeFields,
   product,
   categories,
   subCategories,
   onSaved,
   onCancel,
 }: {
-  procurementType: ProcurementType;
-  typeLabel: string;
-  typeFields: FieldDef[];
   product: CatalogProduct | null;
   categories: Category[];
   subCategories: SubCategory[];
   onSaved: (message: string) => void;
   onCancel: () => void;
 }) {
+  // Editing fixes the type (spec/comment below, unchanged) -- the switch
+  // only ever applies to a brand-new entry.
+  const [addType, setAddType] = useState<ProcurementType>(product?.procurement_type ?? "item");
+  const procurementType = product ? product.procurement_type : addType;
+  const typeLabel = LABEL_BY_TYPE[procurementType];
+  const typeFields = FIELDS_BY_TYPE[procurementType];
+
   const [code, setCode] = useState(product?.code ?? "");
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -46,6 +66,16 @@ export function ProductForm({
 
   const typeCategories = categories.filter((c) => c.procurement_type === procurementType);
   const subCategoryOptions = localSubCategories.filter((s) => s.category_id === categoryId);
+
+  // Category options and type-specific fields are different per type -- a
+  // selection/value from the old type wouldn't even be valid for the new
+  // one, so clear them rather than leave something stale/invalid behind.
+  const changeType = (t: ProcurementType) => {
+    setAddType(t);
+    setCategoryId("");
+    setSubCategoryId("");
+    setTypeRaw(initialFieldValues(FIELDS_BY_TYPE[t], null));
+  };
 
   const addSubCategory = async () => {
     if (!categoryId) {
@@ -106,21 +136,13 @@ export function ProductForm({
 
   return (
     <form className="catalog-form ep-form gap-16px" onSubmit={submit}>
-      <div className="d-flex items-center justify-between gap-14px flex-wrap">
-        <div className="d-flex items-baseline gap-12px">
-          <span className="fs-18px fw-800">
-            {product ? "Edit" : "New"} {typeLabel.toLowerCase()}
-          </span>
-          <TypeTag type={procurementType} />
-        </div>
-        <div className="d-flex gap-8px">
-          <button type="button" className="ep-b" onClick={onCancel}>
-            Discard
-          </button>
-          <button type="submit" className="ep-b" data-v="p" disabled={saving}>
-            {product ? "Save changes" : "Add to catalog"}
-          </button>
-        </div>
+      <div className="d-flex justify-end gap-8px">
+        <button type="button" className="ep-b" onClick={onCancel}>
+          Discard
+        </button>
+        <button type="submit" className="ep-b" data-v="p" disabled={saving}>
+          {product ? "Save changes" : "Add to catalog"}
+        </button>
       </div>
       <div className="ep-grid grid-cols-2fr-1fr">
         <div className="d-flex flex-col gap-16px minw-0">
@@ -145,6 +167,15 @@ export function ProductForm({
             `Core Details — tick the ones that apply to this ${typeLabel.toLowerCase()}`,
             <div className="core-details">
               <CoreDetailsSection ref={coreRef} product={product} />
+            </div>
+          )}
+          {!product && (
+            <div className="ep-seg self-start">
+              {TYPE_OPTS.map(([t, l]) => (
+                <button type="button" key={t} className={t === procurementType ? "on" : ""} onClick={() => changeType(t)}>
+                  {l}
+                </button>
+              ))}
             </div>
           )}
           {group(

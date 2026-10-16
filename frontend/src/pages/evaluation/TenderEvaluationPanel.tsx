@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { useAuthState } from "../../lib/authStore";
 import { fmtDateTime } from "../../lib/format";
-import type { CurrentUser, TenderEvalDetail } from "../../lib/types";
+import type { TenderEvalDetail } from "../../lib/types";
 import { LineBlock } from "./LineBlock";
 
 // Ported 1:1 from frontend/js/pages/evaluation/tenderEvaluation.js -- one
@@ -12,7 +13,9 @@ import { LineBlock } from "./LineBlock";
 // per-line wiring, no per-line fetch.
 export function TenderEvaluationPanel({ tenderId, onBack }: { tenderId: number; onBack: () => void }) {
   const [detail, setDetail] = useState<TenderEvalDetail | null>(null);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
+  // as DashboardPage -- the role is already in the shared auth store.
+  const currentUser = useAuthState().user;
   const [error, setError] = useState("");
   const [flash, setFlash] = useState<{ message: string; ok: boolean } | null>(null);
 
@@ -28,12 +31,6 @@ export function TenderEvaluationPanel({ tenderId, onBack }: { tenderId: number; 
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    api<CurrentUser>("/auth/me")
-      .then(setCurrentUser)
-      .catch(() => {});
-  }, []);
 
   const onResult = (message: string, ok: boolean) => setFlash({ message, ok });
 

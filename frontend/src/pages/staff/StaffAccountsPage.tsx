@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { useAuthState } from "../../lib/authStore";
 import { ROLE_LABELS, fmtDate } from "../../lib/format";
 import type { Facility, StaffUser } from "../../lib/types";
 import { Tag, StateTag } from "../../components/Tag";
@@ -22,7 +23,9 @@ type Dialog =
 export function StaffAccountsPage() {
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
+  // as DashboardPage -- the id is already in the shared auth store.
+  const currentUserId = useAuthState().user?.id ?? null;
   const [page, setPage] = useState(0);
   const [facilityFilter, setFacilityFilter] = useState(""); // "" = every facility
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
@@ -42,9 +45,6 @@ export function StaffAccountsPage() {
 
   useEffect(() => {
     load();
-    api<{ id: number }>("/auth/me")
-      .then((me) => setCurrentUserId(me.id))
-      .catch(() => {});
   }, [load]);
 
   const facilityName = new Map(facilities.map((f) => [f.id, f.name]));

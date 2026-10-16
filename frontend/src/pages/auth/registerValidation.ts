@@ -18,22 +18,15 @@ const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
 const IFSC_RE = /^[A-Z]{4}0[A-Z\d]{6}$/;
 const PINCODE_RE = /^\d{6}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// User-directed, stricter than the backend's own loose ">=7 digits" rule
-// (phoneDigitCount() below) -- the primary "Phone" field specifically wants
-// a real Indian mobile number shape: exactly 10 digits, leading digit 6-9.
-// RegisterPage.tsx's input handler already strips anything non-digit and
-// caps length at 10 as the user types, so this is really just the "did they
-// actually finish it" check.
+// User-directed, stricter than the backend's own loose ">=7 digits, leading
+// + allowed" rule (backend/app/schemas/vendor.py's phone_normalised()/
+// escalation_phone()) -- both phone fields want a real Indian mobile number
+// shape: exactly 10 digits, leading digit 6-9. Matched onto
+// escalation_contact_phone 2026-10-15 (it used to allow the backend's looser
+// shape, unlike "phone"). RegisterPage.tsx's input handler already strips
+// anything non-digit and caps length at 10 as the user types for both
+// fields, so this is really just the "did they actually finish it" check.
 const INDIA_MOBILE_RE = /^[6-9]\d{9}$/;
-
-// backend/app/schemas/vendor.py's phone_normalised()/escalation_phone():
-// strip everything but digits and a leading "+", require >=7 digits left.
-function phoneDigitCount(v: string): number {
-  const cleaned = Array.from(v)
-    .filter((ch) => /\d/.test(ch) || ch === "+")
-    .join("");
-  return cleaned.replace(/^\+/, "").length;
-}
 
 const required =
   (label: string) =>
@@ -64,7 +57,7 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
     if (!v.trim()) return "Year of incorporation is required.";
     const n = Number(v);
     const thisYear = new Date().getFullYear();
-    return Number.isInteger(n) && n >= 1800 && n <= thisYear ? null : `Enter a year between 1800 and ${thisYear}.`;
+    return Number.isInteger(n) && n >= 1800 && n <= thisYear ? null : "Add a valid year.";
   },
   registered_address: boundedText("Address line", 10, 250),
   alternate_address: boundedText("Alternate / correspondence address", 1, 250, true),
@@ -103,9 +96,15 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
     return EMAIL_RE.test(v.trim()) ? null : "Enter a valid email address.";
   },
   escalation_contact_name: boundedText("Escalation contact name", 2, 50),
+  // Real bug, found 2026-10-15: this used to allow the backend's own looser
+  // ">=7 digits, leading + allowed" shape, with no live typed-length cap
+  // either -- so it could hold far more than a real phone number's worth of
+  // digits. Matched to the primary "phone" field exactly instead (user-
+  // directed): same 10-digit live cap (RegisterPage.tsx's onStep1Input) and
+  // the same Indian-mobile-shape check.
   escalation_contact_phone: (v) => {
     if (!v.trim()) return "Escalation phone is required.";
-    return phoneDigitCount(v) >= 7 ? null : "Enter a valid escalation phone number.";
+    return INDIA_MOBILE_RE.test(v.trim()) ? null : "Enter a 10-digit mobile number starting with 6-9.";
   },
   // Optional field, and the backend doesn't format-check it either -- only
   // flagged if something was actually typed and it doesn't look like an email.

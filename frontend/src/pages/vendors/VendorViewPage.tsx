@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
-import type { CurrentUser, ItemRequirement, VendorDetail, VendorDocument, VendorStatusHistoryEntry } from "../../lib/types";
+import { useAuthState } from "../../lib/authStore";
+import type { ItemRequirement, VendorDetail, VendorDocument, VendorStatusHistoryEntry } from "../../lib/types";
 import { takeViewVendorId, refreshChrome, switchView } from "../../lib/bridge";
 import { useModal } from "../../components/useModal";
 import { IdentityPane } from "./IdentityPane";
@@ -24,7 +25,12 @@ export function VendorViewPage() {
   const [history, setHistory] = useState<VendorStatusHistoryEntry[]>([]);
   const [requirements, setRequirements] = useState<ItemRequirement[]>([]);
   const [reviewedDocIds, setReviewedDocIds] = useState<Set<number>>(new Set());
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  // Real bug, found 2026-10-15: fetched /auth/me itself for a role check
+  // that's already sitting in the shared auth store (AuthBoot.tsx) -- same
+  // redundant-fetch pattern found on DashboardPage, and a race against
+  // AuthBoot's own fetch of the identical endpoint whenever this page
+  // mounts right after a login/refresh (user still null at that moment).
+  const currentUser = useAuthState().user;
   const [error, setError] = useState("");
   const { promptAsync, confirmAsync, modalElement } = useModal();
 
@@ -50,12 +56,6 @@ export function VendorViewPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    api<CurrentUser>("/auth/me")
-      .then(setCurrentUser)
-      .catch(() => {});
-  }, []);
 
   const openDocument = async (docId: number): Promise<boolean> => {
     try {

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import { api } from "../../lib/api";
-import type { CurrentUser, ProcurementType, Rating, VendorLookup } from "../../lib/types";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useAuthState } from "../../lib/authStore";
+import { loadCatalogData, patchCachedRating } from "../../lib/catalogCache";
+import type { ProcurementType, Rating, VendorLookup } from "../../lib/types";
 import { Scorecard, WEIGHTS } from "./Scorecard";
 import { AdjustRatingDialog } from "./AdjustRatingDialog";
 
@@ -35,30 +36,32 @@ function WeightStrip() {
 export function RatingsPage() {
   const [type, setType] = useState<ProcurementType>("item");
   const [vendors, setVendors] = useState<VendorLookup[]>([]);
-  const [ratingByVendor, setRatingByVendor] = useState<Map<number, Rating>>(new Map());
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
+  // as DashboardPage -- the role is already in the shared auth store.
+  const currentUser = useAuthState().user;
   const [adjusting, setAdjusting] = useState<VendorLookup | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const [vs, ratings] = await Promise.all([api<VendorLookup[]>("/vendors/lookup"), api<Rating[]>(`/ratings?procurement_type=${type}`)]);
-      setVendors(vs);
-      setRatingByVendor(new Map(ratings.map((r) => [r.vendor_id, r])));
-    } catch (err) {
-      setMessage({ text: "Could not load ratings: " + (err instanceof Error ? err.message : String(err)), ok: false });
-    }
-  }, [type]);
-
+  // Real bug, found 2026-10-15, user-reported via the browser's own network
+  // panel: vendors and ratings were fetched here independently of
+  // catalogCache.ts, which Mapping Matrix/Requests also read (both want the
+  // same vendor list; mapping pages want ALL ratings, this page wants them
+  // per type) -- navigating between this page and either mapping page
+  // re-fetched the same data twice over. Reads the shared cache instead
+  // (fetched once per session), and filters by type in the render below
+  // rather than re-fetching per tab -- the vendor list doesn't even depend
+  // on type at all, only the rating does.
   useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    api<CurrentUser>("/auth/me")
-      .then(setCurrentUser)
-      .catch(() => {});
+    loadCatalogData()
+      .then((d) => {
+        setVendors(d.vendors);
+        setRatings(d.ratings);
+      })
+      .catch((err) => setMessage({ text: "Could not load ratings: " + (err instanceof Error ? err.message : String(err)), ok: false }));
   }, []);
+
+  const ratingByVendor = new Map(ratings.filter((r) => r.procurement_type === type).map((r) => [r.vendor_id, r]));
 
   const canAdjust = currentUser ? ["procurement_admin", "category_manager"].includes(currentUser.role) : false;
 
@@ -91,9 +94,13 @@ export function RatingsPage() {
           type={type}
           rating={ratingByVendor.get(adjusting.id)}
           onClose={() => setAdjusting(null)}
-          onSaved={(msg) => {
+          onSaved={(msg, updated) => {
             setMessage({ text: msg, ok: true });
-            load();
+            // Keeps the shared cache (catalogCache.ts) correct too, not
+            // just this page's own copy -- same reasoning as
+            // useMappingActions.ts's patchCachedMapping.
+            patchCachedRating(updated);
+            setRatings((prev) => (prev.some((r) => r.id === updated.id) ? prev.map((r) => (r.id === updated.id ? updated : r)) : [...prev, updated]));
           }}
         />
       )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { loadMappingData, type MappingData } from "../../lib/mappingData";
-import type { CatalogProduct } from "../../lib/types";
+import { loadMappingData, withPatchedMapping, type MappingData } from "../../lib/mappingData";
+import type { CatalogProduct, VendorMapping } from "../../lib/types";
 import { MappingDetailDialog } from "./MappingDetailDialog";
 import { useMappingActions } from "./useMappingActions";
 
@@ -12,6 +12,35 @@ import { useMappingActions } from "./useMappingActions";
 // vertically is the one that stays readable at scale).
 const mark = (state: string | undefined) => (state === "approved" ? "✓" : "—");
 const markState = (state: string | undefined) => (state === "approved" ? "approved" : "none");
+
+// Real bug, found 2026-10-15: an item row only ever looked up its own
+// item-level mapping, so a vendor approved at the whole-category level
+// (shown ticked at the top of this page) still showed every one of that
+// category's items as unmapped below it -- even though
+// services/eligibility.py's CATEGORY_MAPPING_COVERS_ITEMS already treats
+// that vendor as eligible for every item in the category (spec §4.4).
+// Mirrors that function's exact rule: an item-level Suspended/Rejected
+// mapping still blocks that one item; a merely-Pending (or absent)
+// item-level row doesn't stop the category's approval from covering it;
+// and a restricted item's own minimum rating still has to be met -- an
+// explicit item approval already passed that gate when it was decided, a
+// category approval alone doesn't guarantee it.
+function effectiveItemState(
+  itemMapping: VendorMapping | undefined,
+  categoryState: string,
+  product: CatalogProduct,
+  vendorId: number,
+  data: MappingData
+): { state: string | undefined; viaCategory: boolean } {
+  if (itemMapping && itemMapping.state !== "pending") return { state: itemMapping.state, viaCategory: false };
+  if (categoryState === "approved") {
+    const minimum = product.min_mapping_rating;
+    if (minimum == null || data.ratingScore(vendorId, product.procurement_type) >= minimum) {
+      return { state: "approved", viaCategory: true };
+    }
+  }
+  return { state: itemMapping?.state, viaCategory: false };
+}
 
 type DialogTarget = { kind: "category"; categoryId: number } | { kind: "item"; productId: number };
 
@@ -38,8 +67,8 @@ export function MappingMatrixPage() {
     load();
   }, [load]);
 
-  const mappingActions = useMappingActions(() => {
-    load();
+  const mappingActions = useMappingActions((updated) => {
+    setData((prev) => prev && withPatchedMapping(prev, updated));
     setDialogTarget(null);
   });
 
@@ -168,7 +197,7 @@ export function MappingMatrixPage() {
                       <tbody>
                         {items.map((p) => {
                           const m = data.itemMappingOf(vendor.id, p.id);
-                          const state = m?.state;
+                          const { state, viaCategory } = effectiveItemState(m, categoryState, p, vendor.id, data);
                           return (
                             <tr key={p.id}>
                               <td className="ep-cell ep-mono fs-11-5px">{p.code}</td>
@@ -181,6 +210,7 @@ export function MappingMatrixPage() {
                                 <button className="matrix-btn w-60px h-32px" data-s={markState(state)} onClick={() => setDialogTarget({ kind: "item", productId: p.id })}>
                                   {mark(state)}
                                 </button>
+                                {viaCategory && <div className="ep-sub">via category</div>}
                               </td>
                             </tr>
                           );
@@ -193,6 +223,7 @@ export function MappingMatrixPage() {
                 </div>
                 <div className="d-flex gap-22px flex-wrap padding-10px-16px fs-11-5px text-ink-62 border-top-1px-solid-ink-18">
                   <span>✓ mapped and approved</span>
+                  <span>"via category" — covered by the whole-category approval above, no item-level request needed</span>
                   <span>— not mapped (may be pending, suspended or rejected — click for details, or see Mapping requests)</span>
                 </div>
               </>

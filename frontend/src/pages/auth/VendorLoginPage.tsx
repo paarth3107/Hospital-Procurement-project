@@ -20,7 +20,25 @@ export function VendorLoginPage() {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
-      setAuthState({ token: access_token, actorType: "vendor" });
+      // Real bug, found 2026-10-15: setting token/actorType BEFORE vendor
+      // was ready used to leave a brief window where AuthBoot.tsx's own
+      // effect saw a token with no vendor yet and fired its own
+      // /vendor-auth/me -- the exact same request this line was about to
+      // make anyway, both at once. The fix (one combined setAuthState()
+      // call, only once vendor is already in hand) broke login outright,
+      // though (second pass, same day): api() reads its auth token from
+      // sessionStorage (lib/api.ts's authHeaders()), not from this
+      // function's own `access_token` variable, and nothing had written it
+      // there yet -- setAuthState() is the only thing that does, and it
+      // was pushed below on purpose. The /vendor-auth/me call right after
+      // went out with no Authorization header at all, 401ing with "Not
+      // authenticated" instead of logging in. Writing the token to
+      // sessionStorage directly here (without going through setAuthState --
+      // that still waits until vendor is ready, so AuthBoot's effect
+      // still doesn't see a change yet, and the original race stays
+      // fixed) gets authHeaders() what it needs for this one call without
+      // reopening that window.
+      sessionStorage.setItem("token", access_token);
       const vendor = await api<VendorDetail>("/vendor-auth/me");
       setAuthState({ token: access_token, actorType: "vendor", vendor });
 

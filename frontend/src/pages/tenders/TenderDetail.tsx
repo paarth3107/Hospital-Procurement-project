@@ -39,11 +39,16 @@ export function TenderDetail({
 
 function RoundsTable({ tenderId }: { tenderId: number }) {
   const [rounds, setRounds] = useState<ApprovalRound[] | null>(null);
+  // Real bug, found 2026-10-15: a failed fetch here used to render exactly
+  // like "not submitted yet" -- indistinguishable from a tender that
+  // genuinely has no approval rounds.
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    setError(false);
     api<ApprovalRound[]>(`/tenders/${tenderId}/approval-rounds`)
       .then(setRounds)
-      .catch(() => setRounds([]));
+      .catch(() => setError(true));
   }, [tenderId]);
 
   return (
@@ -62,7 +67,13 @@ function RoundsTable({ tenderId }: { tenderId: number }) {
           </tr>
         </thead>
         <tbody>
-          {!rounds?.length ? (
+          {error ? (
+            <tr>
+              <td className="ep-cell text-danger-700" colSpan={4}>
+                Could not load approval rounds — try reopening this tender.
+              </td>
+            </tr>
+          ) : !rounds?.length ? (
             <tr>
               <td className="ep-cell text-ink-55" colSpan={4}>
                 Not submitted yet.

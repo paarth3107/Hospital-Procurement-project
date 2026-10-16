@@ -49,28 +49,43 @@ export function MappingDetailDialog({
   const state = mapping ? mapping.state : null;
 
   const [history, setHistory] = useState<MappingHistoryEntry[]>([]);
+  // Real bug, found 2026-10-15: a failed fetch here used to render exactly
+  // like a mapping that genuinely has no history yet -- indistinguishable
+  // from a real "never mapped" state, so a broken request looked like a
+  // normal fact about the mapping instead of an error.
+  const [historyError, setHistoryError] = useState(false);
   useEffect(() => {
     if (!mapping) {
       setHistory([]);
+      setHistoryError(false);
       return;
     }
+    setHistoryError(false);
     mappingHistory(mapping.id)
       .then((h) => setHistory(h.slice().reverse()))
-      .catch(() => setHistory([]));
+      .catch(() => setHistoryError(true));
   }, [mapping?.id]);
 
   const requiredTypes = [
     ...new Set([...(isCategory ? [] : target.required_documents || []), ...((isCategory ? target : data.categoryById.get(categoryIdOfProduct!))?.required_documents || [])]),
   ];
   const [vendorDocs, setVendorDocs] = useState<VendorDocument[]>([]);
+  // Real bug, found 2026-10-15: a failed fetch here used to render every
+  // required document as "Not uploaded" -- indistinguishable from the
+  // vendor genuinely having none, which is exactly the kind of wrong
+  // information a reviewer would act on (e.g. rejecting a mapping over
+  // documents that are actually there, just unreachable right now).
+  const [docsError, setDocsError] = useState(false);
   useEffect(() => {
     if (!requiredTypes.length) {
       setVendorDocs([]);
+      setDocsError(false);
       return;
     }
+    setDocsError(false);
     api<VendorDocument[]>(`/vendors/${vendor.id}/documents`)
       .then(setVendorDocs)
-      .catch(() => setVendorDocs([]));
+      .catch(() => setDocsError(true));
   }, [vendor.id, requiredTypes.join("|")]);
 
   const facts: [string, string][] = [
@@ -122,24 +137,32 @@ export function MappingDetailDialog({
                 <div className="h-2px bg-ink-35 margin-15px-0-11px"></div>
                 <div className="ep-k">Required documents</div>
                 <div className="d-flex flex-col gap-6px mt-7px">
-                  {requiredTypes.map((t) => {
-                    const d = vendorDocs.find((x) => docKey(x) === entryKey(t));
-                    const status = !d ? <Tag text="Not uploaded" tone="att" /> : d.expiry_state === "expired" ? <Tag text="Expired" tone="neg" /> : <StateTag state={d.status} />;
-                    return (
-                      <div className="d-flex justify-between gap-10px fs-12px" key={t}>
-                        <span>{docLabel(t)}</span>
-                        {status}
-                      </div>
-                    );
-                  })}
-                  <div className="hint">Approving needs each one Verified — review them under Vendor registrations.</div>
+                  {docsError ? (
+                    <div className="hint text-danger-700">Could not load this vendor's documents — try closing and reopening this dialog.</div>
+                  ) : (
+                    <>
+                      {requiredTypes.map((t) => {
+                        const d = vendorDocs.find((x) => docKey(x) === entryKey(t));
+                        const status = !d ? <Tag text="Not uploaded" tone="att" /> : d.expiry_state === "expired" ? <Tag text="Expired" tone="neg" /> : <StateTag state={d.status} />;
+                        return (
+                          <div className="d-flex justify-between gap-10px fs-12px" key={t}>
+                            <span>{docLabel(t)}</span>
+                            {status}
+                          </div>
+                        );
+                      })}
+                      <div className="hint">Approving needs each one Verified — review them under Vendor registrations.</div>
+                    </>
+                  )}
                 </div>
               </>
             )}
             <div className="h-2px bg-ink-35 margin-15px-0-11px"></div>
             <div className="ep-k">Mapping history</div>
             <div className="d-flex flex-col gap-8px mt-7px">
-              {history.length ? (
+              {historyError ? (
+                <div className="hint text-danger-700">Could not load mapping history — try closing and reopening this dialog.</div>
+              ) : history.length ? (
                 history.map((h) => (
                   <div className="hist" key={h.id}>
                     <div className="hist-when">{fmtDateTime(h.at)}</div>

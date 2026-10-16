@@ -23,9 +23,13 @@ export function AdjustRatingDialog({
   type: ProcurementType;
   rating: Rating | undefined;
   onClose: () => void;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, updated: Rating) => void;
 }) {
   const [history, setHistory] = useState<RatingHistoryEntry[]>([]);
+  // Real bug, found 2026-10-15: a failed fetch here used to render exactly
+  // like "no manual entries yet" -- indistinguishable from a vendor that
+  // genuinely has no history.
+  const [historyError, setHistoryError] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
@@ -33,7 +37,7 @@ export function AdjustRatingDialog({
   useEffect(() => {
     api<RatingHistoryEntry[]>(`/ratings/${vendor.id}/history?procurement_type=${type}`)
       .then((h) => setHistory(h.slice().reverse()))
-      .catch(() => setHistory([]));
+      .catch(() => setHistoryError(true));
   }, [vendor.id, type]);
 
   const submit = async (e: FormEvent) => {
@@ -42,9 +46,15 @@ export function AdjustRatingDialog({
     for (const [f] of FIELDS) if (values[f]) payload[f] = Number(values[f]);
     if (comment) payload.comment = comment;
     try {
-      await api(`/ratings/${vendor.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      // Real bug, found 2026-10-15: the PATCH response (the updated
+      // Rating, per ratings.py's response_model) was discarded -- the
+      // caller then had to re-fetch the WHOLE ratings list (plus the
+      // vendor list again) just to see the one row that actually changed.
+      // Handing it back directly lets RatingsPage patch just that one
+      // vendor's entry in place instead.
+      const updated = await api<Rating>(`/ratings/${vendor.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       onClose();
-      onSaved(`Manual ${type} ratings saved for ${vendor.legal_name}.`);
+      onSaved(`Manual ${type} ratings saved for ${vendor.legal_name}.`, updated);
     } catch (err) {
       setError("Could not save ratings: " + (err instanceof Error ? err.message : String(err)));
     }
@@ -92,7 +102,13 @@ export function AdjustRatingDialog({
               </tr>
             </thead>
             <tbody>
-              {history.length === 0 ? (
+              {historyError ? (
+                <tr>
+                  <td className="ep-cell text-danger-700" colSpan={5}>
+                    Could not load entry history — try closing and reopening this dialog.
+                  </td>
+                </tr>
+              ) : history.length === 0 ? (
                 <tr>
                   <td className="ep-cell text-ink-55" colSpan={5}>
                     No manual entries yet.

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useModal } from "../../components/useModal";
+import { refreshChrome } from "../../lib/chromeStore";
+import { patchCachedMapping } from "../../lib/catalogCache";
 import { approveMapping, createMapping, rejectMapping, reinstateMapping, suspendMapping } from "../../lib/mappingActions";
-import type { VendorLookup } from "../../lib/types";
+import type { VendorLookup, VendorMapping } from "../../lib/types";
 
 // Ported from frontend/js/pages/mappings/mappingActions.js's decision
 // functions, minus the modalPrompt/modalConfirm/modalAlert calls baked into
@@ -15,15 +17,34 @@ import type { VendorLookup } from "../../lib/types";
 // mapAndApprove skips a confirm step entirely -- the vanilla version's
 // confirm:true default is never actually used (it's only ever called from
 // the detail dialog with confirm:false), so there's nothing to port there.
-export function useMappingActions(onChanged: () => void) {
+//
+// Real bug, found 2026-10-15: `onChanged` used to take no arguments, so
+// every page passed loadMappingData() itself as the callback -- a full
+// 6-endpoint reload (vendors, categories, subcategories, products,
+// mappings, ratings) after EVERY single decision, just to reflect the one
+// mapping row that changed. Each decision endpoint already returns the
+// updated VendorMapping (mappings.py's response_model); handing it to
+// onChanged lets the page patch that one row in place (see
+// mappingData.ts's withPatchedMapping) instead of refetching anything.
+export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
   const { promptAsync, confirmAsync, alertAsync, modalElement } = useModal();
   const [error, setError] = useState("");
 
-  const run = async (fn: () => Promise<unknown>, verb: string) => {
+  const run = async (fn: () => Promise<VendorMapping>, verb: string) => {
     try {
-      await fn();
+      const updated = await fn();
       setError("");
-      onChanged();
+      // Keeps the shared cache (catalogCache.ts) correct too, not just this
+      // page's own copy of the data -- otherwise the next page (or this one,
+      // after a remount) would read the stale pre-decision mapping back out
+      // of the cache instead of refetching OR seeing the real current state.
+      patchCachedMapping(updated);
+      onChanged(updated);
+      // Every mapping decision (approve/reject/suspend/reinstate) changes
+      // badgeMappings -- found 2026-10-15, alongside removing AppShell's
+      // blanket per-navigation chrome refresh: that used to paper over
+      // this page never telling chromeStore a decision happened at all.
+      refreshChrome();
     } catch (err) {
       setError(`Could not ${verb}: ` + (err instanceof Error ? err.message : String(err)));
     }
@@ -36,7 +57,7 @@ export function useMappingActions(onChanged: () => void) {
     }
     await run(async () => {
       const mapping = await createMapping(vendor.id, target);
-      await approveMapping(mapping.id);
+      return await approveMapping(mapping.id);
     }, "map");
   };
 

@@ -311,6 +311,17 @@ async def upload_registration_document(
         label = ""
     content = await file.read()
     doc = store_document(db, vendor.id, doc_type, file.filename, file.content_type, content, valid_till, label)
+    # Real gap, found 2026-10-15: a document upload here (registration Step
+    # 2, before the vendor is even Active) went unlogged, unlike the
+    # identical-looking upload once the vendor has a real account
+    # (vendor_documents.py's upload_document -- same action name/meta shape
+    # so it flows straight into vendor_status_history()'s existing
+    # DOCUMENT_HISTORY_ACTIONS merge with no further changes needed there).
+    record(
+        db, "vendor.document_uploaded", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
+        after={"status": doc.status},
+        meta={"document": label or doc_type.value.replace("_", " "), "file": file.filename, "valid_till": valid_till},
+    )
     db.commit()
     db.refresh(doc)
     return doc
@@ -327,7 +338,11 @@ def delete_registration_document(vendor_id: int, doc_id: int, registration_token
     doc = db.query(VendorDocument).filter(VendorDocument.id == doc_id, VendorDocument.vendor_id == vendor.id).first()
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    label = doc.custom_label or doc.doc_type.value.replace("_", " ")
     db.delete(doc)
+    # Real gap, found 2026-10-15: unlogged, same reasoning as the upload
+    # above -- matches vendor_documents.py's delete_my_document exactly.
+    record(db, "vendor.document_deleted", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name, meta={"document": label})
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

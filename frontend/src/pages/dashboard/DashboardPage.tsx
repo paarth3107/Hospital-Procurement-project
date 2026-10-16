@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { useAuthState } from "../../lib/authStore";
+import { applyDashboardStats } from "../../lib/chromeStore";
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { PipelineTracker, type StageRow } from "./PipelineTracker";
 import { ActionQueuePanel } from "./ActionQueuePanel";
@@ -22,8 +24,11 @@ import type { CurrentUser, DashboardStats } from "../../lib/types";
 // Manager/Procurement Admin branch in particular dispatches on role alone
 // (categoryManager renders its tracker only `{c && ...}`, so a role match
 // with a still-null `category_manager` falls through to the generic KPIs
-// gracefully, same as vanilla). Needs its own /auth/me fetch (no other
-// ported page has needed the current user's role before this one).
+// gracefully, same as vanilla). Role now comes from the shared auth store
+// (AuthBoot.tsx already fetched it) rather than its own /auth/me -- found
+// 2026-10-15 via the browser's network panel: this page's own fetch and
+// AuthBoot's were firing side by side on every load, same endpoint, same
+// moment, for no reason -- the role was already sitting in the store.
 function kpiCells(s: DashboardStats): KpiCell[] {
   return [
     ["Live tenders", s.open_tenders_count, s.next_bid_close ? `next bid close ${fmtDate(s.next_bid_close)}` : "none open for bidding", null, "file-text", "primary"],
@@ -65,16 +70,19 @@ function GenericDashboard({ s, role }: { s: DashboardStats; role: CurrentUser["r
 }
 
 export function DashboardPage() {
+  const role = useAuthState().user?.role ?? null;
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [role, setRole] = useState<CurrentUser["role"] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, me] = await Promise.all([api<DashboardStats>("/dashboard/stats"), api<CurrentUser>("/auth/me")]);
+        const s = await api<DashboardStats>("/dashboard/stats");
         setStats(s);
-        setRole(me.role);
+        // Feeds AppShell's sidebar badges/topbar counts from the same
+        // fetch instead of letting its own refreshChrome() request the
+        // identical /dashboard/stats a second time right alongside this one.
+        applyDashboardStats(s);
       } catch (err) {
         setError("Could not load dashboard: " + (err instanceof Error ? err.message : String(err)));
       }

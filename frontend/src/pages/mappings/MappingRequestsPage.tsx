@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { loadMappingData, type MappingData } from "../../lib/mappingData";
+import { loadMappingData, withPatchedMapping, type MappingData } from "../../lib/mappingData";
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { MappingListTable } from "./MappingListTable";
 import { useMappingActions } from "./useMappingActions";
@@ -50,7 +50,7 @@ export function MappingRequestsPage() {
     load();
   }, [load]);
 
-  const actions = useMappingActions(load);
+  const actions = useMappingActions((updated) => setData((prev) => prev && withPatchedMapping(prev, updated)));
 
   if (error && !data) return <div className="result err">{error}</div>;
   if (!data) return null;
