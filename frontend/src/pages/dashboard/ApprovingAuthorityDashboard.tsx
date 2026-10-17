@@ -43,6 +43,7 @@ function stages(a: DashboardApprovingAuthority): StageRow[] {
 function tenderSubtitle(t: DashboardApprovingAuthorityTender): string {
   const parts = [`${t.lines_total} line item(s)`];
   if (t.status === "pending_approval") parts.push(t.needs_your_approval ? "needs your decision" : `waiting on tier ${t.required_tier}`);
+  else if (t.status === "scheduled") parts.push(`approved, publishes ${fmtDate(t.publish_date)}`);
   else if (t.status === "published") {
     const due = t.bid_due_date ? new Date(t.bid_due_date) : null;
     const closed = due !== null && due <= new Date();

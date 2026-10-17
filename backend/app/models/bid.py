@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -71,8 +72,11 @@ class Bid(Base):
     submitted_at = Column(UTCDateTime(), nullable=True)  # first submission (tie-break, spec §9.3)
     amended_at = Column(UTCDateTime(), nullable=True)
     withdrawn_at = Column(UTCDateTime(), nullable=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
-    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     line_item = relationship("TenderLineItem")
     vendor = relationship("Vendor")
@@ -94,6 +98,6 @@ class BidAttachment(Base):
     # cap); the hint picks MEDIUMBLOB (16MB) instead, matching document_store's
     # own 10MB upload limit. No effect on Postgres/sqlite.
     content = Column(LargeBinary(length=16_777_215), nullable=False)
-    uploaded_at = Column(UTCDateTime(), server_default=func.now())
+    uploaded_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     bid = relationship("Bid", back_populates="attachments")

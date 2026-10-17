@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, Enum, ForeignKey, Integer, Text, func
+from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -29,7 +30,10 @@ class TenderApprovalRound(Base):
     required_tier = Column(Integer, nullable=False)
 
     submitted_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    submitted_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    submitted_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     reviewer_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
     comments = Column(Text, nullable=True)
     decided_at = Column(UTCDateTime(), nullable=True)

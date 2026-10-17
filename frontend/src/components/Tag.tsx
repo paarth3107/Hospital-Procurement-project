@@ -12,7 +12,7 @@ export function Tag({ text, tone = "" }: { text: string; tone?: Tone }) {
 const STATE_TONE: Record<string, Tone> = {
   active: "pos", approved: "pos", verified: "pos", published: "pos", accepted: "pos", awarded: "pos",
   pending: "", pending_verification: "", draft: "", submitted: "",
-  pending_approval: "att", info_requested: "esc", escalated: "esc",
+  pending_approval: "att", scheduled: "att", info_requested: "esc", escalated: "esc",
   rejected: "neg", suspended: "neg", blacklisted: "neg", withdrawn: "neg", expired: "neg", disqualified: "neg", no_award: "neg",
 };
 

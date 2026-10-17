@@ -1,8 +1,8 @@
 import enum
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import Column, Date, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import Column, Date, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -104,7 +104,10 @@ class Vendor(Base):
     # gaining its own reason.
     rejection_reason = Column(Text, nullable=True)
 
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     decided_at = Column(UTCDateTime(), nullable=True)
     decided_by_id = Column(Integer, nullable=True)  # FK to user_accounts.id once approval history needs it
 
@@ -227,7 +230,7 @@ class VendorDocument(Base):
     reviewed_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
     reviewed_at = Column(UTCDateTime(), nullable=True)
 
-    uploaded_at = Column(UTCDateTime(), server_default=func.now())
+    uploaded_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     # Spec 3.5: statutory documents carry expiry dates. Optional per document
     # (a GST certificate doesn't expire; a licence does).
@@ -268,4 +271,4 @@ class VendorStatusHistory(Base):
     to_status = Column(Enum(VendorStatus), nullable=False)
     reason = Column(Text, nullable=True)
     actor_id = Column(Integer, nullable=True)  # user_accounts.id; null = system / the vendor's own registration
-    at = Column(UTCDateTime(), server_default=func.now())
+    at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))

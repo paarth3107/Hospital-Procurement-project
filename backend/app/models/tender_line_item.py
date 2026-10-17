@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, func
+from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -63,7 +64,10 @@ class TenderLineItem(Base):
     technical_closed_at = Column(UTCDateTime(), nullable=True)
     technical_closed_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     tender = relationship("Tender", back_populates="line_items")
     product = relationship("ProductMaster")

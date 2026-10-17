@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -42,6 +43,9 @@ class UserAccount(Base):
     approval_tier = Column(Integer, nullable=True)
 
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     facility = relationship("Facility", back_populates="users")

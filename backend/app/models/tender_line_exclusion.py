@@ -1,4 +1,6 @@
-from sqlalchemy import Column, ForeignKey, Integer, Text, UniqueConstraint, func
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, ForeignKey, Integer, Text, UniqueConstraint
 
 from app.database import Base, UTCDateTime
 
@@ -15,4 +17,7 @@ class TenderLineExclusion(Base):
     tender_line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
     reason = Column(Text, nullable=False)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))

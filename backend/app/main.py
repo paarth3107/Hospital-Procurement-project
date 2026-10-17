@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.database import SessionLocal
 from app.services.awards import sweep_no_bid_lines
 from app.services.expiry import sweep_all
+from app.services.tender_publish import sweep_scheduled_publishes
 
 from app.routers import (
     audit_log,
@@ -90,10 +91,37 @@ def _run_no_bid_sweep() -> None:
         db.close()
 
 
+async def _scheduled_publish_sweep_loop() -> None:
+    """Real bug, found 2026-10-16: a tender's Publish Date used to do
+    nothing -- approval always published immediately regardless of it (see
+    TenderStatus.SCHEDULED's docstring and tenders.py's approve_tender).
+    Same reasoning as the no-bid sweep above: a publish date is a specific
+    moment, not a slow-moving one, so this is checked far more often than
+    the daily expiry sweep. The tender list/detail, dashboard, and vendor
+    portal endpoints also sweep synchronously on read; this loop is only
+    the fallback for when nobody's looking at any of them."""
+
+    while True:
+        try:
+            await asyncio.to_thread(_run_scheduled_publish_sweep)
+        except Exception:
+            logging.getLogger(__name__).exception("scheduled-publish tender sweep failed")
+        await asyncio.sleep(300)
+
+
+def _run_scheduled_publish_sweep() -> None:
+    db = SessionLocal()
+    try:
+        sweep_scheduled_publishes(db)
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 async def _start_expiry_sweep() -> None:
     asyncio.create_task(_expiry_sweep_loop())
     asyncio.create_task(_no_bid_sweep_loop())
+    asyncio.create_task(_scheduled_publish_sweep_loop())
 
 # Dev-time convenience: the frontend is served separately in production,
 # but allowing localhost origins means `frontend/` can also be opened via

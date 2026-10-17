@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { roleLabel } from "../../lib/format";
 import { DEFAULT_VIEW_BY_ROLE } from "../../lib/constants";
 import { switchView, setAuthState } from "../../lib/bridge";
 import { PasswordField } from "../../components/PasswordField";
+import { FieldError } from "../../components/FieldError";
+import { LOGIN_FIELD_VALIDATORS } from "./loginValidation";
 import type { CurrentUser } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/staffLoginPage.js. The default form
@@ -16,9 +18,31 @@ export function StaffLoginPage() {
   const [email, setEmail] = useState("admin@medsource.local");
   const [password, setPassword] = useState("changeme123");
   const [result, setResult] = useState<{ message: string; ok: boolean } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // Shared by on-blur and the final submit-time sweep -- "leave the field"
+  // and "click Log in without ever touching it" both go through the same rule.
+  function checkField(name: string, value: string) {
+    const validator = LOGIN_FIELD_VALIDATORS[name];
+    if (!validator) return null;
+    const err = validator(value);
+    setFieldErrors((prev) => (prev[name] === (err ?? "") ? prev : { ...prev, [name]: err ?? "" }));
+    return err;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A previous "Login failed" banner shouldn't still be on screen while a
+    // fresh attempt is being validated/retried.
+    setResult(null);
+    const emailErr = checkField("email", email);
+    const passwordErr = checkField("password", password);
+    if (emailErr || passwordErr) {
+      (emailErr ? emailRef : passwordRef).current?.focus();
+      return;
+    }
     try {
       const body = new URLSearchParams({ username: email, password });
       const { access_token } = await api<{ access_token: string }>("/auth/login", {
@@ -64,14 +88,37 @@ export function StaffLoginPage() {
         <p className="hint mt-4px">Hospital E-Procurement Portal</p>
       </div>
       <div className="fs-24px fw-800 mt-14px">Staff login</div>
-      <form className="ep-pane ep-pane-pad ep-form" onSubmit={submit}>
+      <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
         <div className="ep-field">
           <div className="ep-k">Email</div>
-          <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            ref={emailRef}
+            className={`input${fieldErrors.email ? " invalid" : ""}`}
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setResult(null);
+              setEmail(e.target.value);
+              if (fieldErrors.email) checkField("email", e.target.value);
+            }}
+            onBlur={(e) => checkField("email", e.target.value)}
+          />
+          <FieldError errors={fieldErrors} name="email" />
         </div>
         <div className="ep-field">
           <div className="ep-k">Password</div>
-          <PasswordField required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField
+            ref={passwordRef}
+            className={fieldErrors.password ? "input invalid" : "input"}
+            value={password}
+            onChange={(e) => {
+              setResult(null);
+              setPassword(e.target.value);
+              if (fieldErrors.password) checkField("password", e.target.value);
+            }}
+            onBlur={(e) => checkField("password", e.target.value)}
+          />
+          <FieldError errors={fieldErrors} name="password" />
         </div>
         <div className="d-flex items-center gap-14px">
           <button type="submit" className="ep-b" data-v="p">

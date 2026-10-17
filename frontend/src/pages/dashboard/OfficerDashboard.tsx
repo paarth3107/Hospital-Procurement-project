@@ -58,6 +58,7 @@ function tenderSubtitle(t: DashboardOfficerTender): string {
   const parts = [`${t.lines_total} line item(s)`];
   if (t.status === "draft") parts.push("not yet submitted");
   else if (t.status === "pending_approval") parts.push("waiting on the Approving Authority");
+  else if (t.status === "scheduled") parts.push(`approved, publishes ${fmtDate(t.publish_date)}`);
   else if (t.status === "published") {
     const due = t.bid_due_date ? new Date(t.bid_due_date) : null;
     const closed = due !== null && due <= new Date();

@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, String, Text
 
 from app.database import Base, UTCDateTime
 from app.models.user_account import Role
@@ -117,4 +118,7 @@ class OverrideRequest(Base):
     decided_at = Column(UTCDateTime(), nullable=True)
     decision_reason = Column(Text, nullable=True)
 
-    created_at = Column(UTCDateTime(), server_default=func.now(), nullable=False)
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc), nullable=False)

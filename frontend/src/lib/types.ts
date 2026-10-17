@@ -314,7 +314,7 @@ export interface PoDataFile {
 
 // Mirrors backend/app/schemas/tender.py's TenderOut exactly.
 export type TenderType = "rfq" | "rfp";
-export type TenderStatus = "draft" | "pending_approval" | "published" | "withdrawn" | "no_award" | "awarded";
+export type TenderStatus = "draft" | "pending_approval" | "scheduled" | "published" | "withdrawn" | "no_award" | "awarded";
 
 export interface Tender {
   id: number;
@@ -1012,6 +1012,7 @@ export interface DashboardOfficerTender {
   status: TenderStatus;
   bids_received: number;
   bid_due_date: string | null;
+  publish_date: string | null;
   lines_ready_to_recommend: number;
   lines_awaiting_decision: number;
   lines_total: number;
@@ -1036,6 +1037,7 @@ export interface DashboardApprovingAuthorityTender {
   status: TenderStatus;
   bids_received: number;
   bid_due_date: string | null;
+  publish_date: string | null;
   needs_your_approval: boolean;
   required_tier: number | null;
   lines_ready_to_recommend: number;

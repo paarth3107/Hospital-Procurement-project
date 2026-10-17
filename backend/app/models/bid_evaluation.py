@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, Enum, Float, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Column, Enum, Float, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -27,8 +28,11 @@ class BidEvaluation(Base):
     scores = Column(JSON, nullable=False, default=dict)  # criterion -> 0..100 (scored lines only)
     weighted_score = Column(Float, nullable=True)  # this evaluator's weighted total (scored lines only)
     comments = Column(Text, nullable=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
-    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     bid = relationship("Bid", backref="evaluations")
     evaluator = relationship("UserAccount")
@@ -48,7 +52,7 @@ class BidTechnicalResult(Base):
     consolidated_score = Column(Float, nullable=True)
     t_rank = Column(Integer, nullable=True)
     reason = Column(Text, nullable=True)
-    recorded_at = Column(UTCDateTime(), server_default=func.now())
+    recorded_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     bid = relationship("Bid", backref="technical_result", uselist=False)
 
@@ -64,4 +68,4 @@ class BidAttachmentView(Base):
     id = Column(Integer, primary_key=True)
     attachment_id = Column(Integer, ForeignKey("bid_attachments.id"), nullable=False, index=True)
     viewer_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False)
-    viewed_at = Column(UTCDateTime(), server_default=func.now())
+    viewed_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))

@@ -28,8 +28,20 @@ export function SingleDocumentField({
   label,
   requiredLabel,
   onChange,
+  disabled = false,
+  showRequiredIfMissing = false,
 }: {
   tender: Tender | null;
+  // Shows (and greys out) this field even while its owning toggle is off,
+  // instead of the field appearing/disappearing with it (user-directed,
+  // 2026-10-16) -- Rate Contract's own agreement upload only makes sense
+  // once Rate Contract is actually on.
+  disabled?: boolean;
+  // Only surface requiredLabel once the caller says the user has actually
+  // tried to move forward (user-directed, 2026-10-16) -- it used to show
+  // the moment the page loaded, reading like a standing validation error
+  // for something nobody has attempted yet.
+  showRequiredIfMissing?: boolean;
   // The "no save-first wall" pattern LineItemsGrid's attachments already use
   // (ensureLineSaved): a brand-new tender has no id to upload against yet,
   // so silently save one instead of blocking the upload behind a separate,
@@ -118,25 +130,30 @@ export function SingleDocumentField({
   return (
     <>
       {filename ? (
-        <div className="d-flex items-center gap-10px flex-wrap">
-          <span className="fw-600">{filename}</span>
-          <span className="ep-sub">{fmtSize(field(tender!, "size") as number | null)}</span>
-          <button type="button" className="ep-b" disabled={uploading} onClick={download}>
+        <div className="d-flex items-center gap-10px">
+          <span className="fw-600 doc-filename" title={filename}>
+            {filename}
+          </span>
+          <span className="ep-sub nowrap">{fmtSize(field(tender!, "size") as number | null)}</span>
+          <button type="button" className="ep-b" disabled={uploading || disabled} onClick={download}>
             Download
           </button>
-          <button type="button" className="ep-b" disabled={uploading} onClick={pickAndUpload}>
+          <button type="button" className="ep-b" disabled={uploading || disabled} onClick={pickAndUpload}>
             {uploading ? <UploadProgress value={uploadProgress} /> : "Replace"}
           </button>
-          <button type="button" className="ep-b" disabled={uploading} onClick={remove}>
+          <button type="button" className="ep-b" disabled={uploading || disabled} onClick={remove}>
             Remove
           </button>
         </div>
       ) : (
         <div className="d-flex items-center gap-10px flex-wrap">
-          <span className="fs-12px text-danger-700">{requiredLabel}</span>
-          <button type="button" className="ep-b" disabled={uploading} onClick={pickAndUpload}>
-            {uploading ? <UploadProgress value={uploadProgress} /> : "Upload document"}
+          <button type="button" className="ep-b" disabled={uploading || disabled} onClick={pickAndUpload}>
+            {uploading ? <UploadProgress value={uploadProgress} /> : "Upload Document"}
           </button>
+          {/* Only once the user has actually tried to move forward, and only
+              while this field applies at all (its toggle, if any, is on) --
+              not a standing validation error from page load. */}
+          {!disabled && showRequiredIfMissing && <span className="fs-12px text-danger-700">{requiredLabel}</span>}
         </div>
       )}
       {modalElement}

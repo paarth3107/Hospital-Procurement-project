@@ -118,9 +118,17 @@ export const LineItemsGrid = forwardRef<
 
   const productOf = (row: LineItemRow): CatalogProduct | undefined => products.find((p) => p.id === row.product_master_id);
 
-  function matchingProducts(query: string): CatalogProduct[] {
+  // A product already on another row just doesn't show up as a pickable
+  // option any more (user-directed, 2026-10-16 -- a validation error after
+  // the fact wasn't what they wanted, the duplicate shouldn't be offered in
+  // the first place). Excludes only OTHER rows' picks, not this row's own
+  // current selection -- re-opening the dropdown on a row that already has
+  // a product shouldn't make that product vanish from its own list.
+  function matchingProducts(query: string, excludeRowIndex: number): CatalogProduct[] {
+    const usedElsewhere = new Set(rows.filter((r, idx) => idx !== excludeRowIndex && r.product_master_id != null).map((r) => r.product_master_id));
+    const available = products.filter((p) => !usedElsewhere.has(p.id));
     const q = query.trim().toLowerCase();
-    const list = q ? products.filter((p) => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) : products;
+    const list = q ? available.filter((p) => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) : available;
     return list.slice(0, 50);
   }
 
@@ -181,11 +189,26 @@ export const LineItemsGrid = forwardRef<
         line_details: li.line_details || {},
       })),
     firstRowProblem: () => {
+      // Real bug, found 2026-10-16: the same catalog entry could be added on
+      // more than one row with nothing to stop it -- two separate rows for
+      // the same product would resolve into two separate eligibility
+      // previews/invites/bid forms for vendors, which makes no sense (which
+      // one is "the" line for that item?). Tracked by row number as rows are
+      // walked in order, so the error always points at the LATER row --
+      // the first one written is treated as "the" entry, the duplicate is
+      // what needs fixing.
+      const firstRowForProduct = new Map<number, number>();
       for (let i = 0; i < rows.length; i++) {
         const li = rows[i];
         if (isRowBlank(li)) continue; // untouched -- silently dropped, not an error (isRowSavable above)
         const n = i + 1;
         if (!li.product_master_id) return `Row ${n}: needs a valid catalog entry — check the product code.`;
+        const earlierRow = firstRowForProduct.get(li.product_master_id);
+        if (earlierRow !== undefined) {
+          const code = productOf(li)?.code;
+          return `Row ${n}: ${code ? `Product ${code}` : "This catalog entry"} is already on Row ${earlierRow} — each item can only appear once per tender.`;
+        }
+        firstRowForProduct.set(li.product_master_id, n);
         if (!(li.qty! > 0)) return `Row ${n}: needs a quantity greater than zero.`;
         if (li.technical_eval_method === "qcbs" && (!(li.technical_weight! > 0) || !(li.price_weight! > 0))) {
           return `Row ${n}: QCBS needs both a technical weight and a price weight, greater than zero.`;
@@ -258,7 +281,7 @@ export const LineItemsGrid = forwardRef<
   const onCodeCommit = (i: number) => updateRow(i, resolveProduct);
   const onCodeKeyDown = (i: number, row: LineItemRow, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (codeDropdownRow !== i) return;
-    const matches = matchingProducts(row.product_code_input);
+    const matches = matchingProducts(row.product_code_input, i);
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setCodeHighlight((h) => Math.min(h + 1, matches.length - 1));
@@ -471,7 +494,7 @@ export const LineItemsGrid = forwardRef<
   return (
     <div className="ep-pane">
       <div className="ep-pane-head">
-        <span>Line items</span>
+        <span>Line Items</span>
         <span className="ep-k">
           {rows.filter((r) => !isRowBlank(r)).length} line item(s) · total estimated value {inr(totalBudgetNow)}
         </span>
@@ -604,12 +627,12 @@ export const LineItemsGrid = forwardRef<
                           <td className="ep-cell" colSpan={LINE_COLS}>
                             <div className="li-details">
                               <div className="li-details-section">
-                                <div className="li-details-section-title">Evaluation &amp; scoring</div>
+                                <div className="li-details-section-title">Evaluation &amp; Scoring</div>
                                 <div className="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">
                                   {qcbs && (
                                     <div className="ep-field">
                                       <div className="ep-k">
-                                        Technical weight
+                                        Technical Weight
                                         <Req />
                                       </div>
                                       <input
@@ -625,7 +648,7 @@ export const LineItemsGrid = forwardRef<
                                   {qcbs && (
                                     <div className="ep-field">
                                       <div className="ep-k">
-                                        Price weight
+                                        Price Weight
                                         <Req />
                                       </div>
                                       <input
@@ -639,7 +662,7 @@ export const LineItemsGrid = forwardRef<
                                     </div>
                                   )}
                                   <div className="ep-field">
-                                    <div className="ep-k">Min rating threshold override</div>
+                                    <div className="ep-k">Min Rating Threshold Override</div>
                                     <input
                                       className="input"
                                       type="number"
@@ -656,7 +679,7 @@ export const LineItemsGrid = forwardRef<
 
                               {detailFields.length > 0 && (
                                 <div className="li-details-section">
-                                  <div className="li-details-section-title">Tender-specific details</div>
+                                  <div className="li-details-section-title">Tender-Specific Details</div>
                                   <div className="line-details-fields d-grid grid-cols-repeat31fr gap-10px-16px">
                                     {detailFields.map((f) => (
                                       <FormField key={f.name} field={f} raw={detailsRaw} onChange={(_name, value) => updateLineDetail(i, f, value)} />
@@ -666,7 +689,7 @@ export const LineItemsGrid = forwardRef<
                               )}
 
                               <div className="li-details-section">
-                                <div className="li-details-section-title">Attachments (spec §6.4)</div>
+                                <div className="li-details-section-title">Attachments</div>
                                 <AttachmentsPanel
                                   attachments={row.attachments}
                                   procurementType={p.procurement_type}
@@ -690,13 +713,13 @@ export const LineItemsGrid = forwardRef<
         </div>
         <div className="d-flex gap-8px flex-wrap mt-14px">
           <button type="button" className="ep-b" onClick={addRow}>
-            + Add line item
+            + Add Line Item
           </button>
           <button type="button" className="ep-b" onClick={add10Rows}>
-            + Add 10 line items
+            + Add 10 Line Items
           </button>
           <button type="button" className="ep-b" onClick={downloadTemplate}>
-            Download CSV template
+            Download CSV Template
           </button>
           <button type="button" className="ep-b" onClick={() => csvFileInputRef.current?.click()}>
             Upload CSV
@@ -729,7 +752,7 @@ export const LineItemsGrid = forwardRef<
         codeDropdownRect &&
         createPortal(
           (() => {
-            const matches = matchingProducts(rows[codeDropdownRow].product_code_input);
+            const matches = matchingProducts(rows[codeDropdownRow].product_code_input, codeDropdownRow);
             return (
               <div className="li-code-results" style={{ position: "fixed", left: codeDropdownRect.left, top: codeDropdownRect.top, width: codeDropdownRect.width }}>
                 {matches.length ? (

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { fmtDate, fmtDateTime, inr } from "../../lib/format";
 import { Tag, TypeTag } from "../../components/Tag";
-import type { ReviewLine, ReviewVendor, TenderReview } from "../../lib/types";
+import type { ReviewLine, ReviewVendor, Tender, TenderReview } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/approvals/reviewPanel.js -- the
 // approver's review of one tender, before publishing it (spec 7.2): header
@@ -166,8 +166,16 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
     }
     setDeciding(true);
     try {
-      await api(`/tenders/${tenderId}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comments: trimmed || null }) });
-      onDecided(action === "approve" ? `Tender #${tenderId} approved and published.` : `Tender #${tenderId} rejected and returned to draft.`);
+      const updated = await api<Tender>(`/tenders/${tenderId}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comments: trimmed || null }),
+      });
+      const approvedMessage =
+        updated.status === "scheduled"
+          ? `Tender #${tenderId} approved — scheduled to publish ${fmtDateTime(updated.publish_date)}.`
+          : `Tender #${tenderId} approved and published.`;
+      onDecided(action === "approve" ? approvedMessage : `Tender #${tenderId} rejected and returned to draft.`);
     } catch (err) {
       setError(`Could not ${action} the tender: ` + (err instanceof Error ? err.message : String(err)));
       setDeciding(false);

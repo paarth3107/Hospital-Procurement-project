@@ -382,11 +382,18 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .ep-form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 24px; }
 .ep-form-grid > div { min-width: 0; }
 .input-narrow { max-width: 110px; }
-/* Open tender and Rate contract: same checkbox-plus-extra-fields shape, shown side by
-   side so the two stay visually paired regardless of which one's extra fields are shown. */
-.tender-option-row { display: flex; gap: 40px; flex-wrap: wrap; }
-.tender-option { flex: 1; min-width: 260px; }
-.tender-option input[type="date"] { max-width: 150px; }
+/* Rate Contract's Start/End Date, side by side (2026-10-16) -- narrower
+   than .input-narrow's 110px would clip the picker icon against the
+   "dd-mm-yyyy" text; this row now has its own flex:1 section rather than a
+   quarter-width grid column, so there's room for a size that doesn't crowd
+   the icon. */
+.input-narrow-date { max-width: 160px; }
+/* A document's own filename, next to Download/Replace/Remove (2026-10-16) --
+   capped and ellipsized rather than left to wrap the buttons onto a second
+   line just because someone's original file had a long name. min-width: 0
+   overrides a flex child's default auto min-width, which would otherwise
+   block the ellipsis from ever kicking in. */
+.doc-filename { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .input.invalid { border-color: var(--danger); background: var(--danger-08); }
 /* On-the-spot field validation (2026-10-13): the error line directly under
    a field, shown as soon as the user leaves it with something wrong in it
@@ -413,6 +420,11 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
    or "recommend a different vendor" without enough qualifying bids, found
    2026-10-15) -- greyed out with its own inline reason, not hidden outright. */
 .ep-check:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+/* Rate Contract / Open Tender's own fields, always rendered now rather than
+   appearing/disappearing with the toggle (user-directed, 2026-10-16) -- greyed
+   out and inert until the toggle is actually on, same visual language as the
+   disabled states above. */
+.input:disabled { opacity: .55; cursor: not-allowed; background: var(--surface-subtle); }
 
 /* Vuexy-style toggle switch (2026-10-08) -- a real checkbox underneath
    (keeps .checked/change/name/focus/keyboard all working exactly as
@@ -576,6 +588,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .gap-22px { gap: 22px; }
 .gap-24px { gap: 24px; }
 .gap-26px { gap: 26px; }
+.gap-60px { gap: 60px; }
 .gap-6px { gap: 6px; }
 .gap-7px { gap: 7px; }
 .gap-8px { gap: 8px; }
@@ -626,6 +639,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .mb-14px { margin-bottom: 14px; }
 .mb-16px { margin-bottom: 16px; }
 .mb-18px { margin-bottom: 18px; }
+.mb-20px { margin-bottom: 20px; }
 .mb-4px { margin-bottom: 4px; }
 .mb-6px { margin-bottom: 6px; }
 .mb-8px { margin-bottom: 8px; }

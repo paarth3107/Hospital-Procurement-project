@@ -1,4 +1,6 @@
-from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from datetime import datetime, timezone
+
+from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -38,7 +40,10 @@ class AwardRound(Base):
     is_override = Column(Boolean, nullable=False, default=False)
     officer_reason = Column(Text, nullable=True)
     recommended_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    recommended_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    recommended_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     submitted_at = Column(UTCDateTime(), nullable=True)
     required_tier = Column(Integer, nullable=True)  # resolved from the award value at submission
@@ -91,7 +96,7 @@ class PoDataFile(Base):
     version = Column(Integer, nullable=False, default=1)
     status = Column(String(255), nullable=False, default="pending_upload")  # pending_upload | imported | import_failed | superseded
     payload = Column(JSON, nullable=False)
-    generated_at = Column(UTCDateTime(), server_default=func.now())
+    generated_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     generated_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)  # the approving authority
     supersedes_id = Column(Integer, ForeignKey("po_data_files.id"), nullable=True)
     erp_po_number = Column(String(255), nullable=True)
@@ -118,5 +123,5 @@ class Notification(Base):
     body = Column(Text, nullable=False)
     tender_id = Column(Integer, ForeignKey("tenders.id"), nullable=True)
     data = Column(JSON, nullable=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     read_at = Column(UTCDateTime(), nullable=True)

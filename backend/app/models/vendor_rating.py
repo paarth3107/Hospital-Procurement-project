@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -58,7 +58,10 @@ class VendorRating(Base):
     is_provisional = Column(Boolean, nullable=False, default=True)
 
     last_manual_update_at = Column(UTCDateTime(), nullable=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     vendor = relationship("Vendor")
     history = relationship("RatingHistory", back_populates="rating", cascade="all, delete-orphan")
@@ -108,7 +111,7 @@ class RatingHistory(Base):
     new_value = Column(Float, nullable=False)
     comment = Column(Text, nullable=True)
     entered_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    entered_at = Column(UTCDateTime(), server_default=func.now())
+    entered_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     rating = relationship("VendorRating", back_populates="history")
 
@@ -139,4 +142,4 @@ class PriceCompetitivenessRecord(Base):
     bid_id = Column(Integer, ForeignKey("bids.id"), nullable=False)
     tender_line_item_id = Column(Integer, ForeignKey("tender_line_items.id"), nullable=False)
     price_score = Column(Float, nullable=False)  # 0-100: this bid vs. the lowest qualified bid on its line
-    recorded_at = Column(UTCDateTime(), server_default=func.now())
+    recorded_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))

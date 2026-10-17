@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Date, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, false, func
+from sqlalchemy import Boolean, Column, Date, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text, false
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -20,10 +21,23 @@ class TenderType(str, enum.Enum):
 class TenderStatus(str, enum.Enum):
     """Spec §7.3/§7.4 state machine. Only Draft/Pending/Published/Withdrawn
     are reachable in this phase — Bid Window Closed onward belongs to
-    Bidding/Evaluation/Award (Phases 4-6, IMPLEMENTATION-SPEC.md §11)."""
+    Bidding/Evaluation/Award (Phases 4-6, IMPLEMENTATION-SPEC.md §11).
+
+    SCHEDULED added 2026-10-16 -- real bug: Publish Date (spec §6.3 "Bid
+    submission window opens per the tender's Publish Date/Bid Due Date") was
+    captured at tender creation and shown on the approval screen, but
+    nothing ever read it -- approve_tender() always flipped straight to
+    PUBLISHED regardless. A tender approved with a future publish date now
+    lands here instead; every status check elsewhere in the app that gates
+    vendor visibility/bidding on `status == PUBLISHED` (bids.py's
+    lock_reason, evaluation.py/awards.py/vendor_portal.py's filters) already
+    excludes this by construction, with no changes needed there --
+    services/tender_publish.py's sweep is the only thing that moves a tender
+    out of this state, once its publish_date arrives."""
 
     DRAFT = "draft"
     PENDING_APPROVAL = "pending_approval"
+    SCHEDULED = "scheduled"
     PUBLISHED = "published"
     WITHDRAWN = "withdrawn"
     NO_AWARD = "no_award"  # every line was left out of the award: closed with nothing awarded, no PO files
@@ -104,7 +118,10 @@ class Tender(Base):
     consecutive_rejections = Column(Integer, nullable=False, default=0)
 
     created_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     facility = relationship("Facility")
     line_items = relationship("TenderLineItem", back_populates="tender", cascade="all, delete-orphan")

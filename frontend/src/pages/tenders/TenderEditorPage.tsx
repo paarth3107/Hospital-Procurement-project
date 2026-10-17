@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { switchView, takePendingTenderId } from "../../lib/bridge";
-import { inr } from "../../lib/format";
+import { fmtDateTime, inr } from "../../lib/format";
 import { useModal } from "../../components/useModal";
 import { useAuthState } from "../../lib/authStore";
 import { StateTag } from "../../components/Tag";
+import { Req } from "../../components/Req";
 import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
 import { mapApiLineItems } from "./lineItemRow";
@@ -27,8 +28,6 @@ interface FormState {
   tender_type: TenderType;
   department: string;
   min_rating_threshold: string;
-  min_invites: string;
-  max_invites: string;
   open_tender: boolean;
   is_rate_contract: boolean;
   contract_start_date: string;
@@ -44,8 +43,6 @@ const BLANK_FORM: FormState = {
   tender_type: "rfq",
   department: "",
   min_rating_threshold: "0",
-  min_invites: "",
-  max_invites: "",
   open_tender: false,
   is_rate_contract: false,
   contract_start_date: "",
@@ -74,6 +71,12 @@ export function TenderEditorPage() {
   // closing and reopening the tender did (that remounts TenderDetail fresh).
   // Bumped on every successful save and passed down so its effect re-runs.
   const [refreshToken, setRefreshToken] = useState(0);
+  // User-directed (2026-10-16): the "Required before submission." note next
+  // to an empty mandatory document shouldn't sit there from the moment the
+  // page loads like a standing validation error -- only once the user has
+  // actually tried to move the tender forward (Save as Draft or Send for
+  // Approval) and it's still missing.
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
   // as DashboardPage -- the role is already in the shared auth store.
   const currentUser = useAuthState().user;
@@ -137,8 +140,6 @@ export function TenderEditorPage() {
       tender_type: t.tender_type,
       department: t.department || "",
       min_rating_threshold: String(t.min_rating_threshold),
-      min_invites: t.min_invites != null ? String(t.min_invites) : "",
-      max_invites: t.max_invites != null ? String(t.max_invites) : "",
       open_tender: t.open_tender,
       is_rate_contract: t.is_rate_contract,
       contract_start_date: t.contract_start_date || "",
@@ -165,8 +166,6 @@ export function TenderEditorPage() {
       tender_type: f.tender_type,
       department: f.department || null,
       min_rating_threshold: f.min_rating_threshold ? Number(f.min_rating_threshold) : 0,
-      min_invites: f.min_invites ? Number(f.min_invites) : null,
-      max_invites: f.max_invites ? Number(f.max_invites) : null,
       open_tender: f.open_tender,
       is_rate_contract: f.is_rate_contract,
       // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
@@ -234,6 +233,7 @@ export function TenderEditorPage() {
   }
 
   const handleSaveClick = async () => {
+    setAttemptedSubmit(true);
     setResult(null);
     try {
       await saveDraft();
@@ -243,6 +243,7 @@ export function TenderEditorPage() {
   };
 
   const handleSubmitClick = async () => {
+    setAttemptedSubmit(true);
     if (currentStatus !== "draft") return;
     const problem = gridRef.current?.firstRowProblem() || submitProblem();
     if (problem) {
@@ -338,6 +339,14 @@ export function TenderEditorPage() {
                 Revert to Draft to Edit
               </button>
             </span>
+          ) : currentStatus === "scheduled" ? (
+            <span>
+              This tender is approved and <b>Scheduled</b> — it will go live to vendors
+              {tender?.publish_date ? ` on ${fmtDateTime(tender.publish_date)}` : ""}, and can't be edited until then.{" "}
+              <button className="ep-b" onClick={revertToDraft}>
+                Revert to Draft to Edit
+              </button>
+            </span>
           ) : (
             <span>
               This tender is <b>{currentStatus.replace("_", " ")}</b> — it can only be edited while Draft.
@@ -348,17 +357,31 @@ export function TenderEditorPage() {
 
       <div className="ep-pane ep-pane-pad">
         <div className="d-flex justify-between items-baseline mb-14px">
-          <span className="fs-14px fw-800">{tender ? `Tender #${tender.id}` : "Tender header"}</span>
+          <span className="fs-14px fw-800">{tender ? `Tender #${tender.id}` : "Tender Header"}</span>
           <StateTag state={currentStatus} />
         </div>
         <fieldset className="border-0 padding-0 margin-0 minw-0" disabled={!editable}>
-          <div className="ep-form-grid">
+          {/* User-directed reorganization (2026-10-16, matched to the user's
+              own screenshot mockup). Rows 1-2 use the shared 4-column
+              ep-form-grid: Title's column is twice as wide as Facility's and
+              Department's (col-span-2 vs col-span-1 each). Row 1: Title |
+              Facility | Department. Row 2: Description | Publish Date | Bid
+              Due Date. Row 3 (Tender Type+Threshold | Open Tender | Rate
+              Contract) is its own independent flex row below, not part of
+              that grid -- see its own comment further down for why. Both
+              toggles' content is always rendered (greyed out/disabled until
+              their toggle is on), not appearing/disappearing with it. */}
+          <div className="ep-form-grid mb-20px">
             <div className="ep-field col-span-2">
-              <div className="ep-k">Title</div>
+              <div className="ep-k">
+                Title <Req />
+              </div>
               <input className="input" required value={form.title} onChange={(e) => setField("title", e.target.value)} />
             </div>
             <div className="ep-field">
-              <div className="ep-k">Facility</div>
+              <div className="ep-k">
+                Facility <Req />
+              </div>
               <select className="input" required value={form.facility_id} onChange={(e) => setField("facility_id", e.target.value)}>
                 <option value="">— select a facility —</option>
                 {facilities.map((f) => (
@@ -369,141 +392,179 @@ export function TenderEditorPage() {
               </select>
             </div>
             <div className="ep-field">
-              <div className="ep-k">Tender type</div>
-              <select className="input" required value={form.tender_type} onChange={(e) => setField("tender_type", e.target.value as TenderType)}>
-                <option value="rfq">RFQ — price only</option>
-                <option value="rfp">RFP — technical + commercial</option>
-              </select>
-            </div>
-            <div className="ep-field">
               <div className="ep-k">Department</div>
               <input className="input" value={form.department} onChange={(e) => setField("department", e.target.value)} />
             </div>
-            <div className="ep-field">
-              <div className="ep-k">Publish date (optional)</div>
-              <input className="input" type="datetime-local" value={form.publish_date} onChange={(e) => setField("publish_date", e.target.value)} />
-            </div>
-            <div className="ep-field">
-              <div className="ep-k">Bid due date</div>
-              <input className="input" type="datetime-local" value={form.bid_due_date} onChange={(e) => setField("bid_due_date", e.target.value)} />
-            </div>
-            <div className="ep-field">
-              <div className="ep-k">Default rating threshold</div>
-              <input
-                className="input input-narrow"
-                type="number"
-                step="0.1"
-                value={form.min_rating_threshold}
-                onChange={(e) => setField("min_rating_threshold", e.target.value)}
-              />
-            </div>
-            <div className="ep-field col-span-4">
-              <div className="tender-option-row">
-                <div className="tender-option">
-                  <label className="ep-switch ep-check-field">
-                    <input
-                      type="checkbox"
-                      checked={form.open_tender}
-                      onChange={async (e) => {
-                        const checked = e.target.checked;
-                        setField("open_tender", checked);
-                        // Turning it on needs a real tender id for the link
-                        // box below to show anything -- silently save instead
-                        // of leaving it hidden until a manual Save as Draft.
-                        if (checked) {
-                          try {
-                            await saveDraft({ silent: true, overrides: { open_tender: true } });
-                          } catch (err) {
-                            setResult({ message: "Could not turn on Open Tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
-                          }
-                        }
-                      }}
-                    />
-                    <span className="ep-switch-track">
-                      <span className="ep-switch-knob"></span>
-                    </span>
-                    <span className="ep-switch-label">Open tender</span>
-                  </label>
-                  <div className="mt-10px">
-                    <OpenTenderLinkBox tender={form.open_tender ? tender : null} onChange={setTender} />
-                  </div>
-                </div>
-                <div className="tender-option">
-                  <label className="ep-switch ep-check-field">
-                    <input type="checkbox" checked={form.is_rate_contract} onChange={(e) => setField("is_rate_contract", e.target.checked)} />
-                    <span className="ep-switch-track">
-                      <span className="ep-switch-knob"></span>
-                    </span>
-                    <span className="ep-switch-label">Rate contract</span>
-                  </label>
-                  {form.is_rate_contract && (
-                    <>
-                      <div className="d-flex gap-10px mt-10px">
-                        <div>
-                          <div className="ep-k">Start date</div>
-                          <input className="input" type="date" value={form.contract_start_date} onChange={(e) => setField("contract_start_date", e.target.value)} />
-                        </div>
-                        <div>
-                          <div className="ep-k">End date</div>
-                          <input className="input" type="date" value={form.contract_end_date} onChange={(e) => setField("contract_end_date", e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="mt-10px">
-                        <div className="ep-k">Rate contract agreement</div>
-                        <div className="mt-6px">
-                          <SingleDocumentField
-                            tender={tender}
-                            ensureSaved={ensureSaved}
-                            endpoint="rate-contract-document"
-                            fieldPrefix="rate_contract_document"
-                            label="Rate Contract agreement"
-                            requiredLabel="Required before submission."
-                            onChange={setTender}
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="ep-field">
-              <div className="ep-k">Min vendors to invite (optional)</div>
-              <input
-                className="input input-narrow"
-                type="number"
-                min={1}
-                disabled={form.open_tender}
-                value={form.min_invites}
-                onChange={(e) => setField("min_invites", e.target.value)}
-              />
-            </div>
-            <div className="ep-field">
-              <div className="ep-k">Max vendors to invite (optional)</div>
-              <input
-                className="input input-narrow"
-                type="number"
-                min={1}
-                disabled={form.open_tender}
-                value={form.max_invites}
-                onChange={(e) => setField("max_invites", e.target.value)}
-              />
-            </div>
-            <div className="ep-field col-span-4">
+
+            <div className="ep-field col-span-2">
               <div className="ep-k">Description</div>
               <input className="input" value={form.description} onChange={(e) => setField("description", e.target.value)} />
             </div>
-            <div className="ep-field col-span-4">
-              <div className="ep-k">Terms &amp; conditions</div>
-              <div className="hint mb-4px">Payment terms, delivery terms, penalty clauses, validity period -- as a document.</div>
+            <div className="ep-field">
+              <div className="ep-k">Publish Date</div>
+              <input className="input" type="datetime-local" value={form.publish_date} onChange={(e) => setField("publish_date", e.target.value)} />
+            </div>
+            <div className="ep-field">
+              <div className="ep-k">
+                Bid Due Date <Req />
+              </div>
+              <input className="input" type="datetime-local" value={form.bid_due_date} onChange={(e) => setField("bid_due_date", e.target.value)} />
+            </div>
+          </div>
+
+          {/* Row 3, independent of the grid above (user-directed, 2026-10-16):
+              3 actual sections, not 2 -- Tender Type+Threshold, Open Tender,
+              Rate Contract. Each section sizes to its own content (no
+              flex:1 stretch) and stays left-aligned internally. A fixed gap
+              (not justify-between, which spread them across the full row
+              width -- too much once seen) keeps a clear, consistent space
+              between them without it growing with the card's width. */}
+          <div className="d-flex flex-wrap gap-60px mb-20px">
+            <div className="d-flex gap-20px">
+              <div className="ep-field">
+                <div className="ep-k">Tender Type</div>
+                <select className="input input-narrow" required value={form.tender_type} onChange={(e) => setField("tender_type", e.target.value as TenderType)}>
+                  <option value="rfq">RFQ</option>
+                  <option value="rfp">RFP</option>
+                </select>
+              </div>
+              <div className="ep-field">
+                <div className="ep-k">Min Rating</div>
+                <input
+                  className="input input-narrow"
+                  type="number"
+                  step="0.1"
+                  value={form.min_rating_threshold}
+                  onChange={(e) => setField("min_rating_threshold", e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="minw-220px">
+              <label className="ep-switch ep-check-field">
+                <input
+                  type="checkbox"
+                  checked={form.open_tender}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setField("open_tender", checked);
+                    // Turning it on needs a real tender id for the link
+                    // box below to do anything -- silently save instead
+                    // of leaving it inert until a manual Save as Draft.
+                    if (checked) {
+                      try {
+                        await saveDraft({ silent: true, overrides: { open_tender: true } });
+                      } catch (err) {
+                        setResult({ message: "Could not turn on Open Tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
+                      }
+                    }
+                  }}
+                />
+                <span className="ep-switch-track">
+                  <span className="ep-switch-knob"></span>
+                </span>
+                <span className="ep-switch-label">Open Tender</span>
+              </label>
+              <div className="mt-10px">
+                <OpenTenderLinkBox tender={tender} enabled={form.open_tender} onChange={setTender} />
+              </div>
+            </div>
+            <div className="minw-220px">
+              <label className="ep-switch ep-check-field">
+                <input
+                  type="checkbox"
+                  checked={form.is_rate_contract}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setField("is_rate_contract", checked);
+                    // Real bug, found 2026-10-16: unlike Open Tender right
+                    // above, this never auto-saved -- the tender stayed
+                    // is_rate_contract=false on the server (and its Agreement
+                    // upload below kept using that stale saved tender via
+                    // ensureSaved(), which only saves when there's no tender
+                    // yet at all) until a manual Save as Draft, exactly the
+                    // save-first wall this whole page was redone to remove.
+                    if (checked) {
+                      try {
+                        await saveDraft({ silent: true, overrides: { is_rate_contract: true } });
+                      } catch (err) {
+                        setResult({ message: "Could not turn on Rate Contract: " + (err instanceof Error ? err.message : String(err)), ok: false });
+                      }
+                    }
+                  }}
+                />
+                <span className="ep-switch-track">
+                  <span className="ep-switch-knob"></span>
+                </span>
+                <span className="ep-switch-label">Rate Contract</span>
+              </label>
+              <div className="d-flex gap-10px mt-10px">
+                <div>
+                  <div className="ep-k">
+                    Start Date <Req />
+                  </div>
+                  <input
+                    className="input input-narrow-date"
+                    type="date"
+                    disabled={!form.is_rate_contract}
+                    value={form.contract_start_date}
+                    onChange={(e) => setField("contract_start_date", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="ep-k">
+                    End Date <Req />
+                  </div>
+                  <input
+                    className="input input-narrow-date"
+                    type="date"
+                    disabled={!form.is_rate_contract}
+                    value={form.contract_end_date}
+                    onChange={(e) => setField("contract_end_date", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Back in the shared grid, so this lines up to the exact same
+              column width as Title/Description above. Terms & Conditions and
+              Rate Contract Agreement are a fixed 50/50 split (col-span-2
+              each), not two fields just sitting side by side in a plain flex
+              row -- a grid track's width never depends on its own content,
+              so one field's filename/buttons appearing can't push the other
+              one (user-directed, 2026-10-16). Rate Contract Agreement moved
+              here from the Rate Contract toggle section above; it's still
+              greyed out and disabled until that toggle is actually on. */}
+          <div className="ep-form-grid">
+            <div className="ep-field col-span-2">
+              <div className="ep-k">
+                Terms &amp; Conditions <Req />
+              </div>
               <SingleDocumentField
                 tender={tender}
                 ensureSaved={ensureSaved}
                 endpoint="terms-document"
                 fieldPrefix="terms_document"
-                label="Terms & Conditions document"
+                label="Terms & Conditions Document"
                 requiredLabel="Required before submission."
                 onChange={setTender}
+                showRequiredIfMissing={attemptedSubmit}
+              />
+            </div>
+            <div className="ep-field col-span-2">
+              <div className="ep-k">
+                Rate Contract Agreement <Req />
+              </div>
+              <SingleDocumentField
+                tender={tender}
+                ensureSaved={ensureSaved}
+                endpoint="rate-contract-document"
+                fieldPrefix="rate_contract_document"
+                label="Rate Contract Agreement"
+                requiredLabel="Required before submission."
+                onChange={setTender}
+                disabled={!form.is_rate_contract}
+                showRequiredIfMissing={attemptedSubmit}
               />
             </div>
           </div>
@@ -528,10 +589,10 @@ export function TenderEditorPage() {
         {editable && (
           <>
             <button className="ep-b" onClick={handleSaveClick}>
-              Save as draft
+              Save as Draft
             </button>
             <button className="ep-b" data-v="p" disabled={!g.ready} onClick={handleSubmitClick}>
-              Send for approval
+              Send for Approval
             </button>
           </>
         )}
@@ -545,7 +606,11 @@ export function TenderEditorPage() {
         <TenderDetail
           tenderId={tender.id}
           tenderStatus={tender.status}
-          minInvites={form.min_invites ? Number(form.min_invites) : null}
+          // Min/Max Vendors to Invite removed from Tender Creation (user-
+          // directed, 2026-10-16) -- the eligibility preview's own
+          // below-minimum warning (TenderDetail.tsx's EligibilityLine) has
+          // nothing left to compare against, so this is always null now.
+          minInvites={null}
           isSystemAdmin={currentUser?.role === "system_admin"}
           onResult={(message, ok) => setResult({ message, ok })}
           refreshToken={refreshToken}

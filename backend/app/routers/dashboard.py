@@ -37,6 +37,7 @@ from app.schemas.dashboard import (
 from app.security import get_current_user
 from app.services import awards as award_rules
 from app.services.approval_matrix import can_approve_tier
+from app.services.tender_publish import sweep_scheduled_publishes
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -66,6 +67,8 @@ def _tender_progress_pct(tender: Tender, now: datetime, rounds_by_line: dict[int
         return 10 if tender.line_items else 5
     if tender.status == TenderStatus.PENDING_APPROVAL:
         return 20
+    if tender.status == TenderStatus.SCHEDULED:
+        return 35  # approved, just waiting on its publish date -- between Pending Approval and actually live
     if tender.status != TenderStatus.PUBLISHED:
         return 0  # not reached for a tender this dashboard lists, but defined rather than left to fall through
 
@@ -112,7 +115,7 @@ def _officer_stats(
 
     tenders = (
         db.query(Tender)
-        .filter(Tender.status.in_([TenderStatus.DRAFT, TenderStatus.PENDING_APPROVAL, TenderStatus.PUBLISHED]))
+        .filter(Tender.status.in_([TenderStatus.DRAFT, TenderStatus.PENDING_APPROVAL, TenderStatus.SCHEDULED, TenderStatus.PUBLISHED]))
         .order_by(Tender.id.desc())
         .all()
     )
@@ -141,6 +144,7 @@ def _officer_stats(
         tenders=[
             DashboardOfficerTenderOut(
                 id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
+                publish_date=t.publish_date,
                 lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decision_by_tender.get(t.id, 0),
                 lines_total=len(t.line_items), progress_pct=_tender_progress_pct(t, now, rounds_by_line),
             )
@@ -177,7 +181,7 @@ def _approving_authority_stats(
 
     tenders = (
         db.query(Tender)
-        .filter(Tender.status.in_([TenderStatus.PENDING_APPROVAL, TenderStatus.PUBLISHED]))
+        .filter(Tender.status.in_([TenderStatus.PENDING_APPROVAL, TenderStatus.SCHEDULED, TenderStatus.PUBLISHED]))
         .order_by(Tender.id.desc())
         .all()
     )
@@ -194,6 +198,7 @@ def _approving_authority_stats(
         tenders=[
             DashboardApprovingAuthorityTenderOut(
                 id=t.id, title=t.title, status=t.status, bids_received=bid_counts.get(t.id, 0), bid_due_date=t.bid_due_date,
+                publish_date=t.publish_date,
                 needs_your_approval=t.id in decidable_tender_ids, required_tier=required_tier_by_tender.get(t.id),
                 lines_ready_to_recommend=recommend_by_tender.get(t.id, 0), lines_awaiting_decision=decide_by_tender.get(t.id, 0),
                 lines_total=len(t.line_items), progress_pct=_tender_progress_pct(t, now, rounds_by_line),
@@ -227,6 +232,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     in as the equivalent "recent activity" figure that's actually real."""
 
     award_rules.sweep_no_bid_lines(db)  # at the moment it matters: this is what "still Published" claims are read from
+    sweep_scheduled_publishes(db)  # same reasoning: this is what "still Scheduled" claims below are read from
     now = datetime.now(timezone.utc)
 
     # Batched (2026-10-14, performance): draft/open/pending-approval/published/

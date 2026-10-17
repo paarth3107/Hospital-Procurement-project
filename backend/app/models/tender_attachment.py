@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, Enum, ForeignKey, Integer, LargeBinary, String, func
+from sqlalchemy import Column, Enum, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -41,7 +42,10 @@ class TenderLineAttachment(Base):
     # cap); the hint picks MEDIUMBLOB (16MB) instead, matching document_store's
     # own 10MB upload limit. No effect on Postgres/sqlite.
     content = Column(LargeBinary(length=16_777_215), nullable=False)
-    uploaded_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    uploaded_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     uploaded_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
 
     line_item = relationship("TenderLineItem", back_populates="attachments")

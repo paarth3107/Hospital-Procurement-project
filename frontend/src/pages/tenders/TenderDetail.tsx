@@ -157,7 +157,7 @@ function PublishStatusTable({
         <div className="d-flex items-center gap-12px">
           {isSystemAdmin && !closed && (
             <button className="ep-b" onClick={forceCloseBidding}>
-              Force-close bidding now (demo)
+              Force-Close Bidding Now (Demo)
             </button>
           )}
           <span className="ep-k">held lines can be published later</span>
@@ -166,7 +166,7 @@ function PublishStatusTable({
       <table className="ep-table" id="publish-status-table">
         <thead>
           <tr>
-            <th className="ep-th">Line item</th>
+            <th className="ep-th">Line Item</th>
             <th className="ep-th">Status</th>
             <th className="ep-th"></th>
           </tr>
@@ -175,11 +175,11 @@ function PublishStatusTable({
           {lines.map((li) => (
             <tr key={li.id}>
               <td className="ep-cell fw-600">{names.get(li.product_master_id) || "#" + li.product_master_id}</td>
-              <td className="ep-cell">{li.published ? <Tag text="Published" tone="pos" /> : <Tag text="Held back" tone="att" />}</td>
+              <td className="ep-cell">{li.published ? <Tag text="Published" tone="pos" /> : <Tag text="Held Back" tone="att" />}</td>
               <td className="ep-cell text-right">
                 {!li.published && (
                   <button className="ep-b" data-v="p" onClick={() => publishLine(li.id)}>
-                    Publish now
+                    Publish Now
                   </button>
                 )}
               </td>
@@ -420,7 +420,7 @@ function EligibilityLine({
           <span className="ep-sub">{marked.size} selected</span>
           <input className="input" placeholder="Reason for removing" value={removeReason} onChange={(e) => setRemoveReason(e.target.value)} />
           <button type="button" className="ep-b" data-v="p" onClick={confirmRemove}>
-            Remove selected vendors
+            Remove Selected Vendors
           </button>
           <button type="button" className="ep-b" onClick={cancelRemove}>
             Cancel
@@ -436,7 +436,7 @@ function EligibilityLine({
       {canEdit && candidates.length > 0 && (
         <div className="invite-row d-flex gap-8px items-center flex-wrap mt-10px">
           <select className="input" value={guestVendorId} onChange={(e) => setGuestVendorId(e.target.value)}>
-            <option value="">Invite a vendor</option>
+            <option value="">Invite a Vendor</option>
             {candidates.map((v) => (
               <option value={v.id} key={v.id}>
                 {v.legal_name}

@@ -1,4 +1,5 @@
 import enum
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     CheckConstraint,
@@ -9,7 +10,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import relationship
 
@@ -48,7 +48,10 @@ class VendorMapping(Base):
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
     state = Column(Enum(MappingState), nullable=False, default=MappingState.PENDING)
 
-    requested_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    requested_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     decided_by_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
     decided_at = Column(UTCDateTime(), nullable=True)
     version = Column(Integer, nullable=False, default=1)
@@ -72,6 +75,6 @@ class VendorMappingHistory(Base):
     to_state = Column(Enum(MappingState), nullable=False)
     reason = Column(Text, nullable=True)
     actor_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=True)
-    at = Column(UTCDateTime(), server_default=func.now())
+    at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     mapping = relationship("VendorMapping", back_populates="history")

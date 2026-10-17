@@ -20,6 +20,7 @@ from app.services.audit import record
 from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
 from app.services.open_links import facility_name, link_state
+from app.services.tender_publish import sweep_scheduled_publishes
 from app.schemas.open_link import RegisteredTenderOut
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
@@ -35,6 +36,7 @@ def search_my_tenders(q: str = Query(min_length=1, max_length=100), vendor: Vend
     vendors or the staff-wide catalog (app/routers/search.py's version, which
     vendor tokens are refused on entirely)."""
 
+    sweep_scheduled_publishes(db)
     needle = q.strip().lower()
     invites = (
         db.query(TenderInvite)
@@ -105,6 +107,7 @@ def list_open_tenders(vendor: Vendor = Depends(get_current_vendor), db: Session 
     from E-Tender Approval, app/services/eligibility.py -- a persisted
     snapshot, not a live re-check here) that are currently Published."""
 
+    sweep_scheduled_publishes(db)
     invites = (
         db.query(TenderInvite)
         .join(TenderLineItem, TenderInvite.tender_line_item_id == TenderLineItem.id)

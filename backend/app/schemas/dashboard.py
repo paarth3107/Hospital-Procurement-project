@@ -100,13 +100,15 @@ class DashboardAwardTaskOut(BaseModel):
 
 class DashboardOfficerTenderOut(BaseModel):
     """One row of the Officer's own "Tenders" table -- Draft/Pending Approval/
-    Published only; awarded/closed tenders drop off (nothing left to do)."""
+    Scheduled/Published only; awarded/closed tenders drop off (nothing left
+    to do)."""
 
     id: int
     title: str
     status: TenderStatus
     bids_received: int
     bid_due_date: datetime | None
+    publish_date: datetime | None  # set + in the future <=> status is Scheduled, not yet Published
     lines_ready_to_recommend: int
     lines_awaiting_decision: int
     lines_total: int
@@ -135,14 +137,15 @@ class DashboardOfficerOut(BaseModel):
 
 class DashboardApprovingAuthorityTenderOut(BaseModel):
     """One row of the Approving Authority's own "Tenders" table -- Pending
-    E-Tender Approval and Published only (mirrors the Officer's table);
-    Awarded/No Award tenders drop off (nothing left to decide)."""
+    E-Tender Approval, Scheduled, and Published only (mirrors the Officer's
+    table); Awarded/No Award tenders drop off (nothing left to decide)."""
 
     id: int
     title: str
     status: TenderStatus
     bids_received: int
     bid_due_date: datetime | None
+    publish_date: datetime | None  # set + in the future <=> status is Scheduled, not yet Published
     needs_your_approval: bool  # Pending E-Tender Approval, and at this user's decidable tier
     required_tier: int | None  # the tier that tender's current round actually needs, whether or not it's this user's
     lines_ready_to_recommend: int  # Published: lines technically closed, waiting on the Officer (tracking only)

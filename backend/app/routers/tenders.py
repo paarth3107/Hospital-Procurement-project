@@ -39,6 +39,7 @@ from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_appro
 from app.services.eligibility import resolve_eligible_vendors
 from app.services.open_links import facility_name, link_state, new_token
 from app.services.ratings import rating_score
+from app.services.tender_publish import sweep_scheduled_publishes
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
 
@@ -110,6 +111,7 @@ def list_tenders(
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(get_current_user),
 ):
+    sweep_scheduled_publishes(db)  # at the moment it matters: this is what "still Scheduled" claims are read from
     query = db.query(Tender)
     if status_filter is not None:
         query = query.filter(Tender.status == status_filter)
@@ -120,6 +122,7 @@ def list_tenders(
 
 @router.get("/{tender_id}", response_model=TenderOut)
 def get_tender(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
+    sweep_scheduled_publishes(db)
     return _load_tender(tender_id, db)
 
 
@@ -196,6 +199,24 @@ def _set_line_items(tender: Tender, items: list[LineItemCreate], db: Session) ->
 
     for item in items:
         _validate_line_item(item, db)
+    # Real bug, found 2026-10-16: nothing stopped the same catalog entry from
+    # being added on more than one line item -- two rows for the same product
+    # would each resolve their own eligibility/invites/bid form, which makes
+    # no sense (there's no way for a vendor to know which one is "the" line
+    # for that item). Backend-enforced, not just the frontend grid's own
+    # check (CLAUDE.md: never trust client-provided state for a workflow/
+    # data-integrity rule) -- _check_evaluation_lock below already assumed
+    # at most one line per product (it keys a dict by product_master_id), so
+    # this closes a real gap rather than adding a new assumption.
+    seen_products: dict[int, int] = {}
+    for position, item in enumerate(items, start=1):
+        if item.product_master_id in seen_products:
+            product = db.get(ProductMaster, item.product_master_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"'{product.name if product else item.product_master_id}' is used on more than one line item -- each catalog entry can only appear once per tender.",
+            )
+        seen_products[item.product_master_id] = position
     _check_evaluation_lock(tender, items, db)
     existing_by_id = {li.id: li for li in tender.line_items}
     keep_ids = set()
@@ -960,12 +981,22 @@ def approve_tender(
     for li in tender.line_items:
         li.published = li.id in invited_line_ids
 
+    now = datetime.now(timezone.utc)
+    # Real bug, found 2026-10-16: Publish Date (set at tender creation,
+    # shown on this review screen) used to be pure decoration -- approval
+    # always flipped straight to Published regardless of it. A publish date
+    # in the future now holds the tender in Scheduled instead; invites and
+    # per-line published flags are still resolved/persisted right here (same
+    # as always), services/tender_publish.py's sweep just flips the status
+    # once that date arrives -- nothing about eligibility is re-resolved then.
+    scheduled = tender.publish_date is not None and tender.publish_date > now
+
     round_.decision = RoundDecision.APPROVED
     round_.comments = payload.comments if payload else None
     round_.reviewer_id = user.id
-    round_.decided_at = datetime.now(timezone.utc)
-    tender.status = TenderStatus.PUBLISHED
-    tender.published_at = datetime.now(timezone.utc)
+    round_.decided_at = now
+    tender.status = TenderStatus.SCHEDULED if scheduled else TenderStatus.PUBLISHED
+    tender.published_at = None if scheduled else now
     tender.consecutive_rejections = 0
     label = _audit_label(tender)
     record(
@@ -974,10 +1005,11 @@ def approve_tender(
     )
     record(
         db, "tender.approved", "tender", tender.id, actor=user, entity_label=label, facility_id=tender.facility_id,
-        before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": TenderStatus.PUBLISHED}, reason=payload.comments if payload else None,
+        before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": tender.status}, reason=payload.comments if payload else None,
         meta={
             "round_number": round_.round_number, "required_tier": round_.required_tier,
             "lines_published": len(invited_line_ids), "lines_held": len(tender.line_items) - len(invited_line_ids),
+            "scheduled_for": tender.publish_date.isoformat() if scheduled else None,
         },
     )
     db.commit()
@@ -1021,17 +1053,20 @@ def withdraw_to_draft(
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
-    """Lets a Published tender be pulled back to Draft for editing --
-    line items can only be added/changed while Draft (see
-    add_line_item/_require_draft above). Refused once any vendor has
-    already bid on it: reopening line items after real bids exist would
-    silently invalidate what those vendors bid against, with nothing here
-    to notify them. A tender with no bids yet has nothing to protect, so
-    it's a plain revert, not a governed override -- there's no separate
-    approval step for undoing your own not-yet-acted-on publish."""
+    """Lets a Published (or Scheduled -- approved, but still waiting on its
+    publish date) tender be pulled back to Draft for editing -- line items
+    can only be added/changed while Draft (see add_line_item/_require_draft
+    above). Refused once any vendor has already bid on it: reopening line
+    items after real bids exist would silently invalidate what those
+    vendors bid against, with nothing here to notify them. A Scheduled
+    tender can never have a bid yet (bids.py's lock_reason only opens
+    bidding once status is actually Published), so this check is a no-op
+    for it, not a separate code path. A tender with no bids yet has nothing
+    to protect, so it's a plain revert, not a governed override -- there's
+    no separate approval step for undoing your own not-yet-acted-on publish."""
 
     tender = _load_tender(tender_id, db)
-    if tender.status != TenderStatus.PUBLISHED:
+    if tender.status not in (TenderStatus.PUBLISHED, TenderStatus.SCHEDULED):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Tender is in status '{tender.status.value}', not Published")
 
     line_item_ids = [li.id for li in tender.line_items]
@@ -1042,13 +1077,14 @@ def withdraw_to_draft(
             detail=f"Cannot revert to Draft: {bid_count} bid(s) have already been submitted against this tender",
         )
 
+    previous_status = tender.status
     tender.status = TenderStatus.DRAFT
     tender.published_at = None
     for li in tender.line_items:
         li.published = False
     record(
         db, "tender.withdrawn_to_draft", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
-        before={"status": TenderStatus.PUBLISHED}, after={"status": TenderStatus.DRAFT},
+        before={"status": previous_status}, after={"status": TenderStatus.DRAFT},
     )
     db.commit()
     db.refresh(tender)

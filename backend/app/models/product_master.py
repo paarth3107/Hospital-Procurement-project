@@ -1,9 +1,14 @@
 import enum
+from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
+
+# Every created_at below: real bug, found 2026-10-16 -- see audit_log.py's
+# AuditLog.occurred_at for the full explanation (server_default=func.now()
+# used the DB server's own local timezone instead of true UTC).
 
 
 class ProcurementType(str, enum.Enum):
@@ -33,7 +38,7 @@ class ProductCategory(Base):
     # (VendorDocType values, e.g. ["iso_certificate"]).
     required_documents = Column(JSON, nullable=False, default=list)
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     products = relationship("ProductMaster", back_populates="category_ref")
     sub_categories = relationship("ProductSubCategory", back_populates="category_ref")
@@ -54,7 +59,7 @@ class ProductSubCategory(Base):
     name = Column(String(255), nullable=False)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=False)
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     category_ref = relationship("ProductCategory", back_populates="sub_categories")
     products = relationship("ProductMaster", back_populates="sub_category_ref")
@@ -97,7 +102,7 @@ class ProductMaster(Base):
     type_specific_attrs = Column(JSON, nullable=False, default=dict)
 
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     category_ref = relationship("ProductCategory", back_populates="products")
     sub_category_ref = relationship("ProductSubCategory", back_populates="products")

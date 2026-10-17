@@ -9,14 +9,7 @@ import { StateTag } from "../../components/Tag";
 import { DocumentDropzones, type DocEntryState } from "./registerDocuments";
 import { OtherDocsSection, type OtherDocsHandle } from "./registerOtherDocs";
 import { FIELD_VALIDATORS } from "./registerValidation";
-
-// The error line directly under a field, shown as soon as the user leaves
-// it with something invalid in it -- see registerValidation.ts for what
-// "invalid" means per field. Renders nothing until that field has actually
-// been checked once.
-function FieldError({ errors, name }: { errors: Record<string, string>; name: string }) {
-  return errors[name] ? <div className="field-error">{errors[name]}</div> : null;
-}
+import { FieldError } from "../../components/FieldError";
 
 const MANDATORY_DOC_TYPES = VENDOR_DOC_TYPES.filter((t) => t.mandatory).map((t) => t.value);
 

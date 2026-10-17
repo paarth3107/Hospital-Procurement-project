@@ -13,10 +13,10 @@ import type { LineAttachment, ProcurementType, TenderLineAttachmentKind } from "
 // bidLineItems.js importing `KIND_LABELS as SPEC_ATTACHMENT_KIND_LABELS`
 // from this same file's vanilla counterpart (tenders/lineAttachments.js).
 export const KIND_LABELS: Record<TenderLineAttachmentKind, string> = {
-  sow_document: "Scope of Work (SOW) document",
-  technical_spec_sheet: "Technical specification sheet",
-  engineering_drawing: "Engineering drawing",
-  reference_image: "Reference / sample image",
+  sow_document: "Scope of Work (SOW) Document",
+  technical_spec_sheet: "Technical Specification Sheet",
+  engineering_drawing: "Engineering Drawing",
+  reference_image: "Reference / Sample Image",
   other: "Other",
 };
 

@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -21,7 +23,10 @@ class TenderInvite(Base):
     rating_at_resolution = Column(Float, nullable=False)
     # Required for source == "guest": why an officer invited a vendor the rules didn't select.
     reason = Column(Text, nullable=True)
-    created_at = Column(UTCDateTime(), server_default=func.now())
+    # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
+    # for the full explanation (server_default=func.now() used the DB
+    # server's own local timezone instead of true UTC).
+    created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
     line_item = relationship("TenderLineItem", back_populates="invites")
     vendor = relationship("Vendor")
