@@ -54,7 +54,7 @@ export function PoFilesPage() {
         <span className="ep-k">{files.length}</span>
       </div>
       <div className="hint padding-10px-16px">
-        This system's job ends at the file. Download it as CSV or XML and hand it to the ERP team. Files carry vendor GSTIN and prices, so only Procurement Admin / Category
+        This system's job ends at the file. Download it as CSV or XML and hand it to the ERP team. Files carry vendor GSTIN and prices, so only Category
         Manager can download them.
       </div>
       <table className="ep-table">

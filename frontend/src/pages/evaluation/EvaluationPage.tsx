@@ -6,7 +6,7 @@ import type { TenderEvalSummary } from "../../lib/types";
 import { TenderEvaluationPanel } from "./TenderEvaluationPanel";
 
 // Ported 1:1 from frontend/js/pages/evaluation/evaluationPage.js -- bid
-// evaluation (Officer, Category Manager, Procurement Admin), grouped by
+// evaluation (Officer, Category Manager), grouped by
 // tender: mirrors Awards/E-Tender-Approval's own tender-grouped layout
 // instead of a flat cross-tender line list. Open a tender to see every one
 // of its published lines together, track submissions and, after the due

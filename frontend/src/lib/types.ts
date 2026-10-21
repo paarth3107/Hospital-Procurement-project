@@ -44,7 +44,7 @@ export const EMPTY_FILTERS: AuditFilters = { entity_type: "", action: "", actor_
 
 // Mirrors backend/app/schemas/staff.py + facility.py.
 
-export type Role = "procurement_officer" | "procurement_admin" | "category_manager" | "approving_authority" | "system_admin";
+export type Role = "procurement_officer" | "category_manager" | "approving_authority" | "system_admin";
 
 export interface StaffUser {
   id: number;
@@ -169,6 +169,11 @@ export interface VendorDetail {
   category_declaration: string | null;
   rejection_reason: string | null;
   created_at: string;
+  // Added 2026-10-21 for registration recovery -- registration_token is
+  // only ever non-null while status is "draft" (backend nulls it out
+  // otherwise, see schemas/vendor.py's VendorOut.hide_token_once_not_draft).
+  registration_token: string | null;
+  email_verified: boolean;
 }
 
 // Mirrors backend/app/schemas/vendor_document.py (and models/vendor.py's
@@ -384,7 +389,7 @@ export interface EligibleVendor {
   vendor_id: number;
   legal_name: string;
   rating_score: number;
-  source: "system" | "open" | "guest";
+  source: "system" | "open" | "manual";
   reason: string | null;
 }
 
@@ -751,7 +756,7 @@ export interface DecisionIn {
 
 // Mirrors backend/app/schemas/vendor_portal.py's PortalLineItemOut/
 // PortalTenderOut, bid.py's MyBidOut, and open_link.py's RegisteredTenderOut.
-export type BidStatus = "draft" | "submitted" | "withdrawn";
+export type BidStatus = "draft" | "submitted" | "withdrawn" | "pending_late_exception";
 
 export interface PortalLineItem {
   line_item_id: number;
@@ -928,7 +933,7 @@ export interface RatingManualUpdatePayload {
 
 // ---- Dashboard (Phase 12) -- mirrors backend/app/schemas/dashboard.py and
 // auth.py's CurrentUser exactly. ----
-export type StaffRole = "procurement_officer" | "procurement_admin" | "category_manager" | "approving_authority" | "system_admin";
+export type StaffRole = "procurement_officer" | "category_manager" | "approving_authority" | "system_admin";
 
 export interface CurrentUser {
   id: number;

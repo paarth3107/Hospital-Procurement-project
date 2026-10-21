@@ -192,7 +192,7 @@ function PublishStatusTable({
 }
 
 // Filter-chain style preview: one block per line with its eligible vendors,
-// plus the officer's guest invites with their reasons. Every vendor on a
+// plus the officer's manual invites (spec §6.6) with their reasons. Every vendor on a
 // line shows the same way, whether the rules, the open tender or the
 // officer put it there. On a Draft of a selective tender, clicking a chip
 // marks it for removal -- click as many as you want, each one highlights,
@@ -236,18 +236,19 @@ function EligibilityPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, refreshToken]);
 
-  // User-directed (2026-10-13): adding a guest invite or removing a vendor
-  // used to re-fetch the whole tender's eligibility preview (every line,
-  // plus the tender and vendor-lookup calls) from the server, even though
-  // the officer's action only ever changes ONE line, and we already have
-  // every piece of data the new state needs in hand -- a guest invite is by
-  // definition a vendor the eligibility rules did NOT select, so there's
-  // nothing to re-check; its legal name is already in activeVendors and its
-  // rating_at_resolution comes straight back on the POST response. A removal
-  // just moves an entry that's already fully rendered from "eligible" to
-  // "removed" with the reason just typed. Neither needs the server asked
-  // again -- so this now patches `preview` in place instead of reloading it.
-  const onGuestAdded = (lineItemId: number, entry: EligibleVendor) =>
+  // User-directed (2026-10-13): adding a manual invite (spec §6.6) or
+  // removing a vendor used to re-fetch the whole tender's eligibility
+  // preview (every line, plus the tender and vendor-lookup calls) from the
+  // server, even though the officer's action only ever changes ONE line,
+  // and we already have every piece of data the new state needs in hand --
+  // a manual invite is by definition a vendor the eligibility rules did NOT
+  // select, so there's nothing to re-check; its legal name is already in
+  // activeVendors and its rating_at_resolution comes straight back on the
+  // POST response. A removal just moves an entry that's already fully
+  // rendered from "eligible" to "removed" with the reason just typed.
+  // Neither needs the server asked again -- so this now patches `preview`
+  // in place instead of reloading it.
+  const onManualInviteAdded = (lineItemId: number, entry: EligibleVendor) =>
     setPreview((prev) => prev && prev.map((p) => (p.line_item_id === lineItemId ? { ...p, eligible_vendors: [...p.eligible_vendors, entry] } : p)));
 
   const onVendorsRemoved = (lineItemId: number, removed: ExcludedVendor[]) => {
@@ -283,7 +284,7 @@ function EligibilityPreview({
             minInvites={minInvites}
             canEdit={canEdit}
             activeVendors={activeVendors}
-            onGuestAdded={onGuestAdded}
+            onManualInviteAdded={onManualInviteAdded}
             onVendorsRemoved={onVendorsRemoved}
             onAlert={alertAsync}
           />
@@ -300,7 +301,7 @@ function EligibilityLine({
   minInvites,
   canEdit,
   activeVendors,
-  onGuestAdded,
+  onManualInviteAdded,
   onVendorsRemoved,
   onAlert,
 }: {
@@ -309,14 +310,14 @@ function EligibilityLine({
   minInvites: number | null;
   canEdit: boolean;
   activeVendors: VendorLookup[];
-  onGuestAdded: (lineItemId: number, entry: EligibleVendor) => void;
+  onManualInviteAdded: (lineItemId: number, entry: EligibleVendor) => void;
   onVendorsRemoved: (lineItemId: number, removed: ExcludedVendor[]) => void;
   onAlert: (message: string, title?: string) => Promise<void>;
 }) {
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [removeReason, setRemoveReason] = useState("");
-  const [guestVendorId, setGuestVendorId] = useState("");
-  const [guestReason, setGuestReason] = useState("");
+  const [manualVendorId, setManualVendorId] = useState("");
+  const [manualReason, setManualReason] = useState("");
 
   const none = p.eligible_vendors.length === 0;
   const short = !none && !!minInvites && p.eligible_vendors.length < minInvites;
@@ -358,26 +359,26 @@ function EligibilityLine({
     }
   };
 
-  const addGuest = async () => {
-    if (!guestVendorId) return onAlert("Choose a vendor to invite.");
-    const reason = guestReason.trim();
-    if (!reason) return onAlert("Give a reason. Guests are invited outside the eligibility rules, so the reason is kept on record.");
-    const vendorId = Number(guestVendorId);
+  const addManualInvite = async () => {
+    if (!manualVendorId) return onAlert("Choose a vendor to invite.");
+    const reason = manualReason.trim();
+    if (!reason) return onAlert("Give a reason. This invite is outside the eligibility rules, so the reason is kept on record.");
+    const vendorId = Number(manualVendorId);
     try {
-      const invite = await api<{ vendor_id: number; rating_at_resolution: number }>(`/tenders/${tenderId}/lines/${p.line_item_id}/guest-invites`, {
+      const invite = await api<{ vendor_id: number; rating_at_resolution: number }>(`/tenders/${tenderId}/lines/${p.line_item_id}/manual-invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vendor_id: vendorId, reason }),
       });
-      // A guest invite is, by definition, a vendor the eligibility rules did
+      // A manual invite is, by definition, a vendor the eligibility rules did
       // NOT select -- there's nothing to re-check against those rules. The
       // POST response already carries the resolved rating, and the vendor's
       // name is already in activeVendors (it's where the dropdown came from),
       // so the new entry can be built here instead of re-fetching anything.
       const vendor = activeVendors.find((v) => v.id === vendorId);
-      onGuestAdded(p.line_item_id, { vendor_id: vendorId, legal_name: vendor?.legal_name ?? "", rating_score: invite.rating_at_resolution, source: "guest", reason });
-      setGuestVendorId("");
-      setGuestReason("");
+      onManualInviteAdded(p.line_item_id, { vendor_id: vendorId, legal_name: vendor?.legal_name ?? "", rating_score: invite.rating_at_resolution, source: "manual", reason });
+      setManualVendorId("");
+      setManualReason("");
     } catch (err) {
       await onAlert(err instanceof Error ? err.message : String(err));
     }
@@ -435,7 +436,7 @@ function EligibilityLine({
       ))}
       {canEdit && candidates.length > 0 && (
         <div className="invite-row d-flex gap-8px items-center flex-wrap mt-10px">
-          <select className="input" value={guestVendorId} onChange={(e) => setGuestVendorId(e.target.value)}>
+          <select className="input" value={manualVendorId} onChange={(e) => setManualVendorId(e.target.value)}>
             <option value="">Invite a Vendor</option>
             {candidates.map((v) => (
               <option value={v.id} key={v.id}>
@@ -443,8 +444,8 @@ function EligibilityLine({
               </option>
             ))}
           </select>
-          <input className="input" placeholder="Reason" value={guestReason} onChange={(e) => setGuestReason(e.target.value)} />
-          <button type="button" className="ep-b" onClick={addGuest}>
+          <input className="input" placeholder="Reason" value={manualReason} onChange={(e) => setManualReason(e.target.value)} />
+          <button type="button" className="ep-b" onClick={addManualInvite}>
             Invite
           </button>
         </div>

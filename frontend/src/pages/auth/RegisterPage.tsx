@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, uploadWithProgress } from "../../lib/api";
-import { switchView } from "../../lib/bridge";
+import { switchView, takePendingRegistrationResume } from "../../lib/bridge";
 import { CITIES_BY_STATE, INDIAN_STATES, OTHER_CITY, VENDOR_DOC_TYPES } from "../../lib/constants";
 import { OpenLinkNote } from "./OpenLinkNote";
 import { PasswordField } from "../../components/PasswordField";
@@ -10,6 +10,7 @@ import { DocumentDropzones, type DocEntryState } from "./registerDocuments";
 import { OtherDocsSection, type OtherDocsHandle } from "./registerOtherDocs";
 import { FIELD_VALIDATORS } from "./registerValidation";
 import { FieldError } from "../../components/FieldError";
+import type { VendorDetail } from "../../lib/types";
 
 const MANDATORY_DOC_TYPES = VENDOR_DOC_TYPES.filter((t) => t.mandatory).map((t) => t.value);
 
@@ -52,6 +53,14 @@ export function RegisterPage() {
   const [registrationToken, setRegistrationToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  // Registration recovery (2026-10-21): true only when we landed here via
+  // VendorLoginPage's "still Draft" redirect, carrying what's already saved.
+  // Unlike the normal same-session case, Step 1 stays editable (there's now
+  // an update endpoint to actually persist edits to) and there's no
+  // plaintext password to prefill, so the password field doesn't render at
+  // all in this mode -- same reasoning StaffFormDialog.tsx uses for editing.
+  const [resuming, setResuming] = useState(false);
+  const resumeCityRef = useRef<string | null>(null);
   // Email ownership verification (2026-10-19, user-directed): once the draft
   // is created, Step 2 is gated behind a 6-digit code sent to the Step 1
   // email -- proves the registrant actually controls that inbox, not just
@@ -83,6 +92,75 @@ export function RegisterPage() {
 
   const cities = CITIES_BY_STATE[stateValue] || [];
   const cityIsOther = cityValue === OTHER_CITY;
+
+  // Registration recovery (2026-10-21): if VendorLoginPage sent us here
+  // (still Draft), prefill every Step 1 field from what's already saved and
+  // immediately run the same save+continue logic a fresh Continue click
+  // would -- "the save as draft flow runs automatically, and if the code's
+  // already verified, Step 2 opens" (user-directed). If it's NOT verified
+  // yet, saveStep1 below falls through to sending a fresh code and staying
+  // on Step 1, prefilled and now editable, exactly where they left off.
+  useEffect(() => {
+    const resume = takePendingRegistrationResume();
+    if (!resume) return;
+    setVendorId(resume.id);
+    setRegistrationToken(resume.registration_token);
+    setEmailVerified(resume.email_verified);
+    setResuming(true);
+    setStateValue(resume.state || "");
+    const knownCities = CITIES_BY_STATE[resume.state || ""] || [];
+    const cityIsKnown = !!resume.city && knownCities.includes(resume.city);
+    setCityValue(resume.city ? (cityIsKnown ? resume.city : OTHER_CITY) : "");
+    if (resume.city && !cityIsKnown) resumeCityRef.current = resume.city; // city_other doesn't exist in the DOM yet -- see the effect below
+    prefillStep1(resume);
+    // Fields are in the DOM now (synchronous writes above); run the normal
+    // save+continue flow with what's already there, unedited.
+    saveStep1();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // city_other only renders once cityIsOther is true, which the effect
+  // above triggers via setCityValue but can't write into synchronously
+  // (the input doesn't exist until this render lands) -- a second pass.
+  useEffect(() => {
+    if (cityIsOther && resumeCityRef.current) {
+      const el = step1Ref.current?.querySelector<HTMLInputElement>(`[name="city_other"]`);
+      if (el) el.value = resumeCityRef.current;
+      resumeCityRef.current = null;
+    }
+  }, [cityIsOther]);
+
+  function prefillStep1(v: VendorDetail) {
+    const set = (name: string, value: string | number | null | undefined) => {
+      const el = step1Ref.current?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[name="${name}"]`);
+      if (el && value != null) el.value = String(value);
+    };
+    set("legal_name", v.legal_name);
+    set("trade_name", v.trade_name);
+    set("entity_type", v.entity_type);
+    set("year_of_incorporation", v.year_of_incorporation);
+    set("website", v.website);
+    set("registered_address", v.registered_address);
+    set("pincode", v.pincode);
+    set("alternate_address", v.alternate_address);
+    set("branch_locations", v.branch_locations);
+    set("gstin", v.gstin);
+    set("pan", v.pan);
+    set("bank_name", v.bank_name);
+    set("bank_account_number", v.bank_account_number);
+    set("bank_ifsc", v.bank_ifsc);
+    set("contact_person", v.contact_person);
+    set("contact_designation", v.contact_designation);
+    set("phone", v.phone);
+    set("email", v.email);
+    set("escalation_contact_name", v.escalation_contact_name);
+    set("escalation_contact_phone", v.escalation_contact_phone);
+    set("escalation_contact_email", v.escalation_contact_email);
+    // The live "N/250" counters (onStep1Input) only update on a real input
+    // event, which setting .value directly doesn't fire -- set them to match.
+    if (registeredAddressCounterRef.current) registeredAddressCounterRef.current.textContent = `${(v.registered_address || "").length}/${ADDRESS_MAX}`;
+    if (alternateAddressCounterRef.current) alternateAddressCounterRef.current.textContent = `${(v.alternate_address || "").length}/${ADDRESS_MAX}`;
+  }
 
   // Ticks the confirmation screen's countdown and redirects once it reaches
   // zero -- a real delay the vendor can watch and read against, not an
@@ -194,10 +272,18 @@ export function RegisterPage() {
   // without anything to recheck), it's reused rather than creating a second
   // one -- Step 1's fields are locked by then anyway (see the fieldset
   // below), so nothing could have changed.
-  async function checkDuplicatesAndContinue() {
+  //
+  // Also what the registration-recovery effect above calls automatically
+  // on mount. `resuming` (set only by that recovery path) is what tells
+  // this to PUT .../draft (update the existing row) instead of POST
+  // .../draft (create) -- the two are otherwise identical. No separate
+  // "Save as Draft" -- Continue already saves, and a vendor stuck on a bad
+  // email is covered by that same recovery path (logging back in), so a
+  // second, dedicated save button would just duplicate what this already does.
+  async function saveStep1() {
     if (checkingDuplicates) return;
     if (!validateStep1()) return;
-    if (vendorId && registrationToken) {
+    if (vendorId && registrationToken && !resuming) {
       // Reusing an existing draft (Step 2 -> Back -> Continue again): if
       // email verification somehow still isn't done, stay here and let the
       // code panel below render instead of skipping ahead to Step 2.
@@ -206,60 +292,93 @@ export function RegisterPage() {
     }
     setCheckingDuplicates(true);
     try {
-      const dup = await api<{ gstin: string | null; pan: string | null; email: string | null; phone: string | null }>("/vendors/check-duplicates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gstin: step1Value("gstin"), pan: step1Value("pan"), email: step1Value("email"), phone: step1Value("phone") }),
-      });
-      const dupErrors = (["gstin", "pan", "email", "phone"] as const).filter((k) => dup[k]);
-      if (dupErrors.length) {
-        setFieldErrors((prev) => {
-          const next = { ...prev };
-          for (const k of dupErrors) next[k] = dup[k]!;
-          return next;
+      let draft: { id: number; registration_token: string; email_verified: boolean };
+      if (resuming && vendorId && registrationToken) {
+        draft = await api(`/vendors/${vendorId}/draft`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            legal_name: step1Value("legal_name"),
+            gstin: step1Value("gstin"),
+            pan: step1Value("pan"),
+            trade_name: step1Value("trade_name") || null,
+            entity_type: step1Value("entity_type"),
+            year_of_incorporation: Number(step1Value("year_of_incorporation")),
+            registered_address: step1Value("registered_address"),
+            city: cityIsOther ? step1Value("city_other") : cityValue,
+            state: stateValue,
+            pincode: step1Value("pincode"),
+            branch_locations: step1Value("branch_locations") || null,
+            alternate_address: step1Value("alternate_address") || null,
+            website: step1Value("website") || null,
+            bank_name: step1Value("bank_name"),
+            bank_account_number: step1Value("bank_account_number"),
+            bank_ifsc: step1Value("bank_ifsc"),
+            contact_person: step1Value("contact_person"),
+            contact_designation: step1Value("contact_designation"),
+            email: step1Value("email"),
+            phone: step1Value("phone"),
+            escalation_contact_name: step1Value("escalation_contact_name"),
+            escalation_contact_phone: step1Value("escalation_contact_phone"),
+            escalation_contact_email: step1Value("escalation_contact_email") || null,
+            registration_token: registrationToken,
+          }),
         });
-        const first: { el: HTMLElement | null } = { el: null };
-        for (const k of dupErrors) {
-          const el = step1Ref.current?.querySelector<HTMLElement>(`[name="${k}"]`);
-          el?.classList.add("invalid");
-          if (!first.el) first.el = el ?? null;
+      } else {
+        const dup = await api<{ gstin: string | null; pan: string | null; email: string | null; phone: string | null }>("/vendors/check-duplicates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gstin: step1Value("gstin"), pan: step1Value("pan"), email: step1Value("email"), phone: step1Value("phone") }),
+        });
+        const dupErrors = (["gstin", "pan", "email", "phone"] as const).filter((k) => dup[k]);
+        if (dupErrors.length) {
+          setFieldErrors((prev) => {
+            const next = { ...prev };
+            for (const k of dupErrors) next[k] = dup[k]!;
+            return next;
+          });
+          const first: { el: HTMLElement | null } = { el: null };
+          for (const k of dupErrors) {
+            const el = step1Ref.current?.querySelector<HTMLElement>(`[name="${k}"]`);
+            el?.classList.add("invalid");
+            if (!first.el) first.el = el ?? null;
+          }
+          first.el?.scrollIntoView({ block: "center", behavior: "smooth" });
+          return;
         }
-        first.el?.scrollIntoView({ block: "center", behavior: "smooth" });
-        return;
+        const openLinkToken = sessionStorage.getItem("openLinkToken");
+        draft = await api("/vendors/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            legal_name: step1Value("legal_name"),
+            gstin: step1Value("gstin"),
+            pan: step1Value("pan"),
+            trade_name: step1Value("trade_name") || null,
+            entity_type: step1Value("entity_type"),
+            year_of_incorporation: Number(step1Value("year_of_incorporation")),
+            registered_address: step1Value("registered_address"),
+            city: cityIsOther ? step1Value("city_other") : cityValue,
+            state: stateValue,
+            pincode: step1Value("pincode"),
+            branch_locations: step1Value("branch_locations") || null,
+            alternate_address: step1Value("alternate_address") || null,
+            website: step1Value("website") || null,
+            bank_name: step1Value("bank_name"),
+            bank_account_number: step1Value("bank_account_number"),
+            bank_ifsc: step1Value("bank_ifsc"),
+            contact_person: step1Value("contact_person"),
+            contact_designation: step1Value("contact_designation"),
+            email: step1Value("email"),
+            phone: step1Value("phone"),
+            escalation_contact_name: step1Value("escalation_contact_name"),
+            escalation_contact_phone: step1Value("escalation_contact_phone"),
+            escalation_contact_email: step1Value("escalation_contact_email") || null,
+            password: step1Value("password"),
+            open_link_token: openLinkToken || null,
+          }),
+        });
       }
-      const city = cityIsOther ? step1Value("city_other") : cityValue;
-      const openLinkToken = sessionStorage.getItem("openLinkToken");
-      const draft = await api<{ id: number; registration_token: string; email_verified: boolean }>("/vendors/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          legal_name: step1Value("legal_name"),
-          gstin: step1Value("gstin"),
-          pan: step1Value("pan"),
-          trade_name: step1Value("trade_name") || null,
-          entity_type: step1Value("entity_type"),
-          year_of_incorporation: Number(step1Value("year_of_incorporation")),
-          registered_address: step1Value("registered_address"),
-          city,
-          state: stateValue,
-          pincode: step1Value("pincode"),
-          branch_locations: step1Value("branch_locations") || null,
-          alternate_address: step1Value("alternate_address") || null,
-          website: step1Value("website") || null,
-          bank_name: step1Value("bank_name"),
-          bank_account_number: step1Value("bank_account_number"),
-          bank_ifsc: step1Value("bank_ifsc"),
-          contact_person: step1Value("contact_person"),
-          contact_designation: step1Value("contact_designation"),
-          email: step1Value("email"),
-          phone: step1Value("phone"),
-          escalation_contact_name: step1Value("escalation_contact_name"),
-          escalation_contact_phone: step1Value("escalation_contact_phone"),
-          escalation_contact_email: step1Value("escalation_contact_email") || null,
-          password: step1Value("password"),
-          open_link_token: openLinkToken || null,
-        }),
-      });
       setVendorId(draft.id);
       setRegistrationToken(draft.registration_token);
       if (draft.email_verified) {
@@ -269,11 +388,13 @@ export function RegisterPage() {
         await sendCode(draft.id, draft.registration_token);
       }
     } catch (err) {
-      setResult({ message: "Could not continue: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      setResult({ message: "Could not save: " + (err instanceof Error ? err.message : String(err)), ok: false });
     } finally {
       setCheckingDuplicates(false);
     }
   }
+
+  const checkDuplicatesAndContinue = () => saveStep1();
 
   // Shared by the automatic first send (right after the draft is created)
   // and the "Resend code" button -- each call overwrites any previous code
@@ -322,6 +443,35 @@ export function RegisterPage() {
     const el = step2Ref.current?.querySelector<HTMLInputElement>(`[data-valid-till="${docType}"]`);
     return el?.value || null;
   }
+
+  // Registration recovery (2026-10-21): reaching Step 2 while resuming
+  // means some mandatory types may already be uploaded from before the
+  // vendor got stuck -- fetch them once so the dropzones show "done"
+  // instead of demanding a re-upload of something already on file.
+  // "other" documents are handled separately by OtherDocsSection, which
+  // has its own listing -- skipped here on purpose.
+  useEffect(() => {
+    if (step !== 2 || !resuming || !vendorId || !registrationToken) return;
+    (async () => {
+      try {
+        const docs = await api<{ doc_type: string; original_filename: string; size_bytes: number }[]>(
+          `/vendors/${vendorId}/draft-documents?registration_token=${encodeURIComponent(registrationToken)}`
+        );
+        setDocState((prev) => {
+          const next = { ...prev };
+          for (const d of docs) {
+            if (d.doc_type === "other") continue;
+            next[d.doc_type] = { uploading: false, progress: 1, error: null, uploaded: { filename: d.original_filename, sizeBytes: d.size_bytes } };
+          }
+          return next;
+        });
+      } catch {
+        // Best-effort prefill -- a failure here just leaves the dropzones
+        // blank, same as before this recovery flow existed.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, resuming, vendorId, registrationToken]);
 
   // Each dropzone (registerDocuments.tsx) calls this the moment a valid
   // file is picked/dropped -- uploads it immediately against the draft
@@ -411,7 +561,7 @@ export function RegisterPage() {
           <StateTag state="pending_verification" />
         </div>
         <p className="hint">
-          Your registration has been submitted for review. Procurement Admin will verify your documents before your
+          Your registration has been submitted for review. Category Manager will verify your documents before your
           account is Active and you can bid on tenders — log in any time to check its status, with the email and
           password you just set.
         </p>
@@ -433,7 +583,7 @@ export function RegisterPage() {
       <div>
         <div className="ep-k">Module 1</div>
         <div className="fs-24px fw-800">Register as a vendor</div>
-        <p className="hint mt-4px">Submissions are reviewed by Procurement Admin before you can bid on anything.</p>
+        <p className="hint mt-4px">Submissions are reviewed by Category Manager before you can bid on anything.</p>
       </div>
       <OpenLinkNote />
       <div className="ep-seg self-start">
@@ -445,7 +595,7 @@ export function RegisterPage() {
         </button>
       </div>
       <form ref={formRef} className="ep-form gap-18px" noValidate onSubmit={submit}>
-        <fieldset disabled={vendorId !== null} className="fieldset-reset d-flex flex-col gap-18px" hidden={step !== 1} ref={step1Ref} onBlur={onStep1Blur} onInput={onStep1Input}>
+        <fieldset disabled={vendorId !== null && !resuming} className="fieldset-reset d-flex flex-col gap-18px" hidden={step !== 1} ref={step1Ref} onBlur={onStep1Blur} onInput={onStep1Input}>
           <div className="ep-pane">
             <div className="ep-pane-head">
               <span>Company Details</span>
@@ -710,23 +860,31 @@ export function RegisterPage() {
               </div>
             </div>
           </div>
-          <div className="ep-pane">
-            <div className="ep-pane-head">
-              <span>Login</span>
-            </div>
-            <div className="ep-pane-pad">
-              <div className="ep-form-grid">
-                <div className="ep-field col-span-4">
-                  <div className="ep-k">
-                    Password (8-20 characters, with at least one digit, lowercase, uppercase and special character)
-                    <Req />
+          {/* Not rendered at all while resuming -- there's no plaintext
+              password to prefill, and this update path never touches it
+              (VendorDraftUpdate has no password field; a vendor changes
+              their password by actually typing a new one in, which this
+              recovery flow isn't for). Not in the DOM also means
+              validateStep1()'s querySelectorAll skips it cleanly. */}
+          {!resuming && (
+            <div className="ep-pane">
+              <div className="ep-pane-head">
+                <span>Login</span>
+              </div>
+              <div className="ep-pane-pad">
+                <div className="ep-form-grid">
+                  <div className="ep-field col-span-4">
+                    <div className="ep-k">
+                      Password (8-20 characters, with at least one digit, lowercase, uppercase and special character)
+                      <Req />
+                    </div>
+                    <PasswordField name="password" required minLength={8} maxLength={20} autoComplete="new-password" />
+                    <FieldError errors={fieldErrors} name="password" />
                   </div>
-                  <PasswordField name="password" required minLength={8} maxLength={20} autoComplete="new-password" />
-                  <FieldError errors={fieldErrors} name="password" />
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </fieldset>
         {/* Hidden only in the one state the verify panel below covers
             (draft exists, not yet verified) -- otherwise this is the same

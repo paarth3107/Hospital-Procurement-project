@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { switchView, setAuthState } from "../../lib/bridge";
+import { switchView, setAuthState, setPendingRegistrationResume } from "../../lib/bridge";
 import { OpenLinkNote } from "./OpenLinkNote";
 import { PasswordField } from "../../components/PasswordField";
 import { FieldError } from "../../components/FieldError";
@@ -64,6 +64,20 @@ export function VendorLoginPage() {
       // reopening that window.
       sessionStorage.setItem("token", access_token);
       const vendor = await api<VendorDetail>("/vendor-auth/me");
+
+      // Registration recovery (2026-10-21): still Draft means registration
+      // never actually finished (most often: the Step 1 verification email
+      // never arrived) -- there's no real session to start, so don't call
+      // setAuthState at all. Drop the token this one /me call needed and
+      // send them back to Registration instead, carrying what's already on
+      // file so Step 1 can open prefilled rather than blank.
+      if (vendor.status === "draft") {
+        sessionStorage.removeItem("token");
+        setPendingRegistrationResume(vendor);
+        switchView("register");
+        return;
+      }
+
       setAuthState({ token: access_token, actorType: "vendor", vendor });
 
       // Done its job once they're logged in -- same cleanup as a completed registration.

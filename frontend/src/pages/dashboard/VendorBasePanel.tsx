@@ -3,8 +3,8 @@ import { Donut } from "../../components/Donut";
 import type { DashboardStats } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboard/vendorBase.js -- vendor status
-// breakdown, shared by the generic dashboard and the Category Manager /
-// Procurement Admin dashboard (vendor lifecycle is genuinely their job,
+// breakdown, shared by the generic dashboard and the Category Manager
+// dashboard (vendor lifecycle is genuinely their job,
 // unlike the Officer's dashboard, which drops this panel entirely).
 const STATUSES: [label: string, key: string, icon: string, tone: string][] = [
   ["Active", "active", "user-check", "success"],

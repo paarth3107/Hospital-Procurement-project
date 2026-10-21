@@ -51,7 +51,6 @@ export const MAPPING_VIEWS = ["mappings-matrix", "mappings-requests"];
 export const ROLE_TABS: Record<string, string[]> = {
   procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
   category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles"],
-  procurement_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles"],
   approving_authority: ["dashboard", "approvals", "awards"],
   system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
 };
@@ -66,7 +65,6 @@ export const ALL_STAFF_TAB_VIEWS = [
 export const DEFAULT_VIEW_BY_ROLE: Record<string, string> = {
   procurement_officer: "dashboard",
   category_manager: "dashboard",
-  procurement_admin: "dashboard",
   approving_authority: "dashboard",
   system_admin: "dashboard",
 };

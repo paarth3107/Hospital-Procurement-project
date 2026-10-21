@@ -76,7 +76,7 @@ function vendorBasis(v: ReviewVendor): string {
   // basis(), which always falls through to "Eligibility rules" here, same
   // as the page actually behaves today.
   const withSource = v as ReviewVendor & { source?: string; reason?: string };
-  if (withSource.source === "guest") return `Guest: ${withSource.reason || ""}`;
+  if (withSource.source === "manual") return `Manually invited: ${withSource.reason || ""}`;
   if (withSource.source === "open") return "Open tender";
   return "Eligibility rules";
 }

@@ -15,13 +15,13 @@ import type { CurrentUser, DashboardStats } from "../../lib/types";
 // Ported 1:1 from frontend/js/pages/dashboardPage.js -- staff dashboard: the
 // prototype's command-centre layout, fed by GET /dashboard/stats (real
 // counts only). Role-specific dashboards live in their own component --
-// Procurement Officer, Category Manager / Procurement Admin and Approving
+// Procurement Officer, Category Manager and Approving
 // Authority (ported above) -- System Admin still shares this generic view
 // below (it has every tab, so no one pipeline fits it).
 //
 // Dispatch mirrors loadDashboard()'s exactly: role AND the matching stats
 // sub-object both have to agree, not just field presence -- the Category
-// Manager/Procurement Admin branch in particular dispatches on role alone
+// Manager branch in particular dispatches on role alone
 // (categoryManager renders its tracker only `{c && ...}`, so a role match
 // with a still-null `category_manager` falls through to the generic KPIs
 // gracefully, same as vanilla). Role now comes from the shared auth store
@@ -93,7 +93,7 @@ export function DashboardPage() {
   if (!stats || !role) return null;
 
   if (role === "procurement_officer" && stats.officer) return <OfficerDashboard s={stats} role={role} />;
-  if (role === "category_manager" || role === "procurement_admin") return <CategoryManagerDashboard s={stats} role={role} />;
+  if (role === "category_manager") return <CategoryManagerDashboard s={stats} role={role} />;
   if (role === "approving_authority" && stats.approving_authority) return <ApprovingAuthorityDashboard s={stats} role={role} />;
   return <GenericDashboard s={stats} role={role} />;
 }

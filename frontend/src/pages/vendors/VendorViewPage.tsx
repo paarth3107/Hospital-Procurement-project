@@ -179,7 +179,7 @@ export function VendorViewPage() {
   }
   if (!vendor) return backLink;
 
-  const canReinstateBlacklisted = currentUser ? ["procurement_admin", "category_manager", "system_admin"].includes(currentUser.role) : false;
+  const canReinstateBlacklisted = currentUser ? ["category_manager", "system_admin"].includes(currentUser.role) : false;
 
   return (
     <div className="d-flex flex-col gap-18px">

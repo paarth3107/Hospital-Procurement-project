@@ -8,7 +8,6 @@ export const fmtDateTime = (iso: string | null | undefined): string =>
 
 export const ROLE_LABELS: Record<string, string> = {
   procurement_officer: "Procurement Officer",
-  procurement_admin: "Procurement Admin",
   category_manager: "Category Manager",
   approving_authority: "Approving Authority",
   system_admin: "System Admin",

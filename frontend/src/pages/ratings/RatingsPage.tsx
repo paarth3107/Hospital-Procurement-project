@@ -19,7 +19,7 @@ function WeightStrip() {
     <div className="ep-pane padding-16px-18px d-flex gap-26px items-center">
       <div className="flex-none">
         <div className="ep-k">Weighted model</div>
-        <div className="fs-13px fw-800 mt-3px">Price competitiveness is system-computed · the rest entered by Procurement Admin</div>
+        <div className="fs-13px fw-800 mt-3px">Price competitiveness is system-computed · the rest entered by Category Manager</div>
       </div>
       <div className="flex-1 d-flex gap-1px bg-ink-30">
         {WEIGHTS.map(([pct, label, flex]) => (
@@ -63,7 +63,7 @@ export function RatingsPage() {
 
   const ratingByVendor = new Map(ratings.filter((r) => r.procurement_type === type).map((r) => [r.vendor_id, r]));
 
-  const canAdjust = currentUser ? ["procurement_admin", "category_manager"].includes(currentUser.role) : false;
+  const canAdjust = currentUser?.role === "category_manager";
 
   return (
     <div className="d-flex flex-col gap-18px">

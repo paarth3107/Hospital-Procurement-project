@@ -5,7 +5,7 @@ import { VendorBasePanel } from "./VendorBasePanel";
 import type { DashboardCategoryManager, DashboardStats, StaffRole } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboard/categoryManagerDashboard.js --
-// Category Manager / Procurement Admin's own dashboard (one job, per
+// Category Manager's own dashboard (one job, per
 // CLAUDE.md) -- product decision, 2026-09-30. Replaces the generic
 // dashboard's PO-facing numbers (Live tenders / Awaiting your approval /
 // Bids submitted aren't this role's job -- it doesn't even have an

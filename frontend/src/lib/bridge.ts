@@ -13,6 +13,7 @@
 export { switchView } from "./router";
 export { refreshChrome } from "./chromeStore";
 export { setAuthState } from "./authStore";
+import type { VendorDetail } from "./types";
 
 // Mirrors frontend/js/pages/vendorViewState.js's shape (viewVendorId +
 // pendingListFilter) as plain module state instead of a window object.
@@ -83,4 +84,19 @@ export const takePendingBidTenderId = (): number | null => {
   const id = pendingBidTenderId;
   pendingBidTenderId = undefined;
   return id ?? null;
+};
+
+// Registration recovery (2026-10-21): a vendor who logs in while still
+// Draft (vendor-auth/login never checks status except Blacklisted) is sent
+// to Registration instead of the dashboard, carrying everything already on
+// file so Step 1 can open prefilled and editable rather than blank.
+let pendingRegistrationResume: VendorDetail | undefined;
+
+export const setPendingRegistrationResume = (vendor: VendorDetail) => {
+  pendingRegistrationResume = vendor;
+};
+export const takePendingRegistrationResume = (): VendorDetail | null => {
+  const vendor = pendingRegistrationResume;
+  pendingRegistrationResume = undefined;
+  return vendor ?? null;
 };
