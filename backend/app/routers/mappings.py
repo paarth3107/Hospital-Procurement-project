@@ -21,11 +21,8 @@ from app.services.mappings import (
 
 router = APIRouter(prefix="/api/v1/mappings", tags=["mappings"])
 
-# Spec §4.3 point 2: "Category Manager reviews and approves or rejects" —
-# Procurement Admin included as the same admin fallback used for vendor
-# approval (CLAUDE.md role list treats the two as jointly responsible for
-# Module 2 review).
-MAPPING_REVIEWERS = (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN, Role.SYSTEM_ADMIN)
+# Spec §4.3 point 2: "Category Manager reviews and approves or rejects".
+MAPPING_REVIEWERS = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 
 
 _log_transition = log_transition

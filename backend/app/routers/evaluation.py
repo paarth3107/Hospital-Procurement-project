@@ -43,9 +43,9 @@ from app.services.ratings import rating_score, rating_scores, record_price_compe
 router = APIRouter(prefix="/api/v1/evaluation", tags=["evaluation"])
 
 # Everyone who follows a tender's bidding can see submission status; scoring
-# is the Category Manager / Procurement Admin's job (spec 9.2.3).
-VIEWERS = (Role.PROCUREMENT_OFFICER, Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN, Role.SYSTEM_ADMIN)
-EVALUATORS = (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN, Role.SYSTEM_ADMIN)
+# is the Category Manager's job (spec 9.2.3).
+VIEWERS = (Role.PROCUREMENT_OFFICER, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+EVALUATORS = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 # Prices are opened to the Procurement Officer (who reviews the comparative
 # statement and confirms L1, spec 9.5) and System Admin -- not to the technical
 # evaluators. The Approving Authority gets them at L1 approval (not built yet).

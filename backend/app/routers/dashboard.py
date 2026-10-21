@@ -211,13 +211,13 @@ def _approving_authority_stats(
 def _category_manager_stats(
     db: Session, user: UserAccount, open_tenders_count: int, awaiting_evaluation_count: int, published_tenders: list[Tender], rounds_by_line: dict[int, AwardRound]
 ) -> DashboardCategoryManagerOut | None:
-    """Category Manager / Procurement Admin's own mini pipeline -- just the
+    """Category Manager's own mini pipeline -- just the
     technical-evaluation stage of a tender's lifecycle this role touches
     (product decision, 2026-10-07, mirrors _officer_stats/
     _approving_authority_stats above). The two counts handed in are already
     computed for the generic dashboard (open_tenders, eval_workload_lines);
     only "evaluated_count" (handed off to the Officer) is new here."""
-    if user.role not in (Role.CATEGORY_MANAGER, Role.PROCUREMENT_ADMIN):
+    if user.role != Role.CATEGORY_MANAGER:
         return None
 
     evaluated_count = sum(t["lines"] for t in award_rules.recommend_tasks(db, published_tenders, rounds_by_line))

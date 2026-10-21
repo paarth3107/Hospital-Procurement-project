@@ -166,8 +166,8 @@ class EligibleVendorOut(BaseModel):
     vendor_id: int
     legal_name: str
     rating_score: float
-    source: str = "system"  # system | open | guest
-    reason: str | None = None  # guest invites only
+    source: str = "system"  # system | open | manual
+    reason: str | None = None  # manual invites only
 
 
 def _clean_reason(v: str, what: str) -> str:
@@ -179,7 +179,13 @@ def _clean_reason(v: str, what: str) -> str:
     return v
 
 
-class GuestInviteCreate(BaseModel):
+class ManualInviteCreate(BaseModel):
+    """Spec §6.6 — an officer manually adding an already-Active vendor to a
+    line the eligibility rules didn't select (renamed 2026-10-21 from
+    GuestInviteCreate/"guest-invites" -- that naming was a mislabel: spec
+    §6.7 "Guest Invite" is a different, unimplemented feature about a vendor
+    with no existing profile at all. See CLAUDE.md."""
+
     vendor_id: int
     reason: str
 
@@ -268,3 +274,32 @@ class RejectionPayload(BaseModel):
         if not v or not v.strip():
             raise ValueError("Comments are required to reject a tender")
         return v.strip()
+
+
+class LateSubmissionExceptionRequest(BaseModel):
+    """Spec §8.4 — a staff member (not the vendor; the override engine's
+    initiator is always a staff UserAccount) asking to admit a bid that
+    arrived after the deadline, instead of leaving it excluded."""
+
+    reason_code: str
+    justification: str
+
+    @field_validator("justification")
+    @classmethod
+    def justification_required(cls, v: str) -> str:
+        return _clean_reason(v, "admit a late bid")
+
+
+class DueDateExtensionRequest(BaseModel):
+    """Spec §9.6 — extends a published tender's bid_due_date. Self-attested
+    by a Procurement Officer up to a configured cumulative-days threshold
+    (OverrideTypeConfig), beyond which it routes to Category Manager."""
+
+    new_due_date: datetime
+    reason_code: str
+    justification: str
+
+    @field_validator("justification")
+    @classmethod
+    def justification_required(cls, v: str) -> str:
+        return _clean_reason(v, "extend the bid due date")

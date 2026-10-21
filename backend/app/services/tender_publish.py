@@ -43,6 +43,34 @@ def notify_invited_vendors(db: Session, tender: Tender) -> None:
         )
 
 
+def notify_due_date_extended(db: Session, tender: Tender) -> None:
+    """Spec §9.6: "All invited vendors auto-notified of a revised due date
+    the moment an extension is confirmed." Same batching shape as
+    notify_invited_vendors() above -- one notification per invited vendor
+    naming every line, not one query per invite row."""
+
+    rows = (
+        db.query(TenderInvite.vendor_id, TenderLineItem.product_master_id)
+        .join(TenderLineItem, TenderInvite.tender_line_item_id == TenderLineItem.id)
+        .filter(TenderLineItem.tender_id == tender.id, TenderLineItem.published.is_(True))
+        .all()
+    )
+    if not rows:
+        return
+    product_ids = {pid for _, pid in rows}
+    names = {p.id: p.name for p in db.query(ProductMaster).filter(ProductMaster.id.in_(product_ids)).all()}
+    by_vendor: dict[int, list[str]] = {}
+    for vendor_id, pid in rows:
+        by_vendor.setdefault(vendor_id, []).append(names.get(pid, "a line item"))
+    for vendor_id, lines in by_vendor.items():
+        notify_vendor(
+            db, vendor_id, "due_date_extended", f"Deadline extended: {tender.title}",
+            f"The bid deadline for tender #{tender.id} ({tender.title}) has been extended to "
+            f"{tender.bid_due_date.isoformat() if tender.bid_due_date else 'a new date'} for: {', '.join(lines)}.",
+            tender.id, {"lines": lines},
+        )
+
+
 def sweep_scheduled_publishes(db: Session) -> int:
     """Runs lazily (tender list/detail reads, the dashboard, the vendor
     portal's tender list) and from a periodic loop (main.py), same pattern

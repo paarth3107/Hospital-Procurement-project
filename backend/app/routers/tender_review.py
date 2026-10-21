@@ -35,9 +35,9 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
         unpriced += 0 if li.estimated_price is not None else 1
         # The actual persisted invite list (spec §6.5's resolved list, written by
         # _persist_invites at submission and re-checked at approval) -- not a fresh
-        # live re-run of the eligibility rules, which would miss guest invites
-        # entirely (they're outside the rules by definition) and ignore vendors the
-        # officer removed. This is who the line actually publishes to.
+        # live re-run of the eligibility rules, which would miss manual invites
+        # (spec §6.6) entirely (they're outside the rules by definition) and ignore
+        # vendors the officer removed. This is who the line actually publishes to.
         invited = li.invites
         minimum = li.min_rating_threshold_override if li.min_rating_threshold_override is not None else tender.min_rating_threshold
         lines.append(

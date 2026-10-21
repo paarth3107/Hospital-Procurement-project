@@ -171,7 +171,7 @@ class DashboardApprovingAuthorityOut(BaseModel):
 
 
 class DashboardCategoryManagerOut(BaseModel):
-    """Category Manager / Procurement Admin's own slice of the tender
+    """Category Manager's own slice of the tender
     lifecycle (product decision, 2026-10-07): just the technical-evaluation
     stage this role actually touches, framed as a mini pipeline the same way
     the Officer's and Approving Authority's dashboards frame theirs. Vendor
@@ -214,4 +214,4 @@ class DashboardStatsOut(BaseModel):
     recently_published: list[DashboardRecentPublishedOut]
     officer: DashboardOfficerOut | None = None  # populated for Role.PROCUREMENT_OFFICER only
     approving_authority: DashboardApprovingAuthorityOut | None = None  # populated for Role.APPROVING_AUTHORITY only
-    category_manager: DashboardCategoryManagerOut | None = None  # populated for Role.CATEGORY_MANAGER / Role.PROCUREMENT_ADMIN only
+    category_manager: DashboardCategoryManagerOut | None = None  # populated for Role.CATEGORY_MANAGER only

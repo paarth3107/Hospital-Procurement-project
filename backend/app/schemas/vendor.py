@@ -176,6 +176,129 @@ class VendorDraftOut(BaseModel):
     email_verified: bool = False
 
 
+class VendorDraftUpdate(BaseModel):
+    """Spec §3.5 recovery, 2026-10-21: a vendor who logs back in while still
+    Draft (e.g. the verification email never reached them) is sent back to
+    Step 1 prefilled and editable, then saved through this -- the *update*
+    counterpart to VendorCreate's *create*. Not a VendorCreate subclass:
+    tried reusing VendorCreate's own validator methods directly (both as a
+    subclass override and by rebinding the already-decorated classmethods
+    here) -- a subclass field_validator doesn't replace the parent's for
+    the same field, and rebinding an already-pydantic-wrapped classmethod
+    onto a different model breaks its argument binding outright (confirmed
+    both ways, not assumed). Same validation rules as VendorCreate,
+    duplicated rather than fought over -- plain and explicit beats clever
+    here. Same fields as VendorCreate, **minus password** (no plaintext
+    round-trip of a password that's already hashed -- same reasoning
+    StaffFormDialog.tsx already uses: no password field at all when
+    editing, only on create; a vendor changes their password by actually
+    typing a new one in, which this isn't for)."""
+
+    legal_name: str
+    gstin: str
+    pan: str
+    trade_name: str | None = None
+    entity_type: str
+    year_of_incorporation: int
+    registered_address: str
+    city: str
+    state: str
+    pincode: str
+    branch_locations: str | None = None
+    alternate_address: str | None = None
+    website: str | None = None
+    bank_name: str
+    bank_account_number: str
+    bank_ifsc: str
+    contact_person: str
+    contact_designation: str
+    email: EmailStr
+    phone: str
+    escalation_contact_name: str
+    escalation_contact_phone: str
+    escalation_contact_email: str | None = None
+    payment_terms: str | None = None
+    delivery_lead_time_days: int | None = None
+    min_order_value: float | None = None
+    category_declaration: str | None = None
+    registration_token: str
+
+    @field_validator("gstin")
+    @classmethod
+    def gstin_format(cls, v: str) -> str:
+        v = v.strip().upper()
+        if len(v) != GSTIN_LENGTH or not GSTIN_RE.match(v):
+            raise ValueError("GSTIN must be 15 characters in the standard format (e.g. 27AAAPM1234C1Z5)")
+        return v
+
+    @field_validator("entity_type")
+    @classmethod
+    def entity_type_known(cls, v: str) -> str:
+        if v not in ENTITY_TYPES:
+            raise ValueError(f"Entity type must be one of: {', '.join(ENTITY_TYPES)}")
+        return v
+
+    @field_validator("year_of_incorporation")
+    @classmethod
+    def year_sane(cls, v: int) -> int:
+        if not 1800 <= v <= date.today().year:
+            raise ValueError("Enter a valid year of incorporation")
+        return v
+
+    @field_validator("bank_ifsc")
+    @classmethod
+    def ifsc_format(cls, v: str) -> str:
+        v = v.strip().upper()
+        if not IFSC_RE.match(v):
+            raise ValueError("IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits)")
+        return v
+
+    @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person", "city", "state")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("This field is required")
+        return v
+
+    @field_validator("pincode")
+    @classmethod
+    def pincode_format(cls, v: str) -> str:
+        v = v.strip()
+        if not PINCODE_RE.match(v):
+            raise ValueError("Pincode must be 6 digits")
+        return v
+
+    @field_validator("escalation_contact_phone")
+    @classmethod
+    def escalation_phone(cls, v: str) -> str:
+        cleaned = "".join(ch for ch in v if ch.isdigit() or ch == "+")
+        if len(cleaned.lstrip("+")) < 7:
+            raise ValueError("Enter a valid escalation phone number")
+        return cleaned
+
+    @field_validator("email")
+    @classmethod
+    def email_lowercase(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("pan")
+    @classmethod
+    def pan_uppercase(cls, v: str) -> str:
+        v = v.strip().upper()
+        if not PAN_RE.match(v):
+            raise ValueError("PAN must be 10 characters in the standard format (e.g. AAAPM1234C)")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def phone_normalised(cls, v: str) -> str:
+        cleaned = "".join(ch for ch in v if ch.isdigit() or ch == "+")
+        if len(cleaned.lstrip("+")) < 7:
+            raise ValueError("Enter a valid phone number")
+        return cleaned
+
+
 class VendorEmailCodeRequest(BaseModel):
     registration_token: str
 
@@ -193,7 +316,7 @@ class VendorLookupOut(BaseModel):
     """Minimal, non-sensitive projection for picking a vendor by name
     elsewhere in the app (Vendor Mapping, Vendor Rating) — deliberately
     excludes GSTIN/PAN/contact details, which stay behind the
-    Procurement-Admin-only `GET /vendors` full listing."""
+    Category-Manager-only `GET /vendors` full listing."""
 
     id: int
     legal_name: str
@@ -258,8 +381,28 @@ class VendorOut(BaseModel):
     category_declaration: str | None
     rejection_reason: str | None
     created_at: datetime
+    # Added 2026-10-21 so a vendor who logs back in while still Draft (login
+    # never checks status except Blacklisted) has everything the frontend
+    # needs to resume registration from GET /vendor-auth/me alone -- no
+    # separate "fetch my draft" endpoint. The `registration_token` column is
+    # never cleared once registration completes, so it's nulled out below
+    # for anything past Draft rather than leaking a now-useless token.
+    registration_token: str | None = None
+    email_verified: bool = False
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def hide_token_once_not_draft(self):
+        if self.status != VendorStatus.DRAFT:
+            self.registration_token = None
+        return self
+
+    @classmethod
+    def from_vendor(cls, vendor) -> "VendorOut":
+        out = cls.model_validate(vendor)
+        out.email_verified = vendor.email_verified_at is not None
+        return out
 
 
 # Personal / financial identifiers staff must not see by default. The staff
@@ -277,6 +420,10 @@ class VendorMaskedOut(VendorOut):
         for name in SENSITIVE_FIELDS:
             if getattr(self, name):
                 setattr(self, name, MASK)
+        # Staff never do the registration_token-authorized draft flow --
+        # unlike VendorOut's own Draft-only nulling above, this one's
+        # unconditional, same reasoning as the sensitive fields above.
+        self.registration_token = None
         return self
 
 

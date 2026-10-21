@@ -16,9 +16,9 @@ PRODUCT_AUDIT_FIELDS = (
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
 
-# Spec §4.1/§4.2 — catalog maintenance sits with Procurement Admin/Category
-# Manager, the same two roles that later decide Vendor Mapping requests.
-CATALOG_MANAGERS = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+# Spec §4.1/§4.2 — catalog maintenance sits with Category Manager, the same
+# role that later decides Vendor Mapping requests.
+CATALOG_MANAGERS = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 
 
 def _check_category(payload: ProductCreate, db: Session) -> None:

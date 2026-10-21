@@ -10,10 +10,15 @@ from app.database import Base, UTCDateTime
 class Role(str, enum.Enum):
     """Internal hospital-staff roles (spec §11.1). Vendors are a separate
     entity/table, not a Role here — a vendor never logs in as a "user"
-    in this table."""
+    in this table.
+
+    PROCUREMENT_ADMIN removed 2026-10-21 (user-directed, previously decided):
+    it was functionally identical to CATEGORY_MANAGER everywhere in this
+    build (every require_role() tuple already paired them, and the approval
+    matrix already excluded Procurement Admin from self-attesting). Existing
+    data migrated to CATEGORY_MANAGER by migration e8b2f6a4c913."""
 
     PROCUREMENT_OFFICER = "procurement_officer"
-    PROCUREMENT_ADMIN = "procurement_admin"
     CATEGORY_MANAGER = "category_manager"
     APPROVING_AUTHORITY = "approving_authority"
     SYSTEM_ADMIN = "system_admin"

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.bid import Bid, BidStatus
 from app.models.facility import Facility
+from app.models.override import OverrideRequest, OverrideStatus, OverrideType
 from app.models.product_master import ProcurementType, ProductMaster
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
@@ -15,12 +16,15 @@ from app.models.tender_line_exclusion import TenderLineExclusion
 from app.models.vendor import Vendor, VendorStatus
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
 from app.models.tender_attachment import TenderLineAttachment, TenderLineAttachmentKind
-from app.services import document_store
+from app.services import document_store, overrides
 from app.models.user_account import Role, UserAccount
+from app.schemas.override import OverrideDecision
 from app.schemas.tender import (
     ApprovalPayload,
     ApprovalRoundOut,
+    DueDateExtensionRequest,
     EligibleVendorOut,
+    LateSubmissionExceptionRequest,
     LineAttachmentOut,
     LineItemCreate,
     LineItemEligibilityOut,
@@ -28,7 +32,7 @@ from app.schemas.tender import (
     RejectionPayload,
     TenderCreate,
     ExcludedVendorOut,
-    GuestInviteCreate,
+    ManualInviteCreate,
     VendorRemovalCreate,
     TenderInviteOut,
     TenderOut,
@@ -37,9 +41,10 @@ from app.security import get_current_user, require_role
 from app.services.audit import changed, record, snapshot
 from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, escalate, resolve_required_tier
 from app.services.eligibility import resolve_eligible_vendors
+from app.services.notifier import notify_vendor
 from app.services.open_links import facility_name, link_state, new_token
 from app.services.ratings import rating_score
-from app.services.tender_publish import notify_invited_vendors, sweep_scheduled_publishes
+from app.services.tender_publish import notify_due_date_extended, notify_invited_vendors, sweep_scheduled_publishes
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
 
@@ -561,20 +566,21 @@ def download_rate_contract_document(tender_id: int, db: Session = Depends(get_db
 
 @router.get("/{tender_id}/eligibility-preview", response_model=list[LineItemEligibilityOut])
 def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: UserAccount = Depends(get_current_user)):
-    """Spec §6.5 — computed on demand, doesn't persist anything. Guest invites are
-    the saved officer decisions and show with their reason. Vendors the officer
-    removed are listed separately with their reason."""
+    """Spec §6.5 — computed on demand, doesn't persist anything. Manual
+    invites (§6.6) are the saved officer decisions and show with their
+    reason. Vendors the officer removed are listed separately with their
+    reason."""
 
     tender = _load_tender(tender_id, db)
     source = "open" if tender.open_tender else "system"
     # Batched (2026-10-13, performance): this used to run two queries
-    # (guest invites, exclusions) per line item -- one query of each for the
-    # whole tender replaces what used to be 2 x N.
+    # (manual invites, exclusions) per line item -- one query of each for
+    # the whole tender replaces what used to be 2 x N.
     line_ids = [li.id for li in tender.line_items]
-    guests_by_line: dict[int, dict[int, TenderInvite]] = {}
+    manual_invites_by_line: dict[int, dict[int, TenderInvite]] = {}
     if line_ids:
-        for g in db.query(TenderInvite).filter(TenderInvite.tender_line_item_id.in_(line_ids), TenderInvite.source == "guest").all():
-            guests_by_line.setdefault(g.tender_line_item_id, {})[g.vendor_id] = g
+        for g in db.query(TenderInvite).filter(TenderInvite.tender_line_item_id.in_(line_ids), TenderInvite.source == "manual").all():
+            manual_invites_by_line.setdefault(g.tender_line_item_id, {})[g.vendor_id] = g
     exclusions_by_line: dict[int, list[TenderLineExclusion]] = {}
     all_excluded_vendor_ids: set[int] = set()
     if line_ids:
@@ -588,17 +594,17 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
     results = []
     for li in tender.line_items:
         threshold = li.min_rating_threshold_override if li.min_rating_threshold_override is not None else tender.min_rating_threshold
-        guests = guests_by_line.get(li.id, {})
+        manual_invites = manual_invites_by_line.get(li.id, {})
         exclusions = exclusions_by_line.get(li.id, [])
         excluded_ids = {x.vendor_id for x in exclusions}
         eligible = [
             EligibleVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score, source=source)
             for e in resolve_eligible_vendors(li, db)
-            if e.vendor.id not in guests and e.vendor.id not in excluded_ids
+            if e.vendor.id not in manual_invites and e.vendor.id not in excluded_ids
         ]
         eligible += [
-            EligibleVendorOut(vendor_id=g.vendor.id, legal_name=g.vendor.legal_name, rating_score=g.rating_at_resolution, source="guest", reason=g.reason)
-            for g in guests.values()
+            EligibleVendorOut(vendor_id=g.vendor.id, legal_name=g.vendor.legal_name, rating_score=g.rating_at_resolution, source="manual", reason=g.reason)
+            for g in manual_invites.values()
         ]
         removed = [ExcludedVendorOut(vendor_id=x.vendor_id, legal_name=excluded_vendor_names[x.vendor_id], reason=x.reason) for x in exclusions]
         results.append(
@@ -615,16 +621,17 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
 
 
 def _resolve_line(li: TenderLineItem, source: str, db: Session) -> tuple[bool, dict]:
-    """Recomputes one line's invites. A guest invite survives while its vendor is
-    Active, and a vendor the officer removed stays out. Returns whether the line
-    ended with no invite at all, and the resolution record for audit."""
+    """Recomputes one line's invites. A manual invite (spec §6.6) survives
+    while its vendor is Active, and a vendor the officer removed stays out.
+    Returns whether the line ended with no invite at all, and the
+    resolution record for audit."""
 
-    guests = db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source == "guest").all()
-    for guest in guests:
-        if guest.vendor.status != VendorStatus.ACTIVE:
-            db.delete(guest)
-    db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source != "guest").delete(synchronize_session=False)
-    invited = {g.vendor_id for g in guests if g.vendor.status == VendorStatus.ACTIVE}
+    manual_invites = db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source == "manual").all()
+    for invite in manual_invites:
+        if invite.vendor.status != VendorStatus.ACTIVE:
+            db.delete(invite)
+    db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == li.id, TenderInvite.source != "manual").delete(synchronize_session=False)
+    invited = {g.vendor_id for g in manual_invites if g.vendor.status == VendorStatus.ACTIVE}
     removed = {x.vendor_id for x in db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == li.id).all()}
     eligible = [e for e in resolve_eligible_vendors(li, db) if e.vendor.id not in invited and e.vendor.id not in removed]
     for e in eligible:
@@ -634,7 +641,7 @@ def _resolve_line(li: TenderLineItem, source: str, db: Session) -> tuple[bool, d
         "line_item_id": li.id,
         "product": li.product.name,
         "eligible": [{"vendor_id": e.vendor.id, "vendor": e.vendor.legal_name, "rating": e.rating_score} for e in eligible],
-        "guests": [{"vendor_id": g.vendor_id, "reason": g.reason} for g in guests if g.vendor_id in invited],
+        "manual_invites": [{"vendor_id": g.vendor_id, "reason": g.reason} for g in manual_invites if g.vendor_id in invited],
     }
     return (not invited and not eligible), entry
 
@@ -697,17 +704,21 @@ def disable_open_link(
     return tender
 
 
-@router.post("/{tender_id}/lines/{line_item_id}/guest-invites", response_model=TenderInviteOut, status_code=status.HTTP_201_CREATED)
-def add_guest_invite(
+@router.post("/{tender_id}/lines/{line_item_id}/manual-invites", response_model=TenderInviteOut, status_code=status.HTTP_201_CREATED)
+def add_manual_invite(
     tender_id: int,
     line_item_id: int,
-    payload: GuestInviteCreate,
+    payload: ManualInviteCreate,
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
-    """Officer invites an Active vendor the rules didn't select, with a reason
-    (2026-10-06). Only while Draft, and never on an Open Tender (which already
-    invites every Active vendor)."""
+    """Spec §6.6 — officer manually invites an Active vendor the eligibility
+    rules didn't select, with a reason (built 2026-10-06; renamed from
+    "guest invite" 2026-10-21 -- that name was a mislabel for a different,
+    unimplemented spec §6.7 feature, see CLAUDE.md). Only while Draft, and
+    never on an Open Tender (which already invites every Active vendor).
+    No approval step for now -- spec §12.3's "invite_list_manual_add"
+    override type exists but isn't wired to this yet (GAPS.md)."""
 
     tender = _load_tender(tender_id, db)
     _require_draft(tender)
@@ -724,7 +735,7 @@ def add_guest_invite(
     invite = TenderInvite(
         tender_line_item_id=line.id,
         vendor_id=vendor.id,
-        source="guest",
+        source="manual",
         reason=payload.reason,
         rating_at_resolution=rating_score(vendor.id, line.procurement_type, db),
     )
@@ -733,7 +744,7 @@ def add_guest_invite(
     )
     db.add(invite)
     record(
-        db, "tender.guest_invited", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        db, "tender.manual_invite_added", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
         after={"line_item_id": line.id, "vendor_id": vendor.id, "vendor": vendor.legal_name}, reason=payload.reason,
     )
     db.commit()
@@ -1187,3 +1198,214 @@ def force_close_bidding(tender_id: int, db: Session = Depends(get_db), user: Use
     db.commit()
     db.refresh(tender)
     return tender
+
+
+# ---- Late-Submission Exception (spec §8.4) -- the override engine's two
+# already-wired examples (ratings.py's price-competitiveness override,
+# evaluation.py's technical-score correction) are both mirrored exactly
+# here: a dedicated request endpoint calls overrides.create_override(),
+# dedicated approve/reject endpoints call overrides.approve_override()/
+# reject_override() and then, only on approve, apply the real mutation
+# inline. OverrideRequest.initiator_id is a non-nullable staff UserAccount
+# FK, so the vendor's late bid alone can't file this -- a Procurement
+# Officer/Admin has to see it (status PENDING_LATE_EXCEPTION) and request
+# the exception on its behalf. ----
+
+
+def _pending_late_exception(db: Session, bid_id: int) -> OverrideRequest | None:
+    return (
+        db.query(OverrideRequest)
+        .filter(
+            OverrideRequest.override_type == OverrideType.LATE_SUBMISSION_EXCEPTION,
+            OverrideRequest.entity_type == "bid",
+            OverrideRequest.entity_id == bid_id,
+            OverrideRequest.status.in_([OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED]),
+        )
+        .order_by(OverrideRequest.created_at.desc())
+        .first()
+    )
+
+
+def _get_late_exception(db: Session, override_id: int) -> OverrideRequest:
+    override = overrides.get_override(db, override_id)
+    if override.override_type != OverrideType.LATE_SUBMISSION_EXCEPTION:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not a late-submission exception")
+    return override
+
+
+@router.post("/{tender_id}/lines/{line_item_id}/bids/{bid_id}/late-submission-exception", status_code=status.HTTP_201_CREATED)
+def request_late_submission_exception(
+    tender_id: int,
+    line_item_id: int,
+    bid_id: int,
+    payload: LateSubmissionExceptionRequest,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS, Role.CATEGORY_MANAGER)),
+):
+    """A bid the vendor submitted after the deadline is held as
+    PENDING_LATE_EXCEPTION, not rejected (app/services/bids.py's
+    assert_can_bid) -- this is the staff step that actually asks for it to
+    be admitted. trigger_value is the bid's own landed line value, feeding
+    the seeded escalation threshold (tender value) to Approving Authority."""
+
+    tender = _load_tender(tender_id, db)
+    line = _line_of(tender, line_item_id)
+    bid = db.get(Bid, bid_id)
+    if bid is None or bid.tender_line_item_id != line.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bid not found on this line")
+    if bid.status != BidStatus.PENDING_LATE_EXCEPTION:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This bid isn't a pending late submission")
+    if _pending_late_exception(db, bid.id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A late-submission exception is already pending for this bid")
+    landed_value = (bid.unit_price or 0) * (line.qty or 0)
+    override = overrides.create_override(
+        db, override_type=OverrideType.LATE_SUBMISSION_EXCEPTION, initiator=user, entity_type="bid", entity_id=bid.id,
+        entity_label=f"#{tender.id} {tender.title} — {line.product.name} — {bid.vendor.legal_name}", facility_id=tender.facility_id,
+        reason_code=payload.reason_code, justification=payload.justification, trigger_value=landed_value,
+        proposed_change={"before": BidStatus.PENDING_LATE_EXCEPTION, "after": BidStatus.SUBMITTED},
+    )
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
+
+
+@router.post("/late-submission-exceptions/{override_id}/approve")
+def approve_late_submission_exception(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_late_exception(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+
+    bid = db.get(Bid, override.entity_id)
+    bid.status = BidStatus.SUBMITTED
+    line = bid.line_item
+    tender = line.tender
+    record(
+        db, "bid.late_submission_accepted", "bid", bid.id, actor=user, entity_label=f"#{tender.id} {tender.title} — {line.product.name}",
+        facility_id=tender.facility_id, reason=override.justification, meta={"tender_id": tender.id, "line_item_id": line.id, "override_id": override.id},
+    )
+    notify_vendor(
+        db, bid.vendor_id, "late_submission_accepted", f"Late bid accepted: {tender.title}",
+        f"Your bid for {line.product.name} on tender #{tender.id} ({tender.title}), submitted after the deadline, has been accepted into evaluation.",
+        tender.id,
+    )
+    db.commit()
+    return {"override_id": override.id, "status": override.status, "bid_status": bid.status}
+
+
+@router.post("/late-submission-exceptions/{override_id}/reject")
+def reject_late_submission_exception(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_late_exception(db, override_id)
+    overrides.reject_override(db, override, user, payload.reason or "")
+
+    bid = db.get(Bid, override.entity_id)  # stays PENDING_LATE_EXCEPTION -- permanently excluded, nothing to mutate
+    line = bid.line_item
+    tender = line.tender
+    notify_vendor(
+        db, bid.vendor_id, "late_submission_rejected", f"Late bid not accepted: {tender.title}",
+        f"Your bid for {line.product.name} on tender #{tender.id} ({tender.title}), submitted after the deadline, was not accepted. Reason: {override.decision_reason or 'not stated'}.",
+        tender.id,
+    )
+    db.commit()
+    return {"override_id": override.id, "status": override.status}
+
+
+# ---- Bid Due-Date Extension (spec §9.6) -- the one override type in this
+# engine where self_attested=True actually gets exercised for real: a
+# Procurement Officer requesting it under the cumulative-days threshold
+# gets back an already-APPROVED override from create_override() itself, so
+# the request endpoint applies the mutation inline in that case; the
+# escalated (over-threshold) case applies it from a separate approve
+# endpoint instead. _apply_due_date_extension() is shared by both so the
+# mutation/audit/notify logic isn't duplicated. ----
+
+
+def _cumulative_extension_days(db: Session, tender_id: int) -> float:
+    rows = (
+        db.query(OverrideRequest.proposed_change)
+        .filter(
+            OverrideRequest.override_type == OverrideType.DUE_DATE_EXTENSION,
+            OverrideRequest.entity_type == "tender",
+            OverrideRequest.entity_id == tender_id,
+            OverrideRequest.status == OverrideStatus.APPROVED,
+        )
+        .all()
+    )
+    return sum((pc or {}).get("extension_days", 0) for (pc,) in rows)
+
+
+def _apply_due_date_extension(db: Session, tender: Tender, override: OverrideRequest, actor: UserAccount) -> None:
+    before = {"bid_due_date": tender.bid_due_date}
+    new_due_date = datetime.fromisoformat(override.proposed_change["after"])
+    tender.bid_due_date = new_due_date
+    record(
+        db, "tender.bid_due_date_extended", "tender", tender.id, actor=actor, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        before=before, after={"bid_due_date": tender.bid_due_date}, reason=override.justification,
+        meta={"override_id": override.id, "extension_days": override.proposed_change.get("extension_days")},
+    )
+    notify_due_date_extended(db, tender)
+
+
+def _get_due_date_extension(db: Session, override_id: int) -> OverrideRequest:
+    override = overrides.get_override(db, override_id)
+    if override.override_type != OverrideType.DUE_DATE_EXTENSION:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not a bid due-date extension")
+    return override
+
+
+@router.post("/{tender_id}/bid-due-date-extension", status_code=status.HTTP_201_CREATED)
+def request_due_date_extension(
+    tender_id: int,
+    payload: DueDateExtensionRequest,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*TENDER_AUTHORS, Role.CATEGORY_MANAGER)),
+):
+    """Procurement Officer self-attested up to the configured cumulative-days
+    threshold (OverrideTypeConfig, seeded 7.0 days); beyond it, escalates to
+    Category Manager. Can't extend an already-passed deadline (that's the
+    late-submission exception's territory) or once any line's technical
+    evaluation has closed (spec §9.6: "once prices unlock, the due date is
+    locked")."""
+
+    tender = _load_tender(tender_id, db)
+    if tender.status not in (TenderStatus.PUBLISHED, TenderStatus.SCHEDULED):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Tender is '{tender.status.value}', not published")
+    if tender.bid_due_date is None or payload.new_due_date <= tender.bid_due_date:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="The new due date must be later than the current one")
+    now = datetime.now(timezone.utc)
+    if tender.bid_due_date <= now:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The bid deadline has already passed -- this needs a late-submission exception instead")
+    if any(li.technical_closed_at is not None for li in tender.line_items):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prices have already started unlocking for this tender -- the due date is locked")
+
+    extension_days = (payload.new_due_date - tender.bid_due_date).total_seconds() / 86400
+    cumulative_days = _cumulative_extension_days(db, tender.id) + extension_days
+    override = overrides.create_override(
+        db, override_type=OverrideType.DUE_DATE_EXTENSION, initiator=user, entity_type="tender", entity_id=tender.id,
+        entity_label=_audit_label(tender), facility_id=tender.facility_id, reason_code=payload.reason_code, justification=payload.justification,
+        trigger_value=cumulative_days,
+        proposed_change={"before": tender.bid_due_date.isoformat(), "after": payload.new_due_date.isoformat(), "extension_days": extension_days},
+    )
+    if override.status == OverrideStatus.APPROVED:  # self-attested, under threshold -- apply right now
+        _apply_due_date_extension(db, tender, override, user)
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
+
+
+@router.post("/bid-due-date-extensions/{override_id}/approve", response_model=TenderOut)
+def approve_due_date_extension(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_due_date_extension(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+
+    tender = db.get(Tender, override.entity_id)
+    _apply_due_date_extension(db, tender, override, user)
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
+@router.post("/bid-due-date-extensions/{override_id}/reject")
+def reject_due_date_extension(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_due_date_extension(db, override_id)
+    overrides.reject_override(db, override, user, payload.reason or "")
+    db.commit()
+    return {"override_id": override.id, "status": override.status}

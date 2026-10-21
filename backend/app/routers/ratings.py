@@ -62,13 +62,14 @@ def update_rating(
     vendor_id: int,
     payload: RatingManualUpdate,
     db: Session = Depends(get_db),
-    user: UserAccount = Depends(require_role(Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER)),
+    user: UserAccount = Depends(require_role(Role.CATEGORY_MANAGER)),
 ):
     """Spec §5.3.1 — routine manual entry of the four non-computed
-    parameters by the Procurement Admin. `price_competitiveness` is
+    parameters by the Category Manager. `price_competitiveness` is
     deliberately not settable here: overriding it is a governed override
     (spec point 4), which routes through the override/approval engine
-    (Phase 7, not built yet) rather than this ordinary data-entry endpoint."""
+    (see request_price_override/approve_price_override below) rather than
+    this ordinary data-entry endpoint."""
 
     rating = get_or_create_rating(vendor_id, payload.procurement_type, db)
 
@@ -139,7 +140,7 @@ def request_price_override(
     vendor_id: int,
     payload: RatingOverrideCreate,
     db: Session = Depends(get_db),
-    user: UserAccount = Depends(require_role(Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER)),
+    user: UserAccount = Depends(require_role(Role.CATEGORY_MANAGER)),
 ):
     """Spec §5.3.1 point 4 / §12.3: overriding the system-computed score is a
     governed override -- unlike update_rating() above, this never touches the

@@ -12,13 +12,19 @@ logger = logging.getLogger(__name__)
 # already funnels through notify_vendor() below, but email should NOT go out
 # for all of them just because an adapter now exists -- only the kinds
 # explicitly turned on here do. "registered" (vendors.py's
-# complete_vendor_registration) and "awarded" (services/awards.py) are the
+# complete_vendor_registration) and "awarded" (services/awards.py) were the
 # first two; "tender_invited" (tender_publish.py's notify_invited_vendors,
 # added 2026-10-21 to close a real gap -- spec §7.4 requires a publish to
-# notify every invited vendor, and nothing did) is the third. Body copy is a
-# first draft, meant to be revised later -- add a kind here to turn email on
-# for it, nothing else to wire.
-EMAIL_ENABLED_KINDS = {"registered", "awarded", "tender_invited"}
+# notify every invited vendor, and nothing did) was the third. "due_date_extended"
+# (tender_publish.py's notify_due_date_extended, spec §9.6) and
+# "late_submission_accepted"/"late_submission_rejected" (routers/tenders.py's
+# late-submission-exception override, spec §8.4) are the override-engine
+# wiring added the same day. Body copy is a first draft, meant to be revised
+# later -- add a kind here to turn email on for it, nothing else to wire.
+EMAIL_ENABLED_KINDS = {
+    "registered", "awarded", "tender_invited",
+    "due_date_extended", "late_submission_accepted", "late_submission_rejected",
+}
 
 
 def notify_vendor(db: Session, vendor_id: int, kind: str, title: str, body: str, tender_id: int | None = None, data: dict | None = None) -> Notification:

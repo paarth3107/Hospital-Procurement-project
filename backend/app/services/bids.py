@@ -140,10 +140,17 @@ def clean_details(line: TenderLineItem, raw: dict) -> dict:
     return out
 
 
-def assert_can_bid(db: Session, vendor: Vendor, line: TenderLineItem) -> None:
+def assert_can_bid(db: Session, vendor: Vendor, line: TenderLineItem, allow_late: bool = False) -> bool:
     """The gates in front of every bid change (CLAUDE.md PROJECT OVERRIDE;
     spec 5.6 'the most heavily gated function'): Active vendor, published
-    tender AND line, deadline not passed, vendor individually invited."""
+    tender AND line, deadline not passed, vendor individually invited.
+
+    Returns whether this call is past the deadline. `allow_late` (spec §8.4,
+    added 2026-10-21): the one real submit call passes
+    `allow_late=payload.submit` so a late *submission* is tolerated (held as
+    BidStatus.PENDING_LATE_EXCEPTION by the caller) instead of rejected
+    outright -- every other caller (draft save, amend, withdraw, attachment
+    edits) leaves this False and still 409s past the deadline, unchanged."""
     if sweep_vendor(db, vendor):  # an expired statutory document suspends the vendor at the moment it matters
         db.commit()
     if vendor.status != VendorStatus.ACTIVE:
@@ -151,11 +158,15 @@ def assert_can_bid(db: Session, vendor: Vendor, line: TenderLineItem) -> None:
     tender = line.tender
     if tender.status != TenderStatus.PUBLISHED or not line.published:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This line is not open for bidding")
-    if tender.bid_due_date is None or datetime.now(timezone.utc) > tender.bid_due_date:
+    if tender.bid_due_date is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The bid deadline for this tender has passed")
+    late = datetime.now(timezone.utc) > tender.bid_due_date
+    if late and not allow_late:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The bid deadline for this tender has passed")
     invited = db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).first()
     if not invited:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You were not invited to bid on this line item")
+    return late
 
 
 def lock_reason(vendor: Vendor, line: TenderLineItem) -> str | None:

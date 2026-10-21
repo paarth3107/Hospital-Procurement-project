@@ -464,7 +464,7 @@ def run():
 
         creator = db.query(UserAccount).filter(UserAccount.role == Role.PROCUREMENT_OFFICER).first()
         if not creator:
-            creator = db.query(UserAccount).filter(UserAccount.role == Role.PROCUREMENT_ADMIN).first()
+            creator = db.query(UserAccount).filter(UserAccount.role == Role.CATEGORY_MANAGER).first()
         if not creator:
             raise RuntimeError("No staff login found -- run `python -m app.seed` first")
 

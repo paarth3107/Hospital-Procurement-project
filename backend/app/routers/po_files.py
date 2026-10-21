@@ -11,13 +11,13 @@ from app.services.audit import record
 
 router = APIRouter(prefix="/api/v1/po-files", tags=["po-files"])
 
-# Spec 10.5: Procurement Admin (here Procurement Admin / Category Manager, one
-# job) takes the generated file to the ERP. Others can see the list but not
+# Spec 10.5: Procurement Admin (here Category Manager, since this build
+# treats them as one job) takes the generated file to the ERP. Others can see the list but not
 # the files: they carry vendor GSTIN and prices. Recording the ERP's import
 # outcome and re-exporting a corrected file (spec 10.5 points 3-5, 10.7) are
 # out of scope for now (user-directed, 2026-09-28) -- this app's job stops at
 # the generated file.
-MANAGERS = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+MANAGERS = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 VIEWERS = MANAGERS + (Role.PROCUREMENT_OFFICER, Role.APPROVING_AUTHORITY)
 
 

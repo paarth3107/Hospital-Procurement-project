@@ -9,9 +9,12 @@ from app.database import Base, UTCDateTime
 class TenderInvite(Base):
     """Spec §6.5 — the resolved per-line-item invite list. `source` is "system"
     (the eligibility rules), "open" (Open Tender: every Active vendor) or
-    "guest" (an officer's invite outside the rules, with a `reason`). Every row
-    is an Active vendor (CLAUDE.md PROJECT OVERRIDE). Recalculation rewrites
-    system and open rows and keeps guest rows while their vendor stays Active."""
+    "manual" (an officer's §6.6 manual add outside the rules, with a
+    `reason` -- renamed 2026-10-21 from "guest"/"guest invite", which was a
+    mislabel for a different, unimplemented spec §6.7 feature; see
+    CLAUDE.md). Every row is an Active vendor (CLAUDE.md PROJECT OVERRIDE).
+    Recalculation rewrites system and open rows and keeps manual rows while
+    their vendor stays Active."""
 
     __tablename__ = "tender_invites"
     __table_args__ = (UniqueConstraint("tender_line_item_id", "vendor_id", name="uq_invite_line_vendor"),)
@@ -21,7 +24,7 @@ class TenderInvite(Base):
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
     source = Column(String(255), nullable=False, default="system")
     rating_at_resolution = Column(Float, nullable=False)
-    # Required for source == "guest": why an officer invited a vendor the rules didn't select.
+    # Required for source == "manual": why an officer invited a vendor the rules didn't select.
     reason = Column(Text, nullable=True)
     # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
     # for the full explanation (server_default=func.now() used the DB

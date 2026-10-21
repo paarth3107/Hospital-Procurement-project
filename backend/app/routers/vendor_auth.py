@@ -35,4 +35,7 @@ def vendor_login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depe
 
 @router.get("/me", response_model=VendorOut)
 def vendor_me(vendor: Vendor = Depends(get_current_vendor)):
-    return vendor
+    # .from_vendor(), not a plain return -- VendorOut.email_verified mirrors
+    # Vendor.email_verified_at (a different attribute name), so it needs the
+    # explicit derivation rather than automatic from_attributes mapping.
+    return VendorOut.from_vendor(vendor)

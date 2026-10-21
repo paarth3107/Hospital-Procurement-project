@@ -159,7 +159,10 @@ def _apply_bid_save(db: Session, vendor: Vendor, line: TenderLineItem, payload: 
     back (the whole request for a single line, just this line's savepoint
     for a bulk save)."""
 
-    rules.assert_can_bid(db, vendor, line)
+    # Spec §8.4, 2026-10-21: only a genuine submit attempt (not a draft save)
+    # tolerates a late deadline -- a late submit is held as
+    # PENDING_LATE_EXCEPTION below instead of rejected outright.
+    late = rules.assert_can_bid(db, vendor, line, allow_late=payload.submit)
 
     bid = _own_bid(db, vendor, line)
     created = bid is None
@@ -193,10 +196,16 @@ def _apply_bid_save(db: Session, vendor: Vendor, line: TenderLineItem, payload: 
             )
     now = datetime.now(timezone.utc)
     if payload.submit and not was_submitted:
-        bid.status = BidStatus.SUBMITTED
-        if bid.submitted_at is None:
-            bid.submitted_at = now
-        _audit(db, "bid.submitted", vendor, bid, line, changed)
+        if late:
+            bid.status = BidStatus.PENDING_LATE_EXCEPTION
+            if bid.submitted_at is None:
+                bid.submitted_at = now
+            _audit(db, "bid.late_submission_received", vendor, bid, line, changed)
+        else:
+            bid.status = BidStatus.SUBMITTED
+            if bid.submitted_at is None:
+                bid.submitted_at = now
+            _audit(db, "bid.submitted", vendor, bid, line, changed)
     elif was_submitted:
         bid.amended_at = now
         _audit(db, "bid.amended", vendor, bid, line, changed)

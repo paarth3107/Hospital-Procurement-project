@@ -10,11 +10,21 @@ from app.database import Base, UTCDateTime
 class BidStatus(str, enum.Enum):
     """Spec §8.4: a vendor can save a bid as a draft and submit before the due
     date. A submitted bid can be amended or withdrawn until the deadline; a
-    withdrawn bid can be reopened as a draft."""
+    withdrawn bid can be reopened as a draft.
+
+    PENDING_LATE_EXCEPTION (added 2026-10-21, spec §8.4's governed
+    late-submission exception): a vendor submitted after the deadline --
+    held here instead of rejected outright. Counts as neither Draft nor
+    Submitted, so it's automatically excluded from every existing
+    `Bid.status == SUBMITTED` filter (awards, evaluation, dashboards) with
+    no other code changes. Only flips to SUBMITTED if a Category Manager
+    approves the override (app/routers/tenders.py); staying rejected just
+    means staying in this status forever."""
 
     DRAFT = "draft"
     SUBMITTED = "submitted"
     WITHDRAWN = "withdrawn"
+    PENDING_LATE_EXCEPTION = "pending_late_exception"
 
 
 class BidAttachmentKind(str, enum.Enum):

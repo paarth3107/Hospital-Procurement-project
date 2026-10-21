@@ -47,7 +47,7 @@ class VendorRating(Base):
     # real function, just has nothing to compute from yet.
     price_competitiveness = Column(Float, nullable=False, default=50.0)
 
-    # Manually entered by Procurement Admin (spec §5.3.1) — not overrides,
+    # Manually entered by Category Manager (spec §5.3.1) — not overrides,
     # ordinary data entry, still logged to history.
     on_time_pct = Column(Float, nullable=True)
     quality_pct = Column(Float, nullable=True)

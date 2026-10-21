@@ -24,6 +24,7 @@ from app.schemas.vendor import (
     VendorCompleteRegistration,
     VendorCreate,
     VendorDraftOut,
+    VendorDraftUpdate,
     VendorDuplicateCheckRequest,
     VendorDuplicateCheckResponse,
     VendorEmailCodeRequest,
@@ -56,12 +57,10 @@ def doc_label(doc: VendorDocument) -> str:
     return doc.custom_label if doc.doc_type.value == "other" else doc.doc_type.value.replace("_", " ")
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
-# Category Manager now shares vendor-decision access with Procurement Admin
-# (user-directed change: document review/decisioning moves to Category
-# Manager). System Admin was already missing from approve/reject/request-info
-# despite having list/get access -- folded into one set so that gap doesn't
-# recur.
-VENDOR_DECISION_ROLES = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+# Document review/decisioning sits with Category Manager (user-directed).
+# System Admin was already missing from approve/reject/request-info despite
+# having list/get access -- folded into one set so that gap doesn't recur.
+VENDOR_DECISION_ROLES = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 
 # Spec §3.4: only these two statuses are legal starting points for an
 # admin decision. An already-Active or already-Rejected vendor can't be
@@ -93,19 +92,25 @@ REGISTRATION_DOCS = [
 ]
 
 
-def _duplicate_check(db: Session, gstin: str, pan: str, email: str, phone: str) -> None:
+def _duplicate_check(db: Session, gstin: str, pan: str, email: str, phone: str, exclude_vendor_id: int | None = None) -> None:
     """Spec 3.5 duplicate check + 6.8.2 point 3 (Open Tender self-registration
     matches an existing profile instead of duplicating). GSTIN, PAN, email
     and phone must each be unique to one vendor (each a DB `unique=True`
     column, app/models/vendor.py). Shared by create_draft_vendor() and
-    check_vendor_duplicates() -- one rule, one wording, not copy-pasted."""
+    check_vendor_duplicates() -- one rule, one wording, not copy-pasted.
+    `exclude_vendor_id` (2026-10-21): update_draft_vendor() runs this same
+    check against a vendor's *own* already-saved values -- without this,
+    resaving your own GSTIN/email/etc. unchanged would 409 against yourself."""
     for column, value, label in (
         (Vendor.gstin, gstin, "GSTIN"),
         (Vendor.pan, pan, "PAN"),
         (Vendor.email, email, "email address"),
         (Vendor.phone, phone, "phone number"),
     ):
-        existing = db.query(Vendor).filter(column == value).first()
+        query = db.query(Vendor).filter(column == value)
+        if exclude_vendor_id is not None:
+            query = query.filter(Vendor.id != exclude_vendor_id)
+        existing = query.first()
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -290,6 +295,47 @@ def _authorize_draft(db: Session, vendor_id: int, registration_token: str) -> Ve
     return vendor
 
 
+@router.put("/{vendor_id}/draft", response_model=VendorDraftOut)
+def update_draft_vendor(vendor_id: int, payload: VendorDraftUpdate, db: Session = Depends(get_db)):
+    """Registration recovery, 2026-10-21: a vendor who logged back in while
+    still Draft (vendor_auth.py's login never checks status except
+    Blacklisted) is sent back to Step 1 prefilled and editable -- this is
+    what Continue/Save-as-Draft call to actually persist those edits onto
+    the *existing* draft, the update counterpart to create_draft_vendor()
+    above. `exclude_vendor_id` on the duplicate check is what makes this
+    different from that one: resaving this vendor's own GSTIN/PAN/email/
+    phone unchanged must not 409 against itself."""
+
+    vendor = _authorize_draft(db, vendor_id, payload.registration_token)
+    _duplicate_check(db, payload.gstin, payload.pan, payload.email, payload.phone, exclude_vendor_id=vendor.id)
+
+    for field, value in payload.model_dump(exclude={"registration_token"}).items():
+        setattr(vendor, field, value)
+    db.commit()
+    db.refresh(vendor)
+    return VendorDraftOut(id=vendor.id, registration_token=vendor.registration_token, email_verified=vendor.email_verified_at is not None)
+
+
+@router.get("/{vendor_id}/draft-documents", response_model=list[VendorDocumentOut])
+def list_draft_documents(vendor_id: int, registration_token: str, db: Session = Depends(get_db)):
+    """Registration recovery, 2026-10-21: resuming at Step 2 needs to know
+    what's already uploaded (store_document() during registration always
+    writes draft=False -> DocumentStatus.PENDING, never DRAFT -- see its
+    own docstring), so the dropzones can show them as done instead of
+    demanding a re-upload of something already on file. Same query as
+    list_vendor_documents_for_review() below, just registration_token-
+    authorized instead of staff-role-gated, since there's no login yet a
+    Draft vendor could use the normal way."""
+
+    _authorize_draft(db, vendor_id, registration_token)
+    return (
+        db.query(VendorDocument)
+        .filter(VendorDocument.vendor_id == vendor_id, VendorDocument.status != DocumentStatus.DRAFT)
+        .order_by(VendorDocument.doc_type)
+        .all()
+    )
+
+
 EMAIL_CODE_LIFETIME_MINUTES = 10
 
 
@@ -423,7 +469,7 @@ def complete_vendor_registration(vendor_id: int, payload: VendorCompleteRegistra
     )
     notify_vendor(
         db, vendor.id, kind="registered", title="Registration received",
-        body=f"Thank you for registering with MedSource, {vendor.legal_name}. Your documents are now pending verification -- we'll notify you once a Procurement Admin has reviewed them.",
+        body=f"Thank you for registering with MedSource, {vendor.legal_name}. Your documents are now pending verification -- we'll notify you once a Category Manager has reviewed them.",
     )
     db.commit()
     db.refresh(vendor)
@@ -486,7 +532,7 @@ def lookup_vendors(
     _user: UserAccount = Depends(get_current_user),
 ):
     """Backs the vendor picker on Vendor Mapping / Vendor Rating — any staff
-    member needs to find a vendor by name there, not just Procurement Admin,
+    member needs to find a vendor by name there, not just Category Manager,
     but the full `GET /vendors` listing (GSTIN/PAN/contact) stays admin-only.
     No filter by default; callers creating a new mapping pass
     `status_filter=active` (CLAUDE.md PROJECT OVERRIDE: only Active vendors
@@ -630,8 +676,8 @@ def suspend_vendor(
 
 
 # Bringing a blacklisted vendor back is the vendor-decision roles' job
-# (Procurement Admin and Category Manager are one job; System Admin catch-all).
-BLACKLIST_REINSTATERS = (Role.PROCUREMENT_ADMIN, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+# (Category Manager; System Admin catch-all).
+BLACKLIST_REINSTATERS = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 
 
 @router.post("/{vendor_id}/reinstate", response_model=VendorMaskedOut)
@@ -643,7 +689,7 @@ def reinstate_vendor(
 ):
     """Suspended -> Active, or Blacklisted -> Active.
 
-    A blacklisted vendor is reinstated by Procurement Admin / Category
+    A blacklisted vendor is reinstated by Category
     Manager (or System Admin), and only with an explicit reason, which is written to
     the vendor's status history. A suspension can be lifted by the usual
     decision roles."""
@@ -651,7 +697,7 @@ def reinstate_vendor(
     vendor = _load_vendor(vendor_id, db)
     if vendor.status == VendorStatus.BLACKLISTED:
         if user.role not in BLACKLIST_REINSTATERS:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Procurement Admin / Category Manager can reinstate a blacklisted vendor")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Category Manager can reinstate a blacklisted vendor")
         if not (payload.reason and payload.reason.strip()):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An explicit reason is required to reinstate a blacklisted vendor")
         set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {payload.reason.strip()}")
@@ -682,7 +728,7 @@ def blacklist_vendor(
 ):
     """Bars an Active or Suspended vendor (spec 3.4 "Rejected / Blacklisted"):
     they can no longer log in, bid, be mapped or be invited. The way back is
-    reinstate (Procurement Admin / Category Manager, with an explicit reason)."""
+    reinstate (Category Manager, with an explicit reason)."""
 
     vendor = _load_vendor(vendor_id, db)
     if vendor.status not in (VendorStatus.ACTIVE, VendorStatus.SUSPENDED):
@@ -749,7 +795,7 @@ def vendor_status_history(
     return entries
 
 
-# ---- Document review (Category Manager / Procurement Admin / System Admin) ----
+# ---- Document review (Category Manager / System Admin) ----
 
 
 @router.get("/{vendor_id}/documents", response_model=list[VendorDocumentOut])

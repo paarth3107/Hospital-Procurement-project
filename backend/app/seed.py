@@ -10,13 +10,14 @@ from app.models.user_account import Role, UserAccount
 from app.security import hash_password
 from app.services.overrides import DEFAULT_SLA_HOURS
 
-ADMIN_EMAIL = "admin@medsource.local"
-ADMIN_PASSWORD = "changeme123"
-
-# One demo login per staff role beyond Procurement Admin, so the role-scoped
-# nav (frontend/src/lib/constants.ts's ROLE_TABS) can actually be
-# clicked through locally instead of only ever being tested as the one
-# super-role account. All of these are scoped to the first (default) facility.
+# One demo login per staff role, so the role-scoped nav
+# (frontend/src/lib/constants.ts's ROLE_TABS) can actually be clicked through
+# locally instead of only ever being tested as one account. All of these are
+# scoped to the first (default) facility. `sysadmin@medsource.local` is the
+# canonical admin login (System Admin, not the removed Procurement Admin
+# role -- there used to be a separate admin@medsource.local bootstrap account
+# seeded as Procurement Admin and printed as "the admin login"; removed
+# 2026-10-21 along with the role itself, see migration e8b2f6a4c913).
 DEMO_STAFF = [
     ("officer@medsource.local", "changeme123", "Priya Sharma", Role.PROCUREMENT_OFFICER, None),
     ("category@medsource.local", "changeme123", "Ravi Kumar", Role.CATEGORY_MANAGER, None),
@@ -38,7 +39,7 @@ DEMO_FACILITY_STAFF = [
     ("officer2@medsource.local", "changeme123", "Meena Pillai", Role.PROCUREMENT_OFFICER, None, "ECH-002"),
     ("category2@medsource.local", "changeme123", "Arjun Nair", Role.CATEGORY_MANAGER, None, "ECH-002"),
     ("authority2@medsource.local", "changeme123", "Dr. Farah Khan", Role.APPROVING_AUTHORITY, 2, "ECH-002"),
-    ("admin3@medsource.local", "changeme123", "Karan Mehta", Role.PROCUREMENT_ADMIN, None, "LSC-003"),
+    ("admin3@medsource.local", "changeme123", "Karan Mehta", Role.CATEGORY_MANAGER, None, "LSC-003"),
     ("officer3@medsource.local", "changeme123", "Sunita Verma", Role.PROCUREMENT_OFFICER, None, "LSC-003"),
     # facility_code None -- a group-wide login, so the "All facilities" case shows under every facility filter too.
     ("groupadmin@medsource.local", "changeme123", "Deepak Joshi", Role.SYSTEM_ADMIN, None, None),
@@ -69,48 +70,48 @@ DEFAULT_APPROVAL_BANDS = [
 DEFAULT_OVERRIDE_CONFIGS = [
     {
         "override_type": OverrideType.PRICE_COMPETITIVENESS_OVERRIDE,
-        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "default_approver_role": Role.CATEGORY_MANAGER,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
         "escalation_threshold": 15.0,  # score-point range the adjustment must not exceed
     },
     {
         "override_type": OverrideType.INVITE_LIST_MANUAL_ADD,
-        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "default_approver_role": Role.CATEGORY_MANAGER,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
         "escalation_threshold": 200_000.0,  # cumulative override value on the tender
     },
     {
         "override_type": OverrideType.GUEST_VENDOR_INVITE,
         "default_approver_role": Role.PROCUREMENT_OFFICER, "self_attested": True,
-        "escalate_to_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.CATEGORY_MANAGER,
         "escalation_threshold": 3.0,  # guest count per tender
     },
     {
         "override_type": OverrideType.TECHNICAL_SCORE_CORRECTION,
-        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "default_approver_role": Role.CATEGORY_MANAGER,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
     },
     {
         "override_type": OverrideType.LATE_SUBMISSION_EXCEPTION,
-        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "default_approver_role": Role.CATEGORY_MANAGER,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
         "escalation_threshold": 1_000_000.0,  # tender value
     },
     {
         "override_type": OverrideType.DUE_DATE_EXTENSION,
         "default_approver_role": Role.PROCUREMENT_OFFICER, "self_attested": True,
-        "escalate_to_role": Role.PROCUREMENT_ADMIN,
+        "escalate_to_role": Role.CATEGORY_MANAGER,
         "escalation_threshold": 7.0,  # cumulative extension days requested
     },
     {
         "override_type": OverrideType.NON_L1_AWARD_OVERRIDE,
-        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "default_approver_role": Role.CATEGORY_MANAGER,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 3,
         "escalation_threshold": 1_000_000.0,  # award value
     },
     {
         "override_type": OverrideType.PO_REEXPORT,
-        "default_approver_role": Role.PROCUREMENT_ADMIN,
+        "default_approver_role": Role.CATEGORY_MANAGER,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
     },
 ]
@@ -128,21 +129,6 @@ def run():
             print(f"Created facility: {facility.name} (id={facility.id})")
         else:
             print(f"Facility already exists (id={facility.id})")
-
-        admin = db.query(UserAccount).filter(UserAccount.email == ADMIN_EMAIL).first()
-        if not admin:
-            admin = UserAccount(
-                email=ADMIN_EMAIL,
-                hashed_password=hash_password(ADMIN_PASSWORD),
-                full_name="Admin User",
-                role=Role.PROCUREMENT_ADMIN,
-                facility_id=facility.id,
-            )
-            db.add(admin)
-            db.commit()
-            print(f"Created Procurement Admin login: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
-        else:
-            print("Admin user already exists")
 
         for email, password, full_name, role, approval_tier in DEMO_STAFF:
             existing = db.query(UserAccount).filter(UserAccount.email == email).first()
