@@ -98,6 +98,19 @@ class Vendor(Base):
     # completes, so it can't be replayed afterward.
     registration_token = Column(String(64), nullable=True)
 
+    # Email ownership verification (2026-10-19, user-directed): a 6-digit
+    # code sent to the Step 1 email before Step 2 documents, proving the
+    # registrant actually controls that inbox -- format validation alone
+    # (schemas/vendor.py's EmailStr) only checks the string looks like an
+    # email, not that anyone can receive mail there. email_verified_at is
+    # the real backend gate (complete_vendor_registration checks it, not
+    # just the frontend step gate) -- null until verified, never cleared
+    # back to null once set. The code+expiry are cleared after a successful
+    # verify so they can't be replayed.
+    email_verification_code = Column(String(6), nullable=True)
+    email_verification_expires_at = Column(UTCDateTime(), nullable=True)
+    email_verified_at = Column(UTCDateTime(), nullable=True)
+
     # Reused for both terminal Rejected and Info Requested -- either way
     # it's "the explanation for the vendor's current non-Active status",
     # not specifically a rejection; the column name predates Info Requested

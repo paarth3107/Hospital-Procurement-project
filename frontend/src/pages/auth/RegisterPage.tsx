@@ -52,6 +52,16 @@ export function RegisterPage() {
   const [registrationToken, setRegistrationToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  // Email ownership verification (2026-10-19, user-directed): once the draft
+  // is created, Step 2 is gated behind a 6-digit code sent to the Step 1
+  // email -- proves the registrant actually controls that inbox, not just
+  // that it's shaped like one (format alone was already checked earlier).
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [codeError, setCodeError] = useState("");
   // Bug report, 2026-10-13: the old success message was a small, generic
   // "result" banner that got overwritten/disappeared within a moment, with
   // nothing on screen to confirm what had actually happened or to say what
@@ -188,7 +198,10 @@ export function RegisterPage() {
     if (checkingDuplicates) return;
     if (!validateStep1()) return;
     if (vendorId && registrationToken) {
-      goToStep(2);
+      // Reusing an existing draft (Step 2 -> Back -> Continue again): if
+      // email verification somehow still isn't done, stay here and let the
+      // code panel below render instead of skipping ahead to Step 2.
+      if (emailVerified) goToStep(2);
       return;
     }
     setCheckingDuplicates(true);
@@ -216,7 +229,7 @@ export function RegisterPage() {
       }
       const city = cityIsOther ? step1Value("city_other") : cityValue;
       const openLinkToken = sessionStorage.getItem("openLinkToken");
-      const draft = await api<{ id: number; registration_token: string }>("/vendors/draft", {
+      const draft = await api<{ id: number; registration_token: string; email_verified: boolean }>("/vendors/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -249,11 +262,59 @@ export function RegisterPage() {
       });
       setVendorId(draft.id);
       setRegistrationToken(draft.registration_token);
-      goToStep(2);
+      if (draft.email_verified) {
+        setEmailVerified(true);
+        goToStep(2);
+      } else {
+        await sendCode(draft.id, draft.registration_token);
+      }
     } catch (err) {
       setResult({ message: "Could not continue: " + (err instanceof Error ? err.message : String(err)), ok: false });
     } finally {
       setCheckingDuplicates(false);
+    }
+  }
+
+  // Shared by the automatic first send (right after the draft is created)
+  // and the "Resend code" button -- each call overwrites any previous code
+  // server-side, so only the most recently sent one is ever valid.
+  async function sendCode(id: number, token: string) {
+    setSendingCode(true);
+    setCodeError("");
+    try {
+      await api(`/vendors/${id}/send-verification-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registration_token: token }),
+      });
+      setCodeSent(true);
+    } catch (err) {
+      setCodeError("Could not send the code: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSendingCode(false);
+    }
+  }
+
+  async function verifyCode() {
+    if (!vendorId || !registrationToken || verifyingCode) return;
+    if (!emailCode.trim()) {
+      setCodeError("Enter the code from your email.");
+      return;
+    }
+    setVerifyingCode(true);
+    setCodeError("");
+    try {
+      await api(`/vendors/${vendorId}/verify-email-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registration_token: registrationToken, code: emailCode.trim() }),
+      });
+      setEmailVerified(true);
+      goToStep(2);
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setVerifyingCode(false);
     }
   }
 
@@ -667,11 +728,54 @@ export function RegisterPage() {
             </div>
           </div>
         </fieldset>
-        {step === 1 && (
+        {/* Hidden only in the one state the verify panel below covers
+            (draft exists, not yet verified) -- otherwise this is the same
+            Continue button as always, including "already verified, just
+            navigating Step 2 -> Back -> Continue again" (checkDuplicatesAndContinue
+            already handles that case by going straight to Step 2). */}
+        {step === 1 && !(vendorId && !emailVerified) && (
           <div>
             <button type="button" className="ep-b" data-v="p" disabled={checkingDuplicates} onClick={checkDuplicatesAndContinue}>
               {checkingDuplicates ? "Checking…" : "Continue"}
             </button>
+          </div>
+        )}
+        {/* Email ownership verification (2026-10-19, user-directed): shown
+            once the draft exists but before Step 2, so a wrong/fake email is
+            caught before any documents get uploaded against it. */}
+        {step === 1 && vendorId && !emailVerified && (
+          <div className="ep-pane ep-pane-pad d-flex flex-col gap-10px maxw-380px">
+            <div className="ep-k">Verify Your Email</div>
+            <p className="hint margin-0">
+              {sendingCode ? "Sending a code to " : codeSent ? "We sent a code to " : "Sending a code to "}
+              <b>{step1Value("email")}</b>
+              {!sendingCode && ". Enter it below to continue."}
+            </p>
+            <input
+              className="input"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="6-digit code"
+              value={emailCode}
+              onChange={(e) => {
+                setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                if (codeError) setCodeError("");
+              }}
+            />
+            {codeError && <div className="field-error">{codeError}</div>}
+            <div className="d-flex gap-10px">
+              <button type="button" className="ep-b" data-v="p" disabled={verifyingCode} onClick={verifyCode}>
+                {verifyingCode ? "Verifying…" : "Verify"}
+              </button>
+              <button
+                type="button"
+                className="ep-b"
+                disabled={sendingCode || !vendorId || !registrationToken}
+                onClick={() => vendorId && registrationToken && sendCode(vendorId, registrationToken)}
+              >
+                {sendingCode ? "Sending…" : "Resend Code"}
+              </button>
+            </div>
           </div>
         )}
 

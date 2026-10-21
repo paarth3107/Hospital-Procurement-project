@@ -3,6 +3,7 @@ import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { fileTypeError } from "../../lib/fileValidation";
 import { UploadProgress } from "../../components/CircularProgress";
 import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { Tender } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/singleDocument.js -- a single-
@@ -54,7 +55,7 @@ export function SingleDocumentField({
   requiredLabel: string;
   onChange: (updated: Tender) => void;
 }) {
-  const { confirmAsync, alertAsync, modalElement } = useModal();
+  const { confirmAsync, alertAsync, openPreview, modalElement } = useModal();
   // Real bug, found 2026-10-13: nothing stopped a second click mid-upload,
   // and nothing showed the user anything was even happening.
   const [uploading, setUploading] = useState(false);
@@ -102,12 +103,16 @@ export function SingleDocumentField({
     picker.click();
   };
 
-  const download = async () => {
+  const view = async () => {
     if (!tender) return;
     try {
       const res = await fetch(`${API_BASE}/tenders/${tender.id}/${endpoint}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const name = field(tender, "filename") as string;
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename: name, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       await alertAsync(err instanceof Error ? err.message : String(err));
     }
@@ -135,8 +140,8 @@ export function SingleDocumentField({
             {filename}
           </span>
           <span className="ep-sub nowrap">{fmtSize(field(tender!, "size") as number | null)}</span>
-          <button type="button" className="ep-b" disabled={uploading || disabled} onClick={download}>
-            Download
+          <button type="button" className="ep-b" disabled={uploading || disabled} onClick={view}>
+            View
           </button>
           <button type="button" className="ep-b" disabled={uploading || disabled} onClick={pickAndUpload}>
             {uploading ? <UploadProgress value={uploadProgress} /> : "Replace"}

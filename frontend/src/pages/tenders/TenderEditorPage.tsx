@@ -28,6 +28,8 @@ interface FormState {
   tender_type: TenderType;
   department: string;
   min_rating_threshold: string;
+  min_invites: string;
+  max_invites: string;
   open_tender: boolean;
   is_rate_contract: boolean;
   contract_start_date: string;
@@ -43,6 +45,8 @@ const BLANK_FORM: FormState = {
   tender_type: "rfq",
   department: "",
   min_rating_threshold: "0",
+  min_invites: "",
+  max_invites: "",
   open_tender: false,
   is_rate_contract: false,
   contract_start_date: "",
@@ -140,6 +144,8 @@ export function TenderEditorPage() {
       tender_type: t.tender_type,
       department: t.department || "",
       min_rating_threshold: String(t.min_rating_threshold),
+      min_invites: t.min_invites != null ? String(t.min_invites) : "",
+      max_invites: t.max_invites != null ? String(t.max_invites) : "",
       open_tender: t.open_tender,
       is_rate_contract: t.is_rate_contract,
       contract_start_date: t.contract_start_date || "",
@@ -166,6 +172,8 @@ export function TenderEditorPage() {
       tender_type: f.tender_type,
       department: f.department || null,
       min_rating_threshold: f.min_rating_threshold ? Number(f.min_rating_threshold) : 0,
+      min_invites: f.min_invites ? Number(f.min_invites) : null,
+      max_invites: f.max_invites ? Number(f.max_invites) : null,
       open_tender: f.open_tender,
       is_rate_contract: f.is_rate_contract,
       // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
@@ -436,6 +444,35 @@ export function TenderEditorPage() {
                   step="0.1"
                   value={form.min_rating_threshold}
                   onChange={(e) => setField("min_rating_threshold", e.target.value)}
+                />
+              </div>
+              {/* Added back 2026-10-21 -- removed from the UI earlier, but
+                  the backend (eligibility.py's cap-at-max_invites, the
+                  review screen's below-minimum warning) never stopped
+                  supporting these (spec §6.2/§6.5 point 5); placement here
+                  is a first pass, not a final call. Meaningless for Open
+                  Tender (§6.8.3 -- every Active vendor is invited, no count
+                  filter), so greyed out while that's on. */}
+              <div className="ep-field" title="Doesn't apply to Open Tender -- every Active vendor is invited">
+                <div className="ep-k">Min Vendors</div>
+                <input
+                  className="input input-narrow"
+                  type="number"
+                  min={0}
+                  disabled={form.open_tender}
+                  value={form.min_invites}
+                  onChange={(e) => setField("min_invites", e.target.value)}
+                />
+              </div>
+              <div className="ep-field" title="Doesn't apply to Open Tender -- every Active vendor is invited">
+                <div className="ep-k">Max Vendors</div>
+                <input
+                  className="input input-narrow"
+                  type="number"
+                  min={0}
+                  disabled={form.open_tender}
+                  value={form.max_invites}
+                  onChange={(e) => setField("max_invites", e.target.value)}
                 />
               </div>
             </div>

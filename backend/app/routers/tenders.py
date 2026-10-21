@@ -39,7 +39,7 @@ from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_appro
 from app.services.eligibility import resolve_eligible_vendors
 from app.services.open_links import facility_name, link_state, new_token
 from app.services.ratings import rating_score
-from app.services.tender_publish import sweep_scheduled_publishes
+from app.services.tender_publish import notify_invited_vendors, sweep_scheduled_publishes
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
 
@@ -1012,6 +1012,9 @@ def approve_tender(
             "scheduled_for": tender.publish_date.isoformat() if scheduled else None,
         },
     )
+    if not scheduled:
+        db.flush()  # push li.published above -- notify_invited_vendors queries it back (session has autoflush=False)
+        notify_invited_vendors(db, tender)
     db.commit()
     db.refresh(tender)
     return tender

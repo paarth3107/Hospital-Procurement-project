@@ -3,6 +3,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { PromptDialog } from "./PromptDialog";
 import { AlertDialog } from "./AlertDialog";
 import { ChooseDialog } from "./ChooseDialog";
+import { DocumentPreviewModal, type PreviewFile } from "./DocumentPreviewModal";
 
 // Gives a ported page's decision logic the same promise-based ergonomics
 // frontend/js/modal.js's modalPrompt()/modalConfirm()/modalAlert()/
@@ -15,7 +16,8 @@ type Pending =
   | { kind: "prompt"; message: string; placeholder: string; resolve: (v: string | null) => void }
   | { kind: "confirm"; message: string; title: string; confirmLabel: string; danger: boolean; resolve: (v: boolean) => void }
   | { kind: "alert"; message: string; title: string; resolve: () => void }
-  | { kind: "choose"; message: string; title: string; options: { value: string; label: string }[]; resolve: (v: string | null) => void };
+  | { kind: "choose"; message: string; title: string; options: { value: string; label: string }[]; resolve: (v: string | null) => void }
+  | { kind: "preview"; file: PreviewFile; onClosed?: () => void };
 
 export function useModal() {
   const [pending, setPending] = useState<Pending | null>(null);
@@ -36,6 +38,13 @@ export function useModal() {
 
   const chooseAsync = useCallback((message: string, options: { value: string; label: string }[], title = "Choose One"): Promise<string | null> => {
     return new Promise((resolve) => setPending({ kind: "choose", message, title, options, resolve }));
+  }, []);
+
+  // Not promise-based like the others -- nothing awaits "the user closed
+  // the preview," so onClosed is a plain fire-and-forget callback (the
+  // call site uses it to revoke the blob URL it created).
+  const openPreview = useCallback((file: PreviewFile, onClosed?: () => void) => {
+    setPending({ kind: "preview", file, onClosed });
   }, []);
 
   let modalElement = null;
@@ -102,7 +111,18 @@ export function useModal() {
         }}
       />
     );
+  } else if (pending?.kind === "preview") {
+    const p = pending;
+    modalElement = (
+      <DocumentPreviewModal
+        file={p.file}
+        onClose={() => {
+          setPending(null);
+          p.onClosed?.();
+        }}
+      />
+    );
   }
 
-  return { promptAsync, confirmAsync, alertAsync, chooseAsync, modalElement };
+  return { promptAsync, confirmAsync, alertAsync, chooseAsync, openPreview, modalElement };
 }

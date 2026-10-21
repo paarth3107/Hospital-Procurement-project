@@ -7,6 +7,7 @@ import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/f
 import { FormField } from "../../components/FormField";
 import { Req } from "../../components/Req";
 import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { CatalogProduct, LineItem, TechnicalEvalMethod, TenderLineAttachmentKind } from "../../lib/types";
 import { blankRow, type LineItemPayload, type LineItemRow } from "./lineItemRow";
 import { LINE_DETAIL_FIELDS_BY_TYPE } from "./lineDetailFields";
@@ -96,7 +97,7 @@ export const LineItemsGrid = forwardRef<
   const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
   const [attachmentProgress, setAttachmentProgress] = useState(0);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
-  const { promptAsync, modalElement } = useModal();
+  const { promptAsync, openPreview, modalElement } = useModal();
   // Real bug, found 2026-10-14: the product code cell used a native
   // <input list="..."> + <datalist>, i.e. the browser's own stock
   // autocomplete UI -- not styled like anything else in the app. Replaced
@@ -410,11 +411,14 @@ export const LineItemsGrid = forwardRef<
     }
   };
 
-  const viewAttachment = async (lineId: number, attachmentId: number) => {
+  const viewAttachment = async (lineId: number, attachmentId: number, filename: string) => {
     try {
       const res = await fetch(`${API_BASE}/tenders/${tenderId}/line-items/${lineId}/attachments/${attachmentId}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : String(err));
     }
@@ -697,7 +701,7 @@ export const LineItemsGrid = forwardRef<
                                   busyProgress={attachmentProgress}
                                   onUpload={(kind) => uploadAttachment(i, kind)}
                                   onRemove={(attId) => removeAttachment(i, attId)}
-                                  onView={(attId) => row.id != null && viewAttachment(row.id, attId)}
+                                  onView={(attId, filename) => row.id != null && viewAttachment(row.id, attId, filename)}
                                 />
                               </div>
                             </div>

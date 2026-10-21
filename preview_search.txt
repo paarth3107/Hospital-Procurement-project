@@ -1,0 +1,49 @@
+72309 user : question | what can we do about file preview | i dont like how it opens in a new tab i want it to open in our app itself | talk to me first
+---
+72320 assistant : [TOOL_USE:Bash]
+---
+72328 user : [TOOL_RESULT]
+---
+72331 assistant : [TOOL_USE:Bash]
+---
+72332 user : [TOOL_RESULT]
+---
+72336 assistant : [TOOL_USE:Bash]
+---
+72337 user : [TOOL_RESULT]
+---
+72341 assistant : Here's the picture. Right now, every "view document" button across the app (9 separate places — vendor documents, tender/bid attachments, evaluation review, PO approvals) does the exact same thing: |  | ```js | fetch(download-url, { headers: authHeaders() })  // needs the auth token, so a plain <a href> can't be used |   .then(blob => window.open(URL.createObjectURL(blob), "_blank")) | ``` |  | That's why it opens in a new tab — the download endpoint needs a Bearer token on the request, which a plain link can
+---
+72344 user : why docx? | isnt that similar to pdf?
+---
+72355 assistant : Good question — they look similar as "office documents" but they're fundamentally different kinds of files, and that's exactly why browsers treat them so differently. |  | **PDF is a "print-ready" format.** Every page is already fully laid out — exact font positions, exact line breaks, everything baked in. Displaying a PDF is just interpreting a fixed set of drawing instructions. Because of that, every major browser has shipped a built-in PDF renderer for years (it's also what makes "Print to PDF" w
+---
+72365 user : does it even mention to include docx in the spec sheet?
+---
+72369 assistant : [TOOL_USE:Grep]
+---
+72377 user : [TOOL_RESULT]
+---
+72380 assistant : [TOOL_USE:Read]
+---
+72381 user : [TOOL_RESULT]
+---
+72384 assistant : [TOOL_USE:Grep]
+---
+72385 user : [TOOL_RESULT]
+---
+72387 assistant : Yes — explicitly, in two places: |  | - **§6.4.2** (tender attachments, Procurement Officer uploads): *"Accepted formats: PDF, DOCX, XLSX, JPG/PNG"* | - **§8.3.2** (bid attachments, vendor uploads): *"Same accepted formats/size limits as Procurement Head uploads (6.4.2)"* — so DOCX is required there too, by reference. |  | So it's not something the implementation invented — the spec explicitly calls for DOCX support on both of these upload surfaces (this is also exactly why `allow_office=True` exists in `
+---
+72390 user : lets leave docx out for now as well and work with pdf and images first | thats gonna be the major ones anyways | dont start work on it yet just add this to todo | also read me the todo
+---
+72401 assistant : [TOOL_USE:Read]
+---
+72402 user : [TOOL_RESULT]
+---
+72404 assistant : Let's add this as a new entry in the same section, matching the established style:
+---
+72405 assistant : [TOOL_USE:Edit]
+---
+72407 user : [TOOL_RESULT]
+---
+72418 assistant : 

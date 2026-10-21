@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { fmtDate, fmtDateTime, inr } from "../../lib/format";
 import { Tag, TypeTag } from "../../components/Tag";
+import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { ReviewLine, ReviewVendor, Tender, TenderReview } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/approvals/reviewPanel.js -- the
@@ -141,6 +143,7 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
   const [comments, setComments] = useState("");
   const [commentsInvalid, setCommentsInvalid] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const { openPreview, modalElement } = useModal();
 
   useEffect(() => {
     api<TenderReview>(`/tenders/${tenderId}/approval-review`)
@@ -148,11 +151,14 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
       .catch((err) => setError("Could not load the review: " + (err instanceof Error ? err.message : String(err))));
   }, [tenderId]);
 
-  const download = async (endpoint: string) => {
+  const view = async (endpoint: string, filename: string) => {
     try {
       const res = await fetch(`${API_BASE}/tenders/${tenderId}/${endpoint}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -249,8 +255,8 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
             span={4}
             v={
               r.terms_document_filename ? (
-                <button type="button" className="ep-b" onClick={() => download("terms-document")}>
-                  {r.terms_document_filename} — download
+                <button type="button" className="ep-b" onClick={() => view("terms-document", r.terms_document_filename!)}>
+                  {r.terms_document_filename} — view
                 </button>
               ) : null
             }
@@ -261,8 +267,8 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
               span={4}
               v={
                 r.rate_contract_document_filename ? (
-                  <button type="button" className="ep-b" onClick={() => download("rate-contract-document")}>
-                    {r.rate_contract_document_filename} — download
+                  <button type="button" className="ep-b" onClick={() => view("rate-contract-document", r.rate_contract_document_filename!)}>
+                    {r.rate_contract_document_filename} — view
                   </button>
                 ) : null
               }
@@ -347,6 +353,7 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
         )}
       </div>
       {error && <div className="result err">{error}</div>}
+      {modalElement}
     </div>
   );
 }

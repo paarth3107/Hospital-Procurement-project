@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { Tag } from "../../components/Tag";
+import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { BidReview, Criterion, VendorBidRow } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/evaluation/evaluateDialog.js -- the
@@ -42,6 +44,7 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
   const [commentsInvalid, setCommentsInvalid] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const { openPreview, modalElement } = useModal();
 
   useEffect(() => {
     api<BidReview>(`/evaluation/bids/${vendorRow.bid_id}/review`)
@@ -63,12 +66,15 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
   const manual = useMemo(() => review?.criteria.filter((c) => !c.auto) ?? [], [review]);
   const allOpened = review ? review.attachments.every((a) => opened.has(a.id)) : false;
 
-  const openDoc = async (id: number) => {
+  const openDoc = async (id: number, filename: string) => {
     if (!review) return;
     try {
       const res = await fetch(`${API_BASE}/evaluation/bids/${review.bid_id}/attachments/${id}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Could not open the document");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
       setOpened((prev) => new Set(prev).add(id)); // the server has recorded the opening
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -198,7 +204,7 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
                     <span className="fs-13px fw-600">{a.original_filename}</span>
                     <span className="ep-sub">{a.label}</span>
                     <span className="ml-auto">{opened.has(a.id) ? <Tag text="Opened" tone="pos" /> : <Tag text="Not opened" tone="att" />}</span>
-                    <button type="button" className="ep-b" onClick={() => openDoc(a.id)}>
+                    <button type="button" className="ep-b" onClick={() => openDoc(a.id, a.original_filename)}>
                       {opened.has(a.id) ? "Open again" : "Open"}
                     </button>
                   </div>
@@ -295,6 +301,7 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
           </div>
         </form>
       </div>
+      {modalElement}
     </div>,
     document.body
   );

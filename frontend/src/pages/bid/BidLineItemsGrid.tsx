@@ -7,6 +7,7 @@ import { coerceFieldValue, initialFieldValues } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
 import { Tag, StateTag } from "../../components/Tag";
 import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { BidForm, BidRequirements } from "../../lib/types";
 import { KIND_LABELS } from "../tenders/AttachmentsPanel";
 import { BidAttachmentsPanel } from "./BidAttachmentsPanel";
@@ -60,7 +61,7 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
   // "<row index>:<kind>" currently mid-upload, if any -- see BidAttachmentsPanel.tsx's own comment.
   const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
   const [attachmentProgress, setAttachmentProgress] = useState(0);
-  const { confirmAsync, modalElement } = useModal();
+  const { confirmAsync, openPreview, modalElement } = useModal();
 
   const setRows = (next: BidRow[]) => {
     setRowsState(next);
@@ -279,21 +280,27 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
     }
   };
 
-  const viewAttachment = async (bidId: number, attachmentId: number) => {
+  const viewAttachment = async (bidId: number, attachmentId: number, filename: string) => {
     try {
       const res = await fetch(`${API_BASE}/vendor-portal/bids/${bidId}/attachments/${attachmentId}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const viewSpecAttachment = async (lineItemId: number, attachmentId: number) => {
+  const viewSpecAttachment = async (lineItemId: number, attachmentId: number, filename: string) => {
     try {
       const res = await fetch(`${API_BASE}/vendor-portal/bids/line/${lineItemId}/spec-attachments/${attachmentId}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : String(err));
     }
@@ -440,7 +447,7 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
                                       href="#"
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        viewSpecAttachment(row.line_item_id, a.id);
+                                        viewSpecAttachment(row.line_item_id, a.id, a.custom_label || a.original_filename);
                                       }}
                                     >
                                       {a.custom_label || a.original_filename}
@@ -504,7 +511,7 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
                             busyProgress={attachmentProgress}
                             onUpload={(kind) => uploadAttachment(i, kind)}
                             onRemove={(attId) => removeAttachment(i, attId)}
-                            onView={(attId) => row.bid_id != null && viewAttachment(row.bid_id, attId)}
+                            onView={(attId, filename) => row.bid_id != null && viewAttachment(row.bid_id, attId, filename)}
                           />
                         </td>
                       </tr>

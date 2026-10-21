@@ -3,6 +3,8 @@ import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { switchView, takePendingBidTenderId } from "../../lib/bridge";
 import { fmtDate, fmtDateTime } from "../../lib/format";
 import { Tag } from "../../components/Tag";
+import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import { BidLineItemsGrid, type BidLineItemsGridHandle } from "./BidLineItemsGrid";
 import type { TenderBids } from "../../lib/types";
 
@@ -29,6 +31,7 @@ export function BidPage() {
   const [saving, setSaving] = useState(false);
   const gridRef = useRef<BidLineItemsGridHandle>(null);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const { openPreview, modalElement } = useModal();
 
   useEffect(() => {
     if (tenderId == null) {
@@ -47,12 +50,15 @@ export function BidPage() {
     })();
   }, [tenderId]);
 
-  const download = async (endpoint: string) => {
+  const view = async (endpoint: string, filename: string) => {
     if (!ctx) return;
     try {
       const res = await fetch(`${API_BASE}/vendor-portal/bids/tender/${ctx.tender_id}/${endpoint}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open the file");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       setResult({ message: err instanceof Error ? err.message : String(err), ok: false });
     }
@@ -125,16 +131,16 @@ export function BidPage() {
           {ctx.terms_document_filename && (
             <div className="mt-12px">
               <div className="ep-k">Terms &amp; conditions</div>
-              <button type="button" className="ep-b mt-4px" onClick={() => download("terms-document")}>
-                {ctx.terms_document_filename} — download
+              <button type="button" className="ep-b mt-4px" onClick={() => view("terms-document", ctx.terms_document_filename!)}>
+                {ctx.terms_document_filename} — view
               </button>
             </div>
           )}
           {ctx.rate_contract_document_filename && (
             <div className="mt-12px">
               <div className="ep-k">Rate contract agreement</div>
-              <button type="button" className="ep-b mt-4px" onClick={() => download("rate-contract-document")}>
-                {ctx.rate_contract_document_filename} — download
+              <button type="button" className="ep-b mt-4px" onClick={() => view("rate-contract-document", ctx.rate_contract_document_filename!)}>
+                {ctx.rate_contract_document_filename} — view
               </button>
             </div>
           )}
@@ -186,6 +192,7 @@ export function BidPage() {
         )}
       </div>
       {result && <div className={`result ${result.ok ? "ok" : "err"} mt-10px`}>{result.message}</div>}
+      {modalElement}
     </div>
   );
 }

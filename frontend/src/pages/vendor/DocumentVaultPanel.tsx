@@ -6,6 +6,7 @@ import { fileTypeError } from "../../lib/fileValidation";
 import { Tag, StateTag, ExpiryTag } from "../../components/Tag";
 import { UploadProgress } from "../../components/CircularProgress";
 import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { VendorDocument } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/vendorDocumentsPage.js -- the vendor's
@@ -38,7 +39,7 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
-  const { confirmAsync, modalElement } = useModal();
+  const { confirmAsync, openPreview, modalElement } = useModal();
 
   const load = useCallback(async () => {
     try {
@@ -105,11 +106,14 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
     }
   };
 
-  const view = async (docId: number) => {
+  const view = async (docId: number, filename: string) => {
     try {
       const res = await fetch(API_BASE + `/vendor-portal/documents/${docId}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open document");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
     } catch (err) {
       setResult({ message: err instanceof Error ? err.message : String(err), ok: false });
     }
@@ -177,7 +181,7 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
                           href="#"
                           onClick={(ev) => {
                             ev.preventDefault();
-                            view(d.id);
+                            view(d.id, d.original_filename);
                           }}
                         >
                           View

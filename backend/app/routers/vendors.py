@@ -1,7 +1,7 @@
 from app.services.open_links import invite_newly_active_vendor, require_open_link_tender
 import logging
 import secrets
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
@@ -26,6 +26,8 @@ from app.schemas.vendor import (
     VendorDraftOut,
     VendorDuplicateCheckRequest,
     VendorDuplicateCheckResponse,
+    VendorEmailCodeRequest,
+    VendorEmailVerifyRequest,
     VendorHistoryEntryOut,
     VendorInfoRequest,
     VendorLookupOut,
@@ -42,6 +44,7 @@ from app.security import get_current_user, hash_password, require_role, verify_p
 from app.schemas.vendor_document import ItemRequirementOut
 from app.services.audit import record
 from app.services.document_requirements import to_out, vendor_requirements
+from app.services.email_adapter import send_email
 from app.services.expiry import reinstate_if_cleared
 from app.services.notifier import notify_vendor
 from app.services.vendor_status import set_status
@@ -287,6 +290,49 @@ def _authorize_draft(db: Session, vendor_id: int, registration_token: str) -> Ve
     return vendor
 
 
+EMAIL_CODE_LIFETIME_MINUTES = 10
+
+
+@router.post("/{vendor_id}/send-verification-code", status_code=status.HTTP_204_NO_CONTENT)
+def send_verification_code(vendor_id: int, payload: VendorEmailCodeRequest, db: Session = Depends(get_db)):
+    """User-directed (2026-10-19): proves the registrant actually controls
+    the Step 1 email, not just that it's shaped like one. Callable again to
+    resend -- each call overwrites any previous code/expiry, so only the
+    most recently sent code is ever valid. A direct send_email() call, not
+    notify_vendor() -- this is a one-off transactional code, not something
+    that belongs in the vendor's portal notification list (which doesn't
+    exist yet for a Draft vendor anyway)."""
+
+    vendor = _authorize_draft(db, vendor_id, payload.registration_token)
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    vendor.email_verification_code = code
+    vendor.email_verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EMAIL_CODE_LIFETIME_MINUTES)
+    db.commit()
+    send_email(
+        vendor.email, "Verify your email - MedSource registration",
+        f"Your verification code is {code}. It expires in {EMAIL_CODE_LIFETIME_MINUTES} minutes. "
+        "If you didn't start a MedSource vendor registration, you can ignore this email.",
+    )
+
+
+@router.post("/{vendor_id}/verify-email-code", response_model=VendorDraftOut)
+def verify_email_code(vendor_id: int, payload: VendorEmailVerifyRequest, db: Session = Depends(get_db)):
+    vendor = _authorize_draft(db, vendor_id, payload.registration_token)
+    if (
+        not vendor.email_verification_code
+        or vendor.email_verification_expires_at is None
+        or datetime.now(timezone.utc) > vendor.email_verification_expires_at
+    ):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That code has expired. Request a new one.")
+    if payload.code.strip() != vendor.email_verification_code:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That code doesn't match.")
+    vendor.email_verified_at = datetime.now(timezone.utc)
+    vendor.email_verification_code = None
+    vendor.email_verification_expires_at = None
+    db.commit()
+    return VendorDraftOut(id=vendor.id, registration_token=payload.registration_token, email_verified=True)
+
+
 @router.post("/{vendor_id}/documents", response_model=VendorDocumentOut, status_code=status.HTTP_201_CREATED)
 async def upload_registration_document(
     vendor_id: int,
@@ -358,6 +404,11 @@ def complete_vendor_registration(vendor_id: int, payload: VendorCompleteRegistra
     `registration_token` is cleared so it can't be replayed afterward."""
 
     vendor = _authorize_draft(db, vendor_id, payload.registration_token)
+    # The real gate (2026-10-19): the frontend already requires this before
+    # Step 2, but that's UX only -- a direct API call skipping it must still
+    # be refused here, same as every other workflow rule in this app.
+    if vendor.email_verified_at is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Email not verified yet.")
     have = {d.doc_type for d in db.query(VendorDocument).filter(VendorDocument.vendor_id == vendor.id).all()}
     missing = [dt.value for dt in MANDATORY_DOC_TYPES if dt not in have]
     if missing:
@@ -369,6 +420,10 @@ def complete_vendor_registration(vendor_id: int, payload: VendorCompleteRegistra
     record(
         db, "vendor.registered", "vendor", vendor.id, actor=vendor, entity_label=vendor.legal_name,
         after={"status": VendorStatus.PENDING_VERIFICATION}, reason="Registered",
+    )
+    notify_vendor(
+        db, vendor.id, kind="registered", title="Registration received",
+        body=f"Thank you for registering with MedSource, {vendor.legal_name}. Your documents are now pending verification -- we'll notify you once a Procurement Admin has reviewed them.",
     )
     db.commit()
     db.refresh(vendor)

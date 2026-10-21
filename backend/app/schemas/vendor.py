@@ -173,6 +173,16 @@ class VendorDraftOut(BaseModel):
 
     id: int
     registration_token: str
+    email_verified: bool = False
+
+
+class VendorEmailCodeRequest(BaseModel):
+    registration_token: str
+
+
+class VendorEmailVerifyRequest(BaseModel):
+    registration_token: str
+    code: str
 
 
 class VendorCompleteRegistration(BaseModel):

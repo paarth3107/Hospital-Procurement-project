@@ -60,7 +60,7 @@ export function AttachmentsPanel({
   busyProgress?: number;
   onUpload: (kind: TenderLineAttachmentKind) => void;
   onRemove: (attachmentId: number) => void;
-  onView: (attachmentId: number) => void;
+  onView: (attachmentId: number, filename: string) => void;
 }) {
   const slots = SLOTS_BY_TYPE[procurementType] || [];
   return (
@@ -84,7 +84,7 @@ export function AttachmentsPanel({
                   className="li-att-view"
                   onClick={(e) => {
                     e.preventDefault();
-                    onView(f.id);
+                    onView(f.id, f.original_filename);
                   }}
                 >
                   {f.original_filename}

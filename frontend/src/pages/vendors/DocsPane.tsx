@@ -20,7 +20,7 @@ export function DocsPane({
 }: {
   docs: VendorDocument[];
   reviewedDocIds: Set<number>;
-  onViewDoc: (docId: number) => void;
+  onViewDoc: (docId: number, filename: string) => void;
   onVerify: (docId: number) => void;
   onReject: (docId: number) => void;
 }) {
@@ -79,7 +79,7 @@ export function DocsPane({
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        onViewDoc(d.id);
+                        onViewDoc(d.id, d.original_filename);
                       }}
                     >
                       View

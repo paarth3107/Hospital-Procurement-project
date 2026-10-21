@@ -110,9 +110,11 @@ class PoDataFile(Base):
 
 
 class Notification(Base):
-    """A message to a vendor (award, regret, technical disqualification). There
-    is no email/SMS adapter yet, so the portal notification is the delivery and
-    the sending is logged (CLAUDE.md: adapters + mocks, not faked)."""
+    """A message to a vendor (award, regret, technical disqualification,
+    tender invite...). The portal record is always written; whether it's also
+    emailed depends on notifier.py's EMAIL_ENABLED_KINDS (console/SMTP
+    adapter -- no SMS adapter yet, per CLAUDE.md: adapters + mocks, not
+    faked)."""
 
     __tablename__ = "notifications"
 

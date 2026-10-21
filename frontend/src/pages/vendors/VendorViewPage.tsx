@@ -4,6 +4,7 @@ import { useAuthState } from "../../lib/authStore";
 import type { ItemRequirement, VendorDetail, VendorDocument, VendorStatusHistoryEntry } from "../../lib/types";
 import { takeViewVendorId, refreshChrome, switchView } from "../../lib/bridge";
 import { useModal } from "../../components/useModal";
+import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import { IdentityPane } from "./IdentityPane";
 import { DocsPane } from "./DocsPane";
 import { RequirementsPane } from "./RequirementsPane";
@@ -32,7 +33,7 @@ export function VendorViewPage() {
   // mounts right after a login/refresh (user still null at that moment).
   const currentUser = useAuthState().user;
   const [error, setError] = useState("");
-  const { promptAsync, confirmAsync, modalElement } = useModal();
+  const { promptAsync, confirmAsync, openPreview, modalElement } = useModal();
 
   const load = useCallback(async () => {
     if (vendorId === null) return;
@@ -57,11 +58,14 @@ export function VendorViewPage() {
     load();
   }, [load]);
 
-  const openDocument = async (docId: number): Promise<boolean> => {
+  const openDocument = async (docId: number, filename: string): Promise<boolean> => {
     try {
       const res = await fetch(API_BASE + `/vendors/${vendorId}/documents/${docId}/download`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Could not open document");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (canPreviewInApp(blob.type)) openPreview({ url, filename, contentType: blob.type }, () => URL.revokeObjectURL(url));
+      else window.open(url, "_blank");
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -69,8 +73,8 @@ export function VendorViewPage() {
     }
   };
 
-  const handleViewDoc = async (docId: number) => {
-    if (await openDocument(docId)) {
+  const handleViewDoc = async (docId: number, filename: string) => {
+    if (await openDocument(docId, filename)) {
       setReviewedDocIds((prev) => new Set(prev).add(docId));
     }
   };

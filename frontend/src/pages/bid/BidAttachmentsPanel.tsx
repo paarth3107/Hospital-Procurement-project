@@ -28,7 +28,7 @@ export function BidAttachmentsPanel({
   busyProgress?: number;
   onUpload: (kind: string) => void;
   onRemove: (attachmentId: number) => void;
-  onView: (attachmentId: number) => void;
+  onView: (attachmentId: number, filename: string) => void;
 }) {
   return (
     <div className="d-flex flex-col gap-12px">
@@ -52,7 +52,7 @@ export function BidAttachmentsPanel({
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    onView(f.id);
+                    onView(f.id, f.original_filename);
                   }}
                 >
                   {f.original_filename}
