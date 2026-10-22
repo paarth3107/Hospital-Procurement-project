@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/format";
-import { takePendingAwardId } from "../../lib/bridge";
 import { Tag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import type { AwardTenderSummary } from "../../lib/types";
@@ -12,14 +12,21 @@ import { TenderAwardPanel } from "./TenderAwardPanel";
 // (Module 6-7): tenders whose technical evaluation has closed. The Officer
 // recommends per line and submits; the Approving Authority decides; when
 // every line is decided the tender is Awarded and the PO data files are
-// generated.
+// generated. Reached at /awards (list) or /awards/:id (a specific tender) --
+// real bug, fixed 2026-10-22 (same class as Vendor View/Tender Editor/
+// Approvals): which tender to open used to arrive through transient module
+// state (lib/bridge.ts's takePendingAwardId()), so a refresh or a direct
+// link from the dashboard's own deep link lost it and fell back to the
+// bare list instead of the specific tender.
 const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
 
 export function AwardsPage() {
+  const { id: idParam } = useParams();
+  const navigate = useNavigate();
+  const selected = idParam ? Number(idParam) : null;
   const [allTenders, setAllTenders] = useState<AwardTenderSummary[]>([]);
   const [showClosed, setShowClosed] = useState(false);
   const [page, setPage] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -31,22 +38,19 @@ export function AwardsPage() {
     }
   }, []);
 
-  // Opened via the Approving Authority dashboard's pipeline (same deep-link
-  // pattern as Vendor View/Tender Editor/Approvals) -- take it before the
-  // list's own fetch so this mount opens straight into the tender.
+  // No list fetch needed while a specific tender's award panel is open --
+  // only load it once there's no id in the URL (the bare /awards list).
   useEffect(() => {
-    const id = takePendingAwardId();
-    if (id != null) setSelected(id);
-    else load();
+    if (!idParam) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [idParam]);
 
   if (selected != null) {
     return (
       <TenderAwardPanel
         tenderId={selected}
         onBack={() => {
-          setSelected(null);
+          navigate("/awards", { replace: true });
           load();
         }}
       />
@@ -119,7 +123,7 @@ export function AwardsPage() {
                   </td>
                   <td className="ep-cell">{t.waiting_for_you && <Tag text="Waiting for you" tone="att" />}</td>
                   <td className="ep-cell text-right">
-                    <button className="ep-b" data-v="p" onClick={() => setSelected(t.tender_id)}>
+                    <button className="ep-b" data-v="p" onClick={() => navigate(`/awards/${t.tender_id}`)}>
                       Open
                     </button>
                   </td>

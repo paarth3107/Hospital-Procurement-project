@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { fmtDateTime, inr } from "../../lib/format";
-import { refreshChrome, takePendingReviewId } from "../../lib/bridge";
+import { refreshChrome } from "../../lib/bridge";
 import { Tag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import type { ApprovalRound, Tender, TenderReview } from "../../lib/types";
@@ -12,7 +13,13 @@ import { ApprovalReviewPanel } from "./ApprovalReviewPanel";
 // The inbox lists tenders waiting on a decision at their resolved tier;
 // Review opens everything the approver needs (header terms, lines, the
 // vendors each would go to, history) and the decision lives there, so
-// nothing is approved or rejected without being looked at.
+// nothing is approved or rejected without being looked at. Reached at
+// /approvals (inbox) or /approvals/:id (review a specific tender) -- real
+// bug, fixed 2026-10-22 (same class as Vendor View/Tender Editor): which
+// tender to review used to arrive through transient module state
+// (lib/bridge.ts's takePendingReviewId()), so a refresh or a direct link
+// from the dashboard's own deep link lost it and fell back to the bare
+// inbox instead of the specific tender.
 interface InboxRow {
   t: Tender;
   round: ApprovalRound | undefined;
@@ -20,9 +27,11 @@ interface InboxRow {
 }
 
 export function ApprovalsPage() {
+  const { id: idParam } = useParams();
+  const navigate = useNavigate();
+  const reviewId = idParam ? Number(idParam) : null;
   const [rows, setRows] = useState<InboxRow[]>([]);
   const [page, setPage] = useState(0);
-  const [reviewId, setReviewId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
 
@@ -42,20 +51,15 @@ export function ApprovalsPage() {
     }
   }, []);
 
-  // Opened via the Approving Authority dashboard's pipeline (same
-  // "set state, then switchView" deep-link pattern as Vendor View) -- take
-  // it before the inbox's own fetch, same as the vanilla page's
-  // pendingReviewId, so this mount opens straight into the review instead
-  // of racing its own inbox fetch against it.
+  // No inbox fetch needed while reviewing a specific tender -- only load it
+  // once there's no id in the URL (the bare /approvals inbox).
   useEffect(() => {
-    const id = takePendingReviewId();
-    if (id != null) setReviewId(id);
-    else loadInbox();
+    if (!idParam) loadInbox();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [idParam]);
 
   const backToInbox = (message?: string) => {
-    setReviewId(null);
+    navigate("/approvals", { replace: true });
     setFlash(message ?? "");
     loadInbox();
   };
@@ -119,7 +123,7 @@ export function ApprovalsPage() {
                   </td>
                   <td className="ep-cell fs-12-5px">{fmtDateTime(t.bid_due_date)}</td>
                   <td className="ep-cell text-right">
-                    <button className="ep-b" data-v="p" onClick={() => setReviewId(t.id)}>
+                    <button className="ep-b" data-v="p" onClick={() => navigate(`/approvals/${t.id}`)}>
                       Review
                     </button>
                   </td>

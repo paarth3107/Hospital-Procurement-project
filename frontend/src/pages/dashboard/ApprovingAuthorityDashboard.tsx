@@ -2,7 +2,7 @@ import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { PipelineTracker, type StageRow } from "./PipelineTracker";
 import { ActionQueuePanel } from "./ActionQueuePanel";
 import { TenderProgressCard } from "./TenderProgressCard";
-import { setPendingReviewId, setPendingAwardId, switchView } from "../../lib/bridge";
+import { switchView } from "../../lib/bridge";
 import { fmtDate } from "../../lib/format";
 import type { DashboardApprovingAuthority, DashboardApprovingAuthorityTender, DashboardStats } from "../../lib/types";
 
@@ -68,15 +68,7 @@ export function ApprovingAuthorityDashboard({ s, role }: { s: DashboardStats; ro
           <TenderProgressCard
             tenders={a.tenders}
             subtitle={tenderSubtitle}
-            onOpen={(id) => {
-              if (byId.get(id)?.status === "pending_approval") {
-                setPendingReviewId(id);
-                switchView("approvals");
-              } else {
-                setPendingAwardId(id);
-                switchView("awards");
-              }
-            }}
+            onOpen={(id) => switchView(byId.get(id)?.status === "pending_approval" ? `approvals/${id}` : `awards/${id}`)}
           />
         </div>
       </div>

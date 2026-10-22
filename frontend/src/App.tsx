@@ -87,12 +87,14 @@ export function App() {
           <Route path="/tender-edit" element={<TenderEditorPage />} />
           <Route path="/tender-edit/:id" element={<TenderEditorPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
+          <Route path="/approvals/:id" element={<ApprovalsPage />} />
           <Route path="/decisions" element={<DecisionsPage />} />
           <Route path="/staff" element={<StaffAccountsPage />} />
           <Route path="/audit" element={<AuditLogPage />} />
           <Route path="/bid" element={<BidPage />} />
           <Route path="/evaluation" element={<EvaluationPage />} />
           <Route path="/awards" element={<AwardsPage />} />
+          <Route path="/awards/:id" element={<AwardsPage />} />
           <Route path="/pofiles" element={<PoFilesPage />} />
         </Route>
       </Routes>

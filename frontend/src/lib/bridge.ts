@@ -37,31 +37,13 @@ export const takePendingListFilter = (): string | null => {
   return f;
 };
 
-// Mirrors frontend/js/pages/approvalReviewState.js's shape.
-let pendingReviewId: number | undefined;
+// pendingReviewId/pendingAwardId removed 2026-10-22 -- same bug as
+// viewVendorId/pendingTenderId above: ApprovalsPage/AwardsPage are now
+// reached at /approvals/:id and /awards/:id instead.
 
-export const setPendingReviewId = (id: number) => {
-  pendingReviewId = id;
-};
-export const takePendingReviewId = (): number | null => {
-  const id = pendingReviewId;
-  pendingReviewId = undefined;
-  return id ?? null;
-};
-
-// Mirrors frontend/js/pages/awards/awardState.js's shape.
-let pendingAwardId: number | undefined;
-
-export const setPendingAwardId = (id: number) => {
-  pendingAwardId = id;
-};
-export const takePendingAwardId = (): number | null => {
-  const id = pendingAwardId;
-  pendingAwardId = undefined;
-  return id ?? null;
-};
-
-// Mirrors frontend/js/pages/bid/bidState.js's shape.
+// Mirrors frontend/js/pages/bid/bidState.js's shape. Likely has the same
+// refresh/direct-link gap as the others did (not yet confirmed or fixed --
+// out of scope of what was asked so far).
 let pendingBidTenderId: number | undefined;
 
 export const setPendingBidTenderId = (id: number) => {
