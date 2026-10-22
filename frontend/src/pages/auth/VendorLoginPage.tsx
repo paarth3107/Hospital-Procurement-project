@@ -97,9 +97,6 @@ export function VendorLoginPage() {
 
   return (
     <>
-      <button type="button" className="back-link" onClick={() => switchView("login")}>
-        ← Back to staff login
-      </button>
       <div className="fs-24px fw-800 mt-14px">Vendor login</div>
       <OpenLinkNote />
       <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
@@ -148,7 +145,7 @@ export function VendorLoginPage() {
       {result && <div className={`result ${result.ok ? "ok" : "err"}`}>{result.message}</div>}
       <p className="hint">
         New vendor?{" "}
-        <button type="button" className="link-btn" onClick={() => switchView("register")}>
+        <button type="button" className="link-btn link-btn-accent" onClick={() => switchView("register")}>
           Register here
         </button>
       </p>

@@ -80,10 +80,6 @@ export function StaffLoginPage() {
 
   return (
     <>
-      <div>
-        <div className="landing-title">MedSource</div>
-        <p className="hint mt-4px">Hospital E-Procurement Portal</p>
-      </div>
       <div className="fs-24px fw-800 mt-14px">Staff login</div>
       <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
         <div className="ep-field">
@@ -127,12 +123,6 @@ export function StaffLoginPage() {
         </div>
       </form>
       {result && <div className={`result ${result.ok ? "ok" : "err"}`}>{result.message}</div>}
-      <p className="hint">
-        Supplier?{" "}
-        <button type="button" className="link-btn" onClick={() => switchView("vendor-login")}>
-          Click here to log in
-        </button>
-      </p>
     </>
   );
 }

@@ -164,6 +164,38 @@ body:has(#sidebar:not([hidden])) .ep-appbar { display: flex; }
 .ep-content { padding: 26px 28px 56px; display: flex; flex-direction: column; gap: 26px; }
 body:not(:has(#sidebar:not([hidden]))) .ep-content { max-width: 980px; margin: 0 auto; padding-top: 32px; }
 body:not(:has(#sidebar:not([hidden]))) .ep-content:has(#view-register:not([hidden])) { max-width: 1360px; }
+/* Login/vendor-login only (the maxw-460px auth box, not Register's wider
+   one) -- real bug, found 2026-10-22: .ep-content's own 980px centering
+   only centers the CONTAINER; its lone child still defaulted to
+   align-items: stretch, which sizes a max-width-capped flex item without
+   actually centering it, so the 460px box sat flush against the
+   container's left edge instead of in the middle of the page. align-items
+   center here just centers the topblock/card horizontally within the page
+   -- vertical placement of each is handled separately below, since
+   centering the whole stack as one block (tried first) put the card below
+   true centre, pushed down by the branding+tabs' own height above it. */
+body:not(:has(#sidebar:not([hidden]))) .ep-content:has(.auth-view.maxw-460px) { display: flex; align-items: center; padding-top: 68px; }
+/* Needs its own width back (still capped at 460px by .maxw-460px), or
+   align-items: center above would shrink-wrap it to its narrowest child
+   instead of filling the card width every child was already designed for. */
+.auth-view.maxw-460px { width: 100%; }
+/* Branding + Staff/Vendor tabs: left in normal document flow, sitting
+   wherever .ep-content's own top padding puts them -- "a bit higher" than
+   the card below, by construction, since they're not part of what gets
+   centered. */
+.auth-topblock { display: flex; flex-direction: column; gap: 26px; }
+/* The card (heading + form + result + register link): centered on the
+   *viewport* directly, not relative to whatever's above it, so its own
+   position never shifts with the topblock's height. Fixed, not absolute --
+   this page never scrolls, so there's no ancestor height to wire up for an
+   absolute position to resolve against.
+   top is a fixed point, not `50%` + translateY(-50%) -- that centered the
+   box on ITS OWN height, so Vendor login (taller: has the "New vendor?"
+   line Staff login doesn't) sat visibly higher than Staff login, centered
+   around a different midpoint. A fixed top anchors both at the exact same
+   start position regardless of content height -- Vendor's extra line now
+   just extends the box downward instead of shifting the whole thing up. */
+.auth-card-center { position: fixed; top: 28vh; left: 50%; width: 100%; max-width: 460px; transform: translateX(-50%); padding: 0 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px; }
 /* Vuexy-style (2026-10-07): the page keeps a comfortable fixed width and
    recenters in whatever room the sidebar leaves, rather than every card and
    grid column stretching to fill the extra space when it collapses. Only
@@ -510,6 +542,20 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
    centering it like its sibling. */
 .back-link, .link-btn { background: none; border: 0; padding: 0; color: var(--ink-60); font-size: 13px; font-weight: 500; cursor: pointer; align-self: flex-start; }
 .back-link:hover, .link-btn:hover { color: var(--primary); }
+/* Register-here style: coloured even at rest (not just on hover like the
+   plain .link-btn above), underlines and darkens further on hover. */
+.link-btn-accent { color: var(--primary); text-decoration: none; }
+.link-btn-accent:hover { color: var(--primary-dark); text-decoration: underline; }
+
+/* Staff/Vendor login switch -- a sliding pill behind two equal-width tabs.
+   The indicator (not the text) is what moves; the active tab's text just
+   gets the theme colour and a heavier weight so it "pops" against the
+   other, plain-grey one. */
+.auth-tabs { position: relative; display: flex; background: var(--ink-06); border-radius: 10px; padding: 4px; margin: 18px 0 4px; }
+.auth-tabs-indicator { position: absolute; top: 4px; left: 4px; bottom: 4px; width: calc(50% - 4px); background: var(--surface); border-radius: 8px; box-shadow: 0 1px 4px var(--ink-12); transition: transform .25s ease; }
+.auth-tabs-indicator.is-vendor { transform: translateX(100%); }
+.auth-tab { position: relative; z-index: 1; flex: 1; background: none; border: 0; padding: 9px 0; font-size: 14px; font-weight: 600; color: var(--ink-55); cursor: pointer; border-radius: 8px; transition: color .2s ease; }
+.auth-tab.active { color: var(--primary); font-weight: 800; }
 
 .ep-menu-btn { display: none; }
 @media (max-width: 900px) {
