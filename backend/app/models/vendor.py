@@ -111,6 +111,18 @@ class Vendor(Base):
     email_verification_expires_at = Column(UTCDateTime(), nullable=True)
     email_verified_at = Column(UTCDateTime(), nullable=True)
 
+    # Spec §6.7/§12.3, reframed as "Expedited Registration Review" (CLAUDE.md
+    # PROJECT OVERRIDE -- this is the governed, prioritize-don't-bypass
+    # replacement for the base spec's "guest invite that can bid before
+    # KYC", which this project explicitly never builds). Set only once a
+    # OverrideType.GUEST_VENDOR_INVITE override is Approved
+    # (routers/vendors.py's approve_expedited_review) -- a flag that this
+    # still-pending vendor's review is high priority against a tender
+    # deadline, nothing more. Purely informational: nothing else in the app
+    # reads it yet, and it's never cleared once set.
+    expedited_review_tender_id = Column(Integer, ForeignKey("tenders.id"), nullable=True)
+    expedited_review_requested_at = Column(UTCDateTime(), nullable=True)
+
     # Reused for both terminal Rejected and Info Requested -- either way
     # it's "the explanation for the vendor's current non-Active status",
     # not specifically a rejection; the column name predates Info Requested

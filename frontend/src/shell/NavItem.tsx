@@ -13,6 +13,7 @@ const BADGE_FIELD: Record<NonNullable<NavItemDef["badge"]>, keyof ChromeState> =
   mappings: "badgeMappings",
   approvals: "badgeApprovals",
   awards: "badgeAwards",
+  decisions: "badgeDecisions",
   "vendor-categories": "badgeVendorCategories",
   "vendor-dashboard": "badgeVendorDashboard",
 };

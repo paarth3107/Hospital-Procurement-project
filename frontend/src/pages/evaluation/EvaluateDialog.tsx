@@ -33,7 +33,24 @@ function weighted(criteria: Criterion[], scores: Record<string, number | null>, 
   return w ? t / w : 0;
 }
 
-export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: VendorBidRow; onClose: () => void; onSaved: (message: string) => void }) {
+export function EvaluateDialog({
+  vendorRow,
+  mode = "evaluate",
+  onClose,
+  onSaved,
+}: {
+  vendorRow: VendorBidRow;
+  // Spec §9.2.4/§12.3 -- changing a bid's evaluation after the line's
+  // technical evaluation is closed is a governed override (Technical Score
+  // Correction), not the plain save below. Same form, different endpoint
+  // and two extra required fields; "correct" is only ever reachable once
+  // `evaluation-correction`'s own guards (line closed, no AwardRound yet,
+  // the current user has a recorded evaluation here) already hold --
+  // LineBlock.tsx only renders the button that opens this mode when they do.
+  mode?: "evaluate" | "correct";
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
   const [review, setReview] = useState<BidReview | null>(null);
   const [loadError, setLoadError] = useState("");
   const [opened, setOpened] = useState<Set<number>>(new Set());
@@ -42,6 +59,8 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
   const [qdDecision, setQdDecision] = useState<"qualified" | "disqualified">("qualified");
   const [comments, setComments] = useState("");
   const [commentsInvalid, setCommentsInvalid] = useState(false);
+  const [reasonCode, setReasonCode] = useState("");
+  const [justification, setJustification] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const { openPreview, modalElement } = useModal();
@@ -122,14 +141,33 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
       setCommentsInvalid(true);
       return;
     }
+    if (mode === "correct" && (!reasonCode.trim() || !justification.trim())) {
+      setError("A reason code and justification are both required to correct a closed evaluation.");
+      return;
+    }
     setSaving(true);
+    const decision = disq ? "disqualified" : "qualified";
+    const scores = !disq && review.scored ? readScores() : {};
     try {
-      await api(`/evaluation/bids/${review.bid_id}/evaluation`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: disq ? "disqualified" : "qualified", scores: !disq && review.scored ? readScores() : {}, comments }),
-      });
-      onSaved(`Evaluation saved for ${review.vendor_name}.`);
+      if (mode === "correct") {
+        const res = await api<{ status: string; required_approver_role: string | null; escalated: boolean }>(`/evaluation/bids/${review.bid_id}/evaluation-correction`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision, scores, comments, reason_code: reasonCode.trim(), justification: justification.trim() }),
+        });
+        onSaved(
+          res.escalated
+            ? `Correction for ${review.vendor_name} changes this line's outcome -- escalated to ${res.required_approver_role?.replace(/_/g, " ") ?? "Approving Authority"}.`
+            : `Correction for ${review.vendor_name} sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "Category Manager"} for approval.`
+        );
+      } else {
+        await api(`/evaluation/bids/${review.bid_id}/evaluation`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision, scores, comments }),
+        });
+        onSaved(`Evaluation saved for ${review.vendor_name}.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSaving(false);
@@ -167,11 +205,17 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
       <div className="dialog-box">
         <div className="dlg-head">
           <div className="flex-1">
-            <div className="ep-k">Technical evaluation</div>
+            <div className="ep-k">{mode === "correct" ? "Technical evaluation correction" : "Technical evaluation"}</div>
             <h4>{review.vendor_name}</h4>
           </div>
         </div>
         <form className="ep-form padding-16px-18px bg-transparent border-0 maxh-76vh overflow-auto gap-16px" onSubmit={submit}>
+          {mode === "correct" && (
+            <div className="ep-note warn">
+              This line's technical evaluation is already closed. Changing your recorded decision here is a governed override -- it won't take effect
+              until approved, and if it changes this line's qualification outcome or T-rank, it escalates straight to Approving Authority.
+            </div>
+          )}
           <div>
             <div className="ep-k">1 · Review the bid</div>
             <div className="mt-8px d-flex flex-col gap-6px">
@@ -289,6 +333,18 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
               />
               {commentsInvalid && <div className="hint mt-4px text-danger-700">A reason is mandatory to disqualify a bid.</div>}
             </div>
+            {mode === "correct" && (
+              <div className="ep-form-grid grid-cols-1fr-1fr mt-8px">
+                <div className="ep-field">
+                  <div className="ep-k">Reason code</div>
+                  <input className="input" disabled={locked} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
+                </div>
+                <div className="ep-field">
+                  <div className="ep-k">Justification</div>
+                  <input className="input" disabled={locked} value={justification} onChange={(e) => setJustification(e.target.value)} />
+                </div>
+              </div>
+            )}
           </div>
           {error && <div className="result err">{error}</div>}
           <div className="d-flex justify-end gap-10px">
@@ -296,7 +352,7 @@ export function EvaluateDialog({ vendorRow, onClose, onSaved }: { vendorRow: Ven
               Cancel
             </button>
             <button className="ep-b" data-v="p" disabled={locked || saving} type="submit">
-              Save evaluation
+              {mode === "correct" ? "Request correction" : "Save evaluation"}
             </button>
           </div>
         </form>

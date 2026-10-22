@@ -107,6 +107,23 @@ class VendorBidRow(BaseModel):
     result: ResultOut | None
 
 
+class LateSubmissionOut(BaseModel):
+    """Spec §8.4 -- a bid held as BidStatus.PENDING_LATE_EXCEPTION
+    (app/services/bids.py's assert_can_bid) is otherwise invisible: it's
+    excluded from `vendors` above (that list is SUBMITTED-only, same as
+    technical_evaluation.py's submitted_bids()). can_request is false once an
+    override is already pending/escalated/approved for this bid, so the
+    request button doesn't double-file one."""
+
+    bid_id: int
+    vendor_id: int
+    vendor_name: str
+    submitted_at: datetime | None
+    override_id: int | None
+    override_status: str | None
+    can_request: bool
+
+
 class LineDetailOut(BaseModel):
     summary: LineSummaryOut
     criteria: list[CriterionOut]
@@ -116,6 +133,7 @@ class LineDetailOut(BaseModel):
     can_see_evaluations: bool  # evaluators only; the Officer sees the recorded results, not the scoring
     technical_closed_at: datetime | None
     vendors: list[VendorBidRow]
+    late_submissions: list[LateSubmissionOut]
 
 
 class TenderEvalSummaryOut(BaseModel):

@@ -22,6 +22,7 @@ from app.schemas.evaluation import (
     EvaluationCorrectionIn,
     EvaluationOut,
     EvaluationSave,
+    LateSubmissionOut,
     LineDetailOut,
     LineSummaryOut,
     ResultOut,
@@ -187,6 +188,35 @@ def line_detail(line_id: int, db: Session = Depends(get_db), user: UserAccount =
             )
         )
     rows.sort(key=lambda r: (r.result.t_rank if r.result and r.result.t_rank else 999, r.vendor_name))
+
+    # Spec §8.4 -- a late bid is held as PENDING_LATE_EXCEPTION, invisible in
+    # `rows` above (submitted_bids() is SUBMITTED-only). Surfaced here so a
+    # Procurement Officer/Category Manager viewing this line can actually
+    # discover it and request the exception (TENDER_AUTHORS + Category
+    # Manager, see tenders.py's request_late_submission_exception).
+    late_bids = db.query(Bid).filter(Bid.tender_line_item_id == line.id, Bid.status == BidStatus.PENDING_LATE_EXCEPTION).all()
+    late_overrides: dict[int, OverrideRequest] = {}
+    if late_bids:
+        # Oldest first, so the dict comprehension-style overwrite below lands
+        # on the MOST RECENT override per bid (the only one worth showing --
+        # a bid can in theory have more than one across a reject-then-retry).
+        for o in db.query(OverrideRequest).filter(
+            OverrideRequest.override_type == OverrideType.LATE_SUBMISSION_EXCEPTION,
+            OverrideRequest.entity_type == "bid",
+            OverrideRequest.entity_id.in_([b.id for b in late_bids]),
+        ).order_by(OverrideRequest.created_at.asc()):
+            late_overrides[o.entity_id] = o
+    late_submissions = []
+    for b in late_bids:
+        o = late_overrides.get(b.id)
+        late_submissions.append(
+            LateSubmissionOut(
+                bid_id=b.id, vendor_id=b.vendor_id, vendor_name=b.vendor.legal_name, submitted_at=b.submitted_at,
+                override_id=o.id if o else None, override_status=o.status.value if o else None,
+                can_request=o is None or o.status not in (OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED),
+            )
+        )
+
     return LineDetailOut(
         summary=_summary(line, db),
         criteria=[CriterionOut(key=c.key, label=c.label, weight=c.weight, auto=c.auto, optional=c.optional) for c in tech.CRITERIA[line.procurement_type]],
@@ -196,6 +226,7 @@ def line_detail(line_id: int, db: Session = Depends(get_db), user: UserAccount =
         can_see_evaluations=user.role in EVALUATORS,
         technical_closed_at=line.technical_closed_at,
         vendors=rows,
+        late_submissions=late_submissions,
     )
 
 

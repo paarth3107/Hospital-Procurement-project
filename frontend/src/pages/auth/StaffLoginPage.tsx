@@ -8,15 +8,12 @@ import { FieldError } from "../../components/FieldError";
 import { LOGIN_FIELD_VALIDATORS } from "./loginValidation";
 import type { CurrentUser } from "../../lib/types";
 
-// Ported 1:1 from frontend/js/pages/staffLoginPage.js. The default form
-// values (admin@medsource.local / changeme123) match vanilla's static HTML
-// exactly -- a seeded dev account, not a real default credential shipped to
-// users; same as that markup's own `value=` attributes.
+// Ported 1:1 from frontend/js/pages/staffLoginPage.js.
 const staffRoleLabel = (u: CurrentUser) => roleLabel(u.role) + (u.approval_tier ? ` · Tier ${u.approval_tier}` : "");
 
 export function StaffLoginPage() {
-  const [email, setEmail] = useState("admin@medsource.local");
-  const [password, setPassword] = useState("changeme123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [result, setResult] = useState<{ message: string; ok: boolean } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const emailRef = useRef<HTMLInputElement>(null);

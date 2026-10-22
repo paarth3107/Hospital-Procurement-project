@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.audit_log import AuditLog
+from app.models.override import OverrideRequest, OverrideStatus, OverrideType
+from app.models.tender import Tender, TenderStatus
 from app.models.user_account import Role, UserAccount
 from app.models.vendor import (
     MANDATORY_DOC_TYPES,
@@ -20,7 +22,9 @@ from app.models.vendor import (
     VendorStatus,
     VendorStatusHistory,
 )
+from app.schemas.override import OverrideDecision
 from app.schemas.vendor import (
+    ExpeditedReviewRequest,
     VendorCompleteRegistration,
     VendorCreate,
     VendorDraftOut,
@@ -43,6 +47,7 @@ from app.schemas.vendor_document import VendorDocumentOut, VendorDocumentRejecti
 from app.routers.vendor_documents import store_document
 from app.security import get_current_user, hash_password, require_role, verify_password
 from app.schemas.vendor_document import ItemRequirementOut
+from app.services import overrides
 from app.services.audit import record
 from app.services.document_requirements import to_out, vendor_requirements
 from app.services.email_adapter import send_email
@@ -67,6 +72,13 @@ VENDOR_DECISION_ROLES = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 # re-decided through this endpoint (a status change from there is a
 # different workflow, e.g. suspension — not built in this pass).
 DECIDABLE_STATUSES = {VendorStatus.PENDING_VERIFICATION, VendorStatus.INFO_REQUESTED}
+
+# Spec §6.7/§12.3: the default approver for Expedited Registration Review is
+# Procurement Officer (self-attested), escalating to Category Manager -- a
+# different set from VENDOR_DECISION_ROLES above, which never included
+# Procurement Officer at all (vendor approve/reject/suspend stays
+# Category-Manager-only).
+EXPEDITE_REQUESTERS = (Role.PROCUREMENT_OFFICER, Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
 
 # User-directed (2026-09-30): Request Info is also a lighter alternative to
 # outright Suspend for an Active vendor whose document gets rejected during
@@ -522,7 +534,13 @@ def list_vendors(
     query = db.query(Vendor)
     if status_filter is not None:
         query = query.filter(Vendor.status == status_filter)
-    return query.order_by(Vendor.created_at.desc()).all()
+    # A vendor with an approved Expedited Registration Review still sitting
+    # in a decidable status sorts first -- otherwise the flag Officer raised
+    # (routers/vendors.py's request_expedited_review) never actually reaches
+    # the one person who acts on it. Resolved past that status, it's purely
+    # historical and sorts normally again.
+    is_expedited = (Vendor.expedited_review_tender_id.isnot(None)) & (Vendor.status.in_(DECIDABLE_STATUSES))
+    return query.order_by(is_expedited.desc(), Vendor.created_at.desc()).all()
 
 
 @router.get("/lookup", response_model=list[VendorLookupOut])
@@ -643,6 +661,139 @@ def request_info(
     db.commit()
     db.refresh(vendor)
     return vendor
+
+
+# ---- Expedited Registration Review (spec §6.7/§12.3) -- OverrideType.
+# GUEST_VENDOR_INVITE, reframed per CLAUDE.md's PROJECT OVERRIDE: this
+# project never lets a vendor bid before full KYC/Active approval, so the
+# base spec's "guest invite" can't be built as written. This is the
+# governed replacement -- flagging an already-registered, still-pending
+# vendor's review as high priority against a tender deadline, never a
+# bypass of approval. Same request/approve/reject convention as every
+# other wired override type (see tenders.py's late-submission-exception and
+# due-date-extension for the identical pattern): a dedicated request
+# endpoint calls overrides.create_override(), dedicated approve/reject
+# endpoints call overrides.approve_override()/reject_override() and, only
+# on approve, apply the real (here, minimal) mutation inline.
+
+
+def _pending_expedite_review(db: Session, vendor_id: int) -> OverrideRequest | None:
+    return (
+        db.query(OverrideRequest)
+        .filter(
+            OverrideRequest.override_type == OverrideType.GUEST_VENDOR_INVITE,
+            OverrideRequest.entity_type == "vendor",
+            OverrideRequest.entity_id == vendor_id,
+            OverrideRequest.status.in_([OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED]),
+        )
+        .order_by(OverrideRequest.created_at.desc())
+        .first()
+    )
+
+
+def _get_expedite_review(db: Session, override_id: int) -> OverrideRequest:
+    override = overrides.get_override(db, override_id)
+    if override.override_type != OverrideType.GUEST_VENDOR_INVITE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not an expedited registration review")
+    return override
+
+
+def _apply_expedited_review(db: Session, vendor: Vendor, override: OverrideRequest, actor: UserAccount) -> None:
+    vendor.expedited_review_tender_id = (override.proposed_change or {}).get("tender_id")
+    vendor.expedited_review_requested_at = datetime.now(timezone.utc)
+    record(
+        db, "vendor.expedited_review_approved", "vendor", vendor.id, actor=actor, entity_label=vendor.legal_name,
+        facility_id=override.facility_id, reason=override.justification,
+        meta={"override_id": override.id, "tender_id": vendor.expedited_review_tender_id},
+    )
+
+
+# A tender that's done (one way or another) can't justify fresh urgency.
+CLOSED_TENDER_STATUSES = {TenderStatus.WITHDRAWN, TenderStatus.NO_AWARD, TenderStatus.AWARDED}
+
+
+def _officer_outstanding_expedite_count(db: Session, initiator_id: int) -> float:
+    """Spec §12.3's "guest count ... exceeds a configured limit" (seeded 3),
+    reinterpreted for the reframed type: NOT a per-tender count (an officer
+    could trivially dodge that by spreading requests across tenders, one per
+    tender, forever self-attesting) but this officer's own total of
+    currently-*unresolved* self-attested flags -- vendors they've marked
+    urgent that are still sitting in the review queue. A vendor leaving
+    Pending Verification/Info Requested (approved or rejected) frees the
+    slot. This bounds how many vendors one officer can mark urgent,
+    unsupervised, at any one time -- not how many tenders they can cite."""
+
+    rows = (
+        db.query(OverrideRequest.entity_id)
+        .filter(
+            OverrideRequest.override_type == OverrideType.GUEST_VENDOR_INVITE,
+            OverrideRequest.initiator_id == initiator_id,
+            OverrideRequest.status == OverrideStatus.APPROVED,
+        )
+        .all()
+    )
+    vendor_ids = {vid for (vid,) in rows if vid is not None}
+    if not vendor_ids:
+        return 0.0
+    return float(db.query(Vendor.id).filter(Vendor.id.in_(vendor_ids), Vendor.status.in_(DECIDABLE_STATUSES)).count())
+
+
+@router.post("/{vendor_id}/expedited-review", status_code=status.HTTP_201_CREATED)
+def request_expedited_review(
+    vendor_id: int,
+    payload: ExpeditedReviewRequest,
+    db: Session = Depends(get_db),
+    user: UserAccount = Depends(require_role(*EXPEDITE_REQUESTERS)),
+):
+    """Procurement Officer self-attests up to the outstanding-flag cap
+    (_officer_outstanding_expedite_count) -- this never grants the Officer
+    any vendor-decision power (VENDOR_DECISION_ROLES, approve/reject/etc.,
+    stays Category-Manager-only throughout); it only governs the Officer's
+    own authority to mark a vendor's review urgent on their own say-so.
+    Beyond the cap, it lands pending for Category Manager instead."""
+
+    vendor = db.get(Vendor, vendor_id)
+    if vendor is None or vendor.status not in DECIDABLE_STATUSES:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a vendor pending verification or info-requested can have its review expedited")
+    tender = db.get(Tender, payload.tender_id)
+    if tender is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender not found")
+    if tender.status in CLOSED_TENDER_STATUSES:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Tender is '{tender.status.value}' -- it can't justify expediting a vendor's review")
+    if _pending_expedite_review(db, vendor.id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An expedited review is already pending for this vendor")
+    count_so_far = _officer_outstanding_expedite_count(db, user.id)
+    override = overrides.create_override(
+        db, override_type=OverrideType.GUEST_VENDOR_INVITE, initiator=user, entity_type="vendor", entity_id=vendor.id,
+        entity_label=f"{vendor.legal_name} — for tender #{tender.id} {tender.title}", facility_id=tender.facility_id,
+        reason_code=payload.reason_code, justification=payload.justification,
+        proposed_change={"tender_id": tender.id, "tender_title": tender.title},
+        trigger_value=count_so_far + 1,
+    )
+    if override.status == OverrideStatus.APPROVED:  # self-attested, under threshold -- apply right now
+        _apply_expedited_review(db, vendor, override, user)
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
+
+
+@router.post("/expedited-reviews/{override_id}/approve")
+def approve_expedited_review(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_expedite_review(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+
+    vendor = db.get(Vendor, override.entity_id)
+    _apply_expedited_review(db, vendor, override, user)
+    db.commit()
+    return {"override_id": override.id, "status": override.status, "vendor_id": vendor.id}
+
+
+@router.post("/expedited-reviews/{override_id}/reject")
+def reject_expedited_review(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_expedite_review(db, override_id)
+    overrides.reject_override(db, override, user, payload.reason or "")
+    db.commit()
+    return {"override_id": override.id, "status": override.status}
 
 
 # ---- Post-approval status changes (spec 3.4): suspend / reinstate / blacklist ----

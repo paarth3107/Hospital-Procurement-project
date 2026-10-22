@@ -184,6 +184,21 @@ class DashboardCategoryManagerOut(BaseModel):
     evaluated_count: int  # lines technical-closed, now with the Officer for recommendation -- tracking only
 
 
+class DashboardPendingDecisionOut(BaseModel):
+    """Any OverrideRequest currently Pending Approval/Escalated and resolved
+    (app/services/overrides.py's can_decide) to this viewer's own role/tier --
+    the generic bucket every override type lands in, not just late-submission
+    exception/due-date extension. Full type-specific context and the actual
+    decision live on the Decisions page; this is just enough for one
+    action-queue row."""
+
+    id: int
+    override_type: str
+    entity_label: str | None
+    reason_code: str
+    created_at: datetime
+
+
 class DashboardStatsOut(BaseModel):
     open_tenders_count: int
     pending_approval_count: int
@@ -212,6 +227,7 @@ class DashboardStatsOut(BaseModel):
     open_tenders: list[DashboardOpenTenderOut]
     pending_approval: list[DashboardPendingApprovalOut]
     recently_published: list[DashboardRecentPublishedOut]
+    pending_decisions: list[DashboardPendingDecisionOut]
     officer: DashboardOfficerOut | None = None  # populated for Role.PROCUREMENT_OFFICER only
     approving_authority: DashboardApprovingAuthorityOut | None = None  # populated for Role.APPROVING_AUTHORITY only
     category_manager: DashboardCategoryManagerOut | None = None  # populated for Role.CATEGORY_MANAGER only

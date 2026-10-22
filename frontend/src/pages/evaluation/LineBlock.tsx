@@ -3,7 +3,7 @@ import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
 import { Tag } from "../../components/Tag";
 import { useModal } from "../../components/useModal";
-import type { CurrentUser, LineDetail, VendorBidRow } from "../../lib/types";
+import type { CurrentUser, LateSubmission, LineDetail, VendorBidRow } from "../../lib/types";
 import { CommercialStatement } from "./CommercialStatement";
 import { EvaluateDialog } from "./EvaluateDialog";
 
@@ -68,11 +68,80 @@ function ResultCell({ row }: { row: VendorBidRow }) {
   );
 }
 
+// Spec §8.4 -- a bid that arrived after the deadline is held as
+// PENDING_LATE_EXCEPTION, not rejected outright (app/services/bids.py's
+// assert_can_bid); invisible everywhere else on this page (the vendors
+// table above is SUBMITTED-only). Can't file this itself (a vendor's late
+// bid alone can't; OverrideRequest.initiator_id is a staff FK) -- whoever's
+// looking at this line has to see it and request the exception on the
+// vendor's behalf.
+const LATE_STATUS_LABEL: Record<string, string> = {
+  pending_approval: "Pending Category Manager's decision",
+  escalated: "Escalated to Approving Authority",
+  rejected: "Declined -- bid stays excluded unless requested again",
+};
+
+function LateSubmissionRow({
+  row,
+  tenderId,
+  lineId,
+  onReload,
+  onResult,
+}: {
+  row: LateSubmission;
+  tenderId: number;
+  lineId: number;
+  onReload: () => void;
+  onResult: (message: string, ok: boolean) => void;
+}) {
+  const [reasonCode, setReasonCode] = useState("");
+  const [justification, setJustification] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const request = async () => {
+    if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
+    setBusy(true);
+    try {
+      const res = await api<{ status: string; required_approver_role: string | null }>(
+        `/tenders/${tenderId}/lines/${lineId}/bids/${row.bid_id}/late-submission-exception`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason_code: reasonCode.trim(), justification: justification.trim() }) }
+      );
+      onResult(`Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`, true);
+      onReload();
+    } catch (err) {
+      onResult(err instanceof Error ? err.message : String(err), false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="d-flex items-center gap-10px flex-wrap mt-6px">
+      <div className="flex-1 minw-160px">
+        <div className="fw-600 fs-12-5px">{row.vendor_name}</div>
+        <div className="ep-sub">Submitted {fmtDateTime(row.submitted_at)} -- after the deadline</div>
+      </div>
+      {row.can_request ? (
+        <>
+          <input className="input" placeholder="Reason code" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
+          <input className="input" placeholder="Justification" value={justification} onChange={(e) => setJustification(e.target.value)} />
+          <button type="button" className="ep-b" disabled={busy} onClick={request}>
+            Request exception
+          </button>
+        </>
+      ) : (
+        <Tag text={LATE_STATUS_LABEL[row.override_status ?? ""] ?? row.override_status ?? "Pending"} tone="esc" />
+      )}
+    </div>
+  );
+}
+
 export function LineBlock({ detail, currentUser, onReload, onResult }: { detail: LineDetail; currentUser: CurrentUser | null; onReload: () => void; onResult: (message: string, ok: boolean) => void }) {
   const s = detail.summary;
   const [phaseLabel, phaseTone] = PHASE[s.phase];
   const seePrices = canSeePrices(detail, currentUser);
   const [evaluating, setEvaluating] = useState<VendorBidRow | null>(null);
+  const [correcting, setCorrecting] = useState<VendorBidRow | null>(null);
   const [closing, setClosing] = useState(false);
   const { confirmAsync, modalElement } = useModal();
 
@@ -167,6 +236,16 @@ export function LineBlock({ detail, currentUser, onReload, onResult }: { detail:
                         Evaluate
                       </button>
                     )}
+                    {/* Spec §9.2.4/§12.3 Technical Score Correction -- once closed,
+                        only the evaluator who recorded their own decision on this
+                        bid can request a correction to it (request_evaluation_
+                        correction's own guard; the AwardRound/already-closed checks
+                        there are the authoritative ones, this is just discovery). */}
+                    {detail.can_see_evaluations && detail.technical_closed_at && r.evaluations.some((e) => e.mine) && (
+                      <button className="ep-b" onClick={() => setCorrecting(r)}>
+                        Correct
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -174,6 +253,14 @@ export function LineBlock({ detail, currentUser, onReload, onResult }: { detail:
           </tbody>
         </table>
       </div>
+      {detail.late_submissions.length > 0 && (
+        <div className="padding-0-18px-14px">
+          <div className="ep-note warn">Submitted after the deadline -- excluded from evaluation unless admitted through a governed exception.</div>
+          {detail.late_submissions.map((row) => (
+            <LateSubmissionRow key={row.bid_id} row={row} tenderId={s.tender_id} lineId={s.line_item_id} onReload={onReload} onResult={onResult} />
+          ))}
+        </div>
+      )}
       <div className="padding-14px-18px-18px">
         {s.phase === "technical_closed" ? (
           <>
@@ -203,6 +290,18 @@ export function LineBlock({ detail, currentUser, onReload, onResult }: { detail:
           onClose={() => setEvaluating(null)}
           onSaved={(msg) => {
             setEvaluating(null);
+            onReload();
+            onResult(msg, true);
+          }}
+        />
+      )}
+      {correcting && (
+        <EvaluateDialog
+          vendorRow={correcting}
+          mode="correct"
+          onClose={() => setCorrecting(null)}
+          onSaved={(msg) => {
+            setCorrecting(null);
             onReload();
             onResult(msg, true);
           }}

@@ -184,14 +184,19 @@ class ManualInviteCreate(BaseModel):
     line the eligibility rules didn't select (renamed 2026-10-21 from
     GuestInviteCreate/"guest-invites" -- that naming was a mislabel: spec
     §6.7 "Guest Invite" is a different, unimplemented feature about a vendor
-    with no existing profile at all. See CLAUDE.md."""
+    with no existing profile at all. See CLAUDE.md). Governed since
+    2026-10-22 (reversing the 2026-10-06 "no second approval step" decision,
+    user-directed) -- reason_code/justification match every other governed
+    override's request schema, not the single free-text `reason` this had
+    before."""
 
     vendor_id: int
-    reason: str
+    reason_code: str
+    justification: str
 
-    @field_validator("reason")
+    @field_validator("justification")
     @classmethod
-    def reason_required(cls, v: str) -> str:
+    def justification_required(cls, v: str) -> str:
         return _clean_reason(v, "invite a vendor outside the eligibility rules")
 
 

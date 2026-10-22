@@ -704,21 +704,63 @@ def disable_open_link(
     return tender
 
 
-@router.post("/{tender_id}/lines/{line_item_id}/manual-invites", response_model=TenderInviteOut, status_code=status.HTTP_201_CREATED)
-def add_manual_invite(
+# ---- Invite List Manual Add (spec §6.6/§12.3) -- governed since 2026-10-22
+# (user-directed, reversing the 2026-10-06 "no second approval step"
+# decision). Same request/approve/reject convention as every other wired
+# type: this endpoint only creates the OverrideRequest now -- the actual
+# TenderInvite isn't created until approve_manual_invite runs. There's no
+# existing row to anchor the override to before that invite exists, so
+# entity_type/entity_id point at the line item, and tender_id/vendor_id/
+# line_value live in proposed_change instead (read back by both the
+# duplicate-pending check and the cumulative-value escalation trigger). ----
+
+
+def _pending_manual_invite(db: Session, line_id: int, vendor_id: int) -> OverrideRequest | None:
+    rows = (
+        db.query(OverrideRequest)
+        .filter(
+            OverrideRequest.override_type == OverrideType.INVITE_LIST_MANUAL_ADD,
+            OverrideRequest.entity_type == "tender_line_item",
+            OverrideRequest.entity_id == line_id,
+            OverrideRequest.status.in_([OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED]),
+        )
+        .all()
+    )
+    return next((o for o in rows if (o.proposed_change or {}).get("vendor_id") == vendor_id), None)
+
+
+def _get_manual_invite_request(db: Session, override_id: int) -> OverrideRequest:
+    override = overrides.get_override(db, override_id)
+    if override.override_type != OverrideType.INVITE_LIST_MANUAL_ADD:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not a manual invite request")
+    return override
+
+
+def _cumulative_manual_invite_value(db: Session, tender_id: int) -> float:
+    """Spec §12.3's "cumulative override value on the tender" -- every
+    already-*approved* manual invite's own line value on this same tender,
+    summed (same pattern as tenders.py's _cumulative_extension_days)."""
+
+    rows = db.query(OverrideRequest.proposed_change).filter(
+        OverrideRequest.override_type == OverrideType.INVITE_LIST_MANUAL_ADD, OverrideRequest.status == OverrideStatus.APPROVED
+    )
+    return sum((pc or {}).get("line_value", 0.0) for (pc,) in rows if (pc or {}).get("tender_id") == tender_id)
+
+
+@router.post("/{tender_id}/lines/{line_item_id}/manual-invites", status_code=status.HTTP_201_CREATED)
+def request_manual_invite(
     tender_id: int,
     line_item_id: int,
     payload: ManualInviteCreate,
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
-    """Spec §6.6 — officer manually invites an Active vendor the eligibility
-    rules didn't select, with a reason (built 2026-10-06; renamed from
-    "guest invite" 2026-10-21 -- that name was a mislabel for a different,
-    unimplemented spec §6.7 feature, see CLAUDE.md). Only while Draft, and
-    never on an Open Tender (which already invites every Active vendor).
-    No approval step for now -- spec §12.3's "invite_list_manual_add"
-    override type exists but isn't wired to this yet (GAPS.md)."""
+    """Spec §6.6 — officer requests inviting an Active vendor the eligibility
+    rules didn't select, with a reason (built 2026-10-06 as a direct action;
+    renamed from "guest invite" 2026-10-21 -- that name was a mislabel for a
+    different, unimplemented spec §6.7 feature, see CLAUDE.md; governed
+    2026-10-22, see module note above). Only while Draft, and never on an
+    Open Tender (which already invites every Active vendor)."""
 
     tender = _load_tender(tender_id, db)
     _require_draft(tender)
@@ -732,24 +774,63 @@ def add_manual_invite(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only Active, approved vendors can be invited")
     if db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This vendor is already invited to this line")
+    if _pending_manual_invite(db, line.id, vendor.id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A manual invite request for this vendor on this line is already pending")
+
+    line_value = (line.estimated_price or 0.0) * (line.qty or 0.0)
+    cumulative = _cumulative_manual_invite_value(db, tender.id) + line_value
+    override = overrides.create_override(
+        db, override_type=OverrideType.INVITE_LIST_MANUAL_ADD, initiator=user, entity_type="tender_line_item", entity_id=line.id,
+        entity_label=f"#{tender.id} {tender.title} — {line.product.name} — {vendor.legal_name}", facility_id=tender.facility_id,
+        reason_code=payload.reason_code, justification=payload.justification,
+        proposed_change={"tender_id": tender.id, "line_item_id": line.id, "vendor_id": vendor.id, "vendor_name": vendor.legal_name, "line_value": line_value},
+        trigger_value=cumulative,
+    )
+    db.commit()
+    db.refresh(override)
+    return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
+
+
+@router.post("/manual-invite-requests/{override_id}/approve", response_model=TenderInviteOut)
+def approve_manual_invite(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_manual_invite_request(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+
+    pc = override.proposed_change
+    line = db.get(TenderLineItem, pc["line_item_id"])
+    vendor = db.get(Vendor, pc["vendor_id"])
+    if line is None or vendor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="The line or vendor no longer exists")
+    if db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This vendor is already invited to this line")
     invite = TenderInvite(
         tender_line_item_id=line.id,
         vendor_id=vendor.id,
         source="manual",
-        reason=payload.reason,
+        reason=override.justification,
         rating_at_resolution=rating_score(vendor.id, line.procurement_type, db),
     )
     db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id == vendor.id).delete(
         synchronize_session=False
     )
     db.add(invite)
+    tender = line.tender
     record(
         db, "tender.manual_invite_added", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
-        after={"line_item_id": line.id, "vendor_id": vendor.id, "vendor": vendor.legal_name}, reason=payload.reason,
+        after={"line_item_id": line.id, "vendor_id": vendor.id, "vendor": vendor.legal_name}, reason=override.justification,
+        meta={"override_id": override.id},
     )
     db.commit()
     db.refresh(invite)
     return invite
+
+
+@router.post("/manual-invite-requests/{override_id}/reject")
+def reject_manual_invite(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_manual_invite_request(db, override_id)
+    overrides.reject_override(db, override, user, payload.reason or "")
+    db.commit()
+    return {"override_id": override.id, "status": override.status}
 
 
 @router.post("/{tender_id}/lines/{line_item_id}/vendor-removals", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { useAuthState } from "../../lib/authStore";
-import type { ItemRequirement, VendorDetail, VendorDocument, VendorStatusHistoryEntry } from "../../lib/types";
+import type { ItemRequirement, OverrideOut, VendorDetail, VendorDocument, VendorStatusHistoryEntry } from "../../lib/types";
 import { takeViewVendorId, refreshChrome, switchView } from "../../lib/bridge";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
@@ -26,6 +26,7 @@ export function VendorViewPage() {
   const [history, setHistory] = useState<VendorStatusHistoryEntry[]>([]);
   const [requirements, setRequirements] = useState<ItemRequirement[]>([]);
   const [reviewedDocIds, setReviewedDocIds] = useState<Set<number>>(new Set());
+  const [pendingExpedite, setPendingExpedite] = useState<OverrideOut | null>(null);
   // Real bug, found 2026-10-15: fetched /auth/me itself for a role check
   // that's already sitting in the shared auth store (AuthBoot.tsx) -- same
   // redundant-fetch pattern found on DashboardPage, and a race against
@@ -38,16 +39,25 @@ export function VendorViewPage() {
   const load = useCallback(async () => {
     if (vendorId === null) return;
     try {
-      const [v, d, h, r] = await Promise.all([
+      const [v, d, h, r, overridesForType] = await Promise.all([
         api<VendorDetail>(`/vendors/${vendorId}`),
         api<VendorDocument[]>(`/vendors/${vendorId}/documents`),
         api<VendorStatusHistoryEntry[]>(`/vendors/${vendorId}/status-history`),
         api<ItemRequirement[]>(`/vendors/${vendorId}/document-requirements`),
+        api<OverrideOut[]>("/overrides?override_type=guest_vendor_invite"),
       ]);
       setVendor(v);
       setDocs(d);
       setHistory(h);
       setRequirements(r);
+      // Spec §6.7/§12.3 Expedited Registration Review -- no dedicated
+      // "pending overrides for this vendor" endpoint exists yet, so this
+      // filters the generic list client-side (low volume; see
+      // backend/README.md's note that no module surfaces /overrides in a
+      // screen of its own besides this one).
+      setPendingExpedite(
+        overridesForType.find((o) => o.entity_id === vendorId && (o.status === "pending_approval" || o.status === "escalated")) ?? null
+      );
       setError("");
     } catch (err) {
       setError("Could not load vendor: " + (err instanceof Error ? err.message : String(err)));
@@ -149,6 +159,31 @@ export function VendorViewPage() {
     }
   };
 
+  const approveExpedite = async () => {
+    if (!pendingExpedite) return;
+    if (!(await confirmAsync(`Approve the expedited review request? "${pendingExpedite.justification}"`, { confirmLabel: "Approve" }))) return;
+    try {
+      await post(`/vendors/expedited-reviews/${pendingExpedite.id}/approve`, {});
+      await load();
+      refreshChrome();
+    } catch (err) {
+      setError("Could not approve the expedited review request: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const rejectExpedite = async () => {
+    if (!pendingExpedite) return;
+    const reason = await promptAsync("Reason for declining this expedited review request (required):");
+    if (!reason) return;
+    try {
+      await post(`/vendors/expedited-reviews/${pendingExpedite.id}/reject`, { reason });
+      await load();
+      refreshChrome();
+    } catch (err) {
+      setError("Could not decline the expedited review request: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   // Real bug, found 2026-10-12 (Final Phase): this back-link used to be
   // vanilla markup sitting in index.html, always shown above this page's
   // own root div -- it relied on nav.js's generic ".back-link" wiring, not
@@ -185,6 +220,22 @@ export function VendorViewPage() {
     <div className="d-flex flex-col gap-18px">
       {backLink}
       <IdentityPane v={vendor} />
+      {pendingExpedite && (
+        <div className="ep-pane padding-14px-16px d-flex items-center gap-12px">
+          <div className="flex-1 fs-12-5px text-ink-68 lh-1-45">
+            <b>Expedited Registration Review requested</b> ({pendingExpedite.reason_code}): "{pendingExpedite.justification}"
+          </div>
+          <button className="ep-b" data-v="p" onClick={approveExpedite}>
+            Approve
+          </button>
+          <button className="ep-b" onClick={rejectExpedite}>
+            Decline
+          </button>
+        </div>
+      )}
+      {!pendingExpedite && vendor.expedited_review_tender_id != null && (vendor.status === "pending_verification" || vendor.status === "info_requested") && (
+        <div className="ep-note">Flagged urgent for tender #{vendor.expedited_review_tender_id}.</div>
+      )}
       <DocsPane docs={docs} reviewedDocIds={reviewedDocIds} onViewDoc={handleViewDoc} onVerify={handleVerify} onReject={handleReject} />
       <RequirementsPane reqs={requirements} />
       <HistoryPane history={history} />

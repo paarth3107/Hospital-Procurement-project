@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { setPendingTenderId, setPendingListFilter, setViewVendorId, switchView } from "../../lib/bridge";
-import { ROLE_TABS } from "../../lib/constants";
+import { OVERRIDE_TYPE_LABELS, ROLE_TABS } from "../../lib/constants";
 import type { DashboardStats, StaffRole } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboard/actionQueue.js -- "My action
@@ -71,6 +71,12 @@ function buildTasks(s: DashboardStats, role: StaffRole | undefined): ActionTask[
   for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
   for (const t of s.draft_tenders)
     add("tenders", { task: `Complete and submit — ${t.title}`, detail: t.line_count ? `${t.line_count} line item(s) — not yet submitted for approval` : "No line items yet", ref: `#${t.id}`, due: "open", hot: true, tenderId: t.id });
+  // Spec §12 -- any override escalated to (or routed straight to) this
+  // role/tier, across every type (app/services/overrides.py's can_decide).
+  // Decided on the new Decisions tab, not here -- this row just gets you
+  // there.
+  for (const d of s.pending_decisions)
+    add("decisions", { task: `Decide — ${OVERRIDE_TYPE_LABELS[d.override_type] ?? d.override_type}`, detail: `${d.entity_label ?? ""} · ${d.reason_code}`, ref: `#${d.id}`, due: "today", hot: true });
   return tasks;
 }
 

@@ -16,6 +16,7 @@ export interface ChromeState {
   badgeMappings: number;
   badgeApprovals: number;
   badgeAwards: number;
+  badgeDecisions: number;
   badgeVendorCategories: number;
   badgeVendorDashboard: number;
   openTendersCount: number | null;
@@ -27,6 +28,7 @@ const EMPTY: ChromeState = {
   badgeMappings: 0,
   badgeApprovals: 0,
   badgeAwards: 0,
+  badgeDecisions: 0,
   badgeVendorCategories: 0,
   badgeVendorDashboard: 0,
   openTendersCount: null,
@@ -56,6 +58,7 @@ interface DashboardStatsForChrome {
   mappings_pending_count: number;
   open_tenders_count: number;
   next_bid_close: string | null;
+  pending_decisions: unknown[];
 }
 interface VendorPortalTenderForChrome {
   can_bid: boolean;
@@ -109,6 +112,7 @@ export function applyDashboardStats(s: DashboardStatsForChrome) {
     badgeQueue: s.vendors_pending_count + s.docs_to_verify.length,
     badgeAwards: s.award_tasks.length,
     badgeApprovals: s.pending_approval_count,
+    badgeDecisions: s.pending_decisions.length,
     badgeMappings: s.mappings_pending_count,
     openTendersCount: s.open_tenders_count,
     nextBidClose: s.next_bid_close,

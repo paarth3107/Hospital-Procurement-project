@@ -389,6 +389,10 @@ class VendorOut(BaseModel):
     # for anything past Draft rather than leaking a now-useless token.
     registration_token: str | None = None
     email_verified: bool = False
+    # Spec §6.7/§12.3 "Expedited Registration Review" (see models/vendor.py) --
+    # set once that override is Approved; informational only.
+    expedited_review_tender_id: int | None = None
+    expedited_review_requested_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -442,6 +446,17 @@ class VendorRevealRequest(BaseModel):
 class VendorRevealOut(BaseModel):
     field: str
     value: str | None
+
+
+class ExpeditedReviewRequest(BaseModel):
+    """Spec §6.7/§12.3, reframed as "Expedited Registration Review" (see
+    models/vendor.py's expedited_review_tender_id) -- a Procurement Officer
+    or Category Manager flagging an already-registered, still-pending
+    vendor's review as high priority against a tender deadline."""
+
+    tender_id: int
+    reason_code: str
+    justification: str
 
 
 class VendorStatusHistoryOut(BaseModel):

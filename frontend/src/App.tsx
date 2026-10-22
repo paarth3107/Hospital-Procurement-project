@@ -27,6 +27,7 @@ import { VendorCategoriesPage } from "./pages/vendor/categories/VendorCategories
 import { TenderListPage } from "./pages/tenders/TenderListPage";
 import { TenderEditorPage } from "./pages/tenders/TenderEditorPage";
 import { ApprovalsPage } from "./pages/approvals/ApprovalsPage";
+import { DecisionsPage } from "./pages/decisions/DecisionsPage";
 import { StaffAccountsPage } from "./pages/staff/StaffAccountsPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { BidPage } from "./pages/bid/BidPage";
@@ -85,6 +86,7 @@ export function App() {
           <Route path="/tenders" element={<TenderListPage />} />
           <Route path="/tender-edit" element={<TenderEditorPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
+          <Route path="/decisions" element={<DecisionsPage />} />
           <Route path="/staff" element={<StaffAccountsPage />} />
           <Route path="/audit" element={<AuditLogPage />} />
           <Route path="/bid" element={<BidPage />} />

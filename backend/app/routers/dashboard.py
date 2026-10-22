@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.models.award import AwardRound
 from app.models.bid import Bid, BidStatus
+from app.models.override import OverrideStatus
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.product_master import ProductMaster
@@ -26,6 +27,7 @@ from app.schemas.dashboard import (
     DashboardOfficerTenderOut,
     DashboardOpenTenderOut,
     DashboardPendingApprovalOut,
+    DashboardPendingDecisionOut,
     DashboardPendingMappingOut,
     DashboardAwardTaskOut,
     DashboardDocsToVerifyOut,
@@ -36,6 +38,7 @@ from app.schemas.dashboard import (
 )
 from app.security import get_current_user
 from app.services import awards as award_rules
+from app.services import overrides
 from app.services.approval_matrix import can_approve_tier
 from app.services.tender_publish import sweep_scheduled_publishes
 
@@ -386,6 +389,14 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     # out of its results.
     live_expiry_docs = _live_expiry_docs(db)
 
+    # "Decisions" tab (2026-10-22) -- any override currently resolved to this
+    # viewer's own role/tier, across every type, not just the two that
+    # motivated it. Generic engine-wide bucket (app/services/overrides.py's
+    # can_decide is the single source of truth for "is this mine to decide",
+    # reused as-is rather than re-derived here) -- the type-specific
+    # approve/reject action lives on the Decisions page itself, not here.
+    pending_decisions = [o for o in overrides.list_overrides(db) if o.status in (OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED) and overrides.can_decide(user, o)]
+
     return DashboardStatsOut(
         officer=_officer_stats(db, user, award_tasks_raw, len(pending_approval_all), bid_counts, draft_tenders, published_tenders, rounds_by_line),
         approving_authority=_approving_authority_stats(db, user, award_tasks_raw, pending_your_approval, bid_counts, published_tenders, rounds_by_line),
@@ -435,5 +446,9 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         ],
         recently_published=[
             DashboardRecentPublishedOut(id=t.id, title=t.title, published_at=t.published_at) for t in recently_published
+        ],
+        pending_decisions=[
+            DashboardPendingDecisionOut(id=o.id, override_type=o.override_type.value, entity_label=o.entity_label, reason_code=o.reason_code, created_at=o.created_at)
+            for o in pending_decisions
         ],
     )

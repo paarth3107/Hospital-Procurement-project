@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { fmtDateTime } from "../../lib/format";
 import { useModal } from "../../components/useModal";
 import { StateTag, Tag } from "../../components/Tag";
-import type { ApprovalRound, CatalogProduct, EligibleVendor, ExcludedVendor, LineItem, LineItemEligibility, TenderStatus, VendorLookup } from "../../lib/types";
+import type { ApprovalRound, CatalogProduct, ExcludedVendor, LineItem, LineItemEligibility, TenderStatus, VendorLookup } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderDetail.js. Shown below the
 // header form for a saved tender: which lines are live vs held back, a
@@ -31,8 +32,91 @@ export function TenderDetail({
   return (
     <div className="d-flex flex-col gap-18px">
       <PublishStatusTable tenderId={tenderId} tenderStatus={tenderStatus} isSystemAdmin={isSystemAdmin} onResult={onResult} />
+      <DueDateExtensionPanel tenderId={tenderId} tenderStatus={tenderStatus} onResult={onResult} refreshToken={refreshToken} />
       <EligibilityPreview tenderId={tenderId} tenderStatus={tenderStatus} minInvites={minInvites} onResult={onResult} refreshToken={refreshToken} />
       <RoundsTable tenderId={tenderId} />
+    </div>
+  );
+}
+
+// Spec §9.6 -- the tender editor's own "Save as Draft" already refuses to
+// touch bid_due_date once the tender isn't Draft (TenderEditorPage.tsx's
+// whole header fieldset is disabled={!editable}), so this governed override
+// is the only path to move a Published/Scheduled tender's deadline. Under
+// the seeded cumulative-days threshold it self-attests instantly (no
+// decision needed); over it, lands pending for Category Manager -- same
+// "Decisions" tab every other escalated override now routes through.
+function DueDateExtensionPanel({
+  tenderId,
+  tenderStatus,
+  onResult,
+  refreshToken,
+}: {
+  tenderId: number;
+  tenderStatus: TenderStatus;
+  onResult: (message: string, ok: boolean) => void;
+  refreshToken: number;
+}) {
+  const [dueDate, setDueDate] = useState<string | null>(null);
+  const [newDueDate, setNewDueDate] = useState("");
+  const [reasonCode, setReasonCode] = useState("");
+  const [justification, setJustification] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const t = await api<{ bid_due_date: string | null }>(`/tenders/${tenderId}`);
+      setDueDate(t.bid_due_date);
+    } catch {
+      // Not critical -- the panel below just won't show a current date.
+    }
+  }, [tenderId]);
+
+  useEffect(() => {
+    load();
+  }, [load, refreshToken]);
+
+  if (tenderStatus !== "published" && tenderStatus !== "scheduled") return null;
+
+  const submit = async () => {
+    if (!newDueDate) return onResult("Pick a new due date.", false);
+    if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
+    setBusy(true);
+    try {
+      const res = await api<{ status: string; required_approver_role: string | null }>(`/tenders/${tenderId}/bid-due-date-extension`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_due_date: new Date(newDueDate).toISOString(), reason_code: reasonCode.trim(), justification: justification.trim() }),
+      });
+      onResult(
+        res.status === "approved" ? "Due date extended." : `Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`,
+        true
+      );
+      setNewDueDate("");
+      setReasonCode("");
+      setJustification("");
+      load();
+    } catch (err) {
+      onResult(err instanceof Error ? err.message : String(err), false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="ep-pane">
+      <div className="ep-pane-head">
+        <span>Bid Due Date</span>
+        <span className="ep-k">Current: {dueDate ? fmtDateTime(dueDate) : "—"}</span>
+      </div>
+      <div className="ep-pane-pad invite-row d-flex gap-8px items-center flex-wrap">
+        <input className="input" type="datetime-local" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} />
+        <input className="input" placeholder="Reason code" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
+        <input className="input" placeholder="Justification" value={justification} onChange={(e) => setJustification(e.target.value)} />
+        <button type="button" className="ep-b" disabled={busy} onClick={submit}>
+          Request extension
+        </button>
+      </div>
     </div>
   );
 }
@@ -212,6 +296,7 @@ function EligibilityPreview({
 }) {
   const [preview, setPreview] = useState<LineItemEligibility[] | null>(null);
   const [activeVendors, setActiveVendors] = useState<VendorLookup[]>([]);
+  const [pendingVendors, setPendingVendors] = useState<VendorLookup[]>([]);
   const [openTender, setOpenTender] = useState(false);
   const { alertAsync, modalElement } = useModal();
 
@@ -225,6 +310,10 @@ function EligibilityPreview({
       setOpenTender(tender.open_tender);
       setPreview(prev);
       setActiveVendors(vendors.filter((v) => v.status === "active"));
+      // A vendor stuck in the registration queue can't be manually invited
+      // (that's Active-only, spec §6.6) -- this is the pool Expedited
+      // Registration Review (below) can flag instead, spec §6.7/§12.3.
+      setPendingVendors(vendors.filter((v) => v.status === "pending_verification" || v.status === "info_requested"));
     } catch (err) {
       onResult("Could not load eligibility preview: " + (err instanceof Error ? err.message : String(err)), false);
     }
@@ -236,21 +325,17 @@ function EligibilityPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, refreshToken]);
 
-  // User-directed (2026-10-13): adding a manual invite (spec §6.6) or
-  // removing a vendor used to re-fetch the whole tender's eligibility
-  // preview (every line, plus the tender and vendor-lookup calls) from the
-  // server, even though the officer's action only ever changes ONE line,
-  // and we already have every piece of data the new state needs in hand --
-  // a manual invite is by definition a vendor the eligibility rules did NOT
-  // select, so there's nothing to re-check; its legal name is already in
-  // activeVendors and its rating_at_resolution comes straight back on the
-  // POST response. A removal just moves an entry that's already fully
-  // rendered from "eligible" to "removed" with the reason just typed.
-  // Neither needs the server asked again -- so this now patches `preview`
-  // in place instead of reloading it.
-  const onManualInviteAdded = (lineItemId: number, entry: EligibleVendor) =>
-    setPreview((prev) => prev && prev.map((p) => (p.line_item_id === lineItemId ? { ...p, eligible_vendors: [...p.eligible_vendors, entry] } : p)));
-
+  // User-directed (2026-10-13): removing a vendor used to re-fetch the whole
+  // tender's eligibility preview (every line, plus the tender and
+  // vendor-lookup calls) from the server, even though the officer's action
+  // only ever changes ONE line, and we already have every piece of data the
+  // new state needs in hand -- it just moves an entry that's already fully
+  // rendered from "eligible" to "removed" with the reason just typed, so
+  // this patches `preview` in place instead of reloading it. (A manual
+  // invite used to get the same optimistic treatment -- removed 2026-10-22
+  // when the request became governed: there's no vendor to add to
+  // `eligible_vendors` until Category Manager approves it, which doesn't
+  // happen in this session.)
   const onVendorsRemoved = (lineItemId: number, removed: ExcludedVendor[]) => {
     const removedIds = new Set(removed.map((r) => r.vendor_id));
     setPreview(
@@ -265,6 +350,12 @@ function EligibilityPreview({
   };
 
   const canEdit = tenderStatus === "draft" && !openTender;
+  // Expedited review needs no draft/open-tender restriction -- unlike a
+  // manual invite (which pre-populates an invite list that only matters
+  // pre-publish), the urgency this flags is usually strongest once the
+  // tender's Published and its deadline is close. The backend's own guard
+  // (CLOSED_TENDER_STATUSES) is what actually blocks a closed tender.
+  const tenderClosed = tenderStatus === "withdrawn" || tenderStatus === "no_award" || tenderStatus === "awarded";
 
   if (!preview) return null;
 
@@ -284,13 +375,87 @@ function EligibilityPreview({
             minInvites={minInvites}
             canEdit={canEdit}
             activeVendors={activeVendors}
-            onManualInviteAdded={onManualInviteAdded}
             onVendorsRemoved={onVendorsRemoved}
             onAlert={alertAsync}
           />
         ))}
+        {!tenderClosed && pendingVendors.length > 0 && (
+          <ExpediteReviewRow tenderId={tenderId} pendingVendors={pendingVendors} onResult={onResult} />
+        )}
       </div>
       {modalElement}
+    </div>
+  );
+}
+
+// Spec §6.7/§12.3's Expedited Registration Review (backend/app/routers/
+// vendors.py) -- a vendor stuck in the registration queue can't be manually
+// invited (that needs Active), so this is the only way an Officer can flag
+// one as urgent for this tender. Self-attests up to the officer's own
+// outstanding-flag cap (3 at a time, across every tender); beyond it, lands
+// pending for Category Manager -- either way the result message says which.
+function ExpediteReviewRow({
+  tenderId,
+  pendingVendors,
+  onResult,
+}: {
+  tenderId: number;
+  pendingVendors: VendorLookup[];
+  onResult: (message: string, ok: boolean) => void;
+}) {
+  const [vendorId, setVendorId] = useState("");
+  const [reasonCode, setReasonCode] = useState("");
+  const [justification, setJustification] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!vendorId) return onResult("Choose a pending vendor to flag.", false);
+    if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
+    setBusy(true);
+    try {
+      const res = await api<{ status: string; required_approver_role: string | null }>(`/vendors/${vendorId}/expedited-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tender_id: tenderId, reason_code: reasonCode.trim(), justification: justification.trim() }),
+      });
+      const vendor = pendingVendors.find((v) => String(v.id) === vendorId);
+      onResult(
+        res.status === "approved"
+          ? `Flagged urgent -- ${vendor?.legal_name ?? "vendor"}'s review is now prioritized.`
+          : `Request sent to Category Manager for approval (${vendor?.legal_name ?? "vendor"} already has 3 vendors flagged by you right now).`,
+        true
+      );
+      setVendorId("");
+      setReasonCode("");
+      setJustification("");
+    } catch (err) {
+      onResult(err instanceof Error ? err.message : String(err), false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="eligibility-line mt-10px">
+      <div className="fs-13px fw-700">Vendor not yet Active?</div>
+      <div className="fs-12px text-ink-65 mt-3px">
+        A vendor still in registration review can't be manually invited yet. If one needs to clear review before this tender's deadline, flag it here.
+      </div>
+      <div className="invite-row d-flex gap-8px items-center flex-wrap mt-10px">
+        <select className="input" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+          <option value="">Pending vendor...</option>
+          {pendingVendors.map((v) => (
+            <option value={v.id} key={v.id}>
+              {v.legal_name}
+            </option>
+          ))}
+        </select>
+        <input className="input" placeholder="Reason code" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
+        <input className="input" placeholder="Justification" value={justification} onChange={(e) => setJustification(e.target.value)} />
+        <button type="button" className="ep-b" disabled={busy} onClick={submit}>
+          Flag as urgent
+        </button>
+      </div>
     </div>
   );
 }
@@ -301,7 +466,6 @@ function EligibilityLine({
   minInvites,
   canEdit,
   activeVendors,
-  onManualInviteAdded,
   onVendorsRemoved,
   onAlert,
 }: {
@@ -310,14 +474,14 @@ function EligibilityLine({
   minInvites: number | null;
   canEdit: boolean;
   activeVendors: VendorLookup[];
-  onManualInviteAdded: (lineItemId: number, entry: EligibleVendor) => void;
   onVendorsRemoved: (lineItemId: number, removed: ExcludedVendor[]) => void;
   onAlert: (message: string, title?: string) => Promise<void>;
 }) {
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [removeReason, setRemoveReason] = useState("");
   const [manualVendorId, setManualVendorId] = useState("");
-  const [manualReason, setManualReason] = useState("");
+  const [manualReasonCode, setManualReasonCode] = useState("");
+  const [manualJustification, setManualJustification] = useState("");
 
   const none = p.eligible_vendors.length === 0;
   const short = !none && !!minInvites && p.eligible_vendors.length < minInvites;
@@ -361,24 +525,24 @@ function EligibilityLine({
 
   const addManualInvite = async () => {
     if (!manualVendorId) return onAlert("Choose a vendor to invite.");
-    const reason = manualReason.trim();
-    if (!reason) return onAlert("Give a reason. This invite is outside the eligibility rules, so the reason is kept on record.");
+    if (!manualReasonCode.trim() || !manualJustification.trim()) return onAlert("A reason code and justification are both required -- this invite is outside the eligibility rules, so it's a governed override.");
     const vendorId = Number(manualVendorId);
     try {
-      const invite = await api<{ vendor_id: number; rating_at_resolution: number }>(`/tenders/${tenderId}/lines/${p.line_item_id}/manual-invites`, {
+      // Spec §6.6/§12.3, governed since 2026-10-22 (reversing the
+      // 2026-10-06 "no second approval step" decision) -- this only
+      // requests the override now. The vendor doesn't appear in
+      // `eligible_vendors` until Category Manager (or, past the
+      // cumulative-value threshold, Approving Authority) approves it
+      // elsewhere, so there's nothing to optimistically patch here anymore.
+      const res = await api<{ status: string; required_approver_role: string | null }>(`/tenders/${tenderId}/lines/${p.line_item_id}/manual-invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendor_id: vendorId, reason }),
+        body: JSON.stringify({ vendor_id: vendorId, reason_code: manualReasonCode.trim(), justification: manualJustification.trim() }),
       });
-      // A manual invite is, by definition, a vendor the eligibility rules did
-      // NOT select -- there's nothing to re-check against those rules. The
-      // POST response already carries the resolved rating, and the vendor's
-      // name is already in activeVendors (it's where the dropdown came from),
-      // so the new entry can be built here instead of re-fetching anything.
-      const vendor = activeVendors.find((v) => v.id === vendorId);
-      onManualInviteAdded(p.line_item_id, { vendor_id: vendorId, legal_name: vendor?.legal_name ?? "", rating_score: invite.rating_at_resolution, source: "manual", reason });
+      await onAlert(`Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`, "Manual invite requested");
       setManualVendorId("");
-      setManualReason("");
+      setManualReasonCode("");
+      setManualJustification("");
     } catch (err) {
       await onAlert(err instanceof Error ? err.message : String(err));
     }
@@ -444,9 +608,10 @@ function EligibilityLine({
               </option>
             ))}
           </select>
-          <input className="input" placeholder="Reason" value={manualReason} onChange={(e) => setManualReason(e.target.value)} />
+          <input className="input" placeholder="Reason code" value={manualReasonCode} onChange={(e) => setManualReasonCode(e.target.value)} />
+          <input className="input" placeholder="Justification" value={manualJustification} onChange={(e) => setManualJustification(e.target.value)} />
           <button type="button" className="ep-b" onClick={addManualInvite}>
-            Invite
+            Request invite
           </button>
         </div>
       )}

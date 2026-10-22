@@ -134,6 +134,7 @@ export interface VendorListItem {
   legal_name: string;
   contact_person: string;
   created_at: string;
+  expedited_review_tender_id: number | null;
 }
 
 // Mirrors backend/app/schemas/vendor.py's VendorOut (full detail, Vendor View).
@@ -174,6 +175,9 @@ export interface VendorDetail {
   // otherwise, see schemas/vendor.py's VendorOut.hide_token_once_not_draft).
   registration_token: string | null;
   email_verified: boolean;
+  // Spec §6.7/§12.3 Expedited Registration Review -- set once that override
+  // is Approved (backend/app/routers/vendors.py's approve_expedited_review).
+  expedited_review_tender_id: number | null;
 }
 
 // Mirrors backend/app/schemas/vendor_document.py (and models/vendor.py's
@@ -226,6 +230,23 @@ export interface VendorStatusHistoryEntry {
   to_status: VendorStatus | null;
   label: string | null;
   reason: string | null;
+}
+
+// Mirrors backend/app/schemas/override.py's OverrideOut -- minimal slice
+// actually used so far (VendorViewPage's Expedited Registration Review
+// banner). No module surfaced overrides in the UI before this.
+export interface OverrideOut {
+  id: number;
+  override_type: string;
+  entity_id: number | null;
+  entity_label: string | null;
+  initiator_role: string;
+  reason_code: string;
+  justification: string;
+  status: string;
+  required_approver_role: string | null;
+  required_approver_min_tier: number | null;
+  created_at: string;
 }
 
 // Mirrors backend/app/schemas/product.py's CategoryOut/SubCategoryOut/ProductOut
@@ -585,6 +606,19 @@ export interface VendorBidRow {
   result: EvaluationResult | null;
 }
 
+// Spec §8.4 -- a bid held as BidStatus.PENDING_LATE_EXCEPTION (not SUBMITTED,
+// so it's never in `vendors` above). See backend/app/schemas/evaluation.py's
+// LateSubmissionOut.
+export interface LateSubmission {
+  bid_id: number;
+  vendor_id: number;
+  vendor_name: string;
+  submitted_at: string | null;
+  override_id: number | null;
+  override_status: string | null;
+  can_request: boolean;
+}
+
 export interface LineDetail {
   summary: LineSummary;
   criteria: Criterion[];
@@ -594,6 +628,7 @@ export interface LineDetail {
   can_see_evaluations: boolean;
   technical_closed_at: string | null;
   vendors: VendorBidRow[];
+  late_submissions: LateSubmission[];
 }
 
 export interface TenderEvalSummary {
@@ -1011,6 +1046,17 @@ export interface DashboardPendingApproval {
   required_tier: number;
 }
 
+// Any OverrideRequest currently resolved to the viewer's own role/tier --
+// across every override type, not just late-submission exception/due-date
+// extension. See backend/app/schemas/dashboard.py's DashboardPendingDecisionOut.
+export interface DashboardPendingDecision {
+  id: number;
+  override_type: string;
+  entity_label: string | null;
+  reason_code: string;
+  created_at: string;
+}
+
 export interface DashboardOfficerTender {
   id: number;
   title: string;
@@ -1092,6 +1138,7 @@ export interface DashboardStats {
   docs_expiring_count: number;
   docs_expired_count: number;
   pending_approval: DashboardPendingApproval[];
+  pending_decisions: DashboardPendingDecision[];
   officer: DashboardOfficer | null;
   approving_authority: DashboardApprovingAuthority | null;
   category_manager: DashboardCategoryManager | null;

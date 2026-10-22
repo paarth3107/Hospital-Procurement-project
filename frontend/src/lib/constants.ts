@@ -50,13 +50,13 @@ export const CATALOG_VIEWS = ["catalog-list", "catalog-add", "catalog-categories
 export const MAPPING_VIEWS = ["mappings-matrix", "mappings-requests"];
 export const ROLE_TABS: Record<string, string[]> = {
   procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
-  category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles"],
-  approving_authority: ["dashboard", "approvals", "awards"],
-  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit"],
+  category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles", "decisions"],
+  approving_authority: ["dashboard", "approvals", "awards", "decisions"],
+  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions"],
 };
 
 export const ALL_STAFF_TAB_VIEWS = [
-  "dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit",
+  "dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions",
 ];
 
 // Picks where to land after a successful staff login, and where a role-
@@ -76,9 +76,12 @@ export interface NavItem {
   view: string;
   label: string;
   icon: string;
-  badge?: "queue" | "mappings" | "approvals" | "awards" | "vendor-categories" | "vendor-dashboard";
+  badge?: "queue" | "mappings" | "approvals" | "awards" | "decisions" | "vendor-categories" | "vendor-dashboard";
 }
-export const NAV_TOP: NavItem[] = [{ view: "dashboard", label: "Dashboard", icon: "dashboard" }];
+export const NAV_TOP: NavItem[] = [
+  { view: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { view: "decisions", label: "Decisions", icon: "check-square", badge: "decisions" },
+];
 export const NAV_VENDOR_TOP: NavItem[] = [
   { view: "vendor-dashboard", label: "Dashboard", icon: "home", badge: "vendor-dashboard" },
   { view: "vendor-profile", label: "Company Profile", icon: "user" },
@@ -130,6 +133,20 @@ export const NAV_GROUPS: { key: string; label: string; icon: string; items: NavI
   },
 ];
 
+// Spec §12.3's 8 override types, human-readable -- shared by the Decisions
+// page and the dashboard's Action Queue so a pending decision reads the same
+// wherever it shows up.
+export const OVERRIDE_TYPE_LABELS: Record<string, string> = {
+  price_competitiveness_override: "Price Competitiveness Override",
+  invite_list_manual_add: "Invite List Manual Add",
+  guest_vendor_invite: "Expedited Registration Review",
+  technical_score_correction: "Technical Score Correction",
+  late_submission_exception: "Late-Submission Exception",
+  due_date_extension: "Bid Due-Date Extension",
+  non_l1_award_override: "Non-L1 Award Override",
+  po_reexport: "PO Re-export",
+};
+
 // frontend/js/nav.js's PAGE_TITLES, ported -- the page head's kicker+title
 // per view (sub-screens with no tab of their own, tender-edit/vendor-view,
 // share their parent's).
@@ -153,6 +170,7 @@ export const PAGE_TITLES: Record<string, [string, string]> = {
   evaluation: ["", "Bid Evaluation"],
   awards: ["", "L1 Recommendation & Approval"],
   pofiles: ["", "PO Data Files For The ERP"],
+  decisions: ["", "Decisions"],
   "vendor-dashboard": ["Vendor Portal", "Dashboard"],
   "vendor-profile": ["", "Company Profile & Documents"],
   "vendor-categories": ["", "Category Declaration"],

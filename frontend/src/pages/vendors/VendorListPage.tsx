@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/format";
 import type { VendorListItem, VendorStatus } from "../../lib/types";
-import { StateTag } from "../../components/Tag";
+import { StateTag, Tag } from "../../components/Tag";
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { ImgPlaceholder } from "../../components/ImgPlaceholder";
@@ -115,8 +115,13 @@ export function VendorListPage() {
                     <div className="d-flex items-center gap-12px">
                       <ImgPlaceholder />
                       <div className="minw-0">
-                        <div className="fw-600 ep-clip" title={v.legal_name}>
+                        <div className="fw-600 ep-clip d-flex items-center gap-6px" title={v.legal_name}>
                           {v.legal_name}
+                          {v.expedited_review_tender_id != null && (v.status === "pending_verification" || v.status === "info_requested") && (
+                            <span title={`Expedited -- needed for tender #${v.expedited_review_tender_id}`}>
+                              <Tag text="Expedited" tone="att" />
+                            </span>
+                          )}
                         </div>
                         <div className="ep-sub">V-{v.id}</div>
                       </div>

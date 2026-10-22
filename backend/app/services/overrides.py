@@ -13,7 +13,7 @@ from app.services.audit import record
 DEFAULT_SLA_HOURS = 48
 
 
-def _can_decide(user: UserAccount, override: OverrideRequest) -> bool:
+def can_decide(user: UserAccount, override: OverrideRequest) -> bool:
     """Mirrors approval_matrix.py's can_approve_tier: System Admin is a
     catch-all, otherwise the decider must hold the currently-resolved
     approver role at least at the currently-resolved tier."""
@@ -204,7 +204,7 @@ def approve_override(db: Session, override: OverrideRequest, approver: UserAccou
 
     if override.status not in (OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Override is '{override.status.value}', not awaiting a decision")
-    if not _can_decide(approver, override):
+    if not can_decide(approver, override):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Requires role '{override.required_approver_role.value}' (or higher) to decide this override")
 
     before = {"status": override.status}
@@ -225,7 +225,7 @@ def reject_override(db: Session, override: OverrideRequest, approver: UserAccoun
 
     if override.status not in (OverrideStatus.PENDING_APPROVAL, OverrideStatus.ESCALATED):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Override is '{override.status.value}', not awaiting a decision")
-    if not _can_decide(approver, override):
+    if not can_decide(approver, override):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Requires role '{override.required_approver_role.value}' (or higher) to decide this override")
     if not decision_reason.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A reason is required to reject an override")

@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
-    smtp_use_tls: bool = True
-    email_from: str = "noreply@medsource.local"
+    smtp_use_tls: bool = ""
+    email_from: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
