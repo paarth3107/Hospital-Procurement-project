@@ -6,18 +6,13 @@ import { StateTag, Tag } from "../../components/Tag";
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { ImgPlaceholder } from "../../components/ImgPlaceholder";
-import { setViewVendorId, switchView, takePendingListFilter } from "../../lib/bridge";
+import { switchView, takePendingListFilter } from "../../lib/bridge";
 
 // Ported 1:1 from frontend/js/pages/vendorListPage.js -- Phase 2 of the
-// React migration (see .claude-notes/REACT-MIGRATION-PLAN.md). The Vendor
-// View screen it links to is still the vanilla vendorViewPage.js -- the
-// deep-link handoff (setViewVendorId + switchView) goes through the window
-// bridge in lib/bridge.ts, same shared storage vendorViewState.js itself now
-// uses, so it works in both directions regardless of which page is React.
-// preselectVendor() (the dashboard action queue's entry point into this
-// same state) moved to vendorViewState.js -- it's not this file's export
-// anymore the way it was in the vanilla version, since nothing outside this
-// page needs to call into React code to use it.
+// React migration (see .claude-notes/REACT-MIGRATION-PLAN.md). Opens a
+// vendor by navigating straight to /vendor-view/:id (2026-10-22 -- used to
+// hand the id off through transient bridge state instead, which broke on
+// refresh/direct link; see VendorViewPage.tsx).
 
 const FILTERS: [VendorStatus | "", string][] = [
   ["pending_verification", "Pending"],
@@ -63,8 +58,7 @@ export function VendorListPage() {
   if (clamped !== page) setPage(clamped);
 
   const openVendor = (id: number) => {
-    setViewVendorId(id);
-    switchView("vendor-view");
+    switchView(`vendor-view/${id}`);
   };
 
   return (
@@ -118,8 +112,8 @@ export function VendorListPage() {
                         <div className="fw-600 ep-clip d-flex items-center gap-6px" title={v.legal_name}>
                           {v.legal_name}
                           {v.expedited_review_tender_id != null && (v.status === "pending_verification" || v.status === "info_requested") && (
-                            <span title={`Expedited -- needed for tender #${v.expedited_review_tender_id}`}>
-                              <Tag text="Expedited" tone="att" />
+                            <span title={`Urgent -- needed for tender #${v.expedited_review_tender_id}`}>
+                              <Tag text="Urgent" tone="att" />
                             </span>
                           )}
                         </div>

@@ -7,14 +7,14 @@ import { useAuthState } from "../lib/authStore";
 import { useChromeState, type ChromeState } from "../lib/chromeStore";
 import { setPendingBidTenderId } from "../lib/bridge";
 import { closingSoonTenders, NOTIFICATION_TONE } from "../lib/vendorNotifications";
+import type { StaffNotification } from "../lib/types";
 
 // Ported from frontend/js/shell.js's renderNotifications() + frontend/js/
 // pages/vendorNotifications.js's bellRowsHtml()/wireBellRows(). Staff keep
-// the existing badge-derived summary (one row per queue, with a count --
-// opening it just jumps to that list). A vendor gets the real content
-// instead: its actual notifications plus tenders closing soon, read live
-// off the API each time the bell opens, the same way the dashboard's own
-// notification pane and closing-soon banner do.
+// the existing badge-derived queue summary AND now also get real
+// notifications of their own (2026-10-22, user-directed: told when an
+// override they requested is approved/rejected) -- same read-live-off-the-
+// API-each-open pattern the vendor side already uses.
 interface VendorNotification {
   id: number;
   kind: string;
@@ -34,9 +34,15 @@ const STAFF_ROWS: { badge: keyof ChromeState; label: string; view: string }[] = 
   { badge: "badgeMappings", label: "Mapping requests waiting", view: "mappings-requests" },
   { badge: "badgeApprovals", label: "Tender approvals waiting", view: "approvals" },
   { badge: "badgeAwards", label: "Award tasks", view: "awards" },
+  { badge: "badgeDecisions", label: "Decisions waiting on you", view: "decisions" },
   { badge: "badgeVendorCategories", label: "Documents still needed", view: "vendor-categories" },
   { badge: "badgeVendorDashboard", label: "Unread notifications", view: "vendor-dashboard" },
 ];
+
+const STAFF_NOTIFICATION_TONE: Record<string, "pos" | "neg"> = {
+  override_approved: "pos",
+  override_rejected: "neg",
+};
 
 export function NotificationsMenu({ onClose }: { onClose: () => void }) {
   const { actorType } = useAuthState();
@@ -45,24 +51,35 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
   const isVendor = actorType === "vendor";
   const [notes, setNotes] = useState<VendorNotification[] | null>(null);
   const [tenders, setTenders] = useState<VendorPortalTender[] | null>(null);
+  const [staffNotes, setStaffNotes] = useState<StaffNotification[] | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!isVendor) return;
-    (async () => {
-      try {
-        const [n, t] = await Promise.all([api<VendorNotification[]>("/vendor-portal/notifications"), api<VendorPortalTender[]>("/vendor-portal/tenders")]);
-        setNotes(n);
-        setTenders(t);
-      } catch {
-        setError(true);
-      }
-    })();
+    if (isVendor) {
+      (async () => {
+        try {
+          const [n, t] = await Promise.all([api<VendorNotification[]>("/vendor-portal/notifications"), api<VendorPortalTender[]>("/vendor-portal/tenders")]);
+          setNotes(n);
+          setTenders(t);
+        } catch {
+          setError(true);
+        }
+      })();
+    } else {
+      api<StaffNotification[]>("/staff-notifications")
+        .then(setStaffNotes)
+        .catch(() => setStaffNotes([])); // decorative -- the badge-queue rows below still work either way
+    }
   }, [isVendor]);
 
   const dismiss = async (id: number) => {
     await api(`/vendor-portal/notifications/${id}/read`, { method: "POST" });
     setNotes((prev) => prev?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? null);
+  };
+
+  const dismissStaff = async (id: number) => {
+    await api(`/staff-notifications/${id}/read`, { method: "POST" });
+    setStaffNotes((prev) => prev?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? null);
   };
 
   if (isVendor) {
@@ -116,9 +133,37 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
   }
 
   const rows = STAFF_ROWS.map((r) => ({ ...r, n: chrome[r.badge] })).filter((r) => r.n);
+  const unreadStaffNotes = (staffNotes ?? []).filter((n) => !n.read).slice(0, 6);
+  if (!rows.length && !unreadStaffNotes.length) {
+    return (
+      <div className="ep-dropdown ep-dropdown-wide">
+        <div className="ep-dropdown-head">Notifications</div>
+        <div className="ep-dropdown-empty">You're all caught up.</div>
+      </div>
+    );
+  }
   return (
     <div className="ep-dropdown ep-dropdown-wide">
-      {rows.length ? (
+      {unreadStaffNotes.length > 0 && (
+        <>
+          <div className="ep-dropdown-head">Notifications</div>
+          {unreadStaffNotes.map((n) => (
+            <div className="ep-notif-item" key={n.id}>
+              <div className="d-flex justify-between items-start gap-8px">
+                <div className="d-flex items-center gap-8px flex-wrap">
+                  <Tag text={n.kind === "override_approved" ? "Approved" : n.kind === "override_rejected" ? "Declined" : n.kind} tone={STAFF_NOTIFICATION_TONE[n.kind] ?? ""} />
+                  <span className="fw-700 fs-13px">{n.title}</span>
+                </div>
+                <button type="button" className="ep-notif-dismiss" title="Dismiss" aria-label="Dismiss" onClick={(e) => { e.stopPropagation(); dismissStaff(n.id); }}>
+                  ✕
+                </button>
+              </div>
+              <div className="ep-sub mt-4px fs-12-5px">{n.body}</div>
+            </div>
+          ))}
+        </>
+      )}
+      {rows.length > 0 && (
         <>
           <div className="ep-dropdown-head">Needs your attention</div>
           {rows.map((r) => (
@@ -135,11 +180,6 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
               <span className="nav-badge">{r.n}</span>
             </button>
           ))}
-        </>
-      ) : (
-        <>
-          <div className="ep-dropdown-head">Notifications</div>
-          <div className="ep-dropdown-empty">You're all caught up.</div>
         </>
       )}
     </div>

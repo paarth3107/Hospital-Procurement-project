@@ -13,8 +13,7 @@ import type { OverrideOut } from "../../lib/types";
 // (2026-10-22, user-directed): every override type lands here once it's
 // escalated or routed to a real decider, regardless of which page the
 // request itself came from (TenderDetail's due-date-extension row, an
-// Evaluation line's late-submission row, VendorViewPage's own Expedited
-// Registration Review banner, ...). The dashboard's Action Queue
+// Evaluation line's late-submission row, ...). The dashboard's Action Queue
 // (ActionQueuePanel.tsx) surfaces the same items as rows that just switch
 // here -- this page is the one place that actually decides them.
 //
@@ -26,13 +25,17 @@ import type { OverrideOut } from "../../lib/types";
 // a real mutation (non_l1_award_override, po_reexport -- see
 // backend/README.md) and should never actually produce a pending row; the
 // generic fallback exists only so this page doesn't 404 if one somehow does.
+// guest_vendor_invite (Expedited Registration Review) deliberately has no
+// entry either, same reason -- reverted to an ungoverned direct action
+// 2026-10-22, so nothing creates a pending one anymore; any row of that
+// type still in the DB is historical (from before the revert) and already
+// Approved/Rejected, not something to decide.
 const DECIDE_BASE: Record<string, string> = {
   price_competitiveness_override: "/ratings/price-competitiveness-overrides",
   invite_list_manual_add: "/tenders/manual-invite-requests",
   technical_score_correction: "/evaluation/evaluation-corrections",
   late_submission_exception: "/tenders/late-submission-exceptions",
   due_date_extension: "/tenders/bid-due-date-extensions",
-  guest_vendor_invite: "/vendors/expedited-reviews",
 };
 
 function canDecide(me: { role: string; approval_tier: number | null }, o: OverrideOut): boolean {

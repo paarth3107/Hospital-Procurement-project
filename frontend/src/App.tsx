@@ -72,7 +72,7 @@ export function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/queue" element={<VendorListPage />} />
-          <Route path="/vendor-view" element={<VendorViewPage />} />
+          <Route path="/vendor-view/:id" element={<VendorViewPage />} />
           <Route path="/catalog-list" element={<ProductListPage />} />
           <Route path="/catalog-add" element={<AddProductPage />} />
           <Route path="/catalog-categories" element={<CategoryListPage />} />
@@ -85,6 +85,7 @@ export function App() {
           <Route path="/vendor-categories" element={<VendorCategoriesPage />} />
           <Route path="/tenders" element={<TenderListPage />} />
           <Route path="/tender-edit" element={<TenderEditorPage />} />
+          <Route path="/tender-edit/:id" element={<TenderEditorPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/decisions" element={<DecisionsPage />} />
           <Route path="/staff" element={<StaffAccountsPage />} />

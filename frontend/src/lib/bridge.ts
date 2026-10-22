@@ -15,19 +15,19 @@ export { refreshChrome } from "./chromeStore";
 export { setAuthState } from "./authStore";
 import type { VendorDetail } from "./types";
 
-// Mirrors frontend/js/pages/vendorViewState.js's shape (viewVendorId +
-// pendingListFilter) as plain module state instead of a window object.
-let viewVendorId: number | null = null;
+// pendingListFilter: still used by VendorListPage to pick its status filter
+// when navigating back from a vendor it opened. Real bug, fixed 2026-10-22:
+// *which* vendor/tender to open used to be this same kind of transient
+// module state (viewVendorId / pendingTenderId) instead of a URL param --
+// VendorViewPage/TenderEditorPage are now reached at /vendor-view/:id and
+// /tender-edit/:id, which (a) actually works with the browser's own
+// back/forward/refresh and a direct link, none of which this module state
+// ever survived, and (b) fixed a second, independent bug where "Open" from
+// the dashboard's Action Queue never actually used this state at all --
+// openTask() switched to the LIST view, not the detail one, so the id this
+// module held was set but never read.
 let pendingListFilter: string | null = null;
 
-export const setViewVendorId = (id: number) => {
-  viewVendorId = id;
-};
-export const takeViewVendorId = (): number | null => {
-  const id = viewVendorId;
-  viewVendorId = null;
-  return id;
-};
 export const setPendingListFilter = (f: string) => {
   pendingListFilter = f;
 };
@@ -35,19 +35,6 @@ export const takePendingListFilter = (): string | null => {
   const f = pendingListFilter;
   pendingListFilter = null;
   return f;
-};
-
-// Mirrors frontend/js/pages/tenders/tenderEditState.js's shape.
-let pendingTenderId: number | null | undefined;
-
-// null = open a blank new-tender form; a number = open that tender.
-export const setPendingTenderId = (id: number | null) => {
-  pendingTenderId = id;
-};
-export const takePendingTenderId = (): number | null => {
-  const id = pendingTenderId;
-  pendingTenderId = undefined;
-  return id ?? null;
 };
 
 // Mirrors frontend/js/pages/approvalReviewState.js's shape.

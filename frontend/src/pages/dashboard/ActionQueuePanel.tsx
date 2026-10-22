@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Tag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
-import { setPendingTenderId, setPendingListFilter, setViewVendorId, switchView } from "../../lib/bridge";
+import { setPendingListFilter, switchView } from "../../lib/bridge";
 import { OVERRIDE_TYPE_LABELS, ROLE_TABS } from "../../lib/constants";
 import type { DashboardStats, StaffRole } from "../../lib/types";
 
@@ -20,6 +20,7 @@ interface ActionTask {
   ref: string;
   due: "today" | "open";
   hot?: boolean;
+  urgent?: boolean;
   vendorId?: number;
   allStatuses?: boolean;
   tenderId?: number;
@@ -32,15 +33,26 @@ function buildTasks(s: DashboardStats, role: StaffRole | undefined): ActionTask[
     if (allowed.has(view)) tasks.push({ view, ...task });
   };
   // "queue" (Vendor List's permission) gates whether this role sees these at
-  // all; the task's own `view` then overrides it to jump straight to that
-  // vendor's profile (Vendor View) instead of landing on the list.
+  // all; openTask() below then jumps straight to that vendor's profile
+  // (Vendor View) instead of landing on the list.
   for (const v of s.pending_vendors)
     add("queue", {
-      task: `${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`,
-      detail: v.responded ? "Vendor answered your information request" : "New registration, documents awaiting review",
+      // Real bug, found 2026-10-22: an Expedited Registration Review flag
+      // (spec §6.7/§12.3) already sorted this vendor to the top of the
+      // Vendor List and GET /dashboard/stats's own query, but nothing here
+      // said so or sorted it first in THIS list -- the one screen most
+      // people actually work from.
+      task: `${v.expedited_review_tender_id != null ? "URGENT -- " : ""}${v.responded ? "Review vendor reply" : "Verify KYC"} — ${v.legal_name}`,
+      detail:
+        v.expedited_review_tender_id != null
+          ? `Flagged urgent for tender #${v.expedited_review_tender_id}`
+          : v.responded
+            ? "Vendor answered your information request"
+            : "New registration, documents awaiting review",
       ref: `Vendor #${v.id}`,
       due: "today",
       hot: true,
+      urgent: v.expedited_review_tender_id != null,
       vendorId: v.id,
     });
   for (const v of s.docs_to_verify)
@@ -68,7 +80,8 @@ function buildTasks(s: DashboardStats, role: StaffRole | undefined): ActionTask[
     add("evaluation", { task: `Evaluate — ${e.product_name}`, detail: `${e.tender_title} · ${e.submitted_count} bid(s) submitted, bidding closed`, ref: `#${e.tender_id}`, due: "open", hot: true });
   for (const r of s.stale_ratings)
     add("ratings", { task: `Refresh rating — ${r.vendor_name}`, detail: `${r.procurement_type} · last updated ${r.days_since_update} days ago`, ref: `Vendor #${r.vendor_id}`, due: "open" });
-  for (const h of s.held_lines) add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true });
+  for (const h of s.held_lines)
+    add("tenders", { task: `Line held back — ${h.product_name}`, detail: `${h.tender_title} · no eligible vendor`, ref: `#${h.tender_id}`, due: "open", hot: true, tenderId: h.tender_id });
   for (const t of s.draft_tenders)
     add("tenders", { task: `Complete and submit — ${t.title}`, detail: t.line_count ? `${t.line_count} line item(s) — not yet submitted for approval` : "No line items yet", ref: `#${t.id}`, due: "open", hot: true, tenderId: t.id });
   // Spec §12 -- any override escalated to (or routed straight to) this
@@ -77,7 +90,10 @@ function buildTasks(s: DashboardStats, role: StaffRole | undefined): ActionTask[
   // there.
   for (const d of s.pending_decisions)
     add("decisions", { task: `Decide — ${OVERRIDE_TYPE_LABELS[d.override_type] ?? d.override_type}`, detail: `${d.entity_label ?? ""} · ${d.reason_code}`, ref: `#${d.id}`, due: "today", hot: true });
-  return tasks;
+  // Array.prototype.sort is a stable sort (ES2019+) -- this only promotes
+  // `urgent` tasks ahead of everything else, without reshuffling the
+  // relative order of anything else built above.
+  return tasks.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
 }
 
 // "Due" as a pill, same convention every status/state column in the app
@@ -88,19 +104,23 @@ function DueTag({ t }: { t: ActionTask }) {
 }
 
 function openTask(t: ActionTask) {
+  // Real bug, found 2026-10-22: this used to set the vendor/tender id via
+  // the (now-removed) transient bridge state and then switchView(t.view)
+  // regardless -- for a vendor task t.view is "queue" (the LIST, Vendor
+  // List's own permission gate), so Open always landed on the list, never
+  // the specific vendor; the id it had just stashed was never read by
+  // anything, since VendorListPage never looked at it. Now both cases
+  // navigate straight to the detail route with the id in the URL itself.
   if (t.vendorId) {
     setPendingListFilter(t.allStatuses ? "" : "pending_verification");
-    setViewVendorId(t.vendorId);
+    switchView(`vendor-view/${t.vendorId}`);
+    return;
   }
-  // A tender task's own `view` is "tenders" (the list) -- set the pending id
-  // first, then switch straight to "tender-edit" instead, same net effect
-  // the old openTenderById(id) had.
   if (t.tenderId != null) {
-    setPendingTenderId(t.tenderId);
-    switchView("tender-edit");
-  } else {
-    switchView(t.view);
+    switchView(`tender-edit/${t.tenderId}`);
+    return;
   }
+  switchView(t.view);
 }
 
 export function ActionQueuePanel({ s, role }: { s: DashboardStats; role: StaffRole | undefined }) {

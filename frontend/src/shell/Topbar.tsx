@@ -35,7 +35,7 @@ export function Topbar({ onToggleMobile }: { onToggleMobile: () => void }) {
 
   const hasNotifications = isVendor
     ? chrome.badgeVendorDashboard > 0
-    : chrome.badgeQueue > 0 || chrome.badgeMappings > 0 || chrome.badgeApprovals > 0 || chrome.badgeAwards > 0;
+    : chrome.badgeQueue > 0 || chrome.badgeMappings > 0 || chrome.badgeApprovals > 0 || chrome.badgeAwards > 0 || chrome.badgeStaffNotifications > 0;
 
   useEffect(() => {
     if (!openMenu) return;

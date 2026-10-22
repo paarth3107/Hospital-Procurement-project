@@ -232,6 +232,18 @@ export interface VendorStatusHistoryEntry {
   reason: string | null;
 }
 
+// Mirrors backend/app/schemas/staff_notification.py's StaffNotificationOut
+// -- a staff user's own short, informational messages (first use: told once
+// an override they requested is approved/rejected).
+export interface StaffNotification {
+  id: number;
+  kind: string;
+  title: string;
+  body: string;
+  created_at: string;
+  read: boolean;
+}
+
 // Mirrors backend/app/schemas/override.py's OverrideOut -- minimal slice
 // actually used so far (VendorViewPage's Expedited Registration Review
 // banner). No module surfaced overrides in the UI before this.
@@ -996,6 +1008,7 @@ export interface DashboardPendingVendor {
   id: number;
   legal_name: string;
   responded: boolean;
+  expedited_review_tender_id: number | null;
 }
 
 export interface DashboardDocsToVerify {

@@ -28,6 +28,7 @@ from app.routers import (
     ratings,
     search,
     staff,
+    staff_notifications,
     subcategories,
     tender_review,
     tenders,
@@ -182,6 +183,7 @@ app.include_router(vendor_notifications.router)
 app.include_router(vendor_documents.router)
 app.include_router(dashboard.router)
 app.include_router(overrides.router)
+app.include_router(staff_notifications.router)
 
 # `frontend/` is now the Vite project itself (source + its own package.json/
 # node_modules), not just build output -- `dist/` inside it is the actual

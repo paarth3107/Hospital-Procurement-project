@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
-import { setPendingTenderId, switchView } from "../../lib/bridge";
+import { switchView } from "../../lib/bridge";
 import { Tag, StateTag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import type { Tender } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/tendersPage.js -- the list only.
-// "+ New tender" and Manage both open the editor (TenderEditorPage, Phase
-// 6b) via the same deep-link bridge Vendor List -> Vendor View uses
-// (lib/bridge.ts's setPendingTenderId/switchView).
+// "+ New tender" opens /tender-edit (blank); Manage opens /tender-edit/:id
+// (2026-10-22 -- used to hand the id off through transient bridge state
+// instead, which broke on refresh/direct link; see TenderEditorPage.tsx).
 const TYPE_LABEL: Record<string, string> = { rfq: "RFQ", rfp: "RFP" };
 
 // Awarded / No award are done -- nothing left to act on. Kept out of the
@@ -61,10 +61,7 @@ export function TenderListPage() {
           <button
             className="ep-b"
             data-v="p"
-            onClick={() => {
-              setPendingTenderId(null);
-              switchView("tender-edit");
-            }}
+            onClick={() => switchView("tender-edit")}
           >
             + New tender
           </button>
@@ -106,10 +103,7 @@ export function TenderListPage() {
                 <td className="ep-cell text-right">
                   <button
                     className="ep-b"
-                    onClick={() => {
-                      setPendingTenderId(t.id);
-                      switchView("tender-edit");
-                    }}
+                    onClick={() => switchView(`tender-edit/${t.id}`)}
                   >
                     Manage
                   </button>

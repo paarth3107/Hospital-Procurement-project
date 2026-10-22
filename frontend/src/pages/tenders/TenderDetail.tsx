@@ -391,9 +391,11 @@ function EligibilityPreview({
 // Spec §6.7/§12.3's Expedited Registration Review (backend/app/routers/
 // vendors.py) -- a vendor stuck in the registration queue can't be manually
 // invited (that needs Active), so this is the only way an Officer can flag
-// one as urgent for this tender. Self-attests up to the officer's own
-// outstanding-flag cap (3 at a time, across every tender); beyond it, lands
-// pending for Category Manager -- either way the result message says which.
+// one as urgent for this tender. Ungoverned (2026-10-22, user-directed):
+// applies immediately, no approval step -- Category Manager still has to
+// review/approve the vendor itself regardless, through the already-governed
+// flow, so gating the urgency label behind its own decision was pure
+// friction with no matching risk.
 function ExpediteReviewRow({
   tenderId,
   pendingVendors,
@@ -413,18 +415,16 @@ function ExpediteReviewRow({
     if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
     setBusy(true);
     try {
-      const res = await api<{ status: string; required_approver_role: string | null }>(`/vendors/${vendorId}/expedited-review`, {
+      // Ungoverned (2026-10-22, user-directed) -- applies immediately, no
+      // approval step. The flag has no power on its own; it only sorts/
+      // labels the vendor on the existing, already-governed review queue.
+      await api(`/vendors/${vendorId}/expedited-review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tender_id: tenderId, reason_code: reasonCode.trim(), justification: justification.trim() }),
       });
       const vendor = pendingVendors.find((v) => String(v.id) === vendorId);
-      onResult(
-        res.status === "approved"
-          ? `Flagged urgent -- ${vendor?.legal_name ?? "vendor"}'s review is now prioritized.`
-          : `Request sent to Category Manager for approval (${vendor?.legal_name ?? "vendor"} already has 3 vendors flagged by you right now).`,
-        true
-      );
+      onResult(`Flagged urgent -- ${vendor?.legal_name ?? "vendor"}'s review is now prioritized.`, true);
       setVendorId("");
       setReasonCode("");
       setJustification("");

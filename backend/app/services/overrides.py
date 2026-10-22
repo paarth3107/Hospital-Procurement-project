@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.override import OverrideRequest, OverrideStatus, OverrideType, OverrideTypeConfig
+from app.models.staff_notification import StaffNotification
 from app.models.user_account import Role, UserAccount
 from app.services.audit import record
 
@@ -11,6 +12,43 @@ from app.services.audit import record
 # value (same footing as MAX_ROUNDS_BEFORE_ESCALATION in approval_matrix.py),
 # used to seed every OverrideTypeConfig row in app/seed.py.
 DEFAULT_SLA_HOURS = 48
+
+# Mirrors frontend/src/lib/constants.ts's OVERRIDE_TYPE_LABELS -- same
+# spec §12.3 names, kept in sync by hand since one's TS and one's Python.
+OVERRIDE_TYPE_LABELS: dict[OverrideType, str] = {
+    OverrideType.PRICE_COMPETITIVENESS_OVERRIDE: "Price Competitiveness Override",
+    OverrideType.INVITE_LIST_MANUAL_ADD: "Invite List Manual Add",
+    OverrideType.GUEST_VENDOR_INVITE: "Expedited Registration Review",
+    OverrideType.TECHNICAL_SCORE_CORRECTION: "Technical Score Correction",
+    OverrideType.LATE_SUBMISSION_EXCEPTION: "Late-Submission Exception",
+    OverrideType.DUE_DATE_EXTENSION: "Bid Due-Date Extension",
+    OverrideType.NON_L1_AWARD_OVERRIDE: "Non-L1 Award Override",
+    OverrideType.PO_REEXPORT: "PO Re-export",
+}
+
+
+def _notify_initiator(db: Session, override: OverrideRequest, *, approved: bool) -> None:
+    """Spec §12 (user-directed, 2026-10-22): the requester finds out their
+    override was decided, without having to go back and check. Deliberately
+    terse -- one line, no justification/history dump -- "small, precise,
+    just informatory" per the request. Centralized here rather than in each
+    router's approve/reject endpoint so every override type gets this for
+    free, including ones wired in later."""
+
+    label = OVERRIDE_TYPE_LABELS.get(override.override_type, override.override_type.value.replace("_", " "))
+    if approved:
+        title = f"{label} approved"
+        body = f"Your {label.lower()} request for {override.entity_label or 'this item'} was approved."
+    else:
+        title = f"{label} declined"
+        body = f"Your {label.lower()} request for {override.entity_label or 'this item'} was declined."
+        if override.decision_reason:
+            body += f" Reason: {override.decision_reason}"
+    db.add(
+        StaffNotification(
+            user_id=override.initiator_id, kind="override_approved" if approved else "override_rejected", title=title, body=body
+        )
+    )
 
 
 def can_decide(user: UserAccount, override: OverrideRequest) -> bool:
@@ -69,11 +107,27 @@ def create_override(
         level = 1
         role, tier = config.escalate_to_role, config.escalate_to_min_tier
 
-    auto_approve = (
-        level == 0
-        and config.self_attested
-        and initiator.role == role
-        and (tier is None or (initiator.approval_tier or 0) >= tier)
+    def _holds(r: Role | None, t: int | None) -> bool:
+        return r is not None and initiator.role == r and (t is None or (initiator.approval_tier or 0) >= t)
+
+    # Real bug, found 2026-10-22: this used to only check initiator.role ==
+    # role (the role resolved at THIS level), so a self-attested type
+    # requested by anyone other than the exact default-approver role fell
+    # straight to "needs a decision from <default role>" -- even when the
+    # initiator already outranks that role for this exact type. A type's
+    # own escalate_to_role is, by construction, a higher authority for it
+    # than the default (that's what escalation IS), and System Admin is
+    # already a universal decider everywhere else (can_decide above) -- both
+    # should clear a self-attested type on their own say-so, at any level,
+    # same as the default role does at level 0. (The default-role match
+    # itself stays level==0-only: once a request has escalated past the
+    # value/count threshold, that's specifically meant to require the
+    # escalation target's sign-off even from someone who'd otherwise
+    # self-attest -- that's the whole point of escalating.)
+    auto_approve = config.self_attested and (
+        initiator.role == Role.SYSTEM_ADMIN
+        or (level == 0 and _holds(config.default_approver_role, config.default_approver_min_tier))
+        or _holds(config.escalate_to_role, config.escalate_to_min_tier)
     )
 
     now = datetime.now(timezone.utc)
@@ -216,6 +270,7 @@ def approve_override(db: Session, override: OverrideRequest, approver: UserAccou
         db, "override.approved", "override_request", override.id, actor=approver, entity_label=override.entity_label or override.override_type.value,
         facility_id=override.facility_id, reason=override.decision_reason, before=before, after={"status": OverrideStatus.APPROVED},
     )
+    _notify_initiator(db, override, approved=True)
     return override
 
 
@@ -239,4 +294,5 @@ def reject_override(db: Session, override: OverrideRequest, approver: UserAccoun
         db, "override.rejected", "override_request", override.id, actor=approver, entity_label=override.entity_label or override.override_type.value,
         facility_id=override.facility_id, reason=override.decision_reason, before=before, after={"status": OverrideStatus.REJECTED},
     )
+    _notify_initiator(db, override, approved=False)
     return override

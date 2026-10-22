@@ -49,6 +49,17 @@ export const docKey = (doc: { doc_type: string; custom_label: string }): string 
 export const CATALOG_VIEWS = ["catalog-list", "catalog-add", "catalog-categories", "catalog-subcategories"];
 export const MAPPING_VIEWS = ["mappings-matrix", "mappings-requests"];
 export const ROLE_TABS: Record<string, string[]> = {
+  // No "decisions" tab for Procurement Officer: with create_override()'s
+  // self-attest now recognizing a type's escalate_to_role and System Admin
+  // as already-sufficient authority (2026-10-22 fix), and Expedited
+  // Registration Review itself reverted to an ungoverned direct action the
+  // same day (user-directed -- it never needed a decision step: Category
+  // Manager already has to review the vendor regardless, through the
+  // already-governed approve/reject flow, so gating the urgency *label*
+  // behind its own approval was pure friction), nothing resolves to
+  // "needs a Procurement Officer's decision" anymore -- Due-Date
+  // Extension is the only other self-attested-for-Officer type, and it
+  // self-attests the same way for Category Manager/System Admin now too.
   procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
   category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles", "decisions"],
   approving_authority: ["dashboard", "approvals", "awards", "decisions"],

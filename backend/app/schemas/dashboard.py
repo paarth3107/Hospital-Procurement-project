@@ -45,6 +45,7 @@ class DashboardPendingVendorOut(BaseModel):
     id: int
     legal_name: str
     responded: bool  # True = answering an Info Requested, False = a new registration
+    expedited_review_tender_id: int | None = None  # spec §6.7/§12.3 -- set once Expedited Registration Review is Approved
 
 
 class DashboardDocsToVerifyOut(BaseModel):

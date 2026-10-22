@@ -279,9 +279,18 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     ]
 
     # Only Pending Verification is work for the admin; Info Requested is
-    # waiting on the vendor (it comes back here when they respond).
+    # waiting on the vendor (it comes back here when they respond). An
+    # Expedited Registration Review flag (spec §6.7/§12.3) sorts first --
+    # real bug, found 2026-10-22: the flag already sorted the vendor to the
+    # top of the Vendor List (vendors.py's list_vendors), but this separate
+    # query backing the dashboard's own "Verify KYC" action-queue task never
+    # carried the flag at all, so the one place staff actually work from
+    # first never showed it was urgent.
     pending_vendor_rows = (
-        db.query(Vendor).filter(Vendor.status == VendorStatus.PENDING_VERIFICATION).order_by(Vendor.created_at).all()
+        db.query(Vendor)
+        .filter(Vendor.status == VendorStatus.PENDING_VERIFICATION)
+        .order_by(Vendor.expedited_review_tender_id.is_(None), Vendor.created_at)
+        .all()
     )
     vendors_pending_count = len(pending_vendor_rows)
     responded_ids = {
@@ -413,7 +422,10 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
         docs_expired_count=sum(1 for d in live_expiry_docs if d.expiry_state == "expired"),
         docs_to_verify=docs_to_verify,
         award_tasks=[DashboardAwardTaskOut(**t) for t in award_tasks_raw],
-        pending_vendors=[DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids) for v in pending_vendor_rows[:10]],
+        pending_vendors=[
+            DashboardPendingVendorOut(id=v.id, legal_name=v.legal_name, responded=v.id in responded_ids, expedited_review_tender_id=v.expedited_review_tender_id)
+            for v in pending_vendor_rows[:10]
+        ],
         held_lines=[
             DashboardHeldLineOut(tender_id=li.tender.id, tender_title=li.tender.title, product_name=li.product.name)
             for li in held_lines[:5]

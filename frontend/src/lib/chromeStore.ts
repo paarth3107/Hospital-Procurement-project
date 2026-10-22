@@ -17,6 +17,7 @@ export interface ChromeState {
   badgeApprovals: number;
   badgeAwards: number;
   badgeDecisions: number;
+  badgeStaffNotifications: number;
   badgeVendorCategories: number;
   badgeVendorDashboard: number;
   openTendersCount: number | null;
@@ -29,6 +30,7 @@ const EMPTY: ChromeState = {
   badgeApprovals: 0,
   badgeAwards: 0,
   badgeDecisions: 0,
+  badgeStaffNotifications: 0,
   badgeVendorCategories: 0,
   badgeVendorDashboard: 0,
   openTendersCount: null,
@@ -69,6 +71,9 @@ interface VendorPortalTenderForChrome {
 interface VendorNotificationForChrome {
   read: boolean;
 }
+interface StaffNotificationForChrome {
+  read: boolean;
+}
 
 export async function refreshChrome() {
   const { token, actorType } = getAuthState();
@@ -92,8 +97,10 @@ export async function refreshChrome() {
     return;
   }
   try {
-    const s = await api<DashboardStatsForChrome>("/dashboard/stats");
+    const [s, notes] = await Promise.all([api<DashboardStatsForChrome>("/dashboard/stats"), api<StaffNotificationForChrome[]>("/staff-notifications")]);
     applyDashboardStats(s);
+    state = { ...state, badgeStaffNotifications: notes.filter((n) => !n.read).length };
+    notify();
   } catch {
     // chrome is decorative; a failed refresh must never block the screen
   }

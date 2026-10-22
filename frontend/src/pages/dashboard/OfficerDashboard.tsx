@@ -2,7 +2,7 @@ import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { PipelineTracker, type StageRow } from "./PipelineTracker";
 import { ActionQueuePanel } from "./ActionQueuePanel";
 import { TenderProgressCard } from "./TenderProgressCard";
-import { setPendingTenderId, switchView } from "../../lib/bridge";
+import { switchView } from "../../lib/bridge";
 import { fmtDate } from "../../lib/format";
 import type { DashboardOfficer, DashboardOfficerTender, DashboardStats } from "../../lib/types";
 
@@ -81,10 +81,7 @@ export function OfficerDashboard({ s, role }: { s: DashboardStats; role: "procur
           <TenderProgressCard
             tenders={o.tenders}
             subtitle={tenderSubtitle}
-            onOpen={(id) => {
-              setPendingTenderId(id);
-              switchView("tender-edit");
-            }}
+            onOpen={(id) => switchView(`tender-edit/${id}`)}
           />
         </div>
       </div>

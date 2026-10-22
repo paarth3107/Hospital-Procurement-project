@@ -6,6 +6,7 @@ from app.models.bid import Bid, BidAttachment, BidAttachmentKind, BidStatus
 from app.models.facility import Facility
 from app.models.override import OverrideRequest, OverrideStatus, OverrideType, OverrideTypeConfig
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
+from app.models.staff_notification import StaffNotification
 from app.models.tender import Tender, TenderStatus, TenderType
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
@@ -74,4 +75,5 @@ __all__ = [
     "VendorDocType",
     "DocumentStatus",
     "MANDATORY_DOC_TYPES",
+    "StaffNotification",
 ]

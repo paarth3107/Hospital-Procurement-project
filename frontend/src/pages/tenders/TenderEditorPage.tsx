@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
-import { switchView, takePendingTenderId } from "../../lib/bridge";
+import { switchView } from "../../lib/bridge";
 import { fmtDateTime, inr } from "../../lib/format";
 import { useModal } from "../../components/useModal";
 import { useAuthState } from "../../lib/authStore";
@@ -14,13 +15,19 @@ import { OpenTenderLinkBox } from "./OpenTenderLinkBox";
 import { TenderDetail } from "./TenderDetail";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderForm.js -- the tender
-// editor form, reached from the Tender List's Manage/+ New tender (see
-// lib/bridge.ts's setPendingTenderId/switchView). One form serves both "New
-// Tender" and editing an existing Draft: all header fields plus the full
-// line-item list live in it, and "Save as Draft"/"Submit for Approval" both
-// persist everything first. Non-Draft tenders open read-only (the header
-// fields; see the line-items grid's own note below for the one thing that
-// ISN'T gated, matching the vanilla version exactly).
+// editor form, reached at /tender-edit (new) or /tender-edit/:id (existing
+// Draft). One form serves both: all header fields plus the full line-item
+// list live in it, and "Save as Draft"/"Submit for Approval" both persist
+// everything first. Non-Draft tenders open read-only (the header fields;
+// see the line-items grid's own note below for the one thing that ISN'T
+// gated, matching the vanilla version exactly). Real bug, fixed 2026-10-22:
+// which tender to open used to arrive through transient module state
+// (lib/bridge.ts's takePendingTenderId()) read once at mount -- a refresh
+// or a direct link lost it (blank form, nothing to load), and navigating
+// between two different tenders without an intervening route change
+// wouldn't have re-run this page's load effect at all. useParams() reads
+// the id from the URL itself (survives a refresh) and is a real effect
+// dependency (reloads correctly if it ever changes without a remount).
 interface FormState {
   facility_id: string;
   title: string;
@@ -62,6 +69,8 @@ function toLocalInputValue(iso: string): string {
 }
 
 export function TenderEditorPage() {
+  const { id: idParam } = useParams();
+  const navigate = useNavigate();
   const [loadError, setLoadError] = useState("");
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -119,9 +128,8 @@ export function TenderEditorPage() {
         const [facs, prods] = await Promise.all([api<Facility[]>("/facilities"), api<CatalogProduct[]>("/products?active=true")]);
         setFacilities(facs);
         setProducts(prods);
-        const id = takePendingTenderId();
-        if (id != null) {
-          const t = await api<Tender>(`/tenders/${id}`);
+        if (idParam) {
+          const t = await api<Tender>(`/tenders/${idParam}`);
           await openTender(t, prods);
         } else {
           setTender(null);
@@ -133,7 +141,7 @@ export function TenderEditorPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [idParam]);
 
   async function openTender(t: Tender, prods: CatalogProduct[]) {
     setTender(t);
@@ -195,6 +203,7 @@ export function TenderEditorPage() {
   async function saveDraft(opts: { silent?: boolean; overrides?: Partial<FormState> } = {}): Promise<Tender> {
     if (currentStatus !== "draft") throw new Error("This tender can only be edited while Draft.");
     if (opts.overrides) setForm((f) => ({ ...f, ...opts.overrides }));
+    const wasNew = !tender;
     const body = { headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload(opts.overrides)) };
     const saved = tender ? await api<Tender>(`/tenders/${tender.id}`, { method: "PUT", ...body }) : await api<Tender>("/tenders", { method: "POST", ...body });
     setTender(saved);
@@ -202,6 +211,11 @@ export function TenderEditorPage() {
     gridRef.current?.applySavedLineItems(items);
     if (!opts.silent) setResult({ message: `Tender #${saved.id} saved as draft.`, ok: true });
     setRefreshToken((v) => v + 1);
+    // The very first save of a brand-new tender gets it a real id -- move
+    // the URL to /tender-edit/:id (without a remount: `replace` swaps the
+    // history entry in place) so a refresh from here on keeps working
+    // instead of landing back on a blank "new tender" form.
+    if (wasNew) navigate(`/tender-edit/${saved.id}`, { replace: true });
     return saved;
   }
 
