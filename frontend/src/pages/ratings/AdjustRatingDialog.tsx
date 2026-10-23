@@ -100,7 +100,9 @@ export function AdjustRatingDialog({
           <div className="d-flex items-center justify-between gap-10px">
             <div>
               <div className="ep-k">Price competitiveness (system-computed)</div>
-              <div className="fs-15px fw-700 mt-2px">{rating ? rating.price_competitiveness.toFixed(1) : "—"} / 100</div>
+              <div className="fs-15px fw-700 mt-2px">
+                {rating?.price_competitiveness != null ? `${rating.price_competitiveness.toFixed(1)} / 100` : "No bid history yet"}
+              </div>
             </div>
             {!overriding && (
               <button type="button" className="ep-b" onClick={() => setOverriding(true)}>

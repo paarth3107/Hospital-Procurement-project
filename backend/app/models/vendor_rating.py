@@ -28,6 +28,16 @@ MATERIAL_CHANGE_THRESHOLD = 5.0
 # numerically either.
 STALE_AFTER_DAYS = 90
 
+# Spec §5.3: "New vendors with no transaction history receive a provisional/
+# default score and are flagged 'Unrated'" -- the spec names this concept but
+# never gives it a number (confirmed 2026-10-23 by reading the whole
+# document: no default rating value is specified anywhere). 50.0 is a
+# stand-in, user-directed, pending real figures from hospital policy --
+# flagged in CLAUDE.md and .claude-notes/GAPS.md, do not treat as settled.
+# Purely a display/placeholder value: `is_unrated` (not this number) is what
+# actually drives eligibility gating and ranking (services/eligibility.py).
+UNRATED_DEFAULT_SCORE = 50.0
+
 
 class VendorRating(Base):
     """One rating per (vendor, procurement type): a vendor can be excellent
@@ -41,11 +51,15 @@ class VendorRating(Base):
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
     procurement_type = Column(Enum(ProcurementType), nullable=False)
 
-    # System-computed (spec §5.3) — the only auto sub-score. With no bid
-    # history yet (tenders/bidding are a later phase), this stays at a
-    # provisional default rather than being fabricated; recompute() is a
-    # real function, just has nothing to compute from yet.
-    price_competitiveness = Column(Float, nullable=False, default=50.0)
+    # System-computed (spec §5.3) — the only auto sub-score, from this
+    # system's own bid history (rolling 12-month window). Nullable like the
+    # 4 manual fields below (2026-10-23, user-directed -- previously
+    # defaulted to 50.0 and could never be null, which meant a brand-new
+    # vendor with zero real history still got a 100%-weighted, fabricated
+    # "50" instead of recompute_overall()'s existing missing-field handling
+    # applying to it the way it already does for the other 4). Null until a
+    # real PriceCompetitivenessRecord exists for this vendor/type.
+    price_competitiveness = Column(Float, nullable=True)
 
     # Manually entered by Category Manager (spec §5.3.1) — not overrides,
     # ordinary data entry, still logged to history.
@@ -55,7 +69,17 @@ class VendorRating(Base):
     responsiveness = Column(Float, nullable=True)
 
     overall_score = Column(Float, nullable=False, default=0.0)
-    is_provisional = Column(Boolean, nullable=False, default=True)
+    # There is no separate "Provisional" state (2026-10-23, user-directed,
+    # matching spec exactly -- an earlier is_provisional column/UI tier was
+    # removed). A vendor is either Unrated, or rated on whatever real data
+    # currently exists -- no in-between label. Spec §5.3 point 5: "New
+    # vendors... receive a provisional/default score and are flagged
+    # 'Unrated' until a minimum number of POs are completed AND at least one
+    # manual entry cycle has occurred" -- both conditions, not "any single
+    # field present" (the looser rule this used to use). Eligibility
+    # filtering (services/eligibility.py) treats Unrated as not meeting any
+    # rating minimum above 0, rather than silently scoring them as average.
+    is_unrated = Column(Boolean, nullable=False, default=True)
 
     last_manual_update_at = Column(UTCDateTime(), nullable=True)
     # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at
@@ -71,27 +95,39 @@ class VendorRating(Base):
         entered is excluded and the remaining weights are re-normalized,
         rather than treating a missing manual entry as a zero — a brand-new
         vendor with no manual entries yet shouldn't be scored as if every
-        unentered parameter failed."""
+        unentered parameter failed. price_competitiveness is just another
+        field in this same loop now (2026-10-23) -- it used to be hardcoded
+        always-present (see the column comment above for why that was wrong).
 
-        available = {"price_competitiveness": self.price_competitiveness}
-        for field in ("on_time_pct", "quality_pct", "compliance_pct", "responsiveness"):
+        is_unrated (2026-10-23, matching spec exactly -- see the column
+        comment) requires BOTH real price history AND at least one manual
+        entry, not just "any single field present." While Unrated, the
+        stored score is always the UNRATED_DEFAULT_SCORE placeholder, never a
+        partial real computation -- showing a half-computed "real" number
+        while also flagging the vendor Unrated would contradict the flag."""
+
+        available = {}
+        for field in ("price_competitiveness", "on_time_pct", "quality_pct", "compliance_pct", "responsiveness"):
             value = getattr(self, field)
             if value is not None:
                 available[field] = value
 
-        total_weight = sum(RATING_WEIGHTS[f] for f in available)
-        if total_weight == 0:
-            self.overall_score = 0.0
+        has_price_history = self.price_competitiveness is not None
+        has_manual_entry = any(f in available for f in ("on_time_pct", "quality_pct", "compliance_pct", "responsiveness"))
+        self.is_unrated = not (has_price_history and has_manual_entry)
+
+        if self.is_unrated:
+            self.overall_score = UNRATED_DEFAULT_SCORE
             return
+        total_weight = sum(RATING_WEIGHTS[f] for f in available)
         self.overall_score = sum(RATING_WEIGHTS[f] * v for f, v in available.items()) / total_weight
-        self.is_provisional = len(available) < len(RATING_WEIGHTS)
 
     @property
     def is_stale(self) -> bool:
         """Spec §5.3.1 point 5: "Stale — Manual Update Due" once the manual
-        parameters haven't been refreshed in STALE_AFTER_DAYS. A vendor that
-        has never been manually rated is Provisional (a different flag,
-        above) rather than Stale — there's nothing to have gone overdue."""
+        parameters haven't been refreshed in STALE_AFTER_DAYS. An Unrated
+        vendor can't be Stale either way -- there's nothing to have gone
+        overdue yet."""
 
         if self.last_manual_update_at is None:
             return False

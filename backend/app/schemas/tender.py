@@ -202,6 +202,7 @@ class EligibleVendorOut(BaseModel):
     vendor_id: int
     legal_name: str
     rating_score: float
+    is_unrated: bool = False
     source: str = "system"  # system | open | manual
     reason: str | None = None  # manual invites only
 
@@ -266,6 +267,13 @@ class LineItemEligibilityOut(BaseModel):
     threshold_applied: float
     eligible_vendors: list[EligibleVendorOut]
     removed_vendors: list[ExcludedVendorOut] = []
+    # Every currently-Active vendor id that's unrated for this line's
+    # procurement_type (2026-10-23, user-directed) -- for the Manual Invite
+    # picker specifically: its candidate list comes from the global
+    # /vendors/lookup list (no rating info at all), covering vendors the
+    # automatic resolver never selected in the first place, so it can't
+    # reuse eligible_vendors' own is_unrated flags.
+    unrated_vendor_ids: list[int] = []
 
 
 class ApprovalRoundOut(BaseModel):

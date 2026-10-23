@@ -14,6 +14,7 @@ from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
 from app.models.tender_line_exclusion import TenderLineExclusion
 from app.models.vendor import Vendor, VendorStatus
+from app.models.vendor_rating import VendorRating
 from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
 from app.models.tender_attachment import TenderLineAttachment, TenderLineAttachmentKind
 from app.services import document_store, overrides
@@ -43,7 +44,7 @@ from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_appro
 from app.services.eligibility import resolve_eligible_vendors
 from app.services.notifier import notify_vendor
 from app.services.open_links import facility_name, link_state, new_token
-from app.services.ratings import rating_score
+from app.services.ratings import rating_score_detail
 from app.services.tender_publish import notify_due_date_extended, notify_invited_vendors, sweep_scheduled_publishes
 
 router = APIRouter(prefix="/api/v1/tenders", tags=["tenders"])
@@ -591,6 +592,28 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
         v.id: v.legal_name for v in (db.query(Vendor).filter(Vendor.id.in_(all_excluded_vendor_ids)).all() if all_excluded_vendor_ids else [])
     }
 
+    # For the Manual Invite picker (2026-10-23, user-directed): its candidate
+    # list is every Active vendor, not just this line's resolved
+    # eligible_vendors -- that's the whole point of manual invite, reaching
+    # vendors the automatic rules didn't select. One batched query per
+    # procurement_type actually used on this tender, not one query per
+    # (line, vendor), to stay in line with this endpoint's existing
+    # batching above.
+    active_vendor_ids = [vid for (vid,) in db.query(Vendor.id).filter(Vendor.status == VendorStatus.ACTIVE).all()]
+    procurement_types = {li.procurement_type for li in tender.line_items}
+    unrated_by_type: dict[ProcurementType, set[int]] = {}
+    if active_vendor_ids and procurement_types:
+        rated_by_type: dict[ProcurementType, set[int]] = {t: set() for t in procurement_types}
+        for vendor_id, ptype, is_unrated in (
+            db.query(VendorRating.vendor_id, VendorRating.procurement_type, VendorRating.is_unrated)
+            .filter(VendorRating.vendor_id.in_(active_vendor_ids), VendorRating.procurement_type.in_(procurement_types))
+            .all()
+        ):
+            if not is_unrated:
+                rated_by_type[ptype].add(vendor_id)
+        for t in procurement_types:
+            unrated_by_type[t] = set(active_vendor_ids) - rated_by_type[t]
+
     results = []
     for li in tender.line_items:
         threshold = li.min_rating_threshold_override if li.min_rating_threshold_override is not None else tender.min_rating_threshold
@@ -598,12 +621,15 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
         exclusions = exclusions_by_line.get(li.id, [])
         excluded_ids = {x.vendor_id for x in exclusions}
         eligible = [
-            EligibleVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score, source=source)
+            EligibleVendorOut(vendor_id=e.vendor.id, legal_name=e.vendor.legal_name, rating_score=e.rating_score, is_unrated=e.is_unrated, source=source)
             for e in resolve_eligible_vendors(li, db)
             if e.vendor.id not in manual_invites and e.vendor.id not in excluded_ids
         ]
         eligible += [
-            EligibleVendorOut(vendor_id=g.vendor.id, legal_name=g.vendor.legal_name, rating_score=g.rating_at_resolution, source="manual", reason=g.reason)
+            EligibleVendorOut(
+                vendor_id=g.vendor.id, legal_name=g.vendor.legal_name, rating_score=g.rating_at_resolution,
+                is_unrated=g.is_unrated_at_resolution, source="manual", reason=g.reason,
+            )
             for g in manual_invites.values()
         ]
         removed = [ExcludedVendorOut(vendor_id=x.vendor_id, legal_name=excluded_vendor_names[x.vendor_id], reason=x.reason) for x in exclusions]
@@ -615,6 +641,7 @@ def eligibility_preview(tender_id: int, db: Session = Depends(get_db), _user: Us
                 threshold_applied=threshold,
                 eligible_vendors=eligible,
                 removed_vendors=removed,
+                unrated_vendor_ids=sorted(unrated_by_type.get(li.procurement_type, set())),
             )
         )
     return results
@@ -635,7 +662,7 @@ def _resolve_line(li: TenderLineItem, source: str, db: Session) -> tuple[bool, d
     removed = {x.vendor_id for x in db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == li.id).all()}
     eligible = [e for e in resolve_eligible_vendors(li, db) if e.vendor.id not in invited and e.vendor.id not in removed]
     for e in eligible:
-        db.add(TenderInvite(tender_line_item_id=li.id, vendor_id=e.vendor.id, source=source, rating_at_resolution=e.rating_score))
+        db.add(TenderInvite(tender_line_item_id=li.id, vendor_id=e.vendor.id, source=source, rating_at_resolution=e.rating_score, is_unrated_at_resolution=e.is_unrated))
     db.flush()
     entry = {
         "line_item_id": li.id,
@@ -803,12 +830,14 @@ def approve_manual_invite(override_id: int, payload: OverrideDecision, db: Sessi
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="The line or vendor no longer exists")
     if db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id, TenderInvite.vendor_id == vendor.id).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This vendor is already invited to this line")
+    manual_score, manual_is_unrated = rating_score_detail(vendor.id, line.procurement_type, db)
     invite = TenderInvite(
         tender_line_item_id=line.id,
         vendor_id=vendor.id,
         source="manual",
         reason=override.justification,
-        rating_at_resolution=rating_score(vendor.id, line.procurement_type, db),
+        rating_at_resolution=manual_score,
+        is_unrated_at_resolution=manual_is_unrated,
     )
     db.query(TenderLineExclusion).filter(TenderLineExclusion.tender_line_item_id == line.id, TenderLineExclusion.vendor_id == vendor.id).delete(
         synchronize_session=False
@@ -1224,7 +1253,7 @@ def publish_held_line(
         )
     db.query(TenderInvite).filter(TenderInvite.tender_line_item_id == line.id).delete()
     for e in eligible:
-        db.add(TenderInvite(tender_line_item_id=line.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score))
+        db.add(TenderInvite(tender_line_item_id=line.id, vendor_id=e.vendor.id, rating_at_resolution=e.rating_score, is_unrated_at_resolution=e.is_unrated))
     line.published = True
     record(
         db, "tender.line_published", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,

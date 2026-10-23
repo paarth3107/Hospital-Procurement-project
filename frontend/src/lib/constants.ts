@@ -95,6 +95,8 @@ export const NAV_TOP: NavItem[] = [
 ];
 export const NAV_VENDOR_TOP: NavItem[] = [
   { view: "vendor-dashboard", label: "Dashboard", icon: "home", badge: "vendor-dashboard" },
+  { view: "vendor-tenders", label: "Tenders", icon: "file-text" },
+  { view: "vendor-ratings", label: "Ratings", icon: "star" },
   { view: "vendor-profile", label: "Company Profile", icon: "user" },
   { view: "vendor-categories", label: "Category Declaration", icon: "tag", badge: "vendor-categories" },
 ];
@@ -177,12 +179,14 @@ export const PAGE_TITLES: Record<string, [string, string]> = {
   approvals: ["", "E-Tender Approval"],
   staff: ["Administration", "Staff Accounts"],
   audit: ["Administration", "Audit Log"],
-  bid: ["Vendor Portal", "Prepare Bid"],
+  bid: ["", "Prepare Bid"],
   evaluation: ["", "Bid Evaluation"],
   awards: ["", "L1 Recommendation & Approval"],
   pofiles: ["", "PO Data Files For The ERP"],
   decisions: ["", "Decisions"],
-  "vendor-dashboard": ["Vendor Portal", "Dashboard"],
+  "vendor-dashboard": ["", "Dashboard"],
+  "vendor-tenders": ["", "Tenders"],
+  "vendor-ratings": ["", "Ratings"],
   "vendor-profile": ["", "Company Profile & Documents"],
   "vendor-categories": ["", "Category Declaration"],
 };

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base, UTCDateTime
@@ -24,6 +24,12 @@ class TenderInvite(Base):
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
     source = Column(String(255), nullable=False, default="system")
     rating_at_resolution = Column(Float, nullable=False)
+    # Snapshot of EligibleVendor.is_unrated at the moment this invite was
+    # resolved (2026-10-23) -- without it, a vendor who had zero rating
+    # history when invited (only reachable when the line's threshold is 0)
+    # would show a bare "0" on the E-Tender/L1 Approval review screen,
+    # indistinguishable from a real, poor score.
+    is_unrated_at_resolution = Column(Boolean, nullable=False, default=False)
     # Required for source == "manual": why an officer invited a vendor the rules didn't select.
     reason = Column(Text, nullable=True)
     # Real bug, found 2026-10-16 -- see audit_log.py's AuditLog.occurred_at

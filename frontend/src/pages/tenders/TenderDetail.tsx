@@ -487,6 +487,10 @@ function EligibilityLine({
   const short = !none && !!minInvites && p.eligible_vendors.length < minInvites;
   const invitedIds = new Set(p.eligible_vendors.map((v) => v.vendor_id));
   const candidates = activeVendors.filter((v) => !invitedIds.has(v.id));
+  // Manual Invite picker label hint (2026-10-23, user-directed): a short,
+  // visible heads-up that a candidate has no rating history yet but can
+  // still be given a shot, right where the officer is choosing who to add.
+  const unratedCandidateIds = new Set(p.unrated_vendor_ids);
 
   const toggleChip = (vendorId: number) =>
     setMarked((prev) => {
@@ -560,7 +564,7 @@ function EligibilityLine({
         <>
           <div className="d-flex flex-wrap gap-6px mt-6px">
             {p.eligible_vendors.map((v) => {
-              const label = `${v.legal_name} · ${v.rating_score.toFixed(0)}`;
+              const label = `${v.legal_name} · ${v.is_unrated ? "Unrated" : v.rating_score.toFixed(0)}`;
               return canEdit ? (
                 <button
                   type="button"
@@ -605,6 +609,7 @@ function EligibilityLine({
             {candidates.map((v) => (
               <option value={v.id} key={v.id}>
                 {v.legal_name}
+                {unratedCandidateIds.has(v.id) ? " (Unrated)" : ""}
               </option>
             ))}
           </select>

@@ -12,6 +12,7 @@ class ReviewVendorOut(BaseModel):
     vendor_id: int
     legal_name: str
     rating_score: float
+    is_unrated: bool = False
 
 
 class ReviewLineOut(BaseModel):

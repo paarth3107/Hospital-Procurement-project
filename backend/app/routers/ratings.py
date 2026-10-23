@@ -153,11 +153,16 @@ def request_price_override(
     rating = get_or_create_rating(vendor_id, payload.procurement_type, db)
     if _pending_price_override(db, rating.id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A price competitiveness override is already pending approval for this vendor/type")
+    # price_competitiveness can be null now (2026-10-23: an unrated vendor
+    # has no computed score to diff against) -- the override's whole magnitude
+    # counts as the trigger_value in that case (overriding "nothing" straight
+    # to some score is itself the full size of the change), not a crash.
+    baseline = rating.price_competitiveness if rating.price_competitiveness is not None else 0.0
     override = overrides.create_override(
         db, override_type=OverrideType.PRICE_COMPETITIVENESS_OVERRIDE, initiator=user, entity_type="vendor_rating", entity_id=rating.id,
         entity_label=f"{rating.vendor.legal_name} — {rating.procurement_type.value}", reason_code=payload.reason_code, justification=payload.justification,
         proposed_change={"before": rating.price_competitiveness, "after": payload.new_score},
-        trigger_value=abs(payload.new_score - rating.price_competitiveness),
+        trigger_value=abs(payload.new_score - baseline),
     )
     db.commit()
     db.refresh(override)

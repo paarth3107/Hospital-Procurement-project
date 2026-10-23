@@ -7,7 +7,7 @@ from app.models.vendor import Vendor, VendorStatus
 from app.models.vendor_mapping import MappingState, VendorMapping
 from app.services.expiry import expired_documents
 from app.services.mappings import required_document_types, unverified_documents
-from app.services.ratings import rating_score
+from app.services.ratings import rating_score_detail
 
 # Spec 4.4: "an Active mapping exists for that exact item/asset/service or
 # its parent category (configurable)". True = an approved category mapping
@@ -20,6 +20,13 @@ CATEGORY_MAPPING_COVERS_ITEMS = True
 class EligibleVendor:
     vendor: Vendor
     rating_score: float
+    # True when this vendor has zero rating data at all for this line's
+    # procurement_type (2026-10-23, user-directed) -- "Unrated", not a real
+    # score of 0. resolve_eligible_vendors() already excludes these from
+    # anywhere a minimum/cap would otherwise silently treat them as average;
+    # this still rides along on included candidates so callers (the
+    # eligibility preview) can label them "Unrated" instead of a bare number.
+    is_unrated: bool = False
 
 
 def _mapped_vendor_ids(line_item: TenderLineItem, db: Session) -> set[int]:
@@ -43,8 +50,14 @@ def _mapped_vendor_ids(line_item: TenderLineItem, db: Session) -> set[int]:
             if m.vendor_id in allowed:
                 continue
             minimum = product.min_mapping_rating
-            if minimum is not None and rating_score(m.vendor_id, product.procurement_type, db) < minimum:
-                continue
+            if minimum is not None and minimum > 0:
+                score, is_unrated = rating_score_detail(m.vendor_id, product.procurement_type, db)
+                # An unrated vendor can't be shown to meet a real minimum --
+                # same reasoning as the tender-line threshold below, applied
+                # here too (previously this silently let them "pass" any
+                # minimum <= the old fabricated 50 default).
+                if is_unrated or score < minimum:
+                    continue
             allowed.add(m.vendor_id)
 
     # Documents are re-checked for everyone at resolution time (item and
@@ -82,13 +95,26 @@ def resolve_eligible_vendors(line_item: TenderLineItem, db: Session) -> list[Eli
         vendor = db.get(Vendor, vendor_id)
         if not vendor or vendor.status != VendorStatus.ACTIVE or expired_documents(db, vendor.id):
             continue
-        score = rating_score(vendor.id, line_item.procurement_type, db)
+        score, is_unrated = rating_score_detail(vendor.id, line_item.procurement_type, db)
+        # An unrated vendor can't be shown to meet a real minimum (2026-10-23,
+        # user-directed) -- previously the old fabricated-50 default let them
+        # silently pass any threshold <= 50. Most tenders are unaffected,
+        # since the default threshold is 0.
+        if threshold > 0 and is_unrated:
+            continue
         if score >= threshold:
-            candidates.append(EligibleVendor(vendor=vendor, rating_score=score))
+            candidates.append(EligibleVendor(vendor=vendor, rating_score=score, is_unrated=is_unrated))
 
     candidates.sort(key=lambda c: c.rating_score, reverse=True)
     if line_item.tender.max_invites is not None:
-        candidates = candidates[: line_item.tender.max_invites]
+        # Unrated vendors don't compete for genuinely scarce capped slots --
+        # excluded from this automatic ranked pool entirely (not included
+        # with a sentinel 0.0 and left to sort to the bottom), rather than
+        # silently losing out to a real vendor's merely mediocre score.
+        # Still reachable via Manual Invite, which sits outside this cap by
+        # construction (routers/tenders.py keeps source="manual" invites
+        # separate from this resolver's own output).
+        candidates = [c for c in candidates if not c.is_unrated][: line_item.tender.max_invites]
     return candidates
 
 
@@ -100,5 +126,6 @@ def _open_candidates(line_item: TenderLineItem, db: Session) -> list[EligibleVen
     for vendor in db.query(Vendor).filter(Vendor.status == VendorStatus.ACTIVE).order_by(Vendor.legal_name).all():
         if expired_documents(db, vendor.id):
             continue
-        candidates.append(EligibleVendor(vendor=vendor, rating_score=rating_score(vendor.id, line_item.procurement_type, db)))
+        score, is_unrated = rating_score_detail(vendor.id, line_item.procurement_type, db)
+        candidates.append(EligibleVendor(vendor=vendor, rating_score=score, is_unrated=is_unrated))
     return candidates

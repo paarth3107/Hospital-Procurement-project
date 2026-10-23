@@ -102,13 +102,17 @@ export interface Rating {
   id: number;
   vendor_id: number;
   procurement_type: ProcurementType;
-  price_competitiveness: number;
+  price_competitiveness: number | null;
   on_time_pct: number | null;
   quality_pct: number | null;
   compliance_pct: number | null;
   responsiveness: number | null;
   overall_score: number;
-  is_provisional: boolean;
+  // No separate "Provisional" state (2026-10-23, user-directed, matching
+  // spec exactly) -- a vendor is either Unrated (true here requires BOTH
+  // real price history AND at least one manual entry, not just one field)
+  // or rated on whatever real data exists.
+  is_unrated: boolean;
   is_stale: boolean;
   last_manual_update_at: string | null;
   created_at: string;
@@ -422,6 +426,7 @@ export interface EligibleVendor {
   vendor_id: number;
   legal_name: string;
   rating_score: number;
+  is_unrated: boolean;
   source: "system" | "open" | "manual";
   reason: string | null;
 }
@@ -439,6 +444,10 @@ export interface LineItemEligibility {
   threshold_applied: number;
   eligible_vendors: EligibleVendor[];
   removed_vendors: ExcludedVendor[];
+  // Every currently-Active vendor id that's unrated for this line's
+  // procurement_type (2026-10-23) -- for the Manual Invite picker, whose
+  // candidate pool is every Active vendor, not just eligible_vendors.
+  unrated_vendor_ids: number[];
 }
 
 export type RoundDecision = "pending" | "approved" | "rejected";
@@ -461,6 +470,7 @@ export interface ReviewVendor {
   vendor_id: number;
   legal_name: string;
   rating_score: number;
+  is_unrated: boolean;
 }
 
 export interface ReviewLine {

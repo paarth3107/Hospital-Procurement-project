@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session
 
 from app.models.product_master import ProcurementType
 from app.models.vendor import Vendor
-from app.models.vendor_rating import PriceCompetitivenessRecord, VendorRating
+from app.models.vendor_rating import PriceCompetitivenessRecord, UNRATED_DEFAULT_SCORE, VendorRating
 
-# The score a vendor with no rating row yet resolves to (only
-# price_competitiveness=50.0 set, nothing else) -- see
-# VendorRating.recompute_overall(). Lets callers read a score without
+# The score a vendor with no rating row yet resolves to -- same
+# UNRATED_DEFAULT_SCORE placeholder VendorRating.recompute_overall() uses
+# for an existing row with nothing in it, so a "no row at all" vendor and a
+# "row exists but is_unrated" vendor never show two different numbers for
+# the same underlying situation. Lets callers read a score without
 # persisting a row for every (vendor, type) pair.
-DEFAULT_RATING_SCORE = 50.0
+DEFAULT_RATING_SCORE = UNRATED_DEFAULT_SCORE
 
 # Spec §5.3: "a rolling window (e.g., trailing 12 months)" for the
 # auto-computed Price Competitiveness sub-score -- illustrative, not a spec
@@ -33,9 +35,11 @@ def get_or_create_rating(vendor_id: int, procurement_type: ProcurementType, db: 
         .first()
     )
     if not rating:
-        # Column defaults apply at INSERT, not at object construction -- set
-        # explicitly since recompute_overall() needs a real number to weight.
-        rating = VendorRating(vendor_id=vendor_id, procurement_type=procurement_type, price_competitiveness=50.0)
+        # No price_competitiveness set here (2026-10-23) -- a brand-new row
+        # starts with nothing at all, same as its 4 manual siblings;
+        # recompute_overall() correctly lands it on is_unrated=True,
+        # overall_score=0.0 rather than fabricating a 50.
+        rating = VendorRating(vendor_id=vendor_id, procurement_type=procurement_type)
         rating.recompute_overall()
         db.add(rating)
         db.commit()
@@ -44,14 +48,28 @@ def get_or_create_rating(vendor_id: int, procurement_type: ProcurementType, db: 
 
 
 def rating_score(vendor_id: int, procurement_type: ProcurementType, db: Session) -> float:
-    """Read-only score lookup (no row is created)."""
+    """Read-only score lookup (no row is created). Thin wrapper over
+    rating_score_detail() -- kept so every existing call site elsewhere
+    (bid evaluation, commercial statements, ...) stays untouched; they just
+    now see the real 0.0 sentinel instead of a fabricated 50.0 for a
+    genuinely unrated vendor, which is correct there too."""
+
+    return rating_score_detail(vendor_id, procurement_type, db)[0]
+
+
+def rating_score_detail(vendor_id: int, procurement_type: ProcurementType, db: Session) -> tuple[float, bool]:
+    """(score, is_unrated) -- eligibility.py needs the second half to tell
+    "no evidence at all" apart from "a real, if low, computed score" when
+    gating against a minimum rating or ranking under max_invites."""
 
     rating = (
         db.query(VendorRating)
         .filter(VendorRating.vendor_id == vendor_id, VendorRating.procurement_type == procurement_type)
         .first()
     )
-    return rating.overall_score if rating else DEFAULT_RATING_SCORE
+    if not rating:
+        return DEFAULT_RATING_SCORE, True
+    return rating.overall_score, rating.is_unrated
 
 
 def rating_scores(vendor_ids: list[int], procurement_type: ProcurementType, db: Session) -> dict[int, float]:
@@ -90,9 +108,10 @@ def refresh_price_competitiveness(db: Session, vendor_id: int, procurement_type:
     """Recomputes a vendor's Price Competitiveness sub-score as the average
     of their price-competitiveness records within the rolling window (spec
     §5.3: "so old bid history ages out"), and folds it into the overall
-    rating. A vendor with no records in the window keeps the provisional
-    default (spec §5.3 point 5: "Unrated" until enough history exists) rather
-    than being scored on stale or nonexistent data."""
+    rating. A vendor with no records in the window goes back to null (spec
+    §5.3 point 5: "Unrated" until enough history exists) -- recompute_overall()
+    then excludes it from the weighted average entirely, rather than it
+    being scored on stale or nonexistent data."""
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=PRICE_COMPETITIVENESS_WINDOW_DAYS)
     scores = [
@@ -106,7 +125,7 @@ def refresh_price_competitiveness(db: Session, vendor_id: int, procurement_type:
         .all()
     ]
     rating = get_or_create_rating(vendor_id, procurement_type, db)
-    rating.price_competitiveness = round(sum(scores) / len(scores), 2) if scores else 50.0
+    rating.price_competitiveness = round(sum(scores) / len(scores), 2) if scores else None
     rating.recompute_overall()
     db.add(rating)
     return rating

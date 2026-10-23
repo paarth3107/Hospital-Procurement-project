@@ -19,18 +19,19 @@ export const WEIGHTS: [string, string, number][] = [
   ["15%", "Responsiveness", 15],
 ];
 
+// No separate "Provisional" tier (2026-10-23, user-directed, matching spec
+// exactly) -- a vendor is either Unrated, or rated on whatever real data
+// currently exists, re-weighted the same way it's always been.
 function tierOf(rating: Rating | undefined): string {
-  if (!rating) return "Unrated";
-  if (rating.is_provisional) return "Provisional";
+  if (!rating || rating.is_unrated) return "Unrated";
   if (rating.overall_score >= 85) return "Preferred";
   if (rating.overall_score >= 75) return "Qualified";
   return "Watch";
 }
 
 function noteOf(rating: Rating | undefined): string {
-  if (!rating) return "No rating yet in this type — it starts as a provisional score once a manual entry is saved.";
+  if (!rating || rating.is_unrated) return "No history yet — nothing to rate. Can still be added to a tender manually if needed.";
   if (rating.is_stale) return `Stale — manual update due (last entry ${fmtDate(rating.last_manual_update_at)}).`;
-  if (rating.is_provisional) return "Provisional score: some manual parameters haven't been entered yet, so the composite re-weights what exists.";
   return `Last manual update ${fmtDate(rating.last_manual_update_at)}. Price competitiveness is system-computed.`;
 }
 
@@ -47,8 +48,8 @@ export function Scorecard({
   canAdjust: boolean;
   onAdjust: () => void;
 }) {
-  const score = rating ? rating.overall_score.toFixed(0) : "NR";
-  const scoreColorClass = !rating ? "score-color-none" : rating.overall_score >= 75 ? "score-color-good" : "score-color-mid";
+  const score = rating && !rating.is_unrated ? rating.overall_score.toFixed(0) : "NR";
+  const scoreColorClass = !rating || rating.is_unrated ? "score-color-none" : rating.overall_score >= 75 ? "score-color-good" : "score-color-mid";
   return (
     <div className="ep-pane padding-15px-16px d-flex flex-col gap-11px">
       <div className="d-flex items-start gap-10px">

@@ -9,13 +9,13 @@ class RatingOut(BaseModel):
     id: int
     vendor_id: int
     procurement_type: ProcurementType
-    price_competitiveness: float
+    price_competitiveness: float | None
     on_time_pct: float | None
     quality_pct: float | None
     compliance_pct: float | None
     responsiveness: float | None
     overall_score: float
-    is_provisional: bool
+    is_unrated: bool
     is_stale: bool
     last_manual_update_at: datetime | None
     created_at: datetime

@@ -123,7 +123,7 @@ function LineCard({ l }: { l: ReviewLine }) {
               {l.eligible_vendors.map((v) => (
                 <tr key={v.vendor_id}>
                   <td className="ep-cell">{v.legal_name}</td>
-                  <td className="ep-cell">{v.rating_score}</td>
+                  <td className="ep-cell">{v.is_unrated ? "Unrated" : v.rating_score}</td>
                   <td className="ep-cell">{vendorBasis(v)}</td>
                 </tr>
               ))}
