@@ -13,13 +13,26 @@ import { identityFor } from "./identity";
 // resetToLoggedOutNav() + shell.js's collapse/peek handling -- all of which
 // just reactively derive from the auth store and the current route here,
 // instead of imperative DOM show/hide calls.
+// Real bug, found 2026-10-23: this used to take the FULL pathname (e.g.
+// "tender-edit/5"), so any :id-suffixed route only ever matched a nav item
+// by exact string equality -- which an id suffix always breaks. Harmless
+// while nothing was ":id"-shaped, but every route this session converted
+// to a real `:id` route (approvals/:id, awards/:id, vendor-view/:id, and
+// now tender-edit/:id) silently stopped highlighting anything the moment
+// a specific record was open. First path segment only, so a detail/edit
+// view still resolves to its own list tab generically, without a growing
+// per-view special case for every such route.
 function currentView(pathname: string): string {
-  return pathname.replace(/^\//, "") || "login";
+  return pathname.replace(/^\//, "").split("/")[0] || "login";
 }
 
-// Sub-screens with no tab of their own highlight their parent tab instead.
-function tabViewFor(view: string): string {
-  if (view === "tender-edit") return "tenders";
+// Sub-screens that highlight a DIFFERENT tab than their own first path
+// segment would otherwise resolve to. `hasIdSuffix` distinguishes bare
+// /tender-edit (creating a new tender -- now its own "Create Tender" tab)
+// from /tender-edit/:id (editing an existing one -- highlights the list
+// it came from instead).
+function tabViewFor(view: string, hasIdSuffix: boolean): string {
+  if (view === "tender-edit" && hasIdSuffix) return "tenders";
   if (view === "vendor-view") return "queue";
   return view;
 }
@@ -30,7 +43,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
   const navigate = useNavigate();
   const { collapsed, peek, setPeek, toggle: toggleCollapsed } = useSidebarCollapse();
   const { saved: savedGroups, toggle: toggleGroup } = useNavGroups();
-  const activeTabView = tabViewFor(currentView(pathname));
+  const hasIdSuffix = pathname.replace(/^\//, "").split("/").filter(Boolean).length > 1;
+  const activeTabView = tabViewFor(currentView(pathname), hasIdSuffix);
   const identity = identityFor(auth);
 
   useEffect(() => {

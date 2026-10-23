@@ -74,7 +74,7 @@ export function StaffLoginPage() {
       // "show these tabs now" call needed once that chrome is React too.
       switchView(DEFAULT_VIEW_BY_ROLE[user.role] || "tenders");
     } catch (err) {
-      setResult({ message: "Login failed: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      setResult({ message: err instanceof Error ? err.message : String(err), ok: false });
     }
   };
 

@@ -91,7 +91,7 @@ export function VendorLoginPage() {
       // do next (verification pending -> categories -> tenders).
       switchView("vendor-dashboard");
     } catch (err) {
-      setResult({ message: "Login failed: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      setResult({ message: err instanceof Error ? err.message : String(err), ok: false });
     }
   };
 

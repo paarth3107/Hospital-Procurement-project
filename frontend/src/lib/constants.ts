@@ -60,14 +60,14 @@ export const ROLE_TABS: Record<string, string[]> = {
   // "needs a Procurement Officer's decision" anymore -- Due-Date
   // Extension is the only other self-attested-for-Officer type, and it
   // self-attests the same way for Category Manager/System Admin now too.
-  procurement_officer: ["dashboard", "tenders", "evaluation", "awards"],
+  procurement_officer: ["dashboard", "tenders", "tender-edit", "evaluation", "awards"],
   category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles", "decisions"],
   approving_authority: ["dashboard", "approvals", "awards", "decisions"],
-  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions"],
+  system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "tender-edit", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions"],
 };
 
 export const ALL_STAFF_TAB_VIEWS = [
-  "dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions",
+  "dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "tender-edit", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions",
 ];
 
 // Picks where to land after a successful staff login, and where a role-
@@ -128,7 +128,8 @@ export const NAV_GROUPS: { key: string; label: string; icon: string; items: NavI
     label: "Tenders",
     icon: "file-text",
     items: [
-      { view: "tenders", label: "Tender Creation", icon: "file-text" },
+      { view: "tenders", label: "Tender List", icon: "file-text" },
+      { view: "tender-edit", label: "Create Tender", icon: "upload" },
       { view: "approvals", label: "E-Tender Approval", icon: "check-square", badge: "approvals" },
       { view: "evaluation", label: "Bid Evaluation", icon: "bar-chart" },
       { view: "awards", label: "L1 Award", icon: "award", badge: "awards" },
@@ -174,7 +175,7 @@ export const PAGE_TITLES: Record<string, [string, string]> = {
   "mappings-matrix": ["", "Mapping Matrix"],
   "mappings-requests": ["", "Mapping Requests"],
   ratings: ["", "Vendor Rating & Scorecard"],
-  tenders: ["", "E-Tender Creation"],
+  tenders: ["", "Tender List"],
   "tender-edit": ["", "E-Tender Creation"],
   approvals: ["", "E-Tender Approval"],
   staff: ["Administration", "Staff Accounts"],
