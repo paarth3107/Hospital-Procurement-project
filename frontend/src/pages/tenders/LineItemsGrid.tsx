@@ -5,7 +5,9 @@ import { inr } from "../../lib/format";
 import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
+import { FieldError } from "../../components/FieldError";
 import { Req } from "../../components/Req";
+import { percentRangeError } from "./tenderValidation";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { CatalogProduct, LineItem, TechnicalEvalMethod, TenderLineAttachmentKind } from "../../lib/types";
@@ -92,6 +94,10 @@ export const LineItemsGrid = forwardRef<
 >(function LineItemsGrid({ products, tenderId, onChange, onRequestSave }, ref) {
   const [rows, setRowsState] = useState<LineItemRow[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  // Min Rating Threshold Override's red error, keyed by row index (same
+  // convention as expandedRows above) -- FieldError's own lookup just
+  // wants string keys, so the index is stringified.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [importErrors, setImportErrors] = useState<string[]>([]);
   // "<row index>:<kind>" currently mid-upload, if any -- see AttachmentsPanel.tsx's own comment.
   const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
@@ -301,6 +307,17 @@ export const LineItemsGrid = forwardRef<
 
   const onNumericInput = (i: number, field: "qty" | "estimated_price" | "technical_weight" | "price_weight" | "min_rating_threshold_override", value: string) =>
     updateRow(i, (r) => ({ ...r, [field]: value === "" ? null : Number(value) }));
+
+  // Real bug, found 2026-10-22: only checked against its 0-100 range on
+  // save, via the backend's real validator. Same on-blur-error-under-the-
+  // field pattern as registration/login (FieldError + tenderValidation.ts's
+  // percentRangeError) -- replacing a first attempt that silently clamped
+  // the value instead of flagging it.
+  const checkRatingOverride = (i: number, raw: string) => {
+    const err = percentRangeError(raw);
+    const key = String(i);
+    setFieldErrors((prev) => (prev[key] === (err ?? "") ? prev : { ...prev, [key]: err ?? "" }));
+  };
 
   const onEvalMethodChange = (i: number, value: string) =>
     updateRow(i, (r) => {
@@ -668,15 +685,20 @@ export const LineItemsGrid = forwardRef<
                                   <div className="ep-field">
                                     <div className="ep-k">Min Rating Threshold Override</div>
                                     <input
-                                      className="input"
+                                      className={`input${fieldErrors[String(i)] ? " invalid" : ""}`}
                                       type="number"
                                       step={0.1}
                                       min={0}
                                       max={100}
                                       value={row.min_rating_threshold_override ?? ""}
-                                      onChange={(e) => onNumericInput(i, "min_rating_threshold_override", e.target.value)}
+                                      onChange={(e) => {
+                                        onNumericInput(i, "min_rating_threshold_override", e.target.value);
+                                        if (fieldErrors[String(i)]) checkRatingOverride(i, e.target.value);
+                                      }}
+                                      onBlur={(e) => checkRatingOverride(i, e.target.value)}
                                       placeholder="tender default"
                                     />
+                                    <FieldError errors={fieldErrors} name={String(i)} />
                                   </div>
                                 </div>
                               </div>

@@ -53,4 +53,13 @@ class UserAccount(Base):
     # server's own local timezone instead of true UTC).
     created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
 
+    # Self-service "Forgot password" (2026-10-23) -- same JWT-backed scheme
+    # as Vendor.password_reset_token (security.py's create_password_reset_token/
+    # decode_password_reset_token, "typ": "staff_reset" here so a staff
+    # reset link can never be replayed against the vendor endpoint or vice
+    # versa). Distinct from staff.py's admin-initiated reset_password
+    # (an admin directly setting someone else's password, no token/email
+    # involved at all) -- this is the self-service counterpart to that.
+    password_reset_token = Column(String(512), nullable=True)
+
     facility = relationship("Facility", back_populates="users")

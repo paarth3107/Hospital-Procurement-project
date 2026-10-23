@@ -216,6 +216,20 @@ body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { ma
 .ep-cell { padding: 17px 20px; border-bottom: 1px solid var(--ink-12); font-size: 15px; vertical-align: middle; }
 .ep-th { padding: 15px 20px; border-bottom: 1px solid var(--ink-18); font-size: 13px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-60); text-align: left; font-weight: 600; }
 .ep-table { width: 100%; border-collapse: collapse; }
+/* Icon-only row actions (2026-10-23) -- replaces the old "Edit"/"Deactivate"/
+   "Details" text buttons. width:1% + white-space:nowrap is the standard
+   shrink-to-content trick for an auto-layout table column: without it the
+   browser was handing this column however much space was left over after
+   the other (text-heavy) columns, leaving the icons stranded far to the
+   right of a column much wider than they need -- the opposite of the point
+   of switching to icons in the first place. (A dashed divider was tried
+   here too, user-rejected as pointless clutter -- removed.) */
+.ep-actions-cell { width: 1%; white-space: nowrap; }
+.ep-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; background: transparent; border-radius: var(--radius); color: var(--ink-50); cursor: pointer; }
+.ep-icon-action:hover { background: var(--ink-09); color: var(--ink); }
+.ep-icon-action-danger:hover { color: var(--danger); }
+.ep-icon-action:disabled { opacity: .4; cursor: default; }
+.ep-icon-action:disabled:hover { background: transparent; color: var(--ink-50); }
 .audit-table { table-layout: fixed; }
 .audit-table .ep-cell { overflow-wrap: break-word; }
 .audit-table .ep-th, .audit-table .ep-cell { text-align: center; }
@@ -230,13 +244,16 @@ body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { ma
    dropping it gave Edit/Deactivate real room to sit side by side. */
 .catalog-product-table { table-layout: fixed; }
 .catalog-product-table .ep-cell { overflow-wrap: break-word; }
-.catalog-product-table th:nth-child(1) { width: 30%; }
+.catalog-product-table th:nth-child(1) { width: 40%; }
 .catalog-product-table th:nth-child(2) { width: 15%; }
 .catalog-product-table th:nth-child(3) { width: 9%; }
 .catalog-product-table th:nth-child(4) { width: 12%; }
 .catalog-product-table th:nth-child(5) { width: 8%; }
 .catalog-product-table th:nth-child(6) { width: 9%; }
-.catalog-product-table th:nth-child(7) { width: 17%; }
+/* Icon-only actions (2026-10-23) need far less room than the old "Edit" +
+   "Deactivate" text buttons did -- shrunk from 17%, handed to the Product
+   column above instead of leaving it stretched empty. */
+.catalog-product-table th:nth-child(7) { width: 7%; }
 .ep-table tbody tr:hover .ep-cell { background: var(--ink-03); }
 .ep-table tr:last-child .ep-cell { border-bottom: 0; }
 
@@ -606,6 +623,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .col-span-2 { grid-column: span 2; }
 .col-span-3 { grid-column: span 3; }
 .col-span-4 { grid-column: span 4; }
+.col-start-1 { grid-column-start: 1; }
 .flex-2 { flex: 2; }
 .fs-10-5px { font-size: 10.5px; }
 .fs-11-5px { font-size: 11.5px; }

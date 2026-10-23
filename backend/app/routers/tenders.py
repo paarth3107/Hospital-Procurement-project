@@ -924,6 +924,14 @@ def submit_for_approval(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A tender needs at least one line item before submission")
     if not tender.bid_due_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be set before submission")
+    now = datetime.now(timezone.utc)
+    if tender.bid_due_date <= now:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be in the future")
+    if tender.publish_date is not None:
+        if tender.publish_date <= now:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Publish Date must be in the future")
+        if tender.bid_due_date <= tender.publish_date:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be after the Publish Date")
     if tender.is_rate_contract and (not tender.contract_start_date or not tender.contract_end_date):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract start and end dates must be set before submission")
     if tender.is_rate_contract and not tender.rate_contract_document_content:

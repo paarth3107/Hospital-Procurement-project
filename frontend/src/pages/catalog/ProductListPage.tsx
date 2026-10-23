@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { switchView } from "../../lib/bridge";
-import { loadCatalogData, setEditingProductId } from "../../lib/catalogCache";
+import { loadCatalogData } from "../../lib/catalogCache";
 import { takeFlash } from "../../lib/flash";
 import type { CatalogProduct, ProcurementType, VendorMapping } from "../../lib/types";
 import { ImgPlaceholder } from "../../components/ImgPlaceholder";
+import { IconActionButton } from "../../components/IconActionButton";
 import { Tag, TypeTag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { inr } from "../../lib/format";
@@ -81,14 +82,8 @@ export function ProductListPage() {
     }
   };
 
-  const gotoAdd = () => {
-    setEditingProductId(null);
-    switchView("catalog-add");
-  };
-  const gotoEdit = (id: number) => {
-    setEditingProductId(id);
-    switchView("catalog-add");
-  };
+  const gotoAdd = () => switchView("catalog-add");
+  const gotoEdit = (id: number) => switchView(`catalog-add/${id}`);
 
   if (error && !products.length) {
     return <div className="result err">{error}</div>;
@@ -123,7 +118,7 @@ export function ProductListPage() {
         <table className="ep-table catalog-product-table">
           <thead>
             <tr>
-              {["Product", "Category", "Type", "Price band", "Vendors", "Status", ""].map((h) => (
+              {["Product", "Category", "Type", "Price band", "Vendors", "Status", "Action"].map((h) => (
                 <th className="ep-th" key={h}>
                   {h}
                 </th>
@@ -161,13 +156,16 @@ export function ProductListPage() {
                   <td className="ep-cell fs-12-5px nowrap">{priceBand(p)}</td>
                   <td className="ep-cell fw-800">{vendorCount(p)}</td>
                   <td className="ep-cell">{p.active ? <Tag text="Active" tone="pos" /> : <Tag text="Inactive" tone="neg" />}</td>
-                  <td className="ep-cell nowrap text-right">
-                    <button className="ep-b" onClick={() => gotoEdit(p.id)}>
-                      Edit
-                    </button>{" "}
-                    <button className="ep-b" onClick={() => toggleActive(p)}>
-                      {p.active ? "Deactivate" : "Activate"}
-                    </button>
+                  <td className="ep-cell ep-actions-cell nowrap text-right">
+                    <div className="d-flex items-center justify-end gap-6px">
+                      <IconActionButton
+                        icon={p.active ? "trash" : "check-circle"}
+                        label={p.active ? "Deactivate" : "Activate"}
+                        tone={p.active ? "danger" : undefined}
+                        onClick={() => toggleActive(p)}
+                      />
+                      <IconActionButton icon="edit" label="Edit" onClick={() => gotoEdit(p.id)} />
+                    </div>
                   </td>
                 </tr>
               ))

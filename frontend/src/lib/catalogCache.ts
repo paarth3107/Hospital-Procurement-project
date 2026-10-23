@@ -78,15 +78,6 @@ export function patchCachedRating(updated: Rating) {
   ratings = ratings.some((r) => r.id === updated.id) ? ratings.map((r) => (r.id === updated.id ? updated : r)) : [...ratings, updated];
 }
 
-// Set by Product List's Edit button, read by Add Product on load, then
-// cleared -- the "set state, then switchView" deep-link pattern already used
-// elsewhere in this app.
-let editingProductId: number | null = null;
-export const setEditingProductId = (id: number | null) => {
-  editingProductId = id;
-};
-export const takeEditingProductId = (): number | null => {
-  const id = editingProductId;
-  editingProductId = null;
-  return id;
-};
+// editingProductId removed 2026-10-23 -- same bug as viewVendorId/
+// pendingTenderId/pendingBidTenderId elsewhere in this app: Add/Edit
+// Product is now reached at /catalog-add/:id instead.

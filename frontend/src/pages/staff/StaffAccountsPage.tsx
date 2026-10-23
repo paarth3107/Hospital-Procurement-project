@@ -4,6 +4,7 @@ import { useAuthState } from "../../lib/authStore";
 import { ROLE_LABELS, fmtDate } from "../../lib/format";
 import type { Facility, StaffUser } from "../../lib/types";
 import { Tag, StateTag } from "../../components/Tag";
+import { IconActionButton } from "../../components/IconActionButton";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StaffFormDialog } from "./StaffFormDialog";
@@ -96,7 +97,7 @@ export function StaffAccountsPage() {
       <table className="ep-table">
         <thead>
           <tr>
-            {["Name", "Role", "Facility", "Status", "Created", ""].map((h) => (
+            {["Name", "Role", "Facility", "Status", "Created", "Action"].map((h) => (
               <th className="ep-th" key={h}>
                 {h}
               </th>
@@ -127,20 +128,23 @@ export function StaffAccountsPage() {
                   <td className="ep-cell">{u.facility_id == null ? "All facilities" : facilityName.get(u.facility_id) || "—"}</td>
                   <td className="ep-cell">{u.is_active ? <StateTag state="active" /> : <Tag text="Deactivated" tone="neg" />}</td>
                   <td className="ep-cell fs-12-5px">{fmtDate(u.created_at)}</td>
-                  <td className="ep-cell text-right nowrap">
-                    <button className="ep-b" onClick={() => setDialog({ kind: "edit-staff", user: u })}>
-                      Edit
-                    </button>{" "}
-                    <button className="ep-b" onClick={() => setDialog({ kind: "reset-password", user: u })}>
-                      Reset password
-                    </button>{" "}
-                    {!me && (
-                      // Deactivating asks for confirmation first (matches the vanilla
-                      // modalConfirm gate); reactivating needs none, same as before.
-                      <button className="ep-b" onClick={() => (u.is_active ? setDialog({ kind: "confirm-toggle", user: u }) : toggleActive(u))}>
-                        {u.is_active ? "Deactivate" : "Reactivate"}
+                  <td className="ep-cell ep-actions-cell text-right nowrap">
+                    <div className="d-flex items-center justify-end gap-6px">
+                      <button className="ep-b" onClick={() => setDialog({ kind: "reset-password", user: u })}>
+                        Reset password
                       </button>
-                    )}
+                      {!me && (
+                        // Deactivating asks for confirmation first (matches the vanilla
+                        // modalConfirm gate); reactivating needs none, same as before.
+                        <IconActionButton
+                          icon={u.is_active ? "trash" : "check-circle"}
+                          label={u.is_active ? "Deactivate" : "Reactivate"}
+                          tone={u.is_active ? "danger" : undefined}
+                          onClick={() => (u.is_active ? setDialog({ kind: "confirm-toggle", user: u }) : toggleActive(u))}
+                        />
+                      )}
+                      <IconActionButton icon="edit" label="Edit" onClick={() => setDialog({ kind: "edit-staff", user: u })} />
+                    </div>
                   </td>
                 </tr>
               );

@@ -24,23 +24,34 @@ import { AuthTabs } from "../pages/auth/AuthTabs";
 // flow specifically -- Register keeps its own look, no tabs, same as before.
 export function AuthLayout() {
   const { pathname } = useLocation();
-  const view = pathname.replace(/^\//, "");
+  // The base route segment, not the full tail -- /reset-password/:token
+  // carries a long opaque token after the second slash that has no business
+  // being part of a CSS id.
+  const view = pathname.replace(/^\//, "").split("/")[0];
   // Register wants the wider content area (styles.css's #view-register rule);
-  // login/vendor-login keep the compact centered box.
+  // login/vendor-login/forgot-password/reset-password keep the compact
+  // centered box.
   const narrow = view !== "register";
   const isLoginFlow = view === "login" || view === "vendor-login";
+  // Forgot/Reset password (2026-10-23, user-directed: "the structure of the
+  // new pages should be the same as the login pages"; extended to staff the
+  // same day) get the same MedSource branding + centered card treatment as
+  // login/vendor-login -- just without the Staff/Vendor AuthTabs switch,
+  // which has no meaning mid-reset (which login page sent you here already
+  // picked that).
+  const isPasswordFlow = ["forgot-password", "reset-password", "staff-forgot-password", "staff-reset-password"].includes(view);
   return (
     <main id="app">
       <div className="ep-content" id="content">
         <section id={`view-${view}`} className={`view auth-view${narrow ? " maxw-460px" : ""}`}>
-          {isLoginFlow ? (
+          {isLoginFlow || isPasswordFlow ? (
             <>
               <div className="auth-topblock">
                 <div>
                   <div className="landing-title">MedSource</div>
                   <p className="hint mt-4px">Hospital E-Procurement Portal</p>
                 </div>
-                <AuthTabs active={view as "login" | "vendor-login"} />
+                {isLoginFlow && <AuthTabs active={view as "login" | "vendor-login"} />}
               </div>
               {/* The card (heading + form + result + register link) centers on
                   the viewport on its own, independent of the topblock above --

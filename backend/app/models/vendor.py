@@ -111,6 +111,17 @@ class Vendor(Base):
     email_verification_expires_at = Column(UTCDateTime(), nullable=True)
     email_verified_at = Column(UTCDateTime(), nullable=True)
 
+    # Self-service "Forgot password" (2026-10-23; JWT'd the same day,
+    # user-directed): a signed JWT (security.py's create_password_reset_token),
+    # not a plain opaque string -- its own "exp" claim is what expiry means
+    # here, so there's no separate expires_at column to keep in sync with it.
+    # Still stored on the row (widened past a bearer JWT's real length) so a
+    # used/superseded token can be invalidated server-side, something a JWT's
+    # signature alone can't do: cleared after a successful reset so the link
+    # can't be replayed, and overwritten (not accumulated) on every new
+    # request, so only the most recently requested link is ever valid.
+    password_reset_token = Column(String(512), nullable=True)
+
     # Spec §6.7/§12.3, reframed as "Expedited Registration Review" (CLAUDE.md
     # PROJECT OVERRIDE -- this is the governed, prioritize-don't-bypass
     # replacement for the base spec's "guest invite that can bid before

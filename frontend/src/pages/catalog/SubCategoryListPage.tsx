@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { loadCatalogData } from "../../lib/catalogCache";
 import type { Category, SubCategory } from "../../lib/types";
 import { TypeTag } from "../../components/Tag";
+import { IconActionButton } from "../../components/IconActionButton";
 import { SubCategoryFormPanel } from "./SubCategoryFormPanel";
 
 // Ported 1:1 from frontend/js/pages/catalog/subCategoryListPage.js. Shares
@@ -56,7 +57,7 @@ export function SubCategoryListPage() {
         <table className="ep-table">
           <thead>
             <tr>
-              {["Name", "Category", "Type", ""].map((h) => (
+              {["Name", "Category", "Type", "Action"].map((h) => (
                 <th className="ep-th" key={h}>
                   {h}
                 </th>
@@ -78,10 +79,8 @@ export function SubCategoryListPage() {
                     <td className="ep-cell fw-600">{s.name}</td>
                     <td className="ep-cell">{c?.name ?? "—"}</td>
                     <td className="ep-cell">{c ? <TypeTag type={c.procurement_type} /> : "—"}</td>
-                    <td className="ep-cell text-right">
-                      <button className="ep-b" onClick={() => setFormFor(s)}>
-                        Edit
-                      </button>
+                    <td className="ep-cell ep-actions-cell text-right">
+                      <IconActionButton icon="edit" label="Edit" onClick={() => setFormFor(s)} />
                     </td>
                   </tr>
                 );

@@ -11,6 +11,8 @@ import { LoadingOverlay } from "./shell/LoadingOverlay";
 import { StaffLoginPage } from "./pages/auth/StaffLoginPage";
 import { VendorLoginPage } from "./pages/auth/VendorLoginPage";
 import { RegisterPage } from "./pages/auth/RegisterPage";
+import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { VendorListPage } from "./pages/vendors/VendorListPage";
 import { VendorViewPage } from "./pages/vendors/VendorViewPage";
@@ -68,6 +70,10 @@ export function App() {
           <Route path="/login" element={<StaffLoginPage />} />
           <Route path="/vendor-login" element={<VendorLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage actorType="vendor" />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage actorType="vendor" />} />
+          <Route path="/staff-forgot-password" element={<ForgotPasswordPage actorType="staff" />} />
+          <Route path="/staff-reset-password/:token" element={<ResetPasswordPage actorType="staff" />} />
         </Route>
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -75,6 +81,7 @@ export function App() {
           <Route path="/vendor-view/:id" element={<VendorViewPage />} />
           <Route path="/catalog-list" element={<ProductListPage />} />
           <Route path="/catalog-add" element={<AddProductPage />} />
+          <Route path="/catalog-add/:id" element={<AddProductPage />} />
           <Route path="/catalog-categories" element={<CategoryListPage />} />
           <Route path="/catalog-subcategories" element={<SubCategoryListPage />} />
           <Route path="/mappings-matrix" element={<MappingMatrixPage />} />
@@ -92,6 +99,7 @@ export function App() {
           <Route path="/staff" element={<StaffAccountsPage />} />
           <Route path="/audit" element={<AuditLogPage />} />
           <Route path="/bid" element={<BidPage />} />
+          <Route path="/bid/:id" element={<BidPage />} />
           <Route path="/evaluation" element={<EvaluationPage />} />
           <Route path="/awards" element={<AwardsPage />} />
           <Route path="/awards/:id" element={<AwardsPage />} />

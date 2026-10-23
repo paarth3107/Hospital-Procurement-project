@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { loadCatalogData } from "../../lib/catalogCache";
 import type { Category, CatalogProduct } from "../../lib/types";
 import { ImgPlaceholder } from "../../components/ImgPlaceholder";
+import { IconActionButton } from "../../components/IconActionButton";
 import { Tag, TypeTag } from "../../components/Tag";
 import { docLabel } from "../../lib/constants";
 import { CategoryFormPanel } from "./CategoryFormPanel";
@@ -59,25 +60,23 @@ export function CategoryListPage() {
             const count = products.filter((p) => p.category_id === c.id).length;
             return (
               <div className="ep-category-card" key={c.id}>
-                <div className="ep-category-card-head">
-                  <ImgPlaceholder iconName="tag" size="md" />
-                  <div className="minw-0">
-                    <div className="fw-700 fs-15px ep-clip" title={c.name}>
-                      {c.name}
+                <div className="ep-category-card-head justify-between">
+                  <div className="d-flex items-center gap-14px minw-0">
+                    <ImgPlaceholder iconName="tag" size="md" />
+                    <div className="minw-0">
+                      <div className="fw-700 fs-15px ep-clip" title={c.name}>
+                        {c.name}
+                      </div>
+                      <div className="ep-sub">{count} item(s)</div>
                     </div>
-                    <div className="ep-sub">{count} item(s)</div>
                   </div>
+                  <IconActionButton icon="edit" label="Edit" onClick={() => setFormFor(c)} />
                 </div>
                 <div className="d-flex items-center gap-8px flex-wrap">
                   <TypeTag type={c.procurement_type} />
                   {c.min_mapping_rating != null && <Tag text={`Min rating ${c.min_mapping_rating}`} tone="att" />}
                 </div>
                 {c.required_documents.length > 0 && <div className="ep-sub">Needs: {c.required_documents.map(docLabel).join(", ")}</div>}
-                <div>
-                  <button className="ep-b" onClick={() => setFormFor(c)}>
-                    Edit
-                  </button>
-                </div>
               </div>
             );
           })}

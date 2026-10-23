@@ -17,6 +17,7 @@ const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/;
 const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
 const IFSC_RE = /^[A-Z]{4}0[A-Z\d]{6}$/;
 const PINCODE_RE = /^\d{6}$/;
+const ACCOUNT_NUMBER_RE = /^\d{9,18}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // User-directed, stricter than the backend's own loose ">=7 digits, leading
 // + allowed" rule (backend/app/schemas/vendor.py's phone_normalised()/
@@ -33,10 +34,12 @@ const required =
   (v: string): string | null =>
     v.trim() ? null : `${label} is required.`;
 
-// User-directed (2026-10-13) -- the backend (vendor.py) has no length
-// constraint at all on any of these name-ish fields, just non-blank; these
-// min/max bounds are a pure client-side data-quality rule, not something
-// mirrored from the server. `optional` skips the "required" branch for
+// Originally a pure client-side data-quality rule (2026-10-13) -- the
+// backend only checked these weren't blank, not their length. Mirrored
+// server-side too as of 2026-10-23 (user-directed, closing the gap: a
+// direct API call bypassing this form could otherwise submit e.g. a
+// 1-character legal name) -- see schemas/vendor.py's `_length_bounds()`,
+// same labels and bounds. `optional` skips the "required" branch for
 // trade_name (it can be left blank entirely) but still bounds it once
 // something's actually typed.
 const boundedText =
@@ -79,7 +82,11 @@ export const FIELD_VALIDATORS: Record<string, (value: string) => string | null> 
     return PAN_RE.test(t) ? null : "PAN must be 10 characters in the standard format (e.g. AAAPM1234C).";
   },
   bank_name: required("Bank name"),
-  bank_account_number: required("Account number"),
+  bank_account_number: (v) => {
+    const t = v.trim();
+    if (!t) return "Account number is required.";
+    return ACCOUNT_NUMBER_RE.test(t) ? null : "Account number must be 9-18 digits.";
+  },
   bank_ifsc: (v) => {
     const t = v.trim().toUpperCase();
     if (!t) return "IFSC is required.";

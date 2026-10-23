@@ -189,6 +189,16 @@ export function RegisterPage() {
   // final sweep, so "leave the field" and "click Continue without ever
   // touching it" both go through the same rule per field.
   function checkField(name: string, value: string) {
+    // confirm_password isn't a registerValidation.ts rule -- it needs the
+    // live password value to compare against, which a plain (value) =>
+    // error validator has no way to receive, so it's special-cased here
+    // instead (same reasoning as onStep1Input's own per-field special
+    // cases for phone/pincode/etc. below).
+    if (name === "confirm_password") {
+      const err = value ? (value === step1Value("password") ? null : "Passwords don't match.") : "Re-enter your password.";
+      setFieldErrors((prev) => (prev[name] === (err ?? "") ? prev : { ...prev, [name]: err ?? "" }));
+      return err;
+    }
     const validator = FIELD_VALIDATORS[name];
     if (!validator) return null;
     const err = validator(value);
@@ -218,6 +228,9 @@ export function RegisterPage() {
     // alone don't block invalid characters from being typed, only flag the
     // field invalid afterward. Digits-only and capped at 6, live, same as phone.
     if (t.name === "pincode" && t.value !== t.value.replace(/\D/g, "").slice(0, 6)) t.value = t.value.replace(/\D/g, "").slice(0, 6);
+    // Same digits-only-live-capped treatment, account numbers being 9-18
+    // digits (registerValidation.ts's ACCOUNT_NUMBER_RE).
+    if (t.name === "bank_account_number" && t.value !== t.value.replace(/\D/g, "").slice(0, 18)) t.value = t.value.replace(/\D/g, "").slice(0, 18);
     // Real bug, found 2026-10-15: `maxLength` is silently ignored on
     // type="number" inputs by every browser -- it only ever worked on the
     // text-like fields above (phone/pincode). Capped live instead, same
@@ -231,6 +244,10 @@ export function RegisterPage() {
       const counterRef = t.name === "registered_address" ? registeredAddressCounterRef : alternateAddressCounterRef;
       if (counterRef.current) counterRef.current.textContent = `${t.value.length}/${ADDRESS_MAX}`;
     }
+    // Re-enter password is checked against whatever's currently in Password,
+    // so a change to Password itself (not just to Re-enter password) has to
+    // re-run that check too, or a fixed mismatch could keep showing stale.
+    if (t.name === "password" && fieldErrors.confirm_password) checkField("confirm_password", step1Value("confirm_password"));
     t.classList?.remove("invalid");
     if (t.name && fieldErrors[t.name]) checkField(t.name, t.value);
   };
@@ -581,9 +598,7 @@ export function RegisterPage() {
         ← Back to vendor login
       </button>
       <div>
-        <div className="ep-k">Module 1</div>
-        <div className="fs-24px fw-800">Register as a vendor</div>
-        <p className="hint mt-4px">Submissions are reviewed by Category Manager before you can bid on anything.</p>
+        <div className="fs-24px fw-800">Vendor Registration</div>
       </div>
       <OpenLinkNote />
       <div className="ep-seg self-start">
@@ -751,7 +766,7 @@ export function RegisterPage() {
                     GSTIN (15 characters)
                     <Req />
                   </div>
-                  <input className="input" name="gstin" required maxLength={15} minLength={15} />
+                  <input className="input" name="gstin" required maxLength={15} minLength={15} placeholder="e.g. 27AAAPM1234C1Z5" />
                   <FieldError errors={fieldErrors} name="gstin" />
                 </div>
                 <div className="ep-field">
@@ -759,7 +774,7 @@ export function RegisterPage() {
                     PAN
                     <Req />
                   </div>
-                  <input className="input" name="pan" required maxLength={10} />
+                  <input className="input" name="pan" required maxLength={10} placeholder="e.g. AAAPM1234C" />
                   <FieldError errors={fieldErrors} name="pan" />
                 </div>
               </div>
@@ -784,7 +799,7 @@ export function RegisterPage() {
                     Account number
                     <Req />
                   </div>
-                  <input className="input" name="bank_account_number" required inputMode="numeric" />
+                  <input className="input" name="bank_account_number" required inputMode="numeric" placeholder="9-18 digits" />
                   <FieldError errors={fieldErrors} name="bank_account_number" />
                 </div>
                 <div className="ep-field">
@@ -792,7 +807,7 @@ export function RegisterPage() {
                     IFSC
                     <Req />
                   </div>
-                  <input className="input" name="bank_ifsc" required maxLength={11} />
+                  <input className="input" name="bank_ifsc" required maxLength={11} placeholder="e.g. HDFC0001234" />
                   <FieldError errors={fieldErrors} name="bank_ifsc" />
                 </div>
               </div>
@@ -828,15 +843,11 @@ export function RegisterPage() {
                   <input className="input" name="phone" required inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" />
                   <FieldError errors={fieldErrors} name="phone" />
                 </div>
-                <div className="ep-field col-span-4">
-                  <div className="ep-k">
-                    Email (your login)
-                    <Req />
-                  </div>
-                  <input className="input" name="email" type="email" required />
-                  <FieldError errors={fieldErrors} name="email" />
-                </div>
-                <div className="ep-field">
+                {/* col-start-1 forces this onto a fresh row -- with 3
+                    fields above it, it would otherwise land in the 4th
+                    slot of their row instead of grouping with its own
+                    escalation phone/email, which sit right after it. */}
+                <div className="ep-field col-start-1">
                   <div className="ep-k">
                     Escalation contact name
                     <Req />
@@ -860,31 +871,56 @@ export function RegisterPage() {
               </div>
             </div>
           </div>
-          {/* Not rendered at all while resuming -- there's no plaintext
-              password to prefill, and this update path never touches it
-              (VendorDraftUpdate has no password field; a vendor changes
-              their password by actually typing a new one in, which this
-              recovery flow isn't for). Not in the DOM also means
-              validateStep1()'s querySelectorAll skips it cleanly. */}
-          {!resuming && (
-            <div className="ep-pane">
-              <div className="ep-pane-head">
-                <span>Login</span>
-              </div>
-              <div className="ep-pane-pad">
-                <div className="ep-form-grid">
-                  <div className="ep-field col-span-4">
-                    <div className="ep-k">
-                      Password (8-20 characters, with at least one digit, lowercase, uppercase and special character)
-                      <Req />
-                    </div>
-                    <PasswordField name="password" required minLength={8} maxLength={20} autoComplete="new-password" />
-                    <FieldError errors={fieldErrors} name="password" />
+          <div className="ep-pane maxw-460px">
+            <div className="ep-pane-head">
+              <span>Login</span>
+            </div>
+            <div className="ep-pane-pad">
+              {/* Stacked (ep-form, not ep-form-grid) and the pane itself
+                  capped at maxw-460px, same reasoning as the login pages'
+                  own card -- 3 fields side by side in the wide grid left
+                  them each a narrow sliver, and stacking them in a wide
+                  pane would leave the other three-quarters of the row
+                  empty either way. */}
+              <div className="ep-form">
+                <div className="ep-field">
+                  <div className="ep-k">
+                    Email
+                    <Req />
                   </div>
+                  <input className="input" name="email" type="email" required />
+                  <FieldError errors={fieldErrors} name="email" />
                 </div>
+                {/* Password/confirm not rendered at all while resuming --
+                    there's no plaintext password to prefill, and this
+                    update path never touches it (VendorDraftUpdate has no
+                    password field; a vendor changes their password by
+                    actually typing a new one in, which this recovery flow
+                    isn't for). Not in the DOM also means
+                    validateStep1()'s querySelectorAll skips them cleanly. */}
+                {!resuming && (
+                  <>
+                    <div className="ep-field">
+                      <div className="ep-k">
+                        Password
+                        <Req />
+                      </div>
+                      <PasswordField name="password" required minLength={8} maxLength={20} autoComplete="new-password" />
+                      <FieldError errors={fieldErrors} name="password" />
+                    </div>
+                    <div className="ep-field">
+                      <div className="ep-k">
+                        Re-enter password
+                        <Req />
+                      </div>
+                      <PasswordField name="confirm_password" required autoComplete="new-password" />
+                      <FieldError errors={fieldErrors} name="confirm_password" />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </fieldset>
         {/* Hidden only in the one state the verify panel below covers
             (draft exists, not yet verified) -- otherwise this is the same

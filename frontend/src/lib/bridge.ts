@@ -41,18 +41,25 @@ export const takePendingListFilter = (): string | null => {
 // viewVendorId/pendingTenderId above: ApprovalsPage/AwardsPage are now
 // reached at /approvals/:id and /awards/:id instead.
 
-// Mirrors frontend/js/pages/bid/bidState.js's shape. Likely has the same
-// refresh/direct-link gap as the others did (not yet confirmed or fixed --
-// out of scope of what was asked so far).
-let pendingBidTenderId: number | undefined;
+// pendingBidTenderId removed 2026-10-23 -- same bug, confirmed and fixed:
+// BidPage is now reached at /bid/:id instead.
 
-export const setPendingBidTenderId = (id: number) => {
-  pendingBidTenderId = id;
+// Forgot-password (2026-10-23, both vendor and staff login share this):
+// if the email was already typed on the login page before clicking
+// "Forgot password?", carry it over to the new page rather than making
+// them retype it -- a pure convenience prefill, not a deep-link id the
+// destination page depends on to render correctly, so (unlike
+// viewVendorId/pendingTenderId etc.) losing it on a refresh just means an
+// empty field, same fallback pendingListFilter above already has.
+let pendingForgotEmail: string | null = null;
+
+export const setPendingForgotEmail = (email: string) => {
+  pendingForgotEmail = email;
 };
-export const takePendingBidTenderId = (): number | null => {
-  const id = pendingBidTenderId;
-  pendingBidTenderId = undefined;
-  return id ?? null;
+export const takePendingForgotEmail = (): string | null => {
+  const email = pendingForgotEmail;
+  pendingForgotEmail = null;
+  return email;
 };
 
 // Registration recovery (2026-10-21): a vendor who logs in while still

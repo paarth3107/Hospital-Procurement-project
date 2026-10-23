@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { switchView, setAuthState, setPendingRegistrationResume } from "../../lib/bridge";
+import { switchView, setAuthState, setPendingRegistrationResume, setPendingForgotEmail } from "../../lib/bridge";
 import { OpenLinkNote } from "./OpenLinkNote";
 import { PasswordField } from "../../components/PasswordField";
 import { FieldError } from "../../components/FieldError";
@@ -137,7 +137,14 @@ export function VendorLoginPage() {
           <button type="submit" className="ep-b" data-v="p">
             Log in
           </button>
-          <button type="button" className="link-btn self-center">
+          <button
+            type="button"
+            className="link-btn self-center"
+            onClick={() => {
+              if (email.trim()) setPendingForgotEmail(email.trim());
+              switchView("forgot-password");
+            }}
+          >
             Forgot password?
           </button>
         </div>

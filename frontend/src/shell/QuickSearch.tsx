@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuthState } from "../lib/authStore";
-import { setPendingBidTenderId } from "../lib/bridge";
 
 // Ported from frontend/js/shell.js's onSearchInput()/renderSearchResults().
 // Staff groups switch to the matching tab (same item can be found again
@@ -85,10 +84,7 @@ export function QuickSearch({ onNavigated }: { onNavigated: () => void }) {
     setResultsOpen(false);
     setQuery("");
     if (view) navigate("/" + view);
-    else {
-      setPendingBidTenderId(item.id);
-      navigate("/bid");
-    }
+    else navigate(`/bid/${item.id}`);
     onNavigated();
   };
 

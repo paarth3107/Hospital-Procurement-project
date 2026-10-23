@@ -5,7 +5,6 @@ import { fmtDateTime } from "../lib/format";
 import { Tag } from "../components/Tag";
 import { useAuthState } from "../lib/authStore";
 import { useChromeState, type ChromeState } from "../lib/chromeStore";
-import { setPendingBidTenderId } from "../lib/bridge";
 import { closingSoonTenders, NOTIFICATION_TONE } from "../lib/vendorNotifications";
 import type { StaffNotification } from "../lib/types";
 
@@ -100,8 +99,7 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
             key={t.tender_id}
             onClick={() => {
               onClose();
-              setPendingBidTenderId(t.tender_id);
-              navigate("/bid");
+              navigate(`/bid/${t.tender_id}`);
             }}
           >
             <div className="d-flex items-center gap-8px flex-wrap">

@@ -16,7 +16,37 @@ GSTIN_RE = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$")
 PAN_RE = re.compile(r"^[A-Z]{5}\d{4}[A-Z]$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z\d]{6}$")
 PINCODE_RE = re.compile(r"^\d{6}$")
+# Real Indian bank account numbers vary 9-18 digits depending on the bank --
+# format sanity check only (same as GSTIN/PAN/IFSC above), not a statutory
+# account-exists verification (that's the Finance/ERP adapter, out of scope).
+ACCOUNT_NUMBER_RE = re.compile(r"^\d{9,18}$")
 ENTITY_TYPES = ["Private Limited", "Public Limited", "LLP", "Partnership", "Proprietorship", "Other"]
+
+
+def _length_bounds(label: str, min_len: int, max_len: int, optional: bool = False):
+    """These name/address fields had no length constraint at all server-side
+    until now -- just non-blank -- with the bounds only enforced in
+    registerValidation.ts's own boundedText(), a deliberate, user-directed
+    choice (2026-10-13) to treat them as a pure client-side data-quality
+    rule. Reversed 2026-10-23 (user-directed): a direct API call bypassing
+    the form could otherwise submit a 1-character legal name or a
+    10,000-character address. Mirrors boundedText() exactly -- same
+    labels, same bounds -- so nothing valid on the frontend is ever
+    rejected here, and vice versa."""
+
+    def check(v: str | None) -> str | None:
+        if v is None or not v.strip():
+            if optional:
+                return v
+            raise ValueError(f"{label} is required")
+        v = v.strip()
+        if len(v) < min_len:
+            raise ValueError(f"{label} must be at least {min_len} characters")
+        if len(v) > max_len:
+            raise ValueError(f"{label} must be {max_len} characters or fewer")
+        return v
+
+    return check
 
 
 class VendorCreate(BaseModel):
@@ -90,13 +120,29 @@ class VendorCreate(BaseModel):
             raise ValueError("IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits)")
         return v
 
-    @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person", "city", "state")
+    @field_validator("bank_account_number")
+    @classmethod
+    def account_number_format(cls, v: str) -> str:
+        v = v.strip()
+        if not ACCOUNT_NUMBER_RE.match(v):
+            raise ValueError("Account number must be 9-18 digits")
+        return v
+
+    @field_validator("bank_name", "city", "state")
     @classmethod
     def not_blank(cls, v: str) -> str:
         v = v.strip()
         if not v:
             raise ValueError("This field is required")
         return v
+
+    _legal_name_len = field_validator("legal_name")(_length_bounds("Legal name", 2, 100))
+    _trade_name_len = field_validator("trade_name")(_length_bounds("Trade name", 2, 100, optional=True))
+    _address_len = field_validator("registered_address")(_length_bounds("Address line", 10, 250))
+    _alt_address_len = field_validator("alternate_address")(_length_bounds("Alternate / correspondence address", 1, 250, optional=True))
+    _contact_person_len = field_validator("contact_person")(_length_bounds("Primary contact person", 2, 50))
+    _contact_designation_len = field_validator("contact_designation")(_length_bounds("Designation", 2, 50))
+    _escalation_name_len = field_validator("escalation_contact_name")(_length_bounds("Escalation contact name", 2, 50))
 
     @field_validator("pincode")
     @classmethod
@@ -253,13 +299,29 @@ class VendorDraftUpdate(BaseModel):
             raise ValueError("IFSC must be 11 characters (4 letters, a 0, then 6 letters/digits)")
         return v
 
-    @field_validator("registered_address", "bank_name", "contact_designation", "escalation_contact_name", "legal_name", "contact_person", "city", "state")
+    @field_validator("bank_account_number")
+    @classmethod
+    def account_number_format(cls, v: str) -> str:
+        v = v.strip()
+        if not ACCOUNT_NUMBER_RE.match(v):
+            raise ValueError("Account number must be 9-18 digits")
+        return v
+
+    @field_validator("bank_name", "city", "state")
     @classmethod
     def not_blank(cls, v: str) -> str:
         v = v.strip()
         if not v:
             raise ValueError("This field is required")
         return v
+
+    _legal_name_len = field_validator("legal_name")(_length_bounds("Legal name", 2, 100))
+    _trade_name_len = field_validator("trade_name")(_length_bounds("Trade name", 2, 100, optional=True))
+    _address_len = field_validator("registered_address")(_length_bounds("Address line", 10, 250))
+    _alt_address_len = field_validator("alternate_address")(_length_bounds("Alternate / correspondence address", 1, 250, optional=True))
+    _contact_person_len = field_validator("contact_person")(_length_bounds("Primary contact person", 2, 50))
+    _contact_designation_len = field_validator("contact_designation")(_length_bounds("Designation", 2, 50))
+    _escalation_name_len = field_validator("escalation_contact_name")(_length_bounds("Escalation contact name", 2, 50))
 
     @field_validator("pincode")
     @classmethod

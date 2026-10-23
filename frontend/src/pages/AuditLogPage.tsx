@@ -4,6 +4,7 @@ import { fmtDateTime, roleLabel, actionLabel } from "../lib/format";
 import type { AuditFilterOptions, AuditFilters, AuditLogPageData, AuditLogRow } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 import { AuditDetailDialog } from "./AuditDetailDialog";
+import { IconActionButton } from "../components/IconActionButton";
 
 // Ported 1:1 from frontend/js/pages/audit/auditPage.js (Phase 0 pilot of the
 // React migration -- see .claude-notes/REACT-MIGRATION-PLAN.md). Every fix
@@ -25,7 +26,7 @@ const AUDIT_COLS: Array<[string, number]> = [
   ["Action", 240],
   ["Record", 240],
   ["Reason / change", 220],
-  ["", 110],
+  ["", 70],
 ];
 const RECORD_TYPE: Record<string, string> = { auth: "Sign-in" };
 const REASON_PREVIEW = 70;
@@ -166,8 +167,8 @@ export function AuditLogPage() {
         <table className="ep-table audit-table">
           <thead>
             <tr>
-              {AUDIT_COLS.map(([label, px]) => (
-                <th className="ep-th" style={{ width: px }} key={label || "actions"}>
+              {AUDIT_COLS.map(([label, px], i) => (
+                <th className={`ep-th${i === AUDIT_COLS.length - 1 ? " ep-actions-cell" : ""}`} style={{ width: px }} key={label || "actions"}>
                   {label}
                 </th>
               ))}
@@ -206,10 +207,8 @@ export function AuditLogPage() {
                         </>
                       )}
                     </td>
-                    <td className="ep-cell text-right">
-                      <button className="ep-b" onClick={() => setDetailRow(r)}>
-                        Details
-                      </button>
+                    <td className="ep-cell ep-actions-cell">
+                      <IconActionButton icon="eye" label="Details" onClick={() => setDetailRow(r)} />
                     </td>
                   </tr>
                 );

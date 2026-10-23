@@ -7,6 +7,8 @@ import { useModal } from "../../components/useModal";
 import { useAuthState } from "../../lib/authStore";
 import { StateTag } from "../../components/Tag";
 import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
+import { percentRangeError } from "./tenderValidation";
 import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
 import { mapApiLineItems } from "./lineItemRow";
@@ -102,6 +104,20 @@ export function TenderEditorPage() {
   const hasRateContractDocument = !!tender?.rate_contract_document_filename;
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+
+  // Real bug, found 2026-10-22: Min Rating/Min Vendors/Max Vendors only got
+  // checked against their 0-100 range on Save as Draft, via the backend's
+  // real validator -- a round trip just to find out a typo'd value needs
+  // fixing. Same on-blur-error-under-the-field pattern as registration/login
+  // (FieldError + tenderValidation.ts's percentRangeError) instead of a
+  // first attempt that silently clamped the value -- shared by on-blur and
+  // on-change (so the error clears the moment the value becomes valid
+  // again, same as login's own checkField).
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const checkPercentField = (key: "min_rating_threshold" | "min_invites" | "max_invites", value: string) => {
+    const err = percentRangeError(value);
+    setFieldErrors((prev) => (prev[key] === (err ?? "") ? prev : { ...prev, [key]: err ?? "" }));
+  };
 
   // Real bug, found 2026-10-12: this effect calls gridRef.current?.setRows(...)
   // (via openTender) or ?.startWithBlankRows() to populate the grid -- but
@@ -243,6 +259,13 @@ export function TenderEditorPage() {
     if (!form.facility_id) return "Select a facility before submitting for approval.";
     if (!form.title.trim()) return "Give the tender a title before submitting for approval.";
     if (!form.bid_due_date) return "Bid Due Date is required to submit for approval.";
+    // Backend-enforced too (tenders.py's submit_for_approval) -- this is
+    // just the same check surfaced before the round trip.
+    if (new Date(form.bid_due_date) <= new Date()) return "Bid Due Date must be in the future.";
+    if (form.publish_date) {
+      if (new Date(form.publish_date) <= new Date()) return "Publish Date must be in the future.";
+      if (new Date(form.bid_due_date) <= new Date(form.publish_date)) return "Bid Due Date must be after the Publish Date.";
+    }
     if (form.is_rate_contract && (!form.contract_start_date || !form.contract_end_date))
       return "A rate contract needs both a contract start and end date before it can be submitted for approval.";
     if (form.is_rate_contract && !hasRateContractDocument) return "Upload the Rate Contract agreement before submitting for approval.";
@@ -424,13 +447,27 @@ export function TenderEditorPage() {
             </div>
             <div className="ep-field">
               <div className="ep-k">Publish Date</div>
-              <input className="input" type="datetime-local" value={form.publish_date} onChange={(e) => setField("publish_date", e.target.value)} />
+              <input
+                className="input"
+                type="datetime-local"
+                min={toLocalInputValue(new Date().toISOString())}
+                value={form.publish_date}
+                onChange={(e) => setField("publish_date", e.target.value)}
+              />
             </div>
             <div className="ep-field">
               <div className="ep-k">
                 Bid Due Date <Req />
               </div>
-              <input className="input" type="datetime-local" value={form.bid_due_date} onChange={(e) => setField("bid_due_date", e.target.value)} />
+              <input
+                className="input"
+                type="datetime-local"
+                // Can't be before "now", and if a Publish Date is set, can't
+                // be before that either -- whichever is later wins.
+                min={form.publish_date && form.publish_date > toLocalInputValue(new Date().toISOString()) ? form.publish_date : toLocalInputValue(new Date().toISOString())}
+                value={form.bid_due_date}
+                onChange={(e) => setField("bid_due_date", e.target.value)}
+              />
             </div>
           </div>
 
@@ -453,12 +490,19 @@ export function TenderEditorPage() {
               <div className="ep-field">
                 <div className="ep-k">Min Rating</div>
                 <input
-                  className="input input-narrow"
+                  className={`input input-narrow${fieldErrors.min_rating_threshold ? " invalid" : ""}`}
                   type="number"
                   step="0.1"
+                  min={0}
+                  max={100}
                   value={form.min_rating_threshold}
-                  onChange={(e) => setField("min_rating_threshold", e.target.value)}
+                  onChange={(e) => {
+                    setField("min_rating_threshold", e.target.value);
+                    if (fieldErrors.min_rating_threshold) checkPercentField("min_rating_threshold", e.target.value);
+                  }}
+                  onBlur={(e) => checkPercentField("min_rating_threshold", e.target.value)}
                 />
+                <FieldError errors={fieldErrors} name="min_rating_threshold" />
               </div>
               {/* Added back 2026-10-21 -- removed from the UI earlier, but
                   the backend (eligibility.py's cap-at-max_invites, the
@@ -470,24 +514,36 @@ export function TenderEditorPage() {
               <div className="ep-field" title="Doesn't apply to Open Tender -- every Active vendor is invited">
                 <div className="ep-k">Min Vendors</div>
                 <input
-                  className="input input-narrow"
+                  className={`input input-narrow${fieldErrors.min_invites ? " invalid" : ""}`}
                   type="number"
                   min={0}
+                  max={100}
                   disabled={form.open_tender}
                   value={form.min_invites}
-                  onChange={(e) => setField("min_invites", e.target.value)}
+                  onChange={(e) => {
+                    setField("min_invites", e.target.value);
+                    if (fieldErrors.min_invites) checkPercentField("min_invites", e.target.value);
+                  }}
+                  onBlur={(e) => checkPercentField("min_invites", e.target.value)}
                 />
+                <FieldError errors={fieldErrors} name="min_invites" />
               </div>
               <div className="ep-field" title="Doesn't apply to Open Tender -- every Active vendor is invited">
                 <div className="ep-k">Max Vendors</div>
                 <input
-                  className="input input-narrow"
+                  className={`input input-narrow${fieldErrors.max_invites ? " invalid" : ""}`}
                   type="number"
                   min={0}
+                  max={100}
                   disabled={form.open_tender}
                   value={form.max_invites}
-                  onChange={(e) => setField("max_invites", e.target.value)}
+                  onChange={(e) => {
+                    setField("max_invites", e.target.value);
+                    if (fieldErrors.max_invites) checkPercentField("max_invites", e.target.value);
+                  }}
+                  onBlur={(e) => checkPercentField("max_invites", e.target.value)}
                 />
+                <FieldError errors={fieldErrors} name="max_invites" />
               </div>
             </div>
             <div className="minw-220px">

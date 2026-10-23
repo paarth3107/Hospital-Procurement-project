@@ -35,6 +35,41 @@ def create_access_token(subject: str, token_type: str = "staff") -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 
+def create_password_reset_token(email: str, expires_minutes: int, token_type: str = "vendor_reset") -> str:
+    """A signed, self-expiring JWT (2026-10-23, user-directed -- replaces an
+    earlier opaque `secrets.token_urlsafe` reset token with the same scheme
+    every other token in this app already uses; extended the same day to
+    staff, `token_type="staff_reset"`). `typ` keeps this from ever being
+    accepted anywhere a real login/access token is expected, or a reset
+    token issued for the other actor type, and vice versa -- same reasoning
+    as `create_access_token`'s own `typ`. The `exp` claim is the only expiry
+    check now; the token itself is the thing that expires, not a separate DB
+    column tracking it. Still stored on the row by the caller
+    (Vendor.password_reset_token / UserAccount.password_reset_token) purely
+    so a used/superseded token can be invalidated server-side -- a bare
+    JWT's signature alone can't be revoked once issued."""
+
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    payload = {"sub": email, "exp": expire, "typ": token_type}
+    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+
+
+def decode_password_reset_token(token: str, token_type: str = "vendor_reset") -> str:
+    """Returns the email this token was issued for. Raises `jose.JWTError`
+    (covers both a bad/tampered signature and `ExpiredSignatureError` for a
+    token past its `exp`) on anything invalid, including a token of the
+    other actor type (e.g. a staff reset token presented to the vendor
+    endpoint) -- callers turn that into whatever HTTP response fits."""
+
+    payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    if payload.get("typ") != token_type:
+        raise JWTError("Not a password-reset token of this type")
+    email = payload.get("sub")
+    if email is None:
+        raise JWTError("Missing subject")
+    return email
+
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UserAccount:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

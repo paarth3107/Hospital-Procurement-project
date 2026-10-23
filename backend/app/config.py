@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = ""
     email_from: str = ""
 
+    # Used only to build a full, clickable link in an email (e.g. the
+    # "Forgot password" reset link) -- app/main.py serves the frontend
+    # itself, same origin, so this is just "whatever host/port this app is
+    # actually reachable at" from outside the request/response cycle that
+    # would otherwise give it for free.
+    frontend_base_url: str = "http://localhost:8000"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

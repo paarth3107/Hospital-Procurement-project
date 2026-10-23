@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { fmtDateTime, inr } from "../../lib/format";
-import { switchView, setPendingBidTenderId } from "../../lib/bridge";
+import { switchView } from "../../lib/bridge";
 import { takeFlash } from "../../lib/flash";
 import { Tag, StateTag } from "../../components/Tag";
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
@@ -188,10 +188,7 @@ function TenderRow({ group }: { group: TenderGroup }) {
           <button
             className="ep-b"
             data-v="p"
-            onClick={() => {
-              setPendingBidTenderId(t.tender_id);
-              switchView("bid");
-            }}
+            onClick={() => switchView(`bid/${t.tender_id}`)}
           >
             {submitted > 0 ? "View Bid" : "Prepare Bid"}
           </button>

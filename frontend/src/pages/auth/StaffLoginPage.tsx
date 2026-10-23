@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { roleLabel } from "../../lib/format";
 import { DEFAULT_VIEW_BY_ROLE } from "../../lib/constants";
-import { switchView, setAuthState } from "../../lib/bridge";
+import { switchView, setAuthState, setPendingForgotEmail } from "../../lib/bridge";
 import { PasswordField } from "../../components/PasswordField";
 import { FieldError } from "../../components/FieldError";
 import { LOGIN_FIELD_VALIDATORS } from "./loginValidation";
@@ -117,7 +117,14 @@ export function StaffLoginPage() {
           <button type="submit" className="ep-b" data-v="p">
             Log in
           </button>
-          <button type="button" className="link-btn self-center">
+          <button
+            type="button"
+            className="link-btn self-center"
+            onClick={() => {
+              if (email.trim()) setPendingForgotEmail(email.trim());
+              switchView("staff-forgot-password");
+            }}
+          >
             Forgot password?
           </button>
         </div>

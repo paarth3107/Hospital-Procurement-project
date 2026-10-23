@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
-import { switchView, takePendingBidTenderId } from "../../lib/bridge";
+import { switchView } from "../../lib/bridge";
 import { fmtDate, fmtDateTime } from "../../lib/format";
 import { Tag } from "../../components/Tag";
 import { useModal } from "../../components/useModal";
@@ -14,16 +15,21 @@ import type { TenderBids } from "../../lib/types";
 // controls that sit around it (all exposed by the grid through a ref,
 // same reasoning as the Tender Editor's LineItemsGrid).
 //
-// `tenderId` is taken from the pending-bid bridge synchronously on first
-// render (not inside the load effect) so <BidLineItemsGrid> can mount on
-// that same first render, before the tender fetch resolves -- the grid's
-// ref needs to already exist the moment the effect calls
-// `gridRef.current.loadRows(...)`, same ordering requirement the Tender
-// Editor's grid has.
+// `tenderId` comes from the `/bid/:id` route param (bug fix, 2026-10-23: it
+// used to come from a pending-bid bridge module variable set by whichever
+// page navigated here, which meant a refresh or a direct/bookmarked link
+// lost the id and silently bounced the vendor back to their dashboard --
+// same root cause as the VendorViewPage/TenderEditorPage/ApprovalsPage/
+// AwardsPage fixes earlier this session). <BidLineItemsGrid> still mounts
+// on the same first render the id is known on, before the tender fetch
+// resolves -- the grid's ref needs to already exist the moment the effect
+// calls `gridRef.current.loadRows(...)`, same ordering requirement the
+// Tender Editor's grid has.
 type TenderCtx = Omit<TenderBids, "lines">;
 
 export function BidPage() {
-  const [tenderId] = useState<number | null>(() => takePendingBidTenderId());
+  const { id } = useParams();
+  const tenderId = id ? Number(id) : null;
   const [ctx, setCtx] = useState<TenderCtx | null>(null);
   const [loadError, setLoadError] = useState("");
   const [result, setResult] = useState<{ message: string; ok: boolean } | null>(null);

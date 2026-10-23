@@ -44,6 +44,16 @@ class LineItemCreate(BaseModel):
             raise ValueError("qty must be greater than zero")
         return v
 
+    @field_validator("min_rating_threshold_override")
+    @classmethod
+    def rating_override_in_range(cls, v: float | None) -> float | None:
+        # Same 0-100 bound as Tender.min_rating_threshold below -- it's the
+        # same kind of value (a rating score threshold), just overridden
+        # per line instead of tender-wide.
+        if v is not None and not (0 <= v <= 100):
+            raise ValueError("Min Rating must be between 0 and 100")
+        return v
+
     # Note: QCBS's Technical/Price Weight requirement (spec §9.4) is NOT
     # enforced here -- a draft line may have QCBS chosen with weights not
     # filled in yet. Enforced at submit-for-approval instead (tenders.py),
@@ -89,6 +99,20 @@ class TenderCreate(BaseModel):
     # the same split as a line item's attachments.
     line_items: list[LineItemCreate] = []
 
+    @field_validator("min_rating_threshold")
+    @classmethod
+    def min_rating_threshold_in_range(cls, v: float) -> float:
+        if not (0 <= v <= 100):
+            raise ValueError("Min Rating must be between 0 and 100")
+        return v
+
+    @field_validator("min_invites", "max_invites")
+    @classmethod
+    def invite_count_in_range(cls, v: int | None) -> int | None:
+        if v is not None and not (0 <= v <= 100):
+            raise ValueError("Vendor count must be between 0 and 100")
+        return v
+
     @model_validator(mode="after")
     def contract_dates_ordered(self):
         # Required-together is enforced at submit-for-approval (tenders.py), same
@@ -96,6 +120,18 @@ class TenderCreate(BaseModel):
         # only rejects a pair that's already self-contradictory.
         if self.contract_start_date and self.contract_end_date and self.contract_end_date <= self.contract_start_date:
             raise ValueError("Contract end date must be after the start date")
+        return self
+
+    @model_validator(mode="after")
+    def bid_due_date_after_publish_date(self):
+        # Self-contradictory-pair check, same tier as contract_dates_ordered
+        # above -- rejected even at Draft-save, unlike "is either date
+        # already in the past", which is wall-clock-relative and only
+        # enforced at submit-for-approval (tenders.py's submit_for_approval)
+        # so an idle Draft doesn't become unsavable just because time passed
+        # since it was last touched.
+        if self.publish_date and self.bid_due_date and self.bid_due_date <= self.publish_date:
+            raise ValueError("Bid Due Date must be after the Publish Date")
         return self
 
 

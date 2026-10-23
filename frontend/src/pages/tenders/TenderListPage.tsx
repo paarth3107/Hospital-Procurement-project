@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
 import { switchView } from "../../lib/bridge";
 import { Tag, StateTag } from "../../components/Tag";
+import { IconActionButton } from "../../components/IconActionButton";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import type { Tender } from "../../lib/types";
 
@@ -70,7 +71,7 @@ export function TenderListPage() {
       <table className="ep-table">
         <thead>
           <tr>
-            {["ID", "Title", "Type", "Status", "Bids close", "Round", ""].map((h) => (
+            {["ID", "Title", "Type", "Status", "Bids close", "Round", "Action"].map((h) => (
               <th className="ep-th" key={h}>
                 {h}
               </th>
@@ -100,13 +101,8 @@ export function TenderListPage() {
                 </td>
                 <td className="ep-cell fs-12-5px">{fmtDateTime(t.bid_due_date)}</td>
                 <td className="ep-cell">{t.round_number}</td>
-                <td className="ep-cell text-right">
-                  <button
-                    className="ep-b"
-                    onClick={() => switchView(`tender-edit/${t.id}`)}
-                  >
-                    Manage
-                  </button>
+                <td className="ep-cell ep-actions-cell text-right">
+                  <IconActionButton icon="settings" label="Manage" onClick={() => switchView(`tender-edit/${t.id}`)} />
                 </td>
               </tr>
             ))
