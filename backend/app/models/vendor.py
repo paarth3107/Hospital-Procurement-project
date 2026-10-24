@@ -18,8 +18,17 @@ class VendorStatus(str, enum.Enum):
     INFO_REQUESTED = "info_requested"
     ACTIVE = "active"
     SUSPENDED = "suspended"
-    REJECTED = "rejected"
-    BLACKLISTED = "blacklisted"  # spec 3.4 "Rejected / Blacklisted": an approved vendor permanently barred
+    # No separate REJECTED status (2026-10-24, user-directed): spec 3.4 itself
+    # already writes "Rejected / Blacklisted" as one outcome, and nothing in
+    # this codebase ever gave the two a different real-world effect -- both
+    # were dead ends with no reinstate path once REJECTED was checked, so
+    # merging them is a pure simplification, not a behavior change. Rejecting
+    # a still-pending vendor's application now sets this same status
+    # (routers/vendors.py's reject_vendor()), which does give it one real
+    # improvement over the old REJECTED: a path back in, via the same
+    # Category-Manager reinstate flow an already-approved vendor gone bad
+    # already had.
+    BLACKLISTED = "blacklisted"
 
 
 class Vendor(Base):
@@ -296,8 +305,8 @@ class VendorDocument(Base):
 
 class VendorStatusHistory(Base):
     """One row per vendor status change (spec 3.4 / 3.5): who moved a vendor
-    between Pending / Info Requested / Active / Suspended / Rejected /
-    Blacklisted, and why. Never edited or deleted."""
+    between Pending / Info Requested / Active / Suspended / Blacklisted, and
+    why. Never edited or deleted."""
 
     __tablename__ = "vendor_status_history"
 

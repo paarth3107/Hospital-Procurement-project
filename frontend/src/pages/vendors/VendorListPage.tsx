@@ -18,7 +18,6 @@ const FILTERS: [VendorStatus | "", string][] = [
   ["pending_verification", "Pending"],
   ["info_requested", "Info requested"],
   ["active", "Active"],
-  ["rejected", "Rejected"],
   ["suspended", "Suspended"],
   ["blacklisted", "Blacklisted"],
   ["", "All"],

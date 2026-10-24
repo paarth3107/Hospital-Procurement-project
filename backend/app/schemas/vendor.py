@@ -5,6 +5,7 @@ from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from app.models.vendor import VendorStatus
 from app.schemas.password import check_password_strength
+from app.schemas.validators import require_reason
 
 # Spec §3.5: "Duplicate registration by GSTIN/PAN is blocked at submission."
 # A real GSTIN is 15 chars (2-digit state code + 10-char PAN + entity/checksum);
@@ -527,6 +528,7 @@ class VendorStatusHistoryOut(BaseModel):
     to_status: VendorStatus
     reason: str | None
     actor_id: int | None
+    actor_name: str | None = None
     at: datetime
 
     model_config = {"from_attributes": True}
@@ -550,6 +552,11 @@ class VendorHistoryEntryOut(BaseModel):
     to_status: VendorStatus | None = None
     label: str | None = None
     reason: str | None = None
+    # Real bug, found 2026-10-24: this merged history named no one, on
+    # either branch -- a status row only ever had actor_id (never resolved
+    # to a name), and a document-action row had AuditLog.actor_name sitting
+    # right there but it was never copied into this response shape.
+    actor_name: str | None = None
 
 
 class VendorReinstatement(BaseModel):
@@ -566,9 +573,7 @@ class VendorRejection(BaseModel):
     @classmethod
     def reason_required(cls, v: str) -> str:
         # Spec §3.3 point 5 / §3.5: rejection always carries a reason.
-        if not v or not v.strip():
-            raise ValueError("A reason is required")
-        return v.strip()
+        return require_reason(v)
 
 
 class VendorInfoRequest(BaseModel):
@@ -581,6 +586,4 @@ class VendorInfoRequest(BaseModel):
     @field_validator("note")
     @classmethod
     def note_required(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("A note is required")
-        return v.strip()
+        return require_reason(v)

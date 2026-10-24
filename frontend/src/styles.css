@@ -527,6 +527,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .modal-box p#modal-message { margin: 0; padding: 18px 22px 0; font-size: 13.5px; color: var(--ink-72); line-height: 1.5; }
 #modal-body { padding: 12px 22px 0; }
 #modal-body input[type="text"], #modal-body select { width: 100%; min-height: 38px; padding: 7px 12px; font: inherit; font-size: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--ink-20); border-radius: var(--radius); }
+#modal-body textarea { width: 100%; padding: 7px 12px; font: inherit; font-size: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--ink-20); border-radius: var(--radius); resize: vertical; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; margin-top: 16px; border-top: 1px solid var(--ink-12); }
 .modal-actions button { border: 1px solid var(--ink-25); background: var(--surface); border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 500; padding: 7px 14px; color: var(--ink); }
 .modal-actions button:hover { background: var(--ink-06); }
@@ -700,6 +701,7 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .margin-8px-0-2px-24px { margin: 8px 0 2px 24px; }
 .maxh-70vh { max-height: 70vh; }
 .maxh-76vh { max-height: 76vh; }
+.maxw-140px { max-width: 140px; }
 .maxw-220px { max-width: 220px; }
 .maxw-280px { max-width: 280px; }
 .maxw-290px { max-width: 290px; }

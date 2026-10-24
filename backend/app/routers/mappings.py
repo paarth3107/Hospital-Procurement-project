@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models.user_account import Role, UserAccount
@@ -56,7 +56,9 @@ def list_mappings(
     db: Session = Depends(get_db),
     _user: UserAccount = Depends(require_role(*MAPPING_REVIEWERS)),
 ):
-    query = db.query(VendorMapping)
+    # selectinload: MappingOut.latest_reason reads mapping.history -- without
+    # this, that's one extra query per row (N+1) for every mapping listed.
+    query = db.query(VendorMapping).options(selectinload(VendorMapping.history))
     if vendor_id is not None:
         query = query.filter(VendorMapping.vendor_id == vendor_id)
     if product_master_id is not None:
@@ -93,7 +95,16 @@ def get_mapping_history(
     mapping = db.get(VendorMapping, mapping_id)
     if not mapping:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mapping not found")
-    return sorted(mapping.history, key=lambda h: h.at)
+    rows = sorted(mapping.history, key=lambda h: h.at)
+    # Real bug, found 2026-10-24: this history named no one -- actor_id was
+    # tracked but never resolved to a name, so "who decided this" was
+    # unanswerable from the UI. One batch lookup, not one query per row.
+    actor_ids = {r.actor_id for r in rows if r.actor_id is not None}
+    names = {u.id: u.full_name for u in db.query(UserAccount).filter(UserAccount.id.in_(actor_ids)).all()} if actor_ids else {}
+    out = [MappingHistoryOut.model_validate(r) for r in rows]
+    for entry, row in zip(out, rows):
+        entry.actor_name = names.get(row.actor_id)
+    return out
 
 
 def _load_pending_mapping(mapping_id: int, db: Session) -> VendorMapping:

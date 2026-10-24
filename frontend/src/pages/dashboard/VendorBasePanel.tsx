@@ -6,12 +6,14 @@ import type { DashboardStats } from "../../lib/types";
 // breakdown, shared by the generic dashboard and the Category Manager
 // dashboard (vendor lifecycle is genuinely their job,
 // unlike the Officer's dashboard, which drops this panel entirely).
+// No separate "Rejected" row (2026-10-24, user-directed) -- rejecting a
+// pending application now lands in "blacklisted" directly, same as an
+// already-Active vendor gone bad.
 const STATUSES: [label: string, key: string, icon: string, tone: string][] = [
   ["Active", "active", "user-check", "success"],
   ["Pending verification", "pending_verification", "clock", "warning"],
   ["Info requested", "info_requested", "file-text", "info"],
   ["Suspended", "suspended", "shield", "danger"],
-  ["Rejected", "rejected", "user", "muted"],
   ["Blacklisted", "blacklisted", "shield", "muted"],
 ];
 

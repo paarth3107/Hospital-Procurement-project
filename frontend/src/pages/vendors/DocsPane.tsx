@@ -17,12 +17,14 @@ export function DocsPane({
   onViewDoc,
   onVerify,
   onReject,
+  onViewReason,
 }: {
   docs: VendorDocument[];
   reviewedDocIds: Set<number>;
   onViewDoc: (docId: number, filename: string) => void;
   onVerify: (docId: number) => void;
   onReject: (docId: number) => void;
+  onViewReason: (reason: string) => void;
 }) {
   const byType = new Map(docs.filter((d) => d.doc_type !== "other").map((d) => [d.doc_type, d]));
   const slots = [
@@ -101,7 +103,27 @@ export function DocsPane({
                 </td>
                 <td className="ep-cell text-center">
                   <StateTag state={d.status} />
-                  {d.status === "rejected" && d.rejection_reason && <div className="ep-sub text-danger-700 break-word">{d.rejection_reason}</div>}
+                  {/* One-line preview + "View reason" link (real bug, found
+                      2026-10-24): this used to render the full reason inline
+                      with no limit -- a 300-character reason took five lines
+                      in this cell, next to every other column's single
+                      line. */}
+                  {d.status === "rejected" && d.rejection_reason && (
+                    <div className="ep-sub text-danger-700 mt-3px d-flex items-center gap-6px">
+                      <div className="ep-clip maxw-140px" title={d.rejection_reason}>
+                        {d.rejection_reason}
+                      </div>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onViewReason(d.rejection_reason!);
+                        }}
+                      >
+                        View reason
+                      </a>
+                    </div>
+                  )}
                 </td>
                 <td className="ep-cell text-center">
                   {d.status !== "verified" && d.status !== "rejected" && (

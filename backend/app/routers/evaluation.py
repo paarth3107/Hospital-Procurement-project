@@ -30,7 +30,7 @@ from app.schemas.evaluation import (
     TenderEvalSummaryOut,
     VendorBidRow,
 )
-from app.schemas.override import OverrideDecision
+from app.schemas.override import OverrideDecision, OverrideRejection
 from app.security import get_current_user, require_role
 from app.services import awards as award_rules
 from app.services import commercial_evaluation as commercial
@@ -493,7 +493,7 @@ def approve_evaluation_correction(override_id: int, payload: OverrideDecision, d
 
 
 @router.post("/evaluation-corrections/{override_id}/reject")
-def reject_evaluation_correction(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+def reject_evaluation_correction(override_id: int, payload: OverrideRejection, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     override = _get_correction(db, override_id)
     overrides.reject_override(db, override, user, payload.reason or "")
     db.commit()

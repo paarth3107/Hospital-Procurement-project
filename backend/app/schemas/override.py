@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models.override import OverrideStatus, OverrideType
 from app.models.user_account import Role
+from app.schemas.validators import require_reason
 
 
 class OverrideCreate(BaseModel):
@@ -20,6 +21,21 @@ class OverrideCreate(BaseModel):
 
 class OverrideDecision(BaseModel):
     reason: str | None = None
+
+
+class OverrideRejection(BaseModel):
+    """Reject-only variant of OverrideDecision (real bug, found 2026-10-24):
+    the shared schema's reason was optional since Approve legitimately needs
+    none, which meant Reject never actually required one either -- every
+    "reject a governed override" endpoint accepted an empty reason. Used only
+    by the 6 reject_* endpoints; approve/escalate keep OverrideDecision."""
+
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_required(cls, v: str) -> str:
+        return require_reason(v)
 
 
 class OverrideOut(BaseModel):

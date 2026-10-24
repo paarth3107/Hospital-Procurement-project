@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AuthTabs } from "../pages/auth/AuthTabs";
 
@@ -22,16 +23,30 @@ import { AuthTabs } from "../pages/auth/AuthTabs";
 // "Supplier? Click here" at the bottom of Staff login, a "← Back to staff
 // login" at the top of Vendor login). Both are shared chrome for the login
 // flow specifically -- Register keeps its own look, no tabs, same as before.
+export interface AuthLayoutContext {
+  setRegisterNarrow: (narrow: boolean) => void;
+}
+
 export function AuthLayout() {
   const { pathname } = useLocation();
   // The base route segment, not the full tail -- /reset-password/:token
   // carries a long opaque token after the second slash that has no business
   // being part of a CSS id.
   const view = pathname.replace(/^\//, "").split("/")[0];
-  // Register wants the wider content area (styles.css's #view-register rule);
-  // login/vendor-login/forgot-password/reset-password keep the compact
-  // centered box.
-  const narrow = view !== "register";
+  // Register wants the wider content area (styles.css's #view-register rule)
+  // for its actual multi-column form -- but NOT for the "Registration
+  // submitted" confirmation card RegisterPage swaps in once it's done (same
+  // component, same route, just a different internal state). Real bug,
+  // found 2026-10-24: that card set its own maxw-460px directly, but without
+  // the SECTION also carrying auth-view.maxw-460px, styles.css's centering
+  // rule (`.ep-content:has(.auth-view.maxw-460px)`) never matched, so the
+  // card rendered at its default block position (top-left) instead of
+  // centered like every other narrow auth card. RegisterPage reports which
+  // mode it's in via registerNarrow (Outlet context) since this layout has
+  // no other way to see that page's internal state.
+  const [registerNarrow, setRegisterNarrow] = useState(false);
+  useEffect(() => setRegisterNarrow(false), [view]); // always start wide on a fresh visit to /register
+  const narrow = view !== "register" || registerNarrow;
   const isLoginFlow = view === "login" || view === "vendor-login";
   // Forgot/Reset password (2026-10-23, user-directed: "the structure of the
   // new pages should be the same as the login pages"; extended to staff the
@@ -59,11 +74,11 @@ export function AuthLayout() {
                   block put the card below true centre, pushed down by
                   whatever height the branding+tabs added above it. */}
               <div className="auth-card-center">
-                <Outlet />
+                <Outlet context={{ setRegisterNarrow }} />
               </div>
             </>
           ) : (
-            <Outlet />
+            <Outlet context={{ setRegisterNarrow }} />
           )}
         </section>
       </div>

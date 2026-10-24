@@ -130,7 +130,11 @@ export interface RatingHistoryEntry {
 
 // Mirrors backend/app/schemas/vendor.py's VendorOut -- only the fields the
 // ported pages actually use so far, not the full registration record.
-export type VendorStatus = "draft" | "pending_verification" | "info_requested" | "active" | "suspended" | "rejected" | "blacklisted";
+// No separate "rejected" status (2026-10-24, user-directed) -- spec 3.4
+// already treats "Rejected / Blacklisted" as one outcome; rejecting a
+// pending application now sets "blacklisted" directly (backend/app/routers/
+// vendors.py's reject_vendor()).
+export type VendorStatus = "draft" | "pending_verification" | "info_requested" | "active" | "suspended" | "blacklisted";
 
 export interface VendorListItem {
   id: number;
@@ -234,6 +238,7 @@ export interface VendorStatusHistoryEntry {
   to_status: VendorStatus | null;
   label: string | null;
   reason: string | null;
+  actor_name: string | null;
 }
 
 // Mirrors backend/app/schemas/staff_notification.py's StaffNotificationOut
@@ -319,6 +324,7 @@ export interface VendorMapping {
   decided_by_id: number | null;
   decided_at: string | null;
   version: number;
+  latest_reason: string | null;
 }
 
 // Mirrors backend/app/schemas/mapping.py's MappingHistoryOut.
@@ -328,6 +334,7 @@ export interface MappingHistoryEntry {
   to_state: MappingState;
   reason: string | null;
   actor_id: number | null;
+  actor_name: string | null;
   at: string;
 }
 

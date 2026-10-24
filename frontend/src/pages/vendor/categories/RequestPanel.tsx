@@ -9,6 +9,17 @@ import type { RequestCtx, RequestFilters, RequestTab } from "./types";
 // was a flex-wrapped cloud of checkbox pills): Items tab first since that's
 // what most vendors want, with a shared search box + Item/Asset/Service
 // type filter.
+//
+// Real bug, found 2026-10-24: this tab/table lists all three procurement
+// types (items, assets AND services -- e.g. a Facility Services category
+// full of Service-type rows), but the tab, name column, and search
+// placeholder all said "Item"/"items", the exact same word the type filter
+// uses for its narrower "Item only" option just to its right -- so "Item"
+// simultaneously meant "everything here" and "one specific type," and the
+// search placeholder said "codes" for a column actually labeled "SKU".
+// Renamed the generic uses to "Name"/"entries" throughout and matched the
+// placeholder's wording to the real column names; "Item" stays untouched as
+// a type-filter value, where it correctly does mean the specific type.
 const TYPE_FILTER_OPTS: [string, string][] = [
   ["all", "All types"],
   ["item", "Item"],
@@ -78,7 +89,7 @@ export function RequestPanel({
     <div>
       <div className="ep-seg mb-14px">
         <button type="button" className={tab === "items" ? "on" : ""} onClick={() => changeTab("items")}>
-          Individual items
+          Items, assets &amp; services
         </button>
         <button type="button" className={tab === "categories" ? "on" : ""} onClick={() => changeTab("categories")}>
           Categories
@@ -88,7 +99,7 @@ export function RequestPanel({
         <div className="flex-1 minw-220px">
           <input
             className="input"
-            placeholder={tab === "items" ? "Search items, codes, or their category" : "Search categories by name"}
+            placeholder={tab === "items" ? "Search by name, SKU or category" : "Search categories by name"}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -109,7 +120,7 @@ export function RequestPanel({
               {tab === "items" ? (
                 <>
                   <th className="ep-th vc-col-check"></th>
-                  <th className="ep-th">Item</th>
+                  <th className="ep-th">Name</th>
                   <th className="ep-th text-center">SKU</th>
                   <th className="ep-th text-center">Type</th>
                   <th className="ep-th text-center">Min rating</th>

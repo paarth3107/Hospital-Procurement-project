@@ -19,7 +19,7 @@ from app.models.tender_line_item import TechnicalEvalMethod, TenderLineItem
 from app.models.tender_attachment import TenderLineAttachment, TenderLineAttachmentKind
 from app.services import document_store, overrides
 from app.models.user_account import Role, UserAccount
-from app.schemas.override import OverrideDecision
+from app.schemas.override import OverrideDecision, OverrideRejection
 from app.schemas.tender import (
     ApprovalPayload,
     ApprovalRoundOut,
@@ -855,7 +855,7 @@ def approve_manual_invite(override_id: int, payload: OverrideDecision, db: Sessi
 
 
 @router.post("/manual-invite-requests/{override_id}/reject")
-def reject_manual_invite(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+def reject_manual_invite(override_id: int, payload: OverrideRejection, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     override = _get_manual_invite_request(db, override_id)
     overrides.reject_override(db, override, user, payload.reason or "")
     db.commit()
@@ -1410,7 +1410,7 @@ def approve_late_submission_exception(override_id: int, payload: OverrideDecisio
 
 
 @router.post("/late-submission-exceptions/{override_id}/reject")
-def reject_late_submission_exception(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+def reject_late_submission_exception(override_id: int, payload: OverrideRejection, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     override = _get_late_exception(db, override_id)
     overrides.reject_override(db, override, user, payload.reason or "")
 
@@ -1522,7 +1522,7 @@ def approve_due_date_extension(override_id: int, payload: OverrideDecision, db: 
 
 
 @router.post("/bid-due-date-extensions/{override_id}/reject")
-def reject_due_date_extension(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+def reject_due_date_extension(override_id: int, payload: OverrideRejection, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     override = _get_due_date_extension(db, override_id)
     overrides.reject_override(db, override, user, payload.reason or "")
     db.commit()

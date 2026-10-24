@@ -43,6 +43,7 @@ export function HistoryPane({ history }: { history: VendorStatusHistoryEntry[] }
                   </>
                 )}
                 {h.reason ? " — " + h.reason : ""}
+                {h.actor_name ? <span className="ep-sub"> · {h.actor_name}</span> : ""}
               </div>
             </div>
           ))}

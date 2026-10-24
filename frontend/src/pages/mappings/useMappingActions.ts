@@ -27,7 +27,7 @@ import type { VendorLookup, VendorMapping } from "../../lib/types";
 // onChanged lets the page patch that one row in place (see
 // mappingData.ts's withPatchedMapping) instead of refetching anything.
 export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
-  const { promptAsync, confirmAsync, alertAsync, modalElement } = useModal();
+  const { confirmAsync, reasonAsync, alertAsync, modalElement } = useModal();
   const [error, setError] = useState("");
 
   const run = async (fn: () => Promise<VendorMapping>, verb: string) => {
@@ -64,13 +64,24 @@ export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
   const approve = (id: number) => run(() => approveMapping(id), "approve");
 
   const reject = async (id: number) => {
-    const reason = await promptAsync("Reason for rejecting (required):");
+    const reason = await reasonAsync({
+      title: "Reject mapping request",
+      placeholder: "e.g. Required certification for this category is missing",
+      confirmLabel: "Reject mapping",
+      danger: true,
+    });
     if (!reason) return;
     await run(() => rejectMapping(id, reason), "reject");
   };
 
   const suspend = async (id: number, vendor: VendorLookup, targetLabel: string) => {
-    const reason = await promptAsync(`Reason for suspending ${vendor.legal_name} — ${targetLabel} (required):`);
+    const reason = await reasonAsync({
+      title: "Suspend mapping",
+      message: `${vendor.legal_name} — ${targetLabel}`,
+      placeholder: "e.g. Quality issue reported on the last 2 deliveries",
+      confirmLabel: "Suspend mapping",
+      danger: true,
+    });
     if (!reason) return;
     await run(() => suspendMapping(id, reason), "suspend");
   };
@@ -81,5 +92,5 @@ export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
     await run(() => reinstateMapping(id), "reinstate");
   };
 
-  return { mapAndApprove, approve, reject, suspend, reinstate, modalElement, error, setError };
+  return { mapAndApprove, approve, reject, suspend, reinstate, alertAsync, modalElement, error, setError };
 }

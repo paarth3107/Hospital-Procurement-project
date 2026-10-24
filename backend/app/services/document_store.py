@@ -52,7 +52,18 @@ def validate(
     if size_bytes == 0:
         raise DocumentValidationError("File is empty")
     if size_bytes > MAX_FILE_SIZE_BYTES:
-        raise DocumentValidationError(f"File exceeds the {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB limit")
+        # Real bug, found 2026-10-24: this message named the limit but never the
+        # file's own size, so a file whose size Windows Explorer rounds to
+        # display as exactly "2.00 MB" (anything up to ~2.1MB on screen, since
+        # Explorer rounds to 2 decimal places off a binary MB) looked identical
+        # to the limit itself with no way to tell why it was rejected. The exact
+        # byte count is unambiguous even right at that rounding edge, so it's
+        # included alongside the MB figure rather than instead of it. Mirrors
+        # the equivalent message in frontend/src/lib/fileValidation.ts.
+        raise DocumentValidationError(
+            f"File is {size_bytes / (1024 * 1024):.2f}MB ({size_bytes:,} bytes) — over the "
+            f"{MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB ({MAX_FILE_SIZE_BYTES:,} byte) limit"
+        )
 
 
 def scan(content: bytes) -> None:

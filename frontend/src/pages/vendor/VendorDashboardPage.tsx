@@ -15,16 +15,19 @@ import type { ItemRequirement, MyBid, PortalTender, Rating, RegisteredTender, Ve
 // just a show/hide-closed checkbox). Tenders/bids/ratings are still
 // fetched here, just for the KPI numbers, not rendered as full tables.
 
+// No separate "rejected" note (2026-10-24, user-directed) -- a rejected
+// application now lands on "blacklisted" directly, same as an already-
+// Active vendor gone bad.
 const NOTES: Record<string, string> = {
   pending_verification: "Verification pending: your registration and documents are with our team for review. You'll be able to request categories once they're approved.",
   info_requested: "More information requested: check the note on your profile and re-upload any rejected documents under Company profile.",
-  rejected: "Your registration was not approved. See the note on your profile.",
+  blacklisted: "Your registration was not approved, or this account has been blacklisted. See the note on your profile.",
   suspended: "Your account is suspended: you can't bid or be invited to new tenders until it's reinstated. See the note on your profile.",
 };
 
 function StatusNote({ vendor, registeredTender }: { vendor: VendorDetail; registeredTender: RegisteredTender | null }) {
   if (vendor.status === "active") return null;
-  const why = ["suspended", "info_requested", "rejected"].includes(vendor.status) && vendor.rejection_reason ? ` Reason: ${vendor.rejection_reason}` : "";
+  const why = ["suspended", "info_requested", "blacklisted"].includes(vendor.status) && vendor.rejection_reason ? ` Reason: ${vendor.rejection_reason}` : "";
   const lead = registeredTender
     ? { unpublished: "is not published yet. It will be listed here once it's published.", open: "is listed for you. You can bid on it once your registration is approved.", closed: "has closed for bidding." }[
         registeredTender.state

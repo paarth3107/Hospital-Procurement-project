@@ -170,6 +170,7 @@ export function MappingDetailDialog({
                       {h.from_state ? `${h.from_state} → ` : ""}
                       <b>{h.to_state}</b>
                       {h.reason ? ` — ${h.reason}` : ""}
+                      {h.actor_name ? <span className="ep-sub"> · {h.actor_name}</span> : ""}
                     </div>
                   </div>
                 ))

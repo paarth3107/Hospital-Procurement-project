@@ -61,6 +61,17 @@ class VendorMapping(Base):
     category = relationship("ProductCategory")
     history = relationship("VendorMappingHistory", back_populates="mapping", cascade="all, delete-orphan")
 
+    @property
+    def latest_reason(self) -> str | None:
+        """The reason behind this mapping's current state -- schemas.mapping.
+        MappingOut's own property, computed here (not a column) so every
+        endpoint returning MappingOut gets it for free via from_attributes.
+        Callers listing many mappings should eager-load `history`
+        (selectinload) first to avoid one query per row."""
+        if not self.history:
+            return None
+        return max(self.history, key=lambda h: h.at).reason
+
 
 class VendorMappingHistory(Base):
     """Spec §4.3 point 3: "removal/suspension of a mapping ... is logged

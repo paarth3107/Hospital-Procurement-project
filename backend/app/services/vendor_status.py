@@ -13,7 +13,6 @@ from app.services.notifier import notify_vendor
 # is needed, why suspended/blacklisted).
 _STATUS_MESSAGES: dict[VendorStatus, tuple[str, str | None]] = {
     VendorStatus.ACTIVE: ("Registration approved", "You're now an Active vendor and can bid on tenders you're invited to."),
-    VendorStatus.REJECTED: ("Registration rejected", None),
     VendorStatus.INFO_REQUESTED: ("More information needed", None),
     VendorStatus.SUSPENDED: ("Account suspended", None),
     VendorStatus.BLACKLISTED: ("Account blacklisted", None),
@@ -23,7 +22,7 @@ _STATUS_MESSAGES: dict[VendorStatus, tuple[str, str | None]] = {
 def set_status(db: Session, vendor: Vendor, new_status: VendorStatus, actor_id: int | None, reason: str | None, actor: Vendor | None = None) -> None:
     """The one place a vendor's status changes, so every change is logged.
     `rejection_reason` doubles as "the explanation for the vendor's current
-    non-Active status" (rejected, info requested, suspended, blacklisted).
+    non-Active status" (info requested, suspended, blacklisted).
 
     Also the one place a status-change notification is sent (2026-10-07) --
     covers every call site (staff decisions in vendors.py, the auto-suspend/

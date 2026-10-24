@@ -37,12 +37,15 @@ function filteredCandidates(ctx: RequestCtx, filters: RequestFilters): Candidate
   return candidates.filter((c) => inType(c) && matchesSearch(c));
 }
 
+// "entries", not "items" (real bug, found 2026-10-24) -- this list mixes
+// items, assets and services, and "items" reads as the same word the type
+// filter uses for its narrower "Item only" option right next to it.
 export function itemCountLabel(ctx: RequestCtx, filters: RequestFilters): string {
   const candidates = candidateItems(ctx);
-  if (!candidates.length) return "0 items";
+  if (!candidates.length) return "0 entries";
   const matches = filteredCandidates(ctx, filters);
   const f = filters.search.trim();
-  return f || filters.typeFilter !== "all" ? `${matches.length} of ${candidates.length} items` : `${candidates.length} items`;
+  return f || filters.typeFilter !== "all" ? `${matches.length} of ${candidates.length} entries` : `${candidates.length} entries`;
 }
 
 export function ItemRequestTable({
@@ -78,7 +81,7 @@ export function ItemRequestTable({
     return (
       <tr>
         <td className="ep-cell text-ink-55" colSpan={5}>
-          No item matches "{filters.search}".
+          Nothing matches "{filters.search}".
         </td>
       </tr>
     );
@@ -104,7 +107,7 @@ export function ItemRequestTable({
                     <Icon name="chevron-right" size={13} className="vc-chev" /> {group.name}
                   </span>
                   <span className="ep-sub">
-                    {group.rows.length} item{group.rows.length === 1 ? "" : "s"}
+                    {group.rows.length} {group.rows.length === 1 ? "entry" : "entries"}
                   </span>
                 </div>
               </td>

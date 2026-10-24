@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.override import OverrideStatus, OverrideType
 from app.models.user_account import UserAccount
-from app.schemas.override import OverrideCreate, OverrideDecision, OverrideOut
+from app.schemas.override import OverrideCreate, OverrideDecision, OverrideOut, OverrideRejection
 from app.security import get_current_user
 from app.services import overrides
 
@@ -70,7 +70,7 @@ def approve(override_id: int, payload: OverrideDecision, db: Session = Depends(g
 
 
 @router.post("/{override_id}/reject", response_model=OverrideOut)
-def reject(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+def reject(override_id: int, payload: OverrideRejection, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     override = overrides.get_override(db, override_id)
     overrides.reject_override(db, override, user, payload.reason or "")
     db.commit()

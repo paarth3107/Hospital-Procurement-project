@@ -628,8 +628,17 @@ def reject_vendor(
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
+    """Rejecting a still-pending application goes straight into the
+    Blacklisted flow (2026-10-24, user-directed) -- no separate REJECTED
+    status exists anymore, since spec 3.4 itself treats "Rejected /
+    Blacklisted" as one outcome and nothing here ever gave them different
+    real-world effect. The route/action is still named "reject" (the right
+    verb for this stage -- you're declining an application, not barring an
+    existing vendor), it just lands on the same terminal status, now
+    reachable back to Active via the usual Category-Manager reinstate flow."""
+
     vendor = _load_decidable_vendor(vendor_id, db)
-    set_status(db, vendor, VendorStatus.REJECTED, user.id, payload.reason)
+    set_status(db, vendor, VendorStatus.BLACKLISTED, user.id, payload.reason)
     db.commit()
     db.refresh(vendor)
     return vendor
@@ -765,8 +774,26 @@ def reinstate_vendor(
     if vendor.status == VendorStatus.BLACKLISTED:
         if user.role not in BLACKLIST_REINSTATERS:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Category Manager can reinstate a blacklisted vendor")
-        if not (payload.reason and payload.reason.strip()):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An explicit reason is required to reinstate a blacklisted vendor")
+        if not (payload.reason and len(payload.reason.strip()) >= 10):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An explicit reason (at least 10 characters) is required to reinstate a blacklisted vendor",
+            )
+        # Real bug, found 2026-10-24 (same day the Reject button started
+        # landing here): this path used to assume "blacklisted" only ever
+        # meant "was once a properly-verified Active vendor, gone bad" --
+        # true before Reject merged into Blacklist, not true anymore. A
+        # vendor rejected straight from Pending Verification has never
+        # cleared this gate at all; without it, reinstate would skip
+        # approve_vendor()'s own mandatory-document check entirely and land
+        # someone with zero verified documents on Active. Same hard gate the
+        # Suspended branch below already has, for the same reason.
+        missing = _unverified_mandatory_docs(vendor_id, db)
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Cannot reinstate: mandatory document(s) not yet verified: {', '.join(missing)}",
+            )
         set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {payload.reason.strip()}")
     elif vendor.status == VendorStatus.SUSPENDED:
         # User-directed (2026-09-30): same hard gate as first approval -- if
@@ -851,11 +878,23 @@ def vendor_status_history(
         .filter(AuditLog.entity_type == "vendor", AuditLog.entity_id == vendor_id, AuditLog.action.in_(DOCUMENT_HISTORY_ACTIONS))
         .all()
     )
+    # Real bug, found 2026-10-24: this merged history never named who acted.
+    # doc_rows already carry AuditLog.actor_name (copied in at write time,
+    # see that model's own docstring); status_rows only ever had actor_id,
+    # so one batch UserAccount lookup resolves those to the same actor_name
+    # shape, not a query per row.
+    status_actor_ids = {r.actor_id for r in status_rows if r.actor_id is not None}
+    status_actor_names = (
+        {u.id: u.full_name for u in db.query(UserAccount).filter(UserAccount.id.in_(status_actor_ids)).all()} if status_actor_ids else {}
+    )
     entries = [
-        VendorHistoryEntryOut(id=f"status-{r.id}", at=r.at, from_status=r.from_status, to_status=r.to_status, reason=r.reason)
+        VendorHistoryEntryOut(
+            id=f"status-{r.id}", at=r.at, from_status=r.from_status, to_status=r.to_status, reason=r.reason,
+            actor_name=status_actor_names.get(r.actor_id),
+        )
         for r in status_rows
     ] + [
-        VendorHistoryEntryOut(id=f"doc-{r.id}", at=r.occurred_at, label=_document_history_label(r), reason=r.reason)
+        VendorHistoryEntryOut(id=f"doc-{r.id}", at=r.occurred_at, label=_document_history_label(r), reason=r.reason, actor_name=r.actor_name)
         for r in doc_rows
     ]
     entries.sort(key=lambda e: e.at)

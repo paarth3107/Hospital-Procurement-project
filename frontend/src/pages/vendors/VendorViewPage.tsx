@@ -38,7 +38,7 @@ export function VendorViewPage() {
   // mounts right after a login/refresh (user still null at that moment).
   const currentUser = useAuthState().user;
   const [error, setError] = useState("");
-  const { promptAsync, confirmAsync, openPreview, modalElement } = useModal();
+  const { confirmAsync, reasonAsync, alertAsync, openPreview, modalElement } = useModal();
 
   const load = useCallback(async () => {
     if (vendorId === null) return;
@@ -103,9 +103,14 @@ export function VendorViewPage() {
   };
 
   const handleReject = async (docId: number) => {
-    const reason = await promptAsync("Reason for rejecting this document (required):");
+    const reason = await reasonAsync({
+      title: "Reject document",
+      placeholder: "e.g. Certificate has expired",
+      confirmLabel: "Reject document",
+      danger: true,
+      maxLength: 300,
+    });
     if (!reason) return;
-    if (!(await confirmAsync(`Reject this document? Reason: "${reason}"`, { title: "Reject Document", confirmLabel: "Reject document", danger: true }))) return;
     try {
       await post(`/vendors/${vendorId}/documents/${docId}/reject`, { reason });
       setDocs((prev) => prev.map((d) => (d.id === docId ? { ...d, status: "rejected", rejection_reason: reason } : d)));
@@ -123,27 +128,53 @@ export function VendorViewPage() {
         await post(`/vendors/${vendor.id}/approve`);
         setError("");
       } else if (kind === "reject") {
-        const reason = await promptAsync("Reason for rejecting this registration (required):");
+        const reason = await reasonAsync({
+          title: "Reject vendor registration",
+          message: "This blacklists the candidate -- they can be reinstated later, with a reason.",
+          placeholder: "e.g. GST certificate could not be verified against GSTN records",
+          confirmLabel: "Reject vendor",
+          danger: true,
+        });
         if (!reason) return;
-        if (!(await confirmAsync(`Reject this candidate's registration? Reason: "${reason}"`, { title: "Reject Candidate", confirmLabel: "Reject candidate", danger: true }))) return;
         await post(`/vendors/${vendor.id}/reject`, { reason });
       } else if (kind === "suspend") {
-        const reason = await promptAsync(`Reason for suspending ${vendor.legal_name} (required):`);
+        const reason = await reasonAsync({
+          title: "Suspend vendor",
+          message: `${vendor.legal_name} will be blocked from bidding, new mappings and new invitations. History and existing mappings are kept.`,
+          placeholder: "e.g. Repeated late deliveries on PO-2048 and PO-2063",
+          confirmLabel: "Suspend vendor",
+          danger: true,
+        });
         if (!reason) return;
         await post(`/vendors/${vendor.id}/suspend`, { reason });
       } else if (kind === "reinstate") {
         if (!(await confirmAsync(`Reinstate ${vendor.legal_name} to Active?`, { confirmLabel: "Reinstate" }))) return;
         await post(`/vendors/${vendor.id}/reinstate`, {});
       } else if (kind === "reinstate-blacklisted") {
-        const reason = await promptAsync(`Explicit reason for reinstating ${vendor.legal_name} (required — recorded in the status history):`);
+        const reason = await reasonAsync({
+          title: "Reinstate vendor",
+          message: `${vendor.legal_name} is currently blacklisted. This is recorded in the status history.`,
+          placeholder: "e.g. Compliance issue resolved, GST certificate re-verified",
+          confirmLabel: "Reinstate vendor",
+        });
         if (!reason) return;
         await post(`/vendors/${vendor.id}/reinstate`, { reason });
       } else if (kind === "blacklist") {
-        const reason = await promptAsync(`Reason for blacklisting ${vendor.legal_name} (required — it can be reinstated later, with a reason):`);
+        const reason = await reasonAsync({
+          title: "Blacklist vendor",
+          message: `${vendor.legal_name} will be blocked from logging in, bidding, being mapped or invited -- it can be reinstated later, with a reason.`,
+          placeholder: "e.g. Confirmed bid collusion on Tender #142",
+          confirmLabel: "Blacklist vendor",
+          danger: true,
+        });
         if (!reason) return;
         await post(`/vendors/${vendor.id}/blacklist`, { reason });
       } else {
-        const note = await promptAsync("Note to the vendor explaining what's needed (required):");
+        const note = await reasonAsync({
+          title: "Request more information",
+          placeholder: "e.g. Please re-upload a GST certificate that has not expired",
+          confirmLabel: "Request info",
+        });
         if (!note) return;
         await post(`/vendors/${vendor.id}/request-info`, { note });
       }
@@ -193,7 +224,14 @@ export function VendorViewPage() {
       {vendor.expedited_review_tender_id != null && (vendor.status === "pending_verification" || vendor.status === "info_requested") && (
         <div className="ep-note">Flagged urgent for tender #{vendor.expedited_review_tender_id}.</div>
       )}
-      <DocsPane docs={docs} reviewedDocIds={reviewedDocIds} onViewDoc={handleViewDoc} onVerify={handleVerify} onReject={handleReject} />
+      <DocsPane
+        docs={docs}
+        reviewedDocIds={reviewedDocIds}
+        onViewDoc={handleViewDoc}
+        onVerify={handleVerify}
+        onReject={handleReject}
+        onViewReason={(reason) => alertAsync(reason, "Rejection reason")}
+      />
       <RequirementsPane reqs={requirements} />
       <HistoryPane history={history} />
       <DecisionBar vendor={vendor} docs={docs} canReinstateBlacklisted={canReinstateBlacklisted} onDecide={decide} />

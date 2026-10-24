@@ -40,6 +40,17 @@ export function fileTypeError(file: File, opts: FileTypeOptions = {}): string | 
     return `"${file.name}" isn't an accepted file type — ${list} only.`;
   }
   if (file.size === 0) return `"${file.name}" is empty.`;
-  if (file.size > MAX_FILE_SIZE_BYTES) return `"${file.name}" is larger than the 2MB limit.`;
+  // Real bug, found 2026-10-24: this message named the limit but never the
+  // file's own size, so a file whose size Windows Explorer rounds to display
+  // as exactly "2.00 MB" (anything up to ~2.1MB on screen, since Explorer
+  // rounds to 2 decimal places off a binary MB) looked identical to the
+  // limit itself with no way to tell why it was rejected. The exact byte
+  // count is unambiguous even right at that rounding edge, so it's included
+  // alongside the MB figure rather than instead of it. Mirrors the
+  // equivalent message in backend/app/services/document_store.py's validate().
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(2);
+    return `"${file.name}" is ${mb}MB (${file.size.toLocaleString()} bytes) — over the 2MB (${MAX_FILE_SIZE_BYTES.toLocaleString()} byte) limit.`;
+  }
   return null;
 }

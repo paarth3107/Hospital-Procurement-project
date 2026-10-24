@@ -49,7 +49,7 @@ export function DecisionsPage() {
   const [rows, setRows] = useState<OverrideOut[]>([]);
   const [page, setPage] = useState(0);
   const [error, setError] = useState("");
-  const { promptAsync, confirmAsync, modalElement } = useModal();
+  const { confirmAsync, reasonAsync, modalElement } = useModal();
 
   const load = useCallback(async () => {
     try {
@@ -74,7 +74,12 @@ export function DecisionsPage() {
         if (!(await confirmAsync(`Approve this ${label}? "${o.justification}"`, { confirmLabel: "Approve" }))) return;
         await api(`${base}/${o.id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       } else {
-        const reason = await promptAsync("Reason for declining this request (required):");
+        const reason = await reasonAsync({
+          title: `Decline ${label}`,
+          placeholder: "e.g. Justification does not meet policy for this value band",
+          confirmLabel: "Decline request",
+          danger: true,
+        });
         if (!reason) return;
         await api(`${base}/${o.id}/reject`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) });
       }

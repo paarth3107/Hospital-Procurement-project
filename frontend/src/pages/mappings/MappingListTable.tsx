@@ -70,6 +70,27 @@ export function MappingListTable({
                   </td>
                   <td className="ep-cell">
                     <StateTag state={m.state} />
+                    {/* One-line preview + "View reason" link (real bug, found
+                        2026-10-24): a Suspend/Reject reason used to vanish
+                        from this screen the instant the row updated -- it was
+                        only ever visible again in the Mapping Matrix detail
+                        dialog's own history pane, nowhere on this page. */}
+                    {(m.state === "rejected" || m.state === "suspended") && m.latest_reason && (
+                      <div className="ep-sub text-danger-700 mt-3px d-flex items-center gap-6px">
+                        <div className="ep-clip maxw-140px" title={m.latest_reason}>
+                          {m.latest_reason}
+                        </div>
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            actions.alertAsync(m.latest_reason!, "Reason");
+                          }}
+                        >
+                          View reason
+                        </a>
+                      </div>
+                    )}
                   </td>
                   <td className="ep-cell text-right nowrap">
                     {m.state === "pending" && (

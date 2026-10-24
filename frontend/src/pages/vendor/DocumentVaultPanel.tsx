@@ -39,7 +39,7 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
-  const { confirmAsync, openPreview, modalElement } = useModal();
+  const { confirmAsync, alertAsync, openPreview, modalElement } = useModal();
 
   const load = useCallback(async () => {
     try {
@@ -207,7 +207,22 @@ export function DocumentVaultPanel({ onChanged }: { onChanged?: () => void }) {
                 <td className="ep-cell">
                   {d ? <StateTag state={d.status} /> : <Tag text="Missing" tone={e.mandatory ? "att" : ""} />}
                   {d?.status === "draft" && <div className="ep-sub">Not submitted yet</div>}
-                  {d?.status === "rejected" && d.rejection_reason && <div className="ep-sub text-danger-700">{d.rejection_reason}</div>}
+                  {d?.status === "rejected" && d.rejection_reason && (
+                    <div className="ep-sub text-danger-700 mt-3px d-flex items-center gap-6px">
+                      <div className="ep-clip maxw-140px" title={d.rejection_reason}>
+                        {d.rejection_reason}
+                      </div>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          alertAsync(d.rejection_reason!, "Rejection reason");
+                        }}
+                      >
+                        View reason
+                      </a>
+                    </div>
+                  )}
                 </td>
                 <td className="ep-cell text-right">
                   {e.expires && (

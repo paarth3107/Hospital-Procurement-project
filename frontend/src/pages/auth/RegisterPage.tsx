@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api, uploadWithProgress } from "../../lib/api";
 import { switchView, takePendingRegistrationResume } from "../../lib/bridge";
 import { CITIES_BY_STATE, INDIAN_STATES, OTHER_CITY, VENDOR_DOC_TYPES } from "../../lib/constants";
+import type { AuthLayoutContext } from "../../shell/AuthLayout";
 import { OpenLinkNote } from "./OpenLinkNote";
 import { PasswordField } from "../../components/PasswordField";
 import { Req } from "../../components/Req";
@@ -80,6 +82,14 @@ export function RegisterPage() {
   // into a dedicated, persistent confirmation screen instead -- see the
   // early return near the bottom of this component.
   const [completedVendorId, setCompletedVendorId] = useState<number | null>(null);
+  const { setRegisterNarrow } = useOutletContext<AuthLayoutContext>();
+  // Real bug, found 2026-10-24: the confirmation card below set its own
+  // maxw-460px but AuthLayout had no way to know this page had switched to
+  // showing it -- it kept rendering #view-register in its normal WIDE mode
+  // (the multi-column form needs that), so the card centering CSS (keyed off
+  // the section itself carrying auth-view.maxw-460px) never activated and
+  // the card sat at its default top-left block position instead.
+  useEffect(() => setRegisterNarrow(completedVendorId !== null), [completedVendorId, setRegisterNarrow]);
   const REDIRECT_DELAY_SECONDS = 8;
   const [redirectSeconds, setRedirectSeconds] = useState(REDIRECT_DELAY_SECONDS);
   const formRef = useRef<HTMLFormElement>(null);

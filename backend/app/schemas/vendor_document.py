@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, field_validator
 
 from app.models.vendor import DocumentStatus, VendorDocType
+from app.schemas.validators import require_reason
 
 
 class VendorDocumentOut(BaseModel):
@@ -28,9 +29,12 @@ class VendorDocumentRejection(BaseModel):
     @field_validator("reason")
     @classmethod
     def reason_required(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("A reason is required")
-        return v.strip()
+        # Capped shorter than other reason fields (real bug, found 2026-10-24):
+        # this one renders inline under the document's status badge, in a
+        # table row -- not behind a "View reason" link like everywhere else
+        # a reason is shown -- so an unbounded reason here visibly overflowed
+        # the row.
+        return require_reason(v, max_length=300)
 
 
 class RequiredDocumentOut(BaseModel):

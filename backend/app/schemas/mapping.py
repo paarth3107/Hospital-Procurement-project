@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, field_validator
 
 from app.models.vendor_mapping import MappingState
+from app.schemas.validators import require_reason
 
 
 class MappingCreate(BaseModel):
@@ -31,6 +32,13 @@ class MappingOut(BaseModel):
     decided_by_id: int | None
     decided_at: datetime | None
     version: int
+    # The reason text behind this mapping's current state (the most recent
+    # history row's reason), so Mapping Requests can show a one-line preview
+    # without the list page fetching full history per row. Real bug, found
+    # 2026-10-24: a Suspend/Reject reason here used to vanish from view the
+    # moment the row updated -- nothing on this screen (only the Mapping
+    # Matrix detail dialog's own history pane) ever surfaced it again.
+    latest_reason: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -44,9 +52,7 @@ class MappingDecisionReason(BaseModel):
     @field_validator("reason")
     @classmethod
     def reason_required(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("A reason is required")
-        return v.strip()
+        return require_reason(v)
 
 
 class MappingHistoryOut(BaseModel):
@@ -55,6 +61,11 @@ class MappingHistoryOut(BaseModel):
     to_state: MappingState
     reason: str | None
     actor_id: int | None
+    # Resolved from UserAccount.full_name in the router, not a model column
+    # (real bug, found 2026-10-24: this history showed WHO decided a mapping
+    # nowhere, only actor_id -- added for parity with every other reason
+    # field now expected to track who entered it, per spec §4.3 point 3).
+    actor_name: str | None = None
     at: datetime
 
     model_config = {"from_attributes": True}

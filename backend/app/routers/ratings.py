@@ -8,7 +8,7 @@ from app.models.override import OverrideRequest, OverrideStatus, OverrideType
 from app.models.user_account import Role, UserAccount
 from app.models.product_master import ProcurementType
 from app.models.vendor_rating import MATERIAL_CHANGE_THRESHOLD, RatingHistory, VendorRating
-from app.schemas.override import OverrideDecision
+from app.schemas.override import OverrideDecision, OverrideRejection
 from app.schemas.rating import RatingHistoryOut, RatingManualUpdate, RatingOut, RatingOverrideCreate
 from app.services.audit import record
 from app.security import get_current_user, require_role
@@ -197,7 +197,7 @@ def approve_price_override(override_id: int, payload: OverrideDecision, db: Sess
 
 
 @router.post("/price-competitiveness-overrides/{override_id}/reject")
-def reject_price_override(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+def reject_price_override(override_id: int, payload: OverrideRejection, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
     override = _get_price_override(db, override_id)
     overrides.reject_override(db, override, user, payload.reason or "")
     db.commit()
