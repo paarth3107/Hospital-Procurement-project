@@ -38,7 +38,7 @@ class OverrideStatus(str, enum.Enum):
 class OverrideTypeConfig(Base):
     """Spec §12.3's table as hospital-configurable data (CLAUDE.md: "model as
     config, not a hardcoded hierarchy"), one row per OverrideType. Seeded
-    with the spec's own illustrative values in app/seed_ui_design.py -- same pattern as
+    with the spec's own illustrative values in app/seed.py -- same pattern as
     ApprovalBand for the E-Tender/L1 value matrix -- and, like that matrix,
     still to be finalized against the hospital's real delegation-of-authority
     policy (CLAUDE.md open question 2 names §12.3 bands explicitly)."""

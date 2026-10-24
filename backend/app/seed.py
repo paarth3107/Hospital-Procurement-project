@@ -1,11 +1,13 @@
 """THE seed script -- the single source of a working local dev database.
-Replaces both app/seed.py (facilities/staff/approval bands/override configs)
-and app/seed_demo.py (an earlier, smaller vendor/mapping/rating/tender demo),
-both removed 2026-10-24 once this covered everything they did and more;
-nothing else in this repo creates seed data. Fills the database with
-realistic sample data for the Vendor Panel and Category Manager screens,
-including enough backdated ("grandfather") history that every downstream-
-dependent feature has something real to show, not just the handful of
+2026-10-24: replaces both the old app/seed.py (facilities/staff/approval
+bands/override configs only) and app/seed_demo.py (an earlier, smaller
+vendor/mapping/rating/tender demo) -- both removed once this file (briefly
+named app/seed_ui_design.py mid-transition, renamed back to app/seed.py once
+it became the one script) covered everything they did and more; nothing else
+in this repo creates seed data. Fills the database with realistic sample
+data for the Vendor Panel and Category Manager screens, including enough
+backdated ("grandfather") history that every downstream-dependent feature
+has something real to show, not just the handful of
 records visible today.
 
 What it creates (all dates are relative to the moment you run it):
@@ -66,8 +68,8 @@ SAFETY:
     double check email_adapter.py's backend before running.
 
 Run from the backend folder:
-    venv/bin/python -m app.seed_ui_design --wipe        (if placed in app/)
-    venv/bin/python path/to/seed_ui_design.py --wipe    (from anywhere else)
+    venv/bin/python -m app.seed --wipe        (if placed in app/)
+    venv/bin/python path/to/seed.py --wipe    (from anywhere else)
 
 Logins afterwards:
     Category manager  category@medsource.local / changeme123
