@@ -10,7 +10,7 @@ from app.services.audit import record
 
 # Spec §12.4 point 5/6: "a configured SLA window" -- illustrative, not a spec
 # value (same footing as MAX_ROUNDS_BEFORE_ESCALATION in approval_matrix.py),
-# used to seed every OverrideTypeConfig row in app/seed.py.
+# used to seed every OverrideTypeConfig row in app/seed_ui_design.py.
 DEFAULT_SLA_HOURS = 48
 
 # Mirrors frontend/src/lib/constants.ts's OVERRIDE_TYPE_LABELS -- same
