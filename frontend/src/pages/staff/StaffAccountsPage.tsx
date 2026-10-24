@@ -8,16 +8,19 @@ import { IconActionButton } from "../../components/IconActionButton";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StaffFormDialog } from "./StaffFormDialog";
-import { PasswordResetDialog } from "./PasswordResetDialog";
 import { FacilityFormDialog } from "./FacilityFormDialog";
 
 // Ported 1:1 from frontend/js/pages/staff/staffPage.js -- Phase 1 of the
 // React migration (see .claude-notes/REACT-MIGRATION-PLAN.md).
+//
+// Reset password moved off this page's own row action and into the Edit
+// dialog (2026-10-24, user-directed) -- StaffFormDialog.tsx now opens
+// PasswordResetDialog itself, so this page no longer needs its own "kind" or
+// button for it.
 
 type Dialog =
   | { kind: "add-staff" }
   | { kind: "edit-staff"; user: StaffUser }
-  | { kind: "reset-password"; user: StaffUser }
   | { kind: "add-facility" }
   | { kind: "confirm-toggle"; user: StaffUser };
 
@@ -130,9 +133,6 @@ export function StaffAccountsPage() {
                   <td className="ep-cell fs-12-5px">{fmtDate(u.created_at)}</td>
                   <td className="ep-cell ep-actions-cell text-right nowrap">
                     <div className="d-flex items-center justify-end gap-6px">
-                      <button className="ep-b" onClick={() => setDialog({ kind: "reset-password", user: u })}>
-                        Reset password
-                      </button>
                       {!me && (
                         // Deactivating asks for confirmation first (matches the vanilla
                         // modalConfirm gate); reactivating needs none, same as before.
@@ -156,14 +156,14 @@ export function StaffAccountsPage() {
       {message && <div className={`result ${message.ok ? "ok" : "err"}`}>{message.text}</div>}
 
       {dialog?.kind === "add-staff" && (
-        <StaffFormDialog user={null} facilities={facilities} onClose={() => setDialog(null)} onSaved={(msg) => load(msg)} />
+        <StaffFormDialog user={null} facilities={facilities} existingEmails={staff.map((u) => u.email)} onClose={() => setDialog(null)} onSaved={(msg) => load(msg)} />
       )}
       {dialog?.kind === "edit-staff" && (
-        <StaffFormDialog user={dialog.user} facilities={facilities} onClose={() => setDialog(null)} onSaved={(msg) => load(msg)} />
+        <StaffFormDialog user={dialog.user} facilities={facilities} existingEmails={staff.map((u) => u.email)} onClose={() => setDialog(null)} onSaved={(msg) => load(msg)} />
       )}
-      {dialog?.kind === "reset-password" && <PasswordResetDialog user={dialog.user} onClose={() => setDialog(null)} onDone={(msg) => load(msg)} />}
       {dialog?.kind === "add-facility" && (
         <FacilityFormDialog
+          existingCodes={facilities.map((f) => f.legal_entity_code)}
           onClose={() => setDialog(null)}
           onSaved={(facility) => {
             setFacilityFilter(String(facility.id));
