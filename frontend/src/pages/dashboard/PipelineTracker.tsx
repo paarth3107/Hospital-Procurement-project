@@ -19,6 +19,18 @@ export interface StageRow {
   count: number;
 }
 
+// Keeps this card the same height across dashboards regardless of how many
+// stages a role has (Category Manager 3, Approving Authority 4, Officer 5)
+// -- without this, the row list's own natural height (row count * ~42px
+// icon height + fixed gaps) only happened to land near the donut's fixed
+// 240px for 3-4 rows; at 5 it grew visibly taller. Shrinking the gap as
+// count grows keeps every role's card pinned to ~240px instead.
+const ROW_HEIGHT_PX = 42;
+function rowGap(count: number): number {
+  if (count <= 1) return 0;
+  return Math.max(6, Math.min(16, (240 - ROW_HEIGHT_PX * count) / (count - 1)));
+}
+
 export function PipelineTracker({ subtitle, stages, pickColors }: { subtitle: string; stages: StageRow[]; pickColors: (p: ChartPalette) => (string | undefined)[] }) {
   return (
     <div className="ep-pane">
@@ -28,9 +40,9 @@ export function PipelineTracker({ subtitle, stages, pickColors }: { subtitle: st
       </div>
       <div className="ep-pane-pad d-flex flex-wrap gap-24px items-center">
         <div className="flex-1 minw-0">
-          <Donut labels={stages.map((s) => s.label)} series={stages.map((s) => s.count)} pickColors={pickColors} height={240} />
+          <Donut labels={stages.map((s) => s.label)} series={stages.map((s) => s.count)} pickColors={pickColors} height={240} legend={false} />
         </div>
-        <div className="d-flex flex-col gap-16px flex-1 minw-0">
+        <div className="d-flex flex-col flex-1 minw-0" style={{ minHeight: 240, justifyContent: "space-between", gap: rowGap(stages.length) }}>
           {stages.map((s, i) => (
             <div className="d-flex items-center gap-12px" key={i}>
               <span className={`ep-kpi-icon tone-${s.tone}`}>

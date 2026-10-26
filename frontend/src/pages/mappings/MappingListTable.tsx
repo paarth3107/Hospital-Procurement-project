@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ImgPlaceholder } from "../../components/ImgPlaceholder";
+import { IconActionButton } from "../../components/IconActionButton";
 import { StateTag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import type { MappingData } from "../../lib/mappingData";
@@ -94,14 +95,10 @@ export function MappingListTable({
                   </td>
                   <td className="ep-cell text-right nowrap">
                     {m.state === "pending" && (
-                      <>
-                        <button className="ep-b" data-v="p" onClick={() => actions.approve(m.id)}>
-                          Approve
-                        </button>{" "}
-                        <button className="ep-b" onClick={() => actions.reject(m.id)}>
-                          Reject
-                        </button>
-                      </>
+                      <div className="d-flex items-center gap-10px justify-end">
+                        <IconActionButton icon="check" label="Approve" tone="success" size={24} onClick={() => actions.approve(m.id)} />
+                        <IconActionButton icon="x" label="Reject" tone="danger" size={24} onClick={() => actions.reject(m.id)} />
+                      </div>
                     )}
                     {m.state === "approved" && vendor && (
                       <button className="ep-b" onClick={() => actions.suspend(m.id, vendor, label)}>

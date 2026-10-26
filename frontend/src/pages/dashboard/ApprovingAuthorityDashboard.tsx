@@ -20,10 +20,10 @@ import type { DashboardApprovingAuthority, DashboardApprovingAuthorityTender, Da
 // E-Tender Approval inbox, Awaiting your decision -> L1 Award.
 function kpiCells(a: DashboardApprovingAuthority): KpiCell[] {
   return [
-    ["Pending E-Tender Approval", a.pending_approval_count, "needs your decision", "approvals", "clock", "warning"],
-    ["Live tenders", a.live_count, "bidding open", null, "activity", "success"],
-    ["Ready to recommend", a.ready_to_recommend_lines, `${a.ready_to_recommend_count} tender(s) · the Officer's job`, null, "award", "info"],
-    ["Awaiting your decision", a.awaiting_decision_lines, `${a.awaiting_decision_count} tender(s)`, "awards", "check-square", "primary"],
+    ["E-Tender Approval", a.pending_approval_count, "", "approvals", "clock", "warning"],
+    ["Live tenders", a.live_count, "", null, "activity", "success"],
+    ["Ready to recommend", a.ready_to_recommend_lines, "", null, "award", "info"],
+    ["Awaiting your decision", a.awaiting_decision_lines, "", "awards", "check-square", "primary"],
   ];
 }
 

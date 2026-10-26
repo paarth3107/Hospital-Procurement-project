@@ -13,23 +13,25 @@ export function IconActionButton({
   onClick,
   tone,
   disabled,
+  size = 16,
 }: {
   icon: string;
   label: string;
   onClick: () => void;
-  tone?: "danger";
+  tone?: "danger" | "success";
   disabled?: boolean;
+  size?: number;
 }) {
   return (
     <button
       type="button"
-      className={`ep-icon-action${tone === "danger" ? " ep-icon-action-danger" : ""}`}
+      className={`ep-icon-action${tone ? ` ep-icon-action-${tone}` : ""}`}
       title={label}
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
     >
-      <Icon name={icon} size={16} />
+      <Icon name={icon} size={size} />
     </button>
   );
 }

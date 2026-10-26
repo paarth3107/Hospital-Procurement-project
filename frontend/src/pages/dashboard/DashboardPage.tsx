@@ -9,7 +9,6 @@ import { VendorBasePanel } from "./VendorBasePanel";
 import { OfficerDashboard } from "./OfficerDashboard";
 import { CategoryManagerDashboard } from "./CategoryManagerDashboard";
 import { ApprovingAuthorityDashboard } from "./ApprovingAuthorityDashboard";
-import { fmtDate } from "../../lib/format";
 import type { CurrentUser, DashboardStats } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboardPage.js -- staff dashboard: the
@@ -31,10 +30,10 @@ import type { CurrentUser, DashboardStats } from "../../lib/types";
 // moment, for no reason -- the role was already sitting in the store.
 function kpiCells(s: DashboardStats): KpiCell[] {
   return [
-    ["Live tenders", s.open_tenders_count, s.next_bid_close ? `next bid close ${fmtDate(s.next_bid_close)}` : "none open for bidding", null, "file-text", "primary"],
-    ["Active vendors", s.vendors_by_status.active || 0, `${s.vendors_by_status.suspended || 0} suspended · ${(s.vendors_by_status.pending_verification || 0) + (s.vendors_by_status.info_requested || 0)} pending`, null, "users", "success"],
-    ["Bids submitted", s.bids_submitted_count, "prices masked from staff", null, "check-square", "info"],
-    ["Awaiting your approval", s.pending_approval_count, "e-tender approval", null, "clock", "warning"],
+    ["Live tenders", s.open_tenders_count, "", null, "file-text", "primary"],
+    ["Active vendors", s.vendors_by_status.active || 0, "", null, "users", "success"],
+    ["Bids submitted", s.bids_submitted_count, "", null, "check-square", "info"],
+    ["Awaiting your approval", s.pending_approval_count, "", null, "clock", "warning"],
   ];
 }
 

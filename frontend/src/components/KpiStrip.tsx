@@ -11,7 +11,7 @@ function Tile({ cell: [label, value, sub, view, ic, tone = "primary"] }: { cell:
       <div className="minw-0">
         <div className="ep-k">{label}</div>
         <div className="ep-kpi-value">{value}</div>
-        <div className="ep-sub">{sub}</div>
+        {sub && <div className="ep-sub">{sub}</div>}
       </div>
       <span className={`ep-kpi-icon tone-${tone}`}>
         <Icon name={ic} size={20} />

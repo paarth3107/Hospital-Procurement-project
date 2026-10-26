@@ -44,6 +44,7 @@ export function VendorBasePanel({ s }: { s: DashboardStats }) {
                 labels={nonZero.map(([label]) => label)}
                 series={nonZero.map(([, key]) => s.vendors_by_status[key])}
                 pickColors={(p) => nonZero.map(([, , , tone]) => p[TONE_COLOR[tone]])}
+                legend={false}
               />
             </div>
             <div className="d-flex flex-col gap-16px flex-1 minw-0">

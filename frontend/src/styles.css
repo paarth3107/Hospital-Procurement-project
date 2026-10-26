@@ -226,8 +226,10 @@ body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { ma
    here too, user-rejected as pointless clutter -- removed.) */
 .ep-actions-cell { width: 1%; white-space: nowrap; }
 .ep-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; background: transparent; border-radius: var(--radius); color: var(--ink-50); cursor: pointer; }
+.ep-icon-action:has(svg[width="24"]) { width: 36px; height: 36px; }
 .ep-icon-action:hover { background: var(--ink-09); color: var(--ink); }
-.ep-icon-action-danger:hover { color: var(--danger); }
+.ep-icon-action-danger:hover { color: var(--danger); background: var(--danger-08); }
+.ep-icon-action-success:hover { color: var(--success-text); background: var(--success-bg); }
 .ep-icon-action:disabled { opacity: .4; cursor: default; }
 .ep-icon-action:disabled:hover { background: transparent; color: var(--ink-50); }
 .audit-table { table-layout: fixed; }

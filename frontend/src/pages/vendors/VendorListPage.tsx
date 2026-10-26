@@ -6,6 +6,7 @@ import { StateTag, Tag } from "../../components/Tag";
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { ImgPlaceholder } from "../../components/ImgPlaceholder";
+import { IconActionButton } from "../../components/IconActionButton";
 import { switchView, takePendingListFilter } from "../../lib/bridge";
 
 // Ported 1:1 from frontend/js/pages/vendorListPage.js -- Phase 2 of the
@@ -126,9 +127,7 @@ export function VendorListPage() {
                   </td>
                   <td className="ep-cell fs-12-5px">{fmtDate(v.created_at)}</td>
                   <td className="ep-cell text-right">
-                    <button className="ep-b" onClick={() => openVendor(v.id)}>
-                      View
-                    </button>
+                    <IconActionButton icon="eye" label="View" size={24} onClick={() => openVendor(v.id)} />
                   </td>
                 </tr>
               ))
