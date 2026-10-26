@@ -3,13 +3,19 @@ import { loadCatalogData } from "../../lib/catalogCache";
 import type { Category, SubCategory } from "../../lib/types";
 import { TypeTag } from "../../components/Tag";
 import { IconActionButton } from "../../components/IconActionButton";
+import { useAuthState } from "../../lib/authStore";
 import { SubCategoryFormPanel } from "./SubCategoryFormPanel";
 
 // Ported 1:1 from frontend/js/pages/catalog/subCategoryListPage.js. Shares
 // catalogData.js's cache with the still-vanilla Product List/Add Product
 // screens via the window bridge -- see
 // .claude-notes/REACT-MIGRATION-PLAN.md's Phase 3 entry.
+//
+// Category Manager keeps this tab (2026-10-26, user-directed) but can only
+// view it now -- create/edit moved to System Admin alone, mirroring
+// backend/app/routers/subcategories.py's CATEGORY_EDITORS.
 export function SubCategoryListPage() {
+  const canEdit = useAuthState().user?.role === "system_admin";
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [error, setError] = useState("");
@@ -43,15 +49,17 @@ export function SubCategoryListPage() {
 
   return (
     <div className="d-flex flex-col gap-16px">
-      {formFor !== undefined && <SubCategoryFormPanel subCategory={formFor} categories={categories} onSaved={afterSave} onCancel={() => setFormFor(undefined)} />}
+      {canEdit && formFor !== undefined && <SubCategoryFormPanel subCategory={formFor} categories={categories} onSaved={afterSave} onCancel={() => setFormFor(undefined)} />}
       <div className="ep-pane">
         <div className="ep-pane-head">
           <span>Sub-Categories</span>
           <span className="d-flex items-center gap-10px">
             <span className="ep-k">used by the vendor-mapping drill-down</span>
-            <button className="ep-b" onClick={() => setFormFor(null)}>
-              + New sub-category
-            </button>
+            {canEdit && (
+              <button className="ep-b" onClick={() => setFormFor(null)}>
+                + New sub-category
+              </button>
+            )}
           </span>
         </div>
         <table className="ep-table">
@@ -80,7 +88,7 @@ export function SubCategoryListPage() {
                     <td className="ep-cell">{c?.name ?? "—"}</td>
                     <td className="ep-cell">{c ? <TypeTag type={c.procurement_type} /> : "—"}</td>
                     <td className="ep-cell ep-actions-cell text-right">
-                      <IconActionButton icon="edit" label="Edit" onClick={() => setFormFor(s)} />
+                      {canEdit && <IconActionButton icon="edit" label="Edit" onClick={() => setFormFor(s)} />}
                     </td>
                   </tr>
                 );

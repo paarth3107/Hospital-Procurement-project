@@ -130,9 +130,7 @@ export function DecisionsPage() {
                 </td>
                 <td className="ep-cell">
                   <div className="fw-600">{o.entity_label ?? `#${o.entity_id ?? "—"}`}</div>
-                  <div className="ep-sub">
-                    {o.reason_code} -- {o.justification}
-                  </div>
+                  <div className="ep-sub">{o.justification}</div>
                 </td>
                 <td className="ep-cell fs-12-5px">
                   {fmtDateTime(o.created_at)}

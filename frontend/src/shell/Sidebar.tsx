@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthState } from "../lib/authStore";
-import { ROLE_TABS, DEFAULT_VIEW_BY_ROLE, NAV_TOP, NAV_VENDOR_TOP, NAV_GROUPS } from "../lib/constants";
+import { useChromeState } from "../lib/chromeStore";
+import { ROLE_TABS, DEFAULT_VIEW_BY_ROLE, BADGE_FIELD, NAV_TOP, NAV_VENDOR_TOP, NAV_GROUPS } from "../lib/constants";
 import { NavGroup } from "./NavGroup";
 import { NavItem } from "./NavItem";
 import { useNavGroups } from "./useNavGroups";
@@ -42,7 +43,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { collapsed, peek, setPeek, toggle: toggleCollapsed } = useSidebarCollapse();
-  const { saved: savedGroups, toggle: toggleGroup } = useNavGroups();
+  const { toggle: toggleGroup, isCollapsed: isGroupCollapsed } = useNavGroups();
+  const chrome = useChromeState();
   const hasIdSuffix = pathname.replace(/^\//, "").split("/").filter(Boolean).length > 1;
   const activeTabView = tabViewFor(currentView(pathname), hasIdSuffix);
   const identity = identityFor(auth);
@@ -111,20 +113,36 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
         {items.map((it) => (
           <NavItem item={it} active={activeTabView === it.view} key={it.view} />
         ))}
-        {groups.map((g) => (
-          <NavGroup
-            groupKey={g.key}
-            label={g.label}
-            icon={g.icon}
-            collapsed={!!savedGroups[g.key] && !g.items.some((it) => it.view === activeTabView)}
-            onToggleCollapsed={() => toggleGroup(g.key)}
-            key={g.key}
-          >
-            {g.items.map((it) => (
-              <NavItem item={it} active={activeTabView === it.view} key={it.view} />
-            ))}
-          </NavGroup>
-        ))}
+        {groups.map((g) => {
+          // A group containing the page you're currently on always renders
+          // expanded (below), regardless of its saved collapsed state --
+          // but the click handler must agree, not just the render. Real bug,
+          // found 2026-10-26: toggling while inside used to flip the SAVED
+          // state anyway (it just had no visible effect, overridden the same
+          // way below), so the collapse appeared to fire later, the moment
+          // you navigated to a different group's page instead of the one
+          // you actually clicked collapse on. Ignoring the click outright
+          // while inside -- not just overriding its visible effect -- means
+          // there's nothing left pending to surprise you with on your way out.
+          const containsActive = g.items.some((it) => it.view === activeTabView);
+          return (
+            <NavGroup
+              groupKey={g.key}
+              label={g.label}
+              icon={g.icon}
+              collapsed={isGroupCollapsed(g.key) && !containsActive}
+              badgeTotal={g.items.reduce((sum, it) => sum + (it.badge ? chrome[BADGE_FIELD[it.badge]] : 0), 0)}
+              onToggleCollapsed={() => {
+                if (!containsActive) toggleGroup(g.key);
+              }}
+              key={g.key}
+            >
+              {g.items.map((it) => (
+                <NavItem item={it} active={activeTabView === it.view} key={it.view} />
+              ))}
+            </NavGroup>
+          );
+        })}
       </nav>
       <div className="ep-identity">
         {identity.name && (

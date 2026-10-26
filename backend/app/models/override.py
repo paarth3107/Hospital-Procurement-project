@@ -102,7 +102,6 @@ class OverrideRequest(Base):
     initiator_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False)
     initiator_role = Column(Enum(Role), nullable=False)
 
-    reason_code = Column(String(255), nullable=False)
     justification = Column(Text, nullable=False)
     # Free-form before/after the requester is asking to apply -- display/
     # record-keeping only in this pass (see class docstring).

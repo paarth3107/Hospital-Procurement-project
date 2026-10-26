@@ -59,7 +59,6 @@ function DueDateExtensionPanel({
 }) {
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [newDueDate, setNewDueDate] = useState("");
-  const [reasonCode, setReasonCode] = useState("");
   const [justification, setJustification] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -80,20 +79,19 @@ function DueDateExtensionPanel({
 
   const submit = async () => {
     if (!newDueDate) return onResult("Pick a new due date.", false);
-    if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
+    if (!justification.trim()) return onResult("A justification is required.", false);
     setBusy(true);
     try {
       const res = await api<{ status: string; required_approver_role: string | null }>(`/tenders/${tenderId}/bid-due-date-extension`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ new_due_date: new Date(newDueDate).toISOString(), reason_code: reasonCode.trim(), justification: justification.trim() }),
+        body: JSON.stringify({ new_due_date: new Date(newDueDate).toISOString(), justification: justification.trim() }),
       });
       onResult(
         res.status === "approved" ? "Due date extended." : `Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`,
         true
       );
       setNewDueDate("");
-      setReasonCode("");
       setJustification("");
       load();
     } catch (err) {
@@ -111,7 +109,6 @@ function DueDateExtensionPanel({
       </div>
       <div className="ep-pane-pad invite-row d-flex gap-8px items-center flex-wrap">
         <input className="input" type="datetime-local" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} />
-        <input className="input" placeholder="Reason code" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
         <input className="input" placeholder="Justification" value={justification} onChange={(e) => setJustification(e.target.value)} />
         <button type="button" className="ep-b" disabled={busy} onClick={submit}>
           Request extension
@@ -406,13 +403,12 @@ function ExpediteReviewRow({
   onResult: (message: string, ok: boolean) => void;
 }) {
   const [vendorId, setVendorId] = useState("");
-  const [reasonCode, setReasonCode] = useState("");
   const [justification, setJustification] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!vendorId) return onResult("Choose a pending vendor to flag.", false);
-    if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
+    if (!justification.trim()) return onResult("A justification is required.", false);
     setBusy(true);
     try {
       // Ungoverned (2026-10-22, user-directed) -- applies immediately, no
@@ -421,12 +417,11 @@ function ExpediteReviewRow({
       await api(`/vendors/${vendorId}/expedited-review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tender_id: tenderId, reason_code: reasonCode.trim(), justification: justification.trim() }),
+        body: JSON.stringify({ tender_id: tenderId, justification: justification.trim() }),
       });
       const vendor = pendingVendors.find((v) => String(v.id) === vendorId);
       onResult(`Flagged urgent -- ${vendor?.legal_name ?? "vendor"}'s review is now prioritized.`, true);
       setVendorId("");
-      setReasonCode("");
       setJustification("");
     } catch (err) {
       onResult(err instanceof Error ? err.message : String(err), false);
@@ -450,7 +445,6 @@ function ExpediteReviewRow({
             </option>
           ))}
         </select>
-        <input className="input" placeholder="Reason code" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
         <input className="input" placeholder="Justification" value={justification} onChange={(e) => setJustification(e.target.value)} />
         <button type="button" className="ep-b" disabled={busy} onClick={submit}>
           Flag as urgent
@@ -480,7 +474,6 @@ function EligibilityLine({
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [removeReason, setRemoveReason] = useState("");
   const [manualVendorId, setManualVendorId] = useState("");
-  const [manualReasonCode, setManualReasonCode] = useState("");
   const [manualJustification, setManualJustification] = useState("");
 
   const none = p.eligible_vendors.length === 0;
@@ -529,7 +522,7 @@ function EligibilityLine({
 
   const addManualInvite = async () => {
     if (!manualVendorId) return onAlert("Choose a vendor to invite.");
-    if (!manualReasonCode.trim() || !manualJustification.trim()) return onAlert("A reason code and justification are both required -- this invite is outside the eligibility rules, so it's a governed override.");
+    if (!manualJustification.trim()) return onAlert("A justification is required -- this invite is outside the eligibility rules, so it's a governed override.");
     const vendorId = Number(manualVendorId);
     try {
       // Spec §6.6/§12.3, governed since 2026-10-22 (reversing the
@@ -541,11 +534,10 @@ function EligibilityLine({
       const res = await api<{ status: string; required_approver_role: string | null }>(`/tenders/${tenderId}/lines/${p.line_item_id}/manual-invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendor_id: vendorId, reason_code: manualReasonCode.trim(), justification: manualJustification.trim() }),
+        body: JSON.stringify({ vendor_id: vendorId, justification: manualJustification.trim() }),
       });
       await onAlert(`Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`, "Manual invite requested");
       setManualVendorId("");
-      setManualReasonCode("");
       setManualJustification("");
     } catch (err) {
       await onAlert(err instanceof Error ? err.message : String(err));
@@ -613,7 +605,6 @@ function EligibilityLine({
               </option>
             ))}
           </select>
-          <input className="input" placeholder="Reason code" value={manualReasonCode} onChange={(e) => setManualReasonCode(e.target.value)} />
           <input className="input" placeholder="Justification" value={manualJustification} onChange={(e) => setManualJustification(e.target.value)} />
           <button type="button" className="ep-b" onClick={addManualInvite}>
             Request invite

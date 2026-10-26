@@ -460,7 +460,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
             DashboardRecentPublishedOut(id=t.id, title=t.title, published_at=t.published_at) for t in recently_published
         ],
         pending_decisions=[
-            DashboardPendingDecisionOut(id=o.id, override_type=o.override_type.value, entity_label=o.entity_label, reason_code=o.reason_code, created_at=o.created_at)
+            DashboardPendingDecisionOut(id=o.id, override_type=o.override_type.value, entity_label=o.entity_label, justification=o.justification, created_at=o.created_at)
             for o in pending_decisions
         ],
     )

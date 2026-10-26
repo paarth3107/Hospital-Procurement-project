@@ -3,13 +3,20 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.product_master import ProcurementType, ProductCategory, ProductMaster
-from app.models.user_account import UserAccount
-from app.routers.products import CATALOG_MANAGERS
+from app.models.user_account import Role, UserAccount
 from app.schemas.product import CategoryCreate, CategoryOut
 from app.services.audit import changed, record, snapshot
 from app.security import require_role
 
 CATEGORY_FIELDS = ("name", "procurement_type", "min_mapping_rating", "required_documents")
+
+# User-directed, 2026-10-26: Category Manager keeps the Category/Sub-Category
+# tabs (read-only -- list_categories/list_subcategories below stay public,
+# same as before) but can no longer create or edit either one -- that moved
+# to System Admin alone. Product creation/edit is untouched (still
+# products.py's CATALOG_MANAGERS, Category Manager + System Admin) -- only
+# category/sub-category maintenance split off from it.
+CATEGORY_EDITORS = (Role.SYSTEM_ADMIN,)
 
 router = APIRouter(prefix="/api/v1/categories", tags=["categories"])
 
@@ -28,7 +35,7 @@ def list_categories(procurement_type: ProcurementType | None = None, db: Session
 def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*CATALOG_MANAGERS)),
+    _user: UserAccount = Depends(require_role(*CATEGORY_EDITORS)),
 ):
     existing = (
         db.query(ProductCategory)
@@ -51,7 +58,7 @@ def update_category(
     category_id: int,
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*CATALOG_MANAGERS)),
+    _user: UserAccount = Depends(require_role(*CATEGORY_EDITORS)),
 ):
     category = db.get(ProductCategory, category_id)
     if not category:

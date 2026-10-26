@@ -223,12 +223,11 @@ class ManualInviteCreate(BaseModel):
     §6.7 "Guest Invite" is a different, unimplemented feature about a vendor
     with no existing profile at all. See CLAUDE.md). Governed since
     2026-10-22 (reversing the 2026-10-06 "no second approval step" decision,
-    user-directed) -- reason_code/justification match every other governed
-    override's request schema, not the single free-text `reason` this had
-    before."""
+    user-directed). Reason codes were dropped from the override engine
+    2026-10-26 (user-directed) -- `justification` alone is now the request's
+    reason."""
 
     vendor_id: int
-    reason_code: str
     justification: str
 
     @field_validator("justification")
@@ -330,7 +329,6 @@ class LateSubmissionExceptionRequest(BaseModel):
     initiator is always a staff UserAccount) asking to admit a bid that
     arrived after the deadline, instead of leaving it excluded."""
 
-    reason_code: str
     justification: str
 
     @field_validator("justification")
@@ -345,7 +343,6 @@ class DueDateExtensionRequest(BaseModel):
     (OverrideTypeConfig), beyond which it routes to Category Manager."""
 
     new_due_date: datetime
-    reason_code: str
     justification: str
 
     @field_validator("justification")

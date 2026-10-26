@@ -60,8 +60,16 @@ export const ROLE_TABS: Record<string, string[]> = {
   // "needs a Procurement Officer's decision" anymore -- Due-Date
   // Extension is the only other self-attested-for-Officer type, and it
   // self-attests the same way for Category Manager/System Admin now too.
-  procurement_officer: ["dashboard", "tenders", "tender-edit", "evaluation", "awards"],
-  category_manager: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "pofiles", "decisions"],
+  // 2026-10-26, user-directed role reassignment ("laying some roles off"
+  // Category Manager): vendor document/status review ("queue") moved to
+  // System Admin only, Category Manager loses it entirely; Category/
+  // Sub-Category tabs stay on Category Manager's sidebar (CATALOG_VIEWS,
+  // unchanged below) but create/edit on those two is now System-Admin-only
+  // at the page level (see CategoryListPage.tsx/SubCategoryListPage.tsx) --
+  // Product List/Add Product are untouched; PO Data Files moved to
+  // Procurement Officer. Mapping and Ratings stay with Category Manager.
+  procurement_officer: ["dashboard", "tenders", "tender-edit", "evaluation", "awards", "pofiles"],
+  category_manager: ["dashboard", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "decisions"],
   approving_authority: ["dashboard", "approvals", "awards", "decisions"],
   system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "tender-edit", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions"],
 };
@@ -89,6 +97,20 @@ export interface NavItem {
   icon: string;
   badge?: "queue" | "mappings" | "approvals" | "awards" | "decisions" | "vendor-categories" | "vendor-dashboard";
 }
+
+// Which ChromeState field each nav item's badge reads (lib/chromeStore.ts).
+// Shared by NavItem.tsx (an item's own badge) and Sidebar.tsx (a collapsed
+// group's combined total, summed from the same items' badges, 2026-10-26
+// user-directed) -- one mapping, not two copies that could drift.
+export const BADGE_FIELD: Record<NonNullable<NavItem["badge"]>, "badgeQueue" | "badgeMappings" | "badgeApprovals" | "badgeAwards" | "badgeDecisions" | "badgeVendorCategories" | "badgeVendorDashboard"> = {
+  queue: "badgeQueue",
+  mappings: "badgeMappings",
+  approvals: "badgeApprovals",
+  awards: "badgeAwards",
+  decisions: "badgeDecisions",
+  "vendor-categories": "badgeVendorCategories",
+  "vendor-dashboard": "badgeVendorDashboard",
+};
 export const NAV_TOP: NavItem[] = [
   { view: "dashboard", label: "Dashboard", icon: "dashboard" },
   { view: "decisions", label: "Decisions", icon: "check-square", badge: "decisions" },

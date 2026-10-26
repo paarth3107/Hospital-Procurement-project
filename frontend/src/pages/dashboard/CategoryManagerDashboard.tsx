@@ -1,7 +1,6 @@
 import { KpiStrip, type KpiCell } from "../../components/KpiStrip";
 import { PipelineTracker, type StageRow } from "./PipelineTracker";
 import { ActionQueuePanel } from "./ActionQueuePanel";
-import { VendorBasePanel } from "./VendorBasePanel";
 import type { DashboardCategoryManager, DashboardStats, StaffRole } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboard/categoryManagerDashboard.js --
@@ -9,17 +8,18 @@ import type { DashboardCategoryManager, DashboardStats, StaffRole } from "../../
 // CLAUDE.md) -- product decision, 2026-09-30. Replaces the generic
 // dashboard's PO-facing numbers (Live tenders / Awaiting your approval /
 // Bids submitted aren't this role's job -- it doesn't even have an
-// "approvals" tab) with the four queues this role actually runs.
+// "approvals" tab) with the queues this role actually runs.
 //
-// KYC, mapping and rating hygiene stay outside any pipeline: they're
-// independent queues running in parallel, not steps of one tender's
-// lifecycle. Technical evaluation is different -- it IS a step of a
-// tender's lifecycle this role actually owns, so it gets the same
-// "Procurement pipeline" tracker the Officer's and Approving Authority's
-// dashboards have, scoped to just that step.
+// Vendor KYC dropped from here 2026-10-26 (user-directed role reassignment)
+// -- vendor document/status review moved to System Admin only, so this
+// role no longer has that queue at all. Mapping and rating hygiene stay
+// outside any pipeline: they're independent queues running in parallel.
+// Technical evaluation is different -- it IS a step of a tender's lifecycle
+// this role actually owns, so it gets the same "Procurement pipeline"
+// tracker the Officer's and Approving Authority's dashboards have, scoped
+// to just that step.
 function kpiCells(s: DashboardStats): KpiCell[] {
   return [
-    ["Vendor KYC", s.vendors_pending_count, "", "queue", "user-check", "primary"],
     ["Mapping requests", s.mappings_pending_count, "", "mappings-requests", "layers", "info"],
     ["Technical Evaluation", s.eval_workload.length, "", "evaluation", "bar-chart", "success"],
     ["Ratings needing refresh", s.stale_ratings.length, "", "ratings", "star", "warning"],
@@ -43,10 +43,7 @@ export function CategoryManagerDashboard({ s, role }: { s: DashboardStats; role:
     <div className="d-flex flex-col gap-22px">
       <KpiStrip cells={kpiCells(s)} />
       {c && <PipelineTracker subtitle="technical evaluation, where it sits now" stages={stages(c)} pickColors={(p) => [p.success, p.warning, p.info]} />}
-      <div className="ep-grid grid-cols-1-45fr-1fr">
-        <ActionQueuePanel s={s} role={role} />
-        <VendorBasePanel s={s} />
-      </div>
+      <ActionQueuePanel s={s} role={role} />
     </div>
   );
 }

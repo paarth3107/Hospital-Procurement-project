@@ -59,10 +59,11 @@ def doc_label(doc: VendorDocument) -> str:
     return doc.custom_label if doc.doc_type.value == "other" else doc.doc_type.value.replace("_", " ")
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
-# Document review/decisioning sits with Category Manager (user-directed).
-# System Admin was already missing from approve/reject/request-info despite
-# having list/get access -- folded into one set so that gap doesn't recur.
-VENDOR_DECISION_ROLES = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
+# Vendor status/document review moved off Category Manager entirely
+# (2026-10-26, user-directed: "the system admin to take care of the vendor
+# document approval and nobody else" -- Category Manager keeps Mapping and
+# Ratings, nothing vendor-queue-related).
+VENDOR_DECISION_ROLES = (Role.SYSTEM_ADMIN,)
 
 # Spec §3.4: only these two statuses are legal starting points for an
 # admin decision. An already-Active or already-Rejected vendor can't be
@@ -478,7 +479,7 @@ def complete_vendor_registration(vendor_id: int, payload: VendorCompleteRegistra
     )
     notify_vendor(
         db, vendor.id, kind="registered", title="Registration received",
-        body=f"Thank you for registering with MedSource, {vendor.legal_name}. Your documents are now pending verification -- we'll notify you once a Category Manager has reviewed them.",
+        body=f"Thank you for registering with MedSource, {vendor.legal_name}. Your documents are now pending verification -- we'll notify you once they've been reviewed.",
     )
     db.commit()
     db.refresh(vendor)
@@ -547,7 +548,7 @@ def lookup_vendors(
     _user: UserAccount = Depends(get_current_user),
 ):
     """Backs the vendor picker on Vendor Mapping / Vendor Rating — any staff
-    member needs to find a vendor by name there, not just Category Manager,
+    member needs to find a vendor by name there, not just System Admin,
     but the full `GET /vendors` listing (GSTIN/PAN/contact) stays admin-only.
     No filter by default; callers creating a new mapping pass
     `status_filter=active` (CLAUDE.md PROJECT OVERRIDE: only Active vendors
@@ -698,7 +699,7 @@ def request_expedited_review(
 ):
     """Flags a still-pending vendor's review as urgent against a tender
     deadline -- applies immediately, no approval step. Never grants any
-    vendor-decision power (VENDOR_DECISION_ROLES stays Category-Manager-only
+    vendor-decision power (VENDOR_DECISION_ROLES stays System-Admin-only
     throughout); this only ever changes where/how the vendor shows up on
     the existing, already-governed review queue."""
 
@@ -716,7 +717,7 @@ def request_expedited_review(
     record(
         db, "vendor.expedited_review_flagged", "vendor", vendor.id, actor=user, entity_label=vendor.legal_name,
         facility_id=tender.facility_id, reason=payload.justification,
-        meta={"tender_id": tender.id, "reason_code": payload.reason_code},
+        meta={"tender_id": tender.id},
     )
     db.commit()
 
@@ -751,11 +752,6 @@ def suspend_vendor(
     return vendor
 
 
-# Bringing a blacklisted vendor back is the vendor-decision roles' job
-# (Category Manager; System Admin catch-all).
-BLACKLIST_REINSTATERS = (Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)
-
-
 @router.post("/{vendor_id}/reinstate", response_model=VendorMaskedOut)
 def reinstate_vendor(
     vendor_id: int,
@@ -765,15 +761,13 @@ def reinstate_vendor(
 ):
     """Suspended -> Active, or Blacklisted -> Active.
 
-    A blacklisted vendor is reinstated by Category
-    Manager (or System Admin), and only with an explicit reason, which is written to
+    A blacklisted vendor is reinstated by System Admin (the only vendor-
+    decision role now), and only with an explicit reason, which is written to
     the vendor's status history. A suspension can be lifted by the usual
     decision roles."""
 
     vendor = _load_vendor(vendor_id, db)
     if vendor.status == VendorStatus.BLACKLISTED:
-        if user.role not in BLACKLIST_REINSTATERS:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Category Manager can reinstate a blacklisted vendor")
         if not (payload.reason and len(payload.reason.strip()) >= 10):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -822,7 +816,7 @@ def blacklist_vendor(
 ):
     """Bars an Active or Suspended vendor (spec 3.4 "Rejected / Blacklisted"):
     they can no longer log in, bid, be mapped or be invited. The way back is
-    reinstate (Category Manager, with an explicit reason)."""
+    reinstate (System Admin, with an explicit reason)."""
 
     vendor = _load_vendor(vendor_id, db)
     if vendor.status not in (VendorStatus.ACTIVE, VendorStatus.SUSPENDED):
@@ -901,7 +895,7 @@ def vendor_status_history(
     return entries
 
 
-# ---- Document review (Category Manager / System Admin) ----
+# ---- Document review (System Admin only) ----
 
 
 @router.get("/{vendor_id}/documents", response_model=list[VendorDocumentOut])

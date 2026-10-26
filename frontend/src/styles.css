@@ -48,6 +48,12 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 
 /* ---------- shell: sidebar ---------- */
 .ep-side { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--sidebar-bg); box-shadow: 0 0 22px 0 rgba(var(--ink-rgb), .06); display: flex; flex-direction: column; z-index: 50; overflow-x: hidden; overflow-y: auto; transition: width .25s ease, box-shadow .25s ease; }
+/* Invisible scrollbar (2026-10-26, user-directed -- first made it a thin
+   short custom thumb, then asked for it gone entirely): still scrolls
+   (overflow-y: auto up on .ep-side above), just draws no track/thumb at
+   all, so it can never shove the right-aligned nav badges left again. */
+.ep-side { scrollbar-width: none; }
+.ep-side::-webkit-scrollbar { width: 0; height: 0; }
 .ep-brand { display: flex; align-items: center; gap: 12px; padding: 26px 26px 22px; cursor: pointer; }
 .ep-brand-mark { width: 28px; height: 28px; flex: none; border-radius: var(--radius); background: var(--primary); color: var(--on-solid); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
 .ep-brand-name { font-size: 18px; font-weight: 600; line-height: 1.1; white-space: nowrap; min-width: 0; transition: opacity .2s ease; }
@@ -66,10 +72,19 @@ body.sidebar-collapsed .collapse-chevron { transform: rotate(180deg); }
 .nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px; font-weight: 600; flex: none; transition: opacity .2s ease; }
 .ep-nav .nav-badge { background: var(--danger); color: var(--on-solid); }
 .ep-nav .nav-badge:empty { display: none; }
+/* A top-level item (Dashboard, Decisions) has no trailing chevron the way a
+   group header does, so its badge sat flush against the row's own edge
+   padding while every group header's badge sat one chevron+gap to the left
+   of it -- visibly misaligned between the two row types. 12px gap + 14px
+   chevron (NavGroup.tsx) = the same 26px reserved on a plain item's badge
+   too, 2026-10-26 user-directed. */
+.ep-navlist > .ep-nav .nav-badge { margin-right: 26px; }
 .ep-nav.active .nav-badge { background: var(--on-solid); color: var(--primary); }
 .ep-navgroup-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--ink); text-align: left; }
 .ep-navgroup-head:hover { background: var(--ink-06); }
 .ep-navgroup-head .nav-label { flex: 1; min-width: 0; white-space: nowrap; transition: opacity .2s ease; }
+.ep-navgroup-head .nav-badge { background: var(--danger); color: var(--on-solid); }
+.ep-navgroup-head .nav-badge:empty { display: none; }
 .ep-navgroup-head .nav-chevron { margin-left: auto; flex: none; transition: transform .15s, opacity .2s ease; }
 .ep-navgroup.collapsed .nav-chevron { transform: rotate(-90deg); }
 /* Vuexy-style slide (2026-10-08): max-height is pinned to a measured pixel
@@ -384,7 +399,11 @@ button.ep-tag { border: 0; font-family: inherit; }
 .ep-seg button { border: 0; background: transparent; padding: 9px 18px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--ink-70); border-radius: calc(var(--radius) - 2px); }
 .ep-seg button:hover { color: var(--ink); }
 .ep-seg button.on { background: var(--surface); color: var(--primary); box-shadow: 0 1px 4px rgba(var(--ink-rgb), .12); }
-.ep-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+/* repeat(4, 1fr) left a dead trailing cell once Category Manager's strip
+   dropped to 3 cards (2026-10-26, Vendor KYC removed) -- auto-fit stretches
+   whatever count is actually passed in to fill the row evenly, same as a
+   full 4 looked before. */
+.ep-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
 .ep-kpi { background: var(--surface); padding: 26px 26px; border-radius: var(--radius); box-shadow: var(--card-shadow); }
 button.ep-kpi { border: none; font: inherit; text-align: left; width: 100%; cursor: pointer; }
 button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.product_master import ProductCategory, ProductSubCategory
 from app.models.user_account import UserAccount
-from app.routers.products import CATALOG_MANAGERS
+from app.routers.categories import CATEGORY_EDITORS
 from app.schemas.product import SubCategoryCreate, SubCategoryOut
 from app.services.audit import changed, record, snapshot
 from app.security import require_role
@@ -29,7 +29,7 @@ def list_subcategories(category_id: int | None = None, db: Session = Depends(get
 def create_subcategory(
     payload: SubCategoryCreate,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*CATALOG_MANAGERS)),
+    _user: UserAccount = Depends(require_role(*CATEGORY_EDITORS)),
 ):
     category = db.get(ProductCategory, payload.category_id)
     if not category or not category.active:
@@ -55,7 +55,7 @@ def update_subcategory(
     subcategory_id: int,
     payload: SubCategoryCreate,
     db: Session = Depends(get_db),
-    _user: UserAccount = Depends(require_role(*CATALOG_MANAGERS)),
+    _user: UserAccount = Depends(require_role(*CATEGORY_EDITORS)),
 ):
     sub_category = db.get(ProductSubCategory, subcategory_id)
     if not sub_category:

@@ -443,7 +443,7 @@ def request_evaluation_correction(bid_id: int, payload: EvaluationCorrectionIn, 
     override = overrides.create_override(
         db, override_type=OverrideType.TECHNICAL_SCORE_CORRECTION, initiator=user, entity_type="bid_evaluation", entity_id=ev.id,
         entity_label=f"#{line.tender.id} {line.tender.title} - {line.product.name} - {bid.vendor.legal_name}", facility_id=line.tender.facility_id,
-        reason_code=payload.reason_code, justification=payload.justification, proposed_change={"before": before, "after": after},
+        justification=payload.justification, proposed_change={"before": before, "after": after},
     )
     if changes_outcome:
         overrides.escalate_override(db, override, actor=None, reason="Correction changes the technical qualification/T-rank outcome for this line (spec §12.3)")

@@ -38,7 +38,6 @@ export function AdjustRatingDialog({
   // override, never a routine PATCH, so it's a separate action entirely.
   const [overriding, setOverriding] = useState(false);
   const [newScore, setNewScore] = useState("");
-  const [overrideReasonCode, setOverrideReasonCode] = useState("");
   const [overrideJustification, setOverrideJustification] = useState("");
   const [overrideResult, setOverrideResult] = useState<{ message: string; ok: boolean } | null>(null);
 
@@ -72,16 +71,15 @@ export function AdjustRatingDialog({
     setOverrideResult(null);
     const score = Number(newScore);
     if (newScore === "" || Number.isNaN(score) || score < 0 || score > 100) return setOverrideResult({ message: "Score must be 0 to 100.", ok: false });
-    if (!overrideReasonCode.trim() || !overrideJustification.trim()) return setOverrideResult({ message: "A reason code and justification are both required.", ok: false });
+    if (!overrideJustification.trim()) return setOverrideResult({ message: "A justification is required.", ok: false });
     try {
       const res = await api<{ override_id: number; status: string; required_approver_role: string | null }>(`/ratings/${vendor.id}/price-competitiveness-override`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ procurement_type: type, new_score: score, reason_code: overrideReasonCode.trim(), justification: overrideJustification.trim() }),
+        body: JSON.stringify({ procurement_type: type, new_score: score, justification: overrideJustification.trim() }),
       });
       setOverrideResult({ message: `Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`, ok: true });
       setNewScore("");
-      setOverrideReasonCode("");
       setOverrideJustification("");
       setOverriding(false);
     } catch (err) {
@@ -115,15 +113,9 @@ export function AdjustRatingDialog({
               <div className="hint">
                 Spec §5.3.1/§12.3 -- this is a governed override, not a routine edit. It won't change the score until approved.
               </div>
-              <div className="ep-form-grid grid-cols-1fr-1fr mt-8px">
-                <div className="ep-field">
-                  <div className="ep-k">New score</div>
-                  <input className="input" type="number" step={0.1} min={0} max={100} value={newScore} onChange={(e) => setNewScore(e.target.value)} />
-                </div>
-                <div className="ep-field">
-                  <div className="ep-k">Reason code</div>
-                  <input className="input" value={overrideReasonCode} onChange={(e) => setOverrideReasonCode(e.target.value)} />
-                </div>
+              <div className="ep-field mt-8px">
+                <div className="ep-k">New score</div>
+                <input className="input" type="number" step={0.1} min={0} max={100} value={newScore} onChange={(e) => setNewScore(e.target.value)} />
               </div>
               <div className="ep-field mt-8px">
                 <div className="ep-k">Justification</div>

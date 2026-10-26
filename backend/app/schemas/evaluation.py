@@ -178,12 +178,11 @@ class EvaluationSave(BaseModel):
 class EvaluationCorrectionIn(BaseModel):
     """Spec §9.2.4 / §12.3 — a change to a bid's evaluation after the line's
     technical evaluation is closed. Same content as EvaluationSave, plus the
-    reason code + justification a governed override requires."""
+    justification a governed override requires."""
 
     decision: TechnicalDecision
     scores: dict[str, float | None] = {}
     comments: str | None = None
-    reason_code: str
     justification: str
 
     @field_validator("comments")

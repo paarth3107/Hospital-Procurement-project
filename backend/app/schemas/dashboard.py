@@ -196,7 +196,7 @@ class DashboardPendingDecisionOut(BaseModel):
     id: int
     override_type: str
     entity_label: str | None
-    reason_code: str
+    justification: str
     created_at: datetime
 
 

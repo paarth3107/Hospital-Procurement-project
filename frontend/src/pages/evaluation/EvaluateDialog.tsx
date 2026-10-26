@@ -59,7 +59,6 @@ export function EvaluateDialog({
   const [qdDecision, setQdDecision] = useState<"qualified" | "disqualified">("qualified");
   const [comments, setComments] = useState("");
   const [commentsInvalid, setCommentsInvalid] = useState(false);
-  const [reasonCode, setReasonCode] = useState("");
   const [justification, setJustification] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -141,8 +140,8 @@ export function EvaluateDialog({
       setCommentsInvalid(true);
       return;
     }
-    if (mode === "correct" && (!reasonCode.trim() || !justification.trim())) {
-      setError("A reason code and justification are both required to correct a closed evaluation.");
+    if (mode === "correct" && !justification.trim()) {
+      setError("A justification is required to correct a closed evaluation.");
       return;
     }
     setSaving(true);
@@ -153,7 +152,7 @@ export function EvaluateDialog({
         const res = await api<{ status: string; required_approver_role: string | null; escalated: boolean }>(`/evaluation/bids/${review.bid_id}/evaluation-correction`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ decision, scores, comments, reason_code: reasonCode.trim(), justification: justification.trim() }),
+          body: JSON.stringify({ decision, scores, comments, justification: justification.trim() }),
         });
         onSaved(
           res.escalated
@@ -334,15 +333,9 @@ export function EvaluateDialog({
               {commentsInvalid && <div className="hint mt-4px text-danger-700">A reason is mandatory to disqualify a bid.</div>}
             </div>
             {mode === "correct" && (
-              <div className="ep-form-grid grid-cols-1fr-1fr mt-8px">
-                <div className="ep-field">
-                  <div className="ep-k">Reason code</div>
-                  <input className="input" disabled={locked} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
-                </div>
-                <div className="ep-field">
-                  <div className="ep-k">Justification</div>
-                  <input className="input" disabled={locked} value={justification} onChange={(e) => setJustification(e.target.value)} />
-                </div>
+              <div className="ep-field mt-8px">
+                <div className="ep-k">Justification</div>
+                <input className="input" disabled={locked} value={justification} onChange={(e) => setJustification(e.target.value)} />
               </div>
             )}
           </div>

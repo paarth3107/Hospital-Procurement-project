@@ -215,7 +215,11 @@ export function VendorViewPage() {
   }
   if (!vendor) return backLink;
 
-  const canReinstateBlacklisted = currentUser ? ["category_manager", "system_admin"].includes(currentUser.role) : false;
+  // Vendor decisions are System-Admin-only now (2026-10-26, user-directed) --
+  // this page itself is unreachable to any other role, so this is really
+  // just documenting the mirrored backend gate (vendors.py's
+  // VENDOR_DECISION_ROLES), not distinguishing anyone out.
+  const canReinstateBlacklisted = currentUser?.role === "system_admin";
 
   return (
     <div className="d-flex flex-col gap-18px">

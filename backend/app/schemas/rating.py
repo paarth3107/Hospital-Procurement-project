@@ -30,7 +30,6 @@ class RatingOverrideCreate(BaseModel):
 
     procurement_type: ProcurementType
     new_score: float
-    reason_code: str
     justification: str
 
 

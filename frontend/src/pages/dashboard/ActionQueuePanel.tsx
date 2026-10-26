@@ -89,7 +89,7 @@ function buildTasks(s: DashboardStats, role: StaffRole | undefined): ActionTask[
   // Decided on the new Decisions tab, not here -- this row just gets you
   // there.
   for (const d of s.pending_decisions)
-    add("decisions", { task: `Decide — ${OVERRIDE_TYPE_LABELS[d.override_type] ?? d.override_type}`, detail: `${d.entity_label ?? ""} · ${d.reason_code}`, ref: `#${d.id}`, due: "today", hot: true });
+    add("decisions", { task: `Decide — ${OVERRIDE_TYPE_LABELS[d.override_type] ?? d.override_type}`, detail: `${d.entity_label ?? ""} · ${d.justification}`, ref: `#${d.id}`, due: "today", hot: true });
   // Array.prototype.sort is a stable sort (ES2019+) -- this only promotes
   // `urgent` tasks ahead of everything else, without reshuffling the
   // relative order of anything else built above.

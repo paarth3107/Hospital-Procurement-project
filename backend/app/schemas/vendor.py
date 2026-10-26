@@ -518,7 +518,6 @@ class ExpeditedReviewRequest(BaseModel):
     vendor's review as high priority against a tender deadline."""
 
     tender_id: int
-    reason_code: str
     justification: str
 
 

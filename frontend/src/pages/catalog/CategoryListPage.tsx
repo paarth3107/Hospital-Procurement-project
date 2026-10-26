@@ -5,13 +5,19 @@ import { ImgPlaceholder } from "../../components/ImgPlaceholder";
 import { IconActionButton } from "../../components/IconActionButton";
 import { Tag, TypeTag } from "../../components/Tag";
 import { docLabel } from "../../lib/constants";
+import { useAuthState } from "../../lib/authStore";
 import { CategoryFormPanel } from "./CategoryFormPanel";
 
 // Ported 1:1 from frontend/js/pages/catalog/categoryListPage.js. Shares its
 // data cache (catalogData.js) with the still-vanilla Product List/Add
 // Product screens via the window bridge -- see
 // .claude-notes/REACT-MIGRATION-PLAN.md's Phase 3 entry.
+//
+// Category Manager keeps this tab (2026-10-26, user-directed) but can only
+// view it now -- create/edit moved to System Admin alone, mirroring
+// backend/app/routers/categories.py's CATEGORY_EDITORS.
 export function CategoryListPage() {
+  const canEdit = useAuthState().user?.role === "system_admin";
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [error, setError] = useState("");
@@ -47,11 +53,13 @@ export function CategoryListPage() {
     <div className="d-flex flex-col gap-16px">
       <div className="d-flex items-center gap-14px flex-wrap">
         <div className="hint flex-1">restricted categories need a minimum vendor rating to map</div>
-        <button className="ep-b" onClick={() => setFormFor(null)}>
-          + New category
-        </button>
+        {canEdit && (
+          <button className="ep-b" onClick={() => setFormFor(null)}>
+            + New category
+          </button>
+        )}
       </div>
-      {formFor !== undefined && <CategoryFormPanel category={formFor} onSaved={afterSave} onCancel={() => setFormFor(undefined)} />}
+      {canEdit && formFor !== undefined && <CategoryFormPanel category={formFor} onSaved={afterSave} onCancel={() => setFormFor(undefined)} />}
       {!categories.length ? (
         <div className="ep-pane ep-pane-pad hint">No categories yet.</div>
       ) : (
@@ -70,7 +78,7 @@ export function CategoryListPage() {
                       <div className="ep-sub">{count} item(s)</div>
                     </div>
                   </div>
-                  <IconActionButton icon="edit" label="Edit" onClick={() => setFormFor(c)} />
+                  {canEdit && <IconActionButton icon="edit" label="Edit" onClick={() => setFormFor(c)} />}
                 </div>
                 <div className="d-flex items-center gap-8px flex-wrap">
                   <TypeTag type={c.procurement_type} />

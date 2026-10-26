@@ -262,7 +262,6 @@ export interface OverrideOut {
   entity_id: number | null;
   entity_label: string | null;
   initiator_role: string;
-  reason_code: string;
   justification: string;
   status: string;
   required_approver_role: string | null;
@@ -1083,7 +1082,7 @@ export interface DashboardPendingDecision {
   id: number;
   override_type: string;
   entity_label: string | null;
-  reason_code: string;
+  justification: string;
   created_at: string;
 }
 

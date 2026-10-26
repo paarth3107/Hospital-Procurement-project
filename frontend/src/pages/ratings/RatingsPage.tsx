@@ -63,7 +63,9 @@ export function RatingsPage() {
 
   const ratingByVendor = new Map(ratings.filter((r) => r.procurement_type === type).map((r) => [r.vendor_id, r]));
 
-  const canAdjust = currentUser?.role === "category_manager";
+  // System Admin gained manual-rating access 2026-10-26 (user-directed) --
+  // it already had every other role's access, this was the one gap.
+  const canAdjust = currentUser?.role === "category_manager" || currentUser?.role === "system_admin";
 
   return (
     <div className="d-flex flex-col gap-18px">

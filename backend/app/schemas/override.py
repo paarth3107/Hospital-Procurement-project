@@ -13,7 +13,6 @@ class OverrideCreate(BaseModel):
     entity_id: int | None = None
     entity_label: str | None = None
     facility_id: int | None = None
-    reason_code: str
     justification: str
     proposed_change: dict | None = None
     trigger_value: float | None = None
@@ -47,7 +46,6 @@ class OverrideOut(BaseModel):
     facility_id: int | None
     initiator_id: int
     initiator_role: Role
-    reason_code: str
     justification: str
     proposed_change: dict | None
     status: OverrideStatus

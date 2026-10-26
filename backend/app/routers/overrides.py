@@ -50,7 +50,6 @@ def create_override(payload: OverrideCreate, db: Session = Depends(get_db), user
         entity_id=payload.entity_id,
         entity_label=payload.entity_label,
         facility_id=payload.facility_id,
-        reason_code=payload.reason_code,
         justification=payload.justification,
         proposed_change=payload.proposed_change,
         trigger_value=payload.trigger_value,

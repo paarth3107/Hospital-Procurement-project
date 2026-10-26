@@ -865,10 +865,10 @@ def run(allow_wipe: bool):
         # ---- overrides (Decisions page), via the real create/approve/reject --
         # also produces StaffNotification rows for the already-decided ones,
         # same as a real decision would.
-        def ov(otype, entity_type, entity_id, label, reason_code, why, change, outcome, created, decided_delay_hours=1, decider=None, decision_reason=None, trigger_value=None):
+        def ov(otype, entity_type, entity_id, label, why, change, outcome, created, decided_delay_hours=1, decider=None, decision_reason=None, trigger_value=None):
             req = create_override(
                 db, override_type=otype, initiator=officer, entity_type=entity_type, entity_id=entity_id, entity_label=label,
-                facility_id=facility.id, reason_code=reason_code, justification=why, proposed_change=change, trigger_value=trigger_value,
+                facility_id=facility.id, justification=why, proposed_change=change, trigger_value=trigger_value,
             )
             db.flush()
             req.created_at = created
@@ -896,7 +896,7 @@ def run(allow_wipe: bool):
         P = OverrideStatus.PENDING_APPROVAL
         l49 = lines[(49, 0)]
         ov(OverrideType.INVITE_LIST_MANUAL_ADD, "tender_line_item", l49.id, "#49 OPD Linen Laundry – 12 Month Contract — Linen Laundry Service — PharmaLink Distributors",
-           "supply_continuity", "Only two eligible vendors for laundry; PharmaLink runs a laundry unit in Kolkata",
+           "Only two eligible vendors for laundry; PharmaLink runs a laundry unit in Kolkata",
            {"tender_id": 49, "line_item_id": l49.id, "vendor_id": 3, "vendor_name": "PharmaLink Distributors", "line_value": 24000 * 26}, P, ago(0, 3))
         t46 = tenders[46]
         # trigger_value (8 days) deliberately exceeds DUE_DATE_EXTENSION's
@@ -907,23 +907,23 @@ def run(allow_wipe: bool):
         # threshold, create_override() auto-approves it on the spot instead
         # (see the officer-initiated #42 case below) -- there'd be nothing
         # left pending to show.
-        ov(OverrideType.DUE_DATE_EXTENSION, "tender", 46, "#46 Annual Rate Contract – Surgical Consumables FY26-27", "low_response",
+        ov(OverrideType.DUE_DATE_EXTENSION, "tender", 46, "#46 Annual Rate Contract – Surgical Consumables FY26-27",
            "3 of 5 lines have no submitted bid yet",
            {"before": t46.bid_due_date.isoformat(), "after": (t46.bid_due_date + timedelta(days=8)).isoformat(), "extension_days": 8}, P, ago(0, 2), trigger_value=8.0)
         r2 = db.query(VendorRating).filter_by(vendor_id=2, procurement_type=I).one()
-        ov(OverrideType.PRICE_COMPETITIVENESS_OVERRIDE, "vendor_rating", r2.id, "SurgiCare Supplies Ltd — item", "market_evidence",
+        ov(OverrideType.PRICE_COMPETITIVENESS_OVERRIDE, "vendor_rating", r2.id, "SurgiCare Supplies Ltd — item",
            "Last two quotes were within 5% of L1", {"before": r2.price_competitiveness, "after": 70.0}, P, ago(0, 4))
         l34g = lines[(34, 1)]
         ov(OverrideType.INVITE_LIST_MANUAL_ADD, "tender_line_item", l34g.id, "#34 OPD Expansion – Reagents, OT Table & Laundry — Glucose Reagent Kit — PharmaLink Distributors",
-           "supply_continuity", "Local supplier, quick delivery",
+           "Local supplier, quick delivery",
            {"tender_id": 34, "line_item_id": l34g.id, "vendor_id": 3, "vendor_name": "PharmaLink Distributors", "line_value": 50 * 2200},
            OverrideStatus.APPROVED, ago(12), decided_delay_hours=24, decider=cm)
         b41 = bids[(41, 0, 1)]
         ov(OverrideType.LATE_SUBMISSION_EXCEPTION, "bid", b41.id, "#41 Glucose Reagent Kit – Urgent Requirement — Glucose Reagent Kit — MedEquip Solutions Pvt Ltd",
-           "portal_outage", "Portal outage reported by vendor", {"before": "pending_late_exception", "after": "submitted"},
+           "Portal outage reported by vendor", {"before": "pending_late_exception", "after": "submitted"},
            OverrideStatus.APPROVED, ago(1, 1), decided_delay_hours=1, decider=cm)
         t42 = tenders[42]
-        ov(OverrideType.DUE_DATE_EXTENSION, "tender", 42, "#42 Glucose Reagent Kit – Top-up Order", "low_response", "Only one vendor had responded",
+        ov(OverrideType.DUE_DATE_EXTENSION, "tender", 42, "#42 Glucose Reagent Kit – Top-up Order", "Only one vendor had responded",
            {"before": (t42.bid_due_date - timedelta(days=3)).isoformat(), "after": t42.bid_due_date.isoformat(), "extension_days": 3},
            OverrideStatus.APPROVED, ago(2), decided_delay_hours=2, decider=officer, trigger_value=3.0)
         db.flush()

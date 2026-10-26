@@ -809,7 +809,7 @@ def request_manual_invite(
     override = overrides.create_override(
         db, override_type=OverrideType.INVITE_LIST_MANUAL_ADD, initiator=user, entity_type="tender_line_item", entity_id=line.id,
         entity_label=f"#{tender.id} {tender.title} — {line.product.name} — {vendor.legal_name}", facility_id=tender.facility_id,
-        reason_code=payload.reason_code, justification=payload.justification,
+        justification=payload.justification,
         proposed_change={"tender_id": tender.id, "line_item_id": line.id, "vendor_id": vendor.id, "vendor_name": vendor.legal_name, "line_value": line_value},
         trigger_value=cumulative,
     )
@@ -1379,7 +1379,7 @@ def request_late_submission_exception(
     override = overrides.create_override(
         db, override_type=OverrideType.LATE_SUBMISSION_EXCEPTION, initiator=user, entity_type="bid", entity_id=bid.id,
         entity_label=f"#{tender.id} {tender.title} — {line.product.name} — {bid.vendor.legal_name}", facility_id=tender.facility_id,
-        reason_code=payload.reason_code, justification=payload.justification, trigger_value=landed_value,
+        justification=payload.justification, trigger_value=landed_value,
         proposed_change={"before": BidStatus.PENDING_LATE_EXCEPTION, "after": BidStatus.SUBMITTED},
     )
     db.commit()
@@ -1498,7 +1498,7 @@ def request_due_date_extension(
     cumulative_days = _cumulative_extension_days(db, tender.id) + extension_days
     override = overrides.create_override(
         db, override_type=OverrideType.DUE_DATE_EXTENSION, initiator=user, entity_type="tender", entity_id=tender.id,
-        entity_label=_audit_label(tender), facility_id=tender.facility_id, reason_code=payload.reason_code, justification=payload.justification,
+        entity_label=_audit_label(tender), facility_id=tender.facility_id, justification=payload.justification,
         trigger_value=cumulative_days,
         proposed_change={"before": tender.bid_due_date.isoformat(), "after": payload.new_due_date.isoformat(), "extension_days": extension_days},
     )

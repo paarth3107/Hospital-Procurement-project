@@ -94,17 +94,16 @@ function LateSubmissionRow({
   onReload: () => void;
   onResult: (message: string, ok: boolean) => void;
 }) {
-  const [reasonCode, setReasonCode] = useState("");
   const [justification, setJustification] = useState("");
   const [busy, setBusy] = useState(false);
 
   const request = async () => {
-    if (!reasonCode.trim() || !justification.trim()) return onResult("A reason code and justification are both required.", false);
+    if (!justification.trim()) return onResult("A justification is required.", false);
     setBusy(true);
     try {
       const res = await api<{ status: string; required_approver_role: string | null }>(
         `/tenders/${tenderId}/lines/${lineId}/bids/${row.bid_id}/late-submission-exception`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason_code: reasonCode.trim(), justification: justification.trim() }) }
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ justification: justification.trim() }) }
       );
       onResult(`Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`, true);
       onReload();
@@ -123,7 +122,6 @@ function LateSubmissionRow({
       </div>
       {row.can_request ? (
         <>
-          <input className="input" placeholder="Reason code" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} />
           <input className="input" placeholder="Justification" value={justification} onChange={(e) => setJustification(e.target.value)} />
           <button type="button" className="ep-b" disabled={busy} onClick={request}>
             Request exception

@@ -62,10 +62,12 @@ def update_rating(
     vendor_id: int,
     payload: RatingManualUpdate,
     db: Session = Depends(get_db),
-    user: UserAccount = Depends(require_role(Role.CATEGORY_MANAGER)),
+    user: UserAccount = Depends(require_role(Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)),
 ):
     """Spec §5.3.1 — routine manual entry of the four non-computed
-    parameters by the Category Manager. `price_competitiveness` is
+    parameters by the Category Manager (System Admin too, 2026-10-26,
+    user-directed -- System Admin already has every other role's access,
+    this was the one place it didn't). `price_competitiveness` is
     deliberately not settable here: overriding it is a governed override
     (spec point 4), which routes through the override/approval engine
     (see request_price_override/approve_price_override below) rather than
@@ -140,7 +142,7 @@ def request_price_override(
     vendor_id: int,
     payload: RatingOverrideCreate,
     db: Session = Depends(get_db),
-    user: UserAccount = Depends(require_role(Role.CATEGORY_MANAGER)),
+    user: UserAccount = Depends(require_role(Role.CATEGORY_MANAGER, Role.SYSTEM_ADMIN)),
 ):
     """Spec §5.3.1 point 4 / §12.3: overriding the system-computed score is a
     governed override -- unlike update_rating() above, this never touches the
@@ -160,7 +162,7 @@ def request_price_override(
     baseline = rating.price_competitiveness if rating.price_competitiveness is not None else 0.0
     override = overrides.create_override(
         db, override_type=OverrideType.PRICE_COMPETITIVENESS_OVERRIDE, initiator=user, entity_type="vendor_rating", entity_id=rating.id,
-        entity_label=f"{rating.vendor.legal_name} — {rating.procurement_type.value}", reason_code=payload.reason_code, justification=payload.justification,
+        entity_label=f"{rating.vendor.legal_name} — {rating.procurement_type.value}", justification=payload.justification,
         proposed_change={"before": rating.price_competitiveness, "after": payload.new_score},
         trigger_value=abs(payload.new_score - baseline),
     )

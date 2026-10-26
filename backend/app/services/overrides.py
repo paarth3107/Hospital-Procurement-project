@@ -78,7 +78,6 @@ def create_override(
     override_type: OverrideType,
     initiator: UserAccount,
     entity_type: str,
-    reason_code: str,
     justification: str,
     entity_id: int | None = None,
     entity_label: str | None = None,
@@ -94,8 +93,6 @@ def create_override(
     within that authority, not skipped"). The target record referenced by
     entity_type/entity_id is never touched here (§12.1/§12.2)."""
 
-    if not reason_code.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A reason code is required")
     if not justification.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A justification is required")
 
@@ -139,7 +136,6 @@ def create_override(
         facility_id=facility_id,
         initiator_id=initiator.id,
         initiator_role=initiator.role,
-        reason_code=reason_code.strip(),
         justification=justification.strip(),
         proposed_change=proposed_change,
         escalation_level=level,
@@ -157,7 +153,7 @@ def create_override(
 
     record(
         db, "override.requested", "override_request", override.id, actor=initiator, entity_label=entity_label or override_type.value,
-        facility_id=facility_id, reason=reason_code.strip(),
+        facility_id=facility_id, reason=justification.strip(),
         after={"override_type": override_type, "justification": justification.strip(), "required_approver_role": role, "escalation_level": level},
         meta={"entity_type": entity_type, "entity_id": entity_id},
     )

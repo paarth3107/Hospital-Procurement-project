@@ -13,6 +13,7 @@ export function NavGroup({
   label,
   icon,
   collapsed,
+  badgeTotal,
   onToggleCollapsed,
   children,
 }: {
@@ -20,6 +21,10 @@ export function NavGroup({
   label: string;
   icon: string;
   collapsed: boolean;
+  // Sum of every contained item's own badge count (Sidebar.tsx), shown only
+  // while this group is collapsed (2026-10-26, user-directed) -- expanded,
+  // each item already shows its own badge, so the group header shows none.
+  badgeTotal: number;
   onToggleCollapsed: () => void;
   children: ReactNode;
 }) {
@@ -57,6 +62,7 @@ export function NavGroup({
       <button className="ep-navgroup-head" type="button" aria-expanded={!collapsed} onClick={onToggleCollapsed}>
         <Icon name={icon} size={18} className="nav-icon" />
         <span className="nav-label">{label}</span>
+        {collapsed && <span className="nav-badge">{badgeTotal ? badgeTotal : ""}</span>}
         <Icon name="chevron-down" size={14} className="nav-chevron" />
       </button>
       <div className="ep-navgroup-items" ref={itemsRef}>

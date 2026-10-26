@@ -3,9 +3,9 @@ import { Donut } from "../../components/Donut";
 import type { DashboardStats } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboard/vendorBase.js -- vendor status
-// breakdown, shared by the generic dashboard and the Category Manager
-// dashboard (vendor lifecycle is genuinely their job,
-// unlike the Officer's dashboard, which drops this panel entirely).
+// breakdown. Used by the generic/System-Admin dashboard only (2026-10-26:
+// vendor lifecycle moved off Category Manager's dashboard along with the
+// rest of vendor document/status review -- see CategoryManagerDashboard.tsx).
 // No separate "Rejected" row (2026-10-24, user-directed) -- rejecting a
 // pending application now lands in "blacklisted" directly, same as an
 // already-Active vendor gone bad.
