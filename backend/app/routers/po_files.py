@@ -45,7 +45,7 @@ def list_files(status_filter: str | None = None, db: Session = Depends(get_db), 
     q = db.query(PoDataFile)
     if status_filter:
         q = q.filter(PoDataFile.status == status_filter)
-    return [_brief(p) for p in q.order_by(PoDataFile.id.desc()).all()]
+    return [_brief(p) for p in q.order_by(PoDataFile.generated_at.desc(), PoDataFile.id.desc()).all()]
 
 
 @router.get("/{po_id}")

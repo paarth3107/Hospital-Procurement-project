@@ -28,7 +28,7 @@ def _out(n: Notification) -> NotificationOut:
 
 @router.get("", response_model=list[NotificationOut])
 def my_notifications(vendor: Vendor = Depends(get_current_vendor), db: Session = Depends(get_db)):
-    return [_out(n) for n in db.query(Notification).filter(Notification.vendor_id == vendor.id).order_by(Notification.id.desc()).all()]
+    return [_out(n) for n in db.query(Notification).filter(Notification.vendor_id == vendor.id).order_by(Notification.created_at.desc(), Notification.id.desc()).all()]
 
 
 @router.post("/{notification_id}/read", response_model=NotificationOut)

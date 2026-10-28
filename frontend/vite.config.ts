@@ -13,6 +13,17 @@ import { defineConfig } from 'vite'
 // backend/app/main.py's serving path depends on it matching exactly.
 export default defineConfig({
   plugins: [react()],
+  // Dev only: the app calls the API at a relative `/api/v1` (src/lib/api.ts),
+  // which in production is served by the same FastAPI origin. Under
+  // `vite dev` forward it to the local backend.
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

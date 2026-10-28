@@ -33,7 +33,7 @@ def list_ratings(
     query = db.query(VendorRating)
     if procurement_type is not None:
         query = query.filter(VendorRating.procurement_type == procurement_type)
-    return query.all()
+    return query.order_by(VendorRating.created_at.desc(), VendorRating.id.desc()).all()
 
 
 @router.get("/{vendor_id}", response_model=RatingOut)

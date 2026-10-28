@@ -1300,7 +1300,7 @@ def list_invites(tender_id: int, db: Session = Depends(get_db), _user: UserAccou
     line_item_ids = [li.id for li in tender.line_items]
     if not line_item_ids:
         return []
-    return db.query(TenderInvite).filter(TenderInvite.tender_line_item_id.in_(line_item_ids)).all()
+    return db.query(TenderInvite).filter(TenderInvite.tender_line_item_id.in_(line_item_ids)).order_by(TenderInvite.created_at.desc(), TenderInvite.id.desc()).all()
 
 
 @router.get("/{tender_id}/approval-rounds", response_model=list[ApprovalRoundOut])

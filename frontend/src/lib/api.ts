@@ -63,6 +63,17 @@ function authHeaders(extra?: HeadersInit): HeadersInit {
   return { ...(extra || {}), ...(token ? { Authorization: "Bearer " + token } : {}) };
 }
 
+// A vendor blacklisted while logged in gets a 403 "barred" from every vendor
+// endpoint (security.get_current_vendor) -- end the session and send them to
+// the vendor login. Only fires when a token is held, so the login call's own
+// "barred" 403 is left for the login page to display.
+function handleBarredVendor(status: number, detail: unknown) {
+  if (status !== 403 || typeof detail !== "string" || !detail.includes("barred")) return;
+  if (!sessionStorage.getItem("token")) return;
+  clearAuthState();
+  window.location.assign("/vendor-login");
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   beginFetch();
   const controller = new AbortController();
@@ -116,6 +127,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
         throw new ApiError("Your session has expired. Please log in again.", res.status);
       }
       const detail = (body as { detail?: unknown } | null)?.detail;
+      handleBarredVendor(res.status, detail);
       throw new ApiError(cleanDetail(detail, res.statusText || "Something went wrong. Please try again."), res.status);
     }
     return body as T;
@@ -162,6 +174,7 @@ export function uploadWithProgress<T>(path: string, formData: FormData, onProgre
         resolve(body as T);
       } else {
         const detail = (body as { detail?: unknown } | null)?.detail;
+        handleBarredVendor(xhr.status, detail);
         const message = detail ?? xhr.statusText ?? `Upload failed (${xhr.status})`;
         reject(new ApiError(typeof message === "string" ? message : JSON.stringify(message), xhr.status));
       }

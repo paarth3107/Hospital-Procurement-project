@@ -121,7 +121,7 @@ def list_award_tenders(db: Session = Depends(get_db), user: UserAccount = Depend
     """Tenders that have reached the award stage: at least one line's technical
     evaluation is closed (Officer: to recommend) or a recommendation is waiting
     (Approving Authority: to decide)."""
-    tenders = db.query(Tender).filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD])).order_by(Tender.id.desc()).all()
+    tenders = db.query(Tender).filter(Tender.status.in_([TenderStatus.PUBLISHED, TenderStatus.AWARDED, TenderStatus.NO_AWARD])).order_by(Tender.created_at.desc(), Tender.id.desc()).all()
     out = []
     for t in tenders:
         lines = rules.published_lines(t)

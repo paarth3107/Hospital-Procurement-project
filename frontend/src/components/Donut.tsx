@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { donut, type ChartPalette } from "../lib/charts";
+import { donut, destroyChart, type ChartPalette } from "../lib/charts";
 
 // Thin wrapper around lib/charts.ts's donut() (itself a mirror of
 // charts.js's own) -- a ref'd div that draws once per distinct dataset. Every
@@ -25,7 +25,9 @@ export function Donut({
   // behaviour, which only ever calls donut() after a fresh stats fetch.
   const dataKey = JSON.stringify([labels, series]);
   useEffect(() => {
-    if (ref.current) donut(ref.current, { labels, series, pickColors, height, legend });
+    if (!ref.current) return;
+    const chart = donut(ref.current, { labels, series, pickColors, height, legend });
+    return () => destroyChart(chart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataKey, height, legend]);
   return <div ref={ref} />;

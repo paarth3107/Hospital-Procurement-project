@@ -759,12 +759,13 @@ def reinstate_vendor(
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*VENDOR_DECISION_ROLES)),
 ):
-    """Suspended -> Active, or Blacklisted -> Active.
+    """Suspended -> Active, or Blacklisted -> Active (or Info Requested).
 
     A blacklisted vendor is reinstated by System Admin (the only vendor-
     decision role now), and only with an explicit reason, which is written to
-    the vendor's status history. A suspension can be lifted by the usual
-    decision roles."""
+    the vendor's status history. If its mandatory documents aren't all
+    verified it lands on Info Requested instead of Active, so it can log in
+    and upload them. A suspension can be lifted by the usual decision roles."""
 
     vendor = _load_vendor(vendor_id, db)
     if vendor.status == VendorStatus.BLACKLISTED:
@@ -780,15 +781,19 @@ def reinstate_vendor(
         # vendor rejected straight from Pending Verification has never
         # cleared this gate at all; without it, reinstate would skip
         # approve_vendor()'s own mandatory-document check entirely and land
-        # someone with zero verified documents on Active. Same hard gate the
-        # Suspended branch below already has, for the same reason.
+        # someone with zero verified documents on Active. A blacklisted vendor
+        # can't log in to fix that, though, so rather than a dead-end 409 it
+        # goes to Info Requested: it can log in and upload, and the normal
+        # approve flow (which re-checks the same documents) makes it Active.
+        reason = payload.reason.strip()
         missing = _unverified_mandatory_docs(vendor_id, db)
         if missing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Cannot reinstate: mandatory document(s) not yet verified: {', '.join(missing)}",
+            set_status(
+                db, vendor, VendorStatus.INFO_REQUESTED, user.id,
+                f"Reinstated from blacklist — {reason}. Please upload/re-submit: {', '.join(missing)}",
             )
-        set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {payload.reason.strip()}")
+        else:
+            set_status(db, vendor, VendorStatus.ACTIVE, user.id, f"Reinstated from blacklist — {reason}")
     elif vendor.status == VendorStatus.SUSPENDED:
         # User-directed (2026-09-30): same hard gate as first approval -- if
         # the suspension involved a rejected document, reinstating needs that
