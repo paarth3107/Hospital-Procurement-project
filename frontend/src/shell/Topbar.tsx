@@ -106,7 +106,7 @@ export function Topbar({ onToggleMobile }: { onToggleMobile: () => void }) {
           </button>
           {openMenu === "user" && (
             <div onClick={(e) => e.stopPropagation()}>
-              <UserMenu onClose={() => setOpenMenu(null)} onLoggedOut={() => navigate("/login")} />
+              <UserMenu onClose={() => setOpenMenu(null)} onLoggedOut={() => navigate("/staff-login")} />
             </div>
           )}
         </div>

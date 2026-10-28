@@ -22,7 +22,7 @@ const REDIRECT_DELAY_SECONDS = 5;
 
 export function ResetPasswordPage({ actorType }: { actorType: "vendor" | "staff" }) {
   const apiPath = actorType === "staff" ? "/auth/reset-password" : "/vendor-auth/reset-password";
-  const loginView = actorType === "staff" ? "login" : "vendor-login";
+  const loginView = actorType === "staff" ? "staff-login" : "vendor-login";
   const { token } = useParams();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

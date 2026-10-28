@@ -71,7 +71,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route element={<AuthLayout />}>
-          <Route path="/login" element={<StaffLoginPage />} />
+          <Route path="/staff-login" element={<StaffLoginPage />} />
           <Route path="/vendor-login" element={<VendorLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage actorType="vendor" />} />

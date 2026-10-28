@@ -13,7 +13,7 @@ import { FIELD_VALIDATORS } from "./registerValidation";
 // two flows are otherwise identical.
 export function ForgotPasswordPage({ actorType }: { actorType: "vendor" | "staff" }) {
   const apiPath = actorType === "staff" ? "/auth/forgot-password" : "/vendor-auth/forgot-password";
-  const loginView = actorType === "staff" ? "login" : "vendor-login";
+  const loginView = actorType === "staff" ? "staff-login" : "vendor-login";
   // If the email was already typed on the login page before clicking
   // "Forgot password?", carry it over rather than asking again --
   // takePendingForgotEmail() returns null (leaving this blank) on a direct

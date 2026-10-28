@@ -19,7 +19,7 @@ export function RootRedirect() {
   const { token, actorType, user } = useAuthState();
 
   if (openLinkToken && !token) return <Navigate to="/vendor-login" replace />;
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) return <Navigate to="/staff-login" replace />;
 
   const deepLink = new URLSearchParams(location.search).get("view");
   if (actorType === "vendor") return <Navigate to={"/" + (deepLink || "vendor-dashboard")} replace />;

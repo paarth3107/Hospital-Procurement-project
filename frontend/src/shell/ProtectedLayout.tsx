@@ -14,7 +14,7 @@ export function ProtectedLayout() {
   const auth = useAuthState();
   const { pathname } = useLocation();
 
-  if (!auth.token) return <Navigate to="/login" replace />;
+  if (!auth.token) return <Navigate to="/staff-login" replace />;
 
   // Real bug, found 2026-10-14: a page refresh only restores token/actorType
   // from sessionStorage synchronously (AuthBoot.tsx) -- `user`/`vendor`

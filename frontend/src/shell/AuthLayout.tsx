@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { AuthTabs } from "../pages/auth/AuthTabs";
 
-// Real bug, found 2026-10-12: the three auth pages (login/vendor-login/
+// Real bug, found 2026-10-12: the three auth pages (staff-login/vendor-login/
 // register) used to render inside index.html's static `<main id="app">` ->
 // `<div class="ep-content" id="content">` -> `<section id="view-X" class="view
 // auth-view [maxw-460px]">` structure -- once that markup became three bare
-// `<Route path="/login" element={<StaffLoginPage />} />` entries with
+// `<Route path="/staff-login" element={<StaffLoginPage />} />` entries with
 // nothing wrapping them, every bit of layout CSS keyed off that structure
 // (styles.css's `.ep-content`/`.view` padding+gap+centering, and the
 // width rules keyed off `:has(#sidebar:not([hidden]))` / `:has(#view-register
@@ -16,13 +15,15 @@ import { AuthTabs } from "../pages/auth/AuthTabs";
 // route wrapping all three, rather than editing styles.css -- the CSS was
 // already correct, it just had nothing to select.
 //
-// The MedSource branding block and the Staff/Vendor tab switch both moved
-// here (2026-10-22, user-directed) -- they used to live inside
-// StaffLoginPage.tsx alone (so VendorLoginPage never showed any branding at
-// all, and switching between the two was an asymmetric pair of links: a
-// "Supplier? Click here" at the bottom of Staff login, a "← Back to staff
-// login" at the top of Vendor login). Both are shared chrome for the login
-// flow specifically -- Register keeps its own look, no tabs, same as before.
+// The MedSource branding block moved here (2026-10-22, user-directed) --
+// it used to live inside StaffLoginPage.tsx alone (so VendorLoginPage never
+// showed any branding at all). Shared chrome for the login flow specifically
+// -- Register keeps its own look, same as before.
+//
+// Staff/Vendor tab switch REMOVED (2026-10-28, user-directed): staff and
+// vendor login are now two fully separate pages (/staff-login, /vendor-login)
+// with no shared toggle between them -- AuthTabs.tsx deleted, switchView()
+// calls into "login"/"vendor-login" from either page removed along with it.
 export interface AuthLayoutContext {
   setRegisterNarrow: (narrow: boolean) => void;
 }
@@ -47,7 +48,7 @@ export function AuthLayout() {
   const [registerNarrow, setRegisterNarrow] = useState(false);
   useEffect(() => setRegisterNarrow(false), [view]); // always start wide on a fresh visit to /register
   const narrow = view !== "register" || registerNarrow;
-  const isLoginFlow = view === "login" || view === "vendor-login";
+  const isLoginFlow = view === "staff-login" || view === "vendor-login";
   // Forgot/Reset password (2026-10-23, user-directed: "the structure of the
   // new pages should be the same as the login pages"; extended to staff the
   // same day) get the same MedSource branding + centered card treatment as
@@ -66,7 +67,6 @@ export function AuthLayout() {
                   <div className="landing-title">MedSource</div>
                   <p className="hint mt-4px">Hospital E-Procurement Portal</p>
                 </div>
-                {isLoginFlow && <AuthTabs active={view as "login" | "vendor-login"} />}
               </div>
               {/* The card (heading + form + result + register link) centers on
                   the viewport on its own, independent of the topblock above --
