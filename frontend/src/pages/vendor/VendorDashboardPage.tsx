@@ -172,12 +172,17 @@ export function VendorDashboardPage() {
   const ratingSub = ratings.length === 1 ? ratings[0].procurement_type : ratings.length ? "type(s) rated" : "not yet rated";
   // Each tile now links to the tab that actually shows the thing it's
   // counting -- VendorTendersPage.tsx's own filter picks up ?filter=... so
-  // "Open Invitations"/"Bids Submitted"/"Awarded" land pre-filtered rather
-  // than on an unfiltered "All" list the vendor has to re-filter themselves.
+  // "Open Invitations"/"Bids Submitted" land pre-filtered rather than on an
+  // unfiltered "All" list the vendor has to re-filter themselves. "Awarded"
+  // has no Invitations-table filter of its own anymore (2026-10-28,
+  // user-directed: award/no-award is a Your Bids result, not an
+  // Invitations category) -- it links to the plain tab instead, where the
+  // Your Bids table right below the Invitations one shows the actual
+  // per-line outcome.
   const kpiCells: KpiCell[] = [
     ["Open Invitations", openLinesCount, "you can bid now", "vendor-tenders?filter=open", "file-text", "primary"],
     ["Bids Submitted", submittedCount, "prices sealed until deadline", "vendor-tenders?filter=submitted", "check-square", "info"],
-    ["Awarded", awardedCount, "line(s) won", "vendor-tenders?filter=awarded", "award", "success"],
+    ["Awarded", awardedCount, "line(s) won", "vendor-tenders", "award", "success"],
     ["My Rating", ratingValue, ratingSub, "vendor-ratings", "star", "warning"],
   ];
 

@@ -10,24 +10,29 @@ import type { MyBid, PortalTender } from "../../lib/types";
 // Split out of VendorDashboardPage.tsx (2026-10-23, user-directed): the
 // Dashboard's own "Open Invitations" table only ever had a plain show/hide-
 // closed checkbox, nothing like a real filter -- this is the dedicated,
-// full-browse version with the Awarded/Open/Submitted/No Award/Closed
-// filter the user asked for, reached from its own sidebar tab instead of
-// buried on the Dashboard. The Dashboard keeps its KPI strip (now linking
-// here) and status notes, not a second copy of this same table.
+// full-browse version with the Open/Submitted/Closed filter the user asked
+// for, reached from its own sidebar tab instead of buried on the Dashboard.
+// The Dashboard keeps its KPI strip (now linking here) and status notes,
+// not a second copy of this same table.
+//
+// Awarded/No Award dropped as their own categories here (2026-10-28,
+// user-directed): "the award or not awarded status belongs to your bids
+// because that's where you see which lines you actually won" -- an
+// awarded/no-award tender is just a closed (or already-submitted) one from
+// this table's point of view; the actual win/loss result only ever shows
+// in the Your Bids table below, via bidDisplayStatus()'s outcome mapping.
 
 // Computed, mutually exclusive per-tender state -- a tender can only ever
 // be in exactly one of these at a time, checked in this priority order:
-// Awarded/No Award are terminal regardless of what was or wasn't bid;
-// otherwise "did this vendor submit anything" wins over "is it still
-// biddable", since a submitted bid can outlive its own deadline (amend is
-// allowed right up to it, but a line stays Submitted after).
-type TenderFilter = "all" | "open" | "submitted" | "awarded" | "no_award" | "closed";
+// "did this vendor submit anything" wins over "is it still biddable",
+// since a submitted bid can outlive its own deadline (amend is allowed
+// right up to it, but a line stays Submitted after -- including once the
+// tender's own result, awarded or not, is in).
+type TenderFilter = "all" | "open" | "submitted" | "closed";
 const FILTERS: [TenderFilter, string][] = [
   ["all", "All"],
   ["open", "Open"],
   ["submitted", "Submitted"],
-  ["awarded", "Awarded"],
-  ["no_award", "No Award"],
   ["closed", "Closed"],
 ];
 
@@ -41,8 +46,6 @@ function groupByTender(tenders: PortalTender[]): TenderGroup[] {
 }
 
 function category(g: TenderGroup): Exclude<TenderFilter, "all"> {
-  if (g.t.status === "awarded") return "awarded";
-  if (g.t.status === "no_award") return "no_award";
   if (g.lines.some((li) => li.bid_status === "submitted")) return "submitted";
   return g.t.can_bid ? "open" : "closed";
 }
@@ -73,12 +76,8 @@ function TenderRow({ group }: { group: TenderGroup }) {
   const cat = category(group);
   const submitted = lines.filter((li) => li.bid_status === "submitted").length;
   const statusTag =
-    cat === "awarded" ? (
-      <Tag text="Tender awarded" tone="neg" />
-    ) : cat === "no_award" ? (
-      <Tag text="Closed, no award" tone="neg" />
-    ) : cat === "closed" ? (
-      <Tag text="Deadline passed" tone="neg" />
+    cat === "closed" ? (
+      <Tag text="Closed" tone="neg" />
     ) : submitted === lines.length ? (
       <Tag text="All submitted" tone="pos" />
     ) : submitted > 0 ? (
