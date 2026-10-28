@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useModal } from "../../components/useModal";
 import { refreshChrome } from "../../lib/chromeStore";
 import { patchCachedMapping } from "../../lib/catalogCache";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import { approveMapping, createMapping, rejectMapping, reinstateMapping, suspendMapping } from "../../lib/mappingActions";
 import type { VendorLookup, VendorMapping } from "../../lib/types";
 
@@ -30,7 +31,12 @@ export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
   const { confirmAsync, reasonAsync, alertAsync, modalElement } = useModal();
   const [error, setError] = useState("");
 
-  const run = async (fn: () => Promise<VendorMapping>, verb: string) => {
+  // `label` names the record in both the success and error toast (2026-10-27,
+  // user-directed: "Category Manager" ticket wants "a clear message that
+  // names the record and the result" for every create/update/delete/status
+  // action) -- falls back to a plain "the mapping" when a caller doesn't
+  // have a nicer description in scope.
+  const run = async (fn: () => Promise<VendorMapping>, verb: string, pastTense: string, label?: string) => {
     try {
       const updated = await fn();
       setError("");
@@ -45,25 +51,34 @@ export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
       // blanket per-navigation chrome refresh: that used to paper over
       // this page never telling chromeStore a decision happened at all.
       refreshChrome();
+      toastSuccess(`${label ? `${label} — ` : ""}mapping ${pastTense}.`);
     } catch (err) {
-      setError(`Could not ${verb}: ` + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not ${verb}${label ? ` for ${label}` : ""}: ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
     }
   };
 
-  const mapAndApprove = async (vendor: VendorLookup, target: { category_id: number } | { product_master_id: number }) => {
+  const mapAndApprove = async (vendor: VendorLookup, target: { category_id: number } | { product_master_id: number }, targetLabel?: string) => {
     if (vendor.status !== "active") {
       await alertAsync(`${vendor.legal_name} isn't Active yet — only an Active, approved vendor can be mapped.`);
       return;
     }
-    await run(async () => {
-      const mapping = await createMapping(vendor.id, target);
-      return await approveMapping(mapping.id);
-    }, "map");
+    await run(
+      async () => {
+        const mapping = await createMapping(vendor.id, target);
+        return await approveMapping(mapping.id);
+      },
+      "map",
+      "mapped and approved",
+      targetLabel ? `${vendor.legal_name} — ${targetLabel}` : vendor.legal_name
+    );
   };
 
-  const approve = (id: number) => run(() => approveMapping(id), "approve");
+  const approve = (id: number, vendor?: VendorLookup, targetLabel?: string) =>
+    run(() => approveMapping(id), "approve", "approved", vendor && targetLabel ? `${vendor.legal_name} — ${targetLabel}` : undefined);
 
-  const reject = async (id: number) => {
+  const reject = async (id: number, vendor?: VendorLookup, targetLabel?: string) => {
     const reason = await reasonAsync({
       title: "Reject mapping request",
       placeholder: "e.g. Required certification for this category is missing",
@@ -71,7 +86,7 @@ export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
       danger: true,
     });
     if (!reason) return;
-    await run(() => rejectMapping(id, reason), "reject");
+    await run(() => rejectMapping(id, reason), "reject", "rejected", vendor && targetLabel ? `${vendor.legal_name} — ${targetLabel}` : undefined);
   };
 
   const suspend = async (id: number, vendor: VendorLookup, targetLabel: string) => {
@@ -83,13 +98,13 @@ export function useMappingActions(onChanged: (updated: VendorMapping) => void) {
       danger: true,
     });
     if (!reason) return;
-    await run(() => suspendMapping(id, reason), "suspend");
+    await run(() => suspendMapping(id, reason), "suspend", "suspended", `${vendor.legal_name} — ${targetLabel}`);
   };
 
   const reinstate = async (id: number, vendor: VendorLookup, targetLabel: string) => {
     const ok = await confirmAsync(`Reinstate ${vendor.legal_name} — ${targetLabel} back to Approved?`, { confirmLabel: "Reinstate" });
     if (!ok) return;
-    await run(() => reinstateMapping(id), "reinstate");
+    await run(() => reinstateMapping(id), "reinstate", "reinstated", `${vendor.legal_name} — ${targetLabel}`);
   };
 
   return { mapAndApprove, approve, reject, suspend, reinstate, alertAsync, modalElement, error, setError };

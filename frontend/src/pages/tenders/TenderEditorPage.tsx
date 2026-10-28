@@ -9,6 +9,7 @@ import { StateTag } from "../../components/Tag";
 import { Req } from "../../components/Req";
 import { FieldError } from "../../components/FieldError";
 import { percentRangeError } from "./tenderValidation";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
 import { mapApiLineItems } from "./lineItemRow";
@@ -225,7 +226,10 @@ export function TenderEditorPage() {
     setTender(saved);
     const items = await api<LineItem[]>(`/tenders/${saved.id}/line-items`);
     gridRef.current?.applySavedLineItems(items);
-    if (!opts.silent) setResult({ message: `Tender #${saved.id} saved as draft.`, ok: true });
+    if (!opts.silent) {
+      setResult({ message: `Tender #${saved.id} saved as draft.`, ok: true });
+      toastSuccess(`"${saved.title || `Tender #${saved.id}`}" saved as draft.`);
+    }
     setRefreshToken((v) => v + 1);
     // The very first save of a brand-new tender gets it a real id -- move
     // the URL to /tender-edit/:id (without a remount: `replace` swaps the
@@ -283,7 +287,9 @@ export function TenderEditorPage() {
     try {
       await saveDraft();
     } catch (err) {
-      setResult({ message: "Could not save tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      const message = "Could not save tender: " + (err instanceof Error ? err.message : String(err));
+      setResult({ message, ok: false });
+      toastError(message);
     }
   };
 
@@ -301,16 +307,21 @@ export function TenderEditorPage() {
         await api(`/tenders/${saved.id}/submit-for-approval`, { method: "POST" });
       } catch (err) {
         // The draft is saved; only the submit step failed.
-        setResult({ message: `Saved as draft, but could not submit for approval: ${err instanceof Error ? err.message : String(err)}`, ok: false });
+        const message = `Saved as draft, but could not submit "${saved.title || `Tender #${saved.id}`}" for approval: ${err instanceof Error ? err.message : String(err)}`;
+        setResult({ message, ok: false });
+        toastError(message);
         setTender(await api<Tender>(`/tenders/${saved.id}`));
         return;
       }
       const held = await heldLineNames(saved.id);
       const heldNote = held.length ? ` Note: no eligible vendor yet for ${held.join(", ")} — that line will be held back while the rest go live.` : "";
       setResult({ message: `Tender #${saved.id} submitted for E-Tender Approval.${heldNote}`, ok: true });
+      toastSuccess(`"${saved.title || `Tender #${saved.id}`}" submitted for E-Tender Approval.`);
       switchView("tenders");
     } catch (err) {
-      setResult({ message: "Could not save tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      const message = "Could not save tender: " + (err instanceof Error ? err.message : String(err));
+      setResult({ message, ok: false });
+      toastError(message);
     }
   };
 
@@ -323,9 +334,12 @@ export function TenderEditorPage() {
     try {
       const t = await api<Tender>(`/tenders/${tender.id}/withdraw-to-draft`, { method: "POST" });
       setResult({ message: `Tender #${t.id} reverted to Draft.`, ok: true });
+      toastSuccess(`"${t.title || `Tender #${t.id}`}" reverted to Draft.`);
       await openTender(t, products);
     } catch (err) {
-      setResult({ message: "Could not revert to Draft: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      const message = "Could not revert to Draft: " + (err instanceof Error ? err.message : String(err));
+      setResult({ message, ok: false });
+      toastError(message);
     }
   };
 

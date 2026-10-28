@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { AwardLine, RecommendationSave } from "../../lib/types";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
 import { qualifiedRows, topRow } from "./awardHelpers";
 
 // Ported 1:1 from frontend/js/pages/awards/recommendationForm.js -- the
@@ -127,7 +129,10 @@ export function RecommendationForm({ line, onSave, saving, error }: { line: Awar
         <span>Leave this line out of the award</span>
       </label>
       <div className="ep-field mt-10px">
-        <div className="ep-k">Reason</div>
+        <div className="ep-k">
+          Reason
+          {(mode === "other" || mode === "exclude") && <Req />}
+        </div>
         <textarea
           className={`input w-full${reasonInvalid ? " invalid" : ""}`}
           rows={2}
@@ -137,8 +142,11 @@ export function RecommendationForm({ line, onSave, saving, error }: { line: Awar
             setReason(e.target.value);
             setReasonInvalid(false);
           }}
+          onBlur={() => {
+            if ((mode === "other" || mode === "exclude") && !reason.trim()) setReasonInvalid(true);
+          }}
         />
-        {reasonInvalid && <div className="hint text-danger-700 mt-4px">A reason is mandatory for this choice.</div>}
+        <FieldError errors={{ reason: reasonInvalid ? "A reason is mandatory for this choice." : "" }} name="reason" />
       </div>
       {error && <div className="result err">{error}</div>}
       <div className="d-flex justify-end mt-8px">

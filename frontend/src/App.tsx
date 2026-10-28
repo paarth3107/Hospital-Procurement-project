@@ -8,6 +8,7 @@ import { RootRedirect } from "./shell/RootRedirect";
 // kept on disk, not deleted -- LoadingOverlay below is being tried in their
 // place so the user can compare before deciding which one stays.
 import { LoadingOverlay } from "./shell/LoadingOverlay";
+import { ToastContainer } from "./shell/ToastContainer";
 import { StaffLoginPage } from "./pages/auth/StaffLoginPage";
 import { VendorLoginPage } from "./pages/auth/VendorLoginPage";
 import { RegisterPage } from "./pages/auth/RegisterPage";
@@ -64,6 +65,7 @@ export function App() {
   return (
     <HashRouter>
       <LoadingOverlay />
+      <ToastContainer />
       <NavigateSync />
       <AuthBoot />
       <Routes>

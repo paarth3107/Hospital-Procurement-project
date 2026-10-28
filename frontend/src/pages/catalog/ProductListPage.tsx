@@ -9,6 +9,7 @@ import { IconActionButton } from "../../components/IconActionButton";
 import { Tag, TypeTag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { inr } from "../../lib/format";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 
 // Ported 1:1 from frontend/js/pages/catalog/productListPage.js. 7 columns --
 // "Type-specific attributes" was dropped (2026-10-09, user-directed): it's
@@ -77,8 +78,11 @@ export function ProductListPage() {
     try {
       await api(`/products/${p.id}/${action}`, { method: "POST" });
       await load(true);
+      toastSuccess(`"${p.name}" ${action}d.`);
     } catch (err) {
-      setError(`Could not ${action} catalog entry: ` + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not ${action} "${p.name}": ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
     }
   };
 

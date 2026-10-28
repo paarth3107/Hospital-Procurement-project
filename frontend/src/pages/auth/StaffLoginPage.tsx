@@ -5,6 +5,7 @@ import { DEFAULT_VIEW_BY_ROLE } from "../../lib/constants";
 import { switchView, setAuthState, setPendingForgotEmail } from "../../lib/bridge";
 import { PasswordField } from "../../components/PasswordField";
 import { FieldError } from "../../components/FieldError";
+import { Req } from "../../components/Req";
 import { LOGIN_FIELD_VALIDATORS } from "./loginValidation";
 import type { CurrentUser } from "../../lib/types";
 
@@ -83,7 +84,10 @@ export function StaffLoginPage() {
       <div className="fs-24px fw-800 mt-14px">Staff login</div>
       <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
         <div className="ep-field">
-          <div className="ep-k">Email</div>
+          <div className="ep-k">
+            Email
+            <Req />
+          </div>
           <input
             ref={emailRef}
             className={`input${fieldErrors.email ? " invalid" : ""}`}
@@ -99,7 +103,10 @@ export function StaffLoginPage() {
           <FieldError errors={fieldErrors} name="email" />
         </div>
         <div className="ep-field">
-          <div className="ep-k">Password</div>
+          <div className="ep-k">
+            Password
+            <Req />
+          </div>
           <PasswordField
             ref={passwordRef}
             className={fieldErrors.password ? "input invalid" : "input"}

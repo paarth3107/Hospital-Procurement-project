@@ -218,17 +218,17 @@ export function MappingDetailDialog({
             <button
               className="ep-b"
               data-v="p"
-              onClick={() => act(() => actions.mapAndApprove(vendor, isCategory ? { category_id: target.id } : { product_master_id: (target as CatalogProduct).id }))}
+              onClick={() => act(() => actions.mapAndApprove(vendor, isCategory ? { category_id: target.id } : { product_master_id: (target as CatalogProduct).id }, targetLabel))}
             >
               Map &amp; approve
             </button>
           )}
           {state === "pending" && mapping && (
             <>
-              <button className="ep-b" onClick={() => act(() => actions.reject(mapping.id))}>
+              <button className="ep-b" onClick={() => act(() => actions.reject(mapping.id, vendor, targetLabel))}>
                 Reject
               </button>
-              <button className="ep-b" data-v="p" onClick={() => act(() => actions.approve(mapping.id))}>
+              <button className="ep-b" data-v="p" onClick={() => act(() => actions.approve(mapping.id, vendor, targetLabel))}>
                 Approve
               </button>
             </>

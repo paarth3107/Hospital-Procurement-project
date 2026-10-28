@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import type { Category, SubCategory } from "../../lib/types";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 
 // Ported 1:1 from frontend/js/pages/catalog/subCategoryForm.js's
 // openSubCategoryForm(). Deliberately no rating/required-documents override
@@ -20,14 +23,27 @@ export function SubCategoryFormPanel({
   const [categoryId, setCategoryId] = useState<number | "">(subCategory?.category_id ?? categories[0]?.id ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  const checkName = (v: string) => {
+    const err = v.trim() ? "" : "Sub-category name is required.";
+    setNameError(err);
+    return err;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkName(name)) {
+      nameRef.current?.focus();
+      nameRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
     setSaving(true);
     setError("");
     const payload = {
@@ -40,16 +56,19 @@ export function SubCategoryFormPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      toastSuccess(`${subCategory ? "Updated" : "Added"} sub-category "${payload.name}".`);
       onSaved(`${subCategory ? "Updated" : "Added"} sub-category ${payload.name}.`);
     } catch (err) {
-      setError("Could not save: " + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not save sub-category "${payload.name}": ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
       setSaving(false);
     }
   };
 
   return (
     <div ref={panelRef}>
-      <form className="catalog-form ep-form gap-16px" onSubmit={submit}>
+      <form className="catalog-form ep-form gap-16px" noValidate onSubmit={submit}>
         <div className="fs-18px fw-800">{subCategory ? "Edit" : "New"} sub-category</div>
         <div className="ep-pane ep-pane-pad">
           <div className="ep-form-grid grid-cols-1fr-1fr">
@@ -64,8 +83,19 @@ export function SubCategoryFormPanel({
               </select>
             </div>
             <div className="ep-field">
-              <div className="ep-k">Name</div>
-              <input className="input" required value={name} onChange={(e) => setName(e.target.value)} />
+              <div className="ep-k">
+                Name
+                <Req />
+              </div>
+              <input
+                className="input"
+                required
+                ref={nameRef}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={(e) => checkName(e.target.value)}
+              />
+              <FieldError errors={{ name: nameError }} name="name" />
             </div>
           </div>
         </div>

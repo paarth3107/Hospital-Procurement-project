@@ -444,6 +444,20 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .result.ok { background: var(--success-bg); color: var(--success-text); }
 .result.err { background: var(--danger-08); color: var(--danger-700); }
 .result:empty { display: none; }
+/* App-wide toast stack (2026-10-27, user-directed) -- fixed top-right,
+   stacked, floats over everything (including an open dialog, z-index 1000)
+   without ever blocking a click: the strip itself can be interacted with
+   (dismiss button), but nothing behind it is covered since it's sized to
+   its own content, not a full-width/height overlay. */
+.ep-toast-stack { position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 32px)); }
+.ep-toast { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius); box-shadow: var(--dialog-shadow); font-size: 13.5px; line-height: 1.45; animation: ep-toast-in .2s ease; }
+.ep-toast-success { background: var(--success-bg); color: var(--success-text); }
+.ep-toast-error { background: var(--danger-08); color: var(--danger-700); }
+.ep-toast-icon { flex: none; margin-top: 1px; }
+.ep-toast-message { flex: 1; min-width: 0; white-space: pre-wrap; }
+.ep-toast-close { flex: none; background: none; border: 0; cursor: pointer; color: inherit; opacity: .65; font-size: 13px; line-height: 1; padding: 2px; }
+.ep-toast-close:hover { opacity: 1; }
+@keyframes ep-toast-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
 .hint { color: var(--ink-60); font-size: 14px; line-height: 1.6; margin: 0; }
 
 /* forms */

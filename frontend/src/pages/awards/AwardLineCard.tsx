@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import { Tag } from "../../components/Tag";
 import type { AwardLine, AwardRound, DecisionIn, RecommendationSave } from "../../lib/types";
 import { Allocations, DECISION_LABEL, STATE, StatementTable } from "./awardHelpers";
@@ -51,9 +52,13 @@ export function AwardLineCard({ line, onChanged }: { line: AwardLine; onChanged:
     setRecError("");
     try {
       await api(`/awards/lines/${line.line_item_id}/recommendation`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      onChanged(`Recommendation saved for ${line.product_name}.`);
+      const message = `Recommendation saved for ${line.product_name}.`;
+      toastSuccess(message);
+      onChanged(message);
     } catch (err) {
+      const message = `Could not save the recommendation for ${line.product_name}: ` + (err instanceof Error ? err.message : String(err));
       setRecError(err instanceof Error ? err.message : String(err));
+      toastError(message);
       setSaving(false);
     }
   };
@@ -63,9 +68,13 @@ export function AwardLineCard({ line, onChanged }: { line: AwardLine; onChanged:
     setDecError("");
     try {
       await api(`/awards/lines/${line.line_item_id}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      onChanged(body.decision === "reject" ? `Returned ${line.product_name} to the Officer.` : `Decision recorded for ${line.product_name}.`);
+      const message = body.decision === "reject" ? `Returned ${line.product_name} to the Officer.` : `Decision recorded for ${line.product_name}.`;
+      toastSuccess(message);
+      onChanged(message);
     } catch (err) {
+      const message = `Could not record the decision for ${line.product_name}: ` + (err instanceof Error ? err.message : String(err));
       setDecError(err instanceof Error ? err.message : String(err));
+      toastError(message);
       setSaving(false);
     }
   };

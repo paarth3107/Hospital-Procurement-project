@@ -5,6 +5,7 @@
 // state.js directly, so this bundle has zero dependency on the old frontend's
 // internals -- just a shared contract (the key name) on the same origin.
 import { beginFetch, endFetch } from "./loadingStore";
+import { clearAuthState } from "./authStore";
 
 export const API_BASE = "/api/v1";
 
@@ -34,6 +35,29 @@ export class ApiError extends Error {
   }
 }
 
+// A FastAPI `detail` is sometimes a human-written string ("Vendor not
+// found"), sometimes a raw Pydantic validation-error array (each item has
+// `loc`/`msg`/`type`) that `JSON.stringify`-ing straight to a toast would
+// show as a wall of field-path/type-name JSON -- real gap, found
+// 2026-10-27 (user-reported): a custom `@field_validator`'s `ValueError`
+// comes back from Pydantic as `"Value error, <message>"`, which read like
+// an error about something called "Value error" rather than the actual
+// message. Every caller of `api()` gets a clean sentence either way now,
+// not just the ones with their own client-side checks already catching it
+// first.
+function cleanDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail.replace(/^Value error,\s*/i, "").trim() || fallback;
+  if (Array.isArray(detail) && detail.length) {
+    const messages = detail
+      .map((d) => (d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : null))
+      .filter((m): m is string => !!m)
+      .map((m) => m.replace(/^Value error,\s*/i, "").trim());
+    const unique = [...new Set(messages)];
+    if (unique.length) return unique.join("; ");
+  }
+  return fallback;
+}
+
 function authHeaders(extra?: HeadersInit): HeadersInit {
   const token = sessionStorage.getItem("token");
   return { ...(extra || {}), ...(token ? { Authorization: "Bearer " + token } : {}) };
@@ -43,6 +67,11 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   beginFetch();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  // Whether this particular request carried a token at all -- a login
+  // attempt (wrong password, say) also comes back 401, but there was never
+  // a session to have expired, so that one keeps the backend's own
+  // "Invalid credentials"-style message instead of being rewritten below.
+  const hadToken = !!sessionStorage.getItem("token");
   try {
     let res: Response;
     try {
@@ -71,13 +100,23 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       // whatever FastAPI's default handler produced, not a message written
       // for an end user, so this is deliberately NOT shown verbatim. A 4xx
       // keeps today's behavior: those `detail` messages ARE written for
-      // the user ("Invalid credentials", "Vendor not found", ...).
+      // the user ("Invalid credentials", "Vendor not found", ...), cleaned
+      // up by cleanDetail() either way (see its own comment).
       if (res.status >= 500) {
         throw new ApiError("Something went wrong on our end. Please try again in a moment.", res.status);
       }
+      // 401/403: the token itself was rejected -- same signal AuthBoot.tsx's
+      // own onAuthFailure already acts on, just centralized here (2026-10-27)
+      // so every api() caller gets the same clean message and the same
+      // redirect-to-login, not just the one effect that happened to check
+      // for it on page load. Clearing the token is enough to trigger
+      // ProtectedLayout's own redirect -- no navigation call needed here.
+      if (hadToken && (res.status === 401 || res.status === 403)) {
+        clearAuthState();
+        throw new ApiError("Your session has expired. Please log in again.", res.status);
+      }
       const detail = (body as { detail?: unknown } | null)?.detail;
-      const message = detail ?? res.statusText;
-      throw new ApiError(typeof message === "string" ? message : JSON.stringify(message), res.status);
+      throw new ApiError(cleanDetail(detail, res.statusText || "Something went wrong. Please try again."), res.status);
     }
     return body as T;
   } finally {

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { switchView, takePendingForgotEmail } from "../../lib/bridge";
 import { FieldError } from "../../components/FieldError";
+import { Req } from "../../components/Req";
 import { FIELD_VALIDATORS } from "./registerValidation";
 
 // Same card structure as VendorLoginPage.tsx/StaffLoginPage.tsx (heading +
@@ -72,7 +73,10 @@ export function ForgotPasswordPage({ actorType }: { actorType: "vendor" | "staff
         <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
           <p className="hint">Enter your registered email and we'll send you a link to reset your password.</p>
           <div className="ep-field">
-            <div className="ep-k">Email</div>
+            <div className="ep-k">
+              Email
+              <Req />
+            </div>
             <input
               ref={emailRef}
               className={`input${fieldErrors.email ? " invalid" : ""}`}

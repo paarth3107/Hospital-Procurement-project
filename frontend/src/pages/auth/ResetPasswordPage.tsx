@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { switchView } from "../../lib/bridge";
 import { PasswordField } from "../../components/PasswordField";
 import { FieldError } from "../../components/FieldError";
+import { Req } from "../../components/Req";
 import { FIELD_VALIDATORS } from "./registerValidation";
 
 // Reached only via the link emailed by ForgotPasswordPage's submit --
@@ -102,7 +103,10 @@ export function ResetPasswordPage({ actorType }: { actorType: "vendor" | "staff"
       <div className="fs-24px fw-800 mt-14px">Reset password</div>
       <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
         <div className="ep-field">
-          <div className="ep-k">New password</div>
+          <div className="ep-k">
+            New password
+            <Req />
+          </div>
           <PasswordField
             ref={passwordRef}
             className={fieldErrors.password ? "input invalid" : "input"}
@@ -119,7 +123,10 @@ export function ResetPasswordPage({ actorType }: { actorType: "vendor" | "staff"
           <FieldError errors={fieldErrors} name="password" />
         </div>
         <div className="ep-field">
-          <div className="ep-k">Re-enter password</div>
+          <div className="ep-k">
+            Re-enter password
+            <Req />
+          </div>
           <PasswordField
             ref={confirmRef}
             className={fieldErrors.confirm ? "input invalid" : "input"}

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { fmtDate, fmtDateTime, inr } from "../../lib/format";
 import { Tag, TypeTag } from "../../components/Tag";
+import { FieldError } from "../../components/FieldError";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { ReviewLine, ReviewVendor, Tender, TenderReview } from "../../lib/types";
@@ -181,9 +183,13 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
         updated.status === "scheduled"
           ? `Tender #${tenderId} approved — scheduled to publish ${fmtDateTime(updated.publish_date)}.`
           : `Tender #${tenderId} approved and published.`;
-      onDecided(action === "approve" ? approvedMessage : `Tender #${tenderId} rejected and returned to draft.`);
+      const message = action === "approve" ? approvedMessage : `Tender #${tenderId} rejected and returned to draft.`;
+      toastSuccess(message);
+      onDecided(message);
     } catch (err) {
-      setError(`Could not ${action} the tender: ` + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not ${action} tender #${tenderId}: ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
       setDeciding(false);
     }
   };
@@ -335,7 +341,7 @@ export function ApprovalReviewPanel({ tenderId, onBack, onDecided }: { tenderId:
                   setCommentsInvalid(false);
                 }}
               />
-              {commentsInvalid && <div className="hint mt-4px text-danger-700">A reason is mandatory to reject a tender.</div>}
+              <FieldError errors={{ comments: commentsInvalid ? "A reason is mandatory to reject a tender." : "" }} name="comments" />
             </div>
             <div className="d-flex gap-10px justify-end mt-12px">
               <button className="ep-b" disabled={deciding} onClick={() => decide("reject")}>
