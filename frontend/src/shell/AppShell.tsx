@@ -31,11 +31,14 @@ export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    // Skipped when mounting straight onto /dashboard -- DashboardPage.tsx
-    // fetches the same /dashboard/stats itself and feeds the result
-    // straight into chromeStore (applyDashboardStats), so this would just
-    // be the identical request a second time.
-    if (pathname !== "/dashboard") refreshChrome();
+    // Skipped when mounting straight onto /dashboard or /vendor-dashboard --
+    // both DashboardPage.tsx and VendorDashboardPage.tsx fetch the same
+    // data themselves and feed it straight into chromeStore
+    // (applyDashboardStats / applyVendorPortalStats), so this would just be
+    // the identical requests a second time (2026-10-28, user-reported: the
+    // vendor half of this was never actually finished -- see
+    // applyVendorPortalStats's own comment in chromeStore.ts).
+    if (pathname !== "/dashboard" && pathname !== "/vendor-dashboard") refreshChrome();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

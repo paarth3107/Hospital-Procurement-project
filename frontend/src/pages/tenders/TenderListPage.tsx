@@ -46,7 +46,7 @@ export function TenderListPage() {
   // via ?status=draft rather than transient component state -- a refresh
   // or a direct link keeps whichever filter was selected instead of
   // silently resetting to the default (2026-10-28, user-directed), same
-  // pattern as VendorTendersPage.tsx's own ?filter=.
+  // pattern as VendorInvitationsPage.tsx's own ?filter=.
   const rawStatus = params.get("status");
   const statusFilter: StatusFilter = STATUS_FILTERS.some(([v]) => v === rawStatus) ? (rawStatus as StatusFilter) : "open";
   const setStatusFilter = (f: StatusFilter) => {

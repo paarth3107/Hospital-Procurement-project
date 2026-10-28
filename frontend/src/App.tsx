@@ -25,7 +25,8 @@ import { MappingMatrixPage } from "./pages/mappings/MappingMatrixPage";
 import { MappingRequestsPage } from "./pages/mappings/MappingRequestsPage";
 import { RatingsPage } from "./pages/ratings/RatingsPage";
 import { VendorDashboardPage } from "./pages/vendor/VendorDashboardPage";
-import { VendorTendersPage } from "./pages/vendor/VendorTendersPage";
+import { VendorInvitationsPage } from "./pages/vendor/VendorInvitationsPage";
+import { VendorBidsPage } from "./pages/vendor/VendorBidsPage";
 import { VendorRatingsPage } from "./pages/vendor/VendorRatingsPage";
 import { VendorProfilePage } from "./pages/vendor/VendorProfilePage";
 import { VendorCategoriesPage } from "./pages/vendor/categories/VendorCategoriesPage";
@@ -92,7 +93,8 @@ export function App() {
           <Route path="/mappings-requests" element={<MappingRequestsPage />} />
           <Route path="/ratings" element={<RatingsPage />} />
           <Route path="/vendor-dashboard" element={<VendorDashboardPage />} />
-          <Route path="/vendor-tenders" element={<VendorTendersPage />} />
+          <Route path="/vendor-invitations" element={<VendorInvitationsPage />} />
+          <Route path="/vendor-bids" element={<VendorBidsPage />} />
           <Route path="/vendor-ratings" element={<VendorRatingsPage />} />
           <Route path="/vendor-profile" element={<VendorProfilePage />} />
           <Route path="/vendor-categories" element={<VendorCategoriesPage />} />
