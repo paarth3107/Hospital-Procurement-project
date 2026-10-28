@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
 import { switchView } from "../../lib/bridge";
 import { Tag, StateTag } from "../../components/Tag";
 import { IconActionButton } from "../../components/IconActionButton";
 import { Pagination, pageSlice } from "../../components/Pagination";
-import type { Tender } from "../../lib/types";
+import type { Tender, TenderStatus } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/tendersPage.js -- the list only.
 // "+ New tender" opens /tender-edit (blank); Manage opens /tender-edit/:id
@@ -14,15 +15,44 @@ import type { Tender } from "../../lib/types";
 const TYPE_LABEL: Record<string, string> = { rfq: "RFQ", rfp: "RFP" };
 
 // Awarded / No award are done -- nothing left to act on. Kept out of the
-// list by default (they pile up forever otherwise); a checkbox reveals them
-// again without a refetch.
+// list by default (they pile up forever otherwise).
 const CLOSED_TENDER_STATUSES = new Set(["awarded", "no_award"]);
+
+// Replaced the old binary "Show closed/awarded" checkbox with a real
+// status dropdown (2026-10-28, user-directed) -- "all" and "open" (the
+// old unchecked default: everything except Awarded/No Award) sit above
+// the individual statuses, which filter down to exactly one. "All" is
+// listed first, but the dropdown still *defaults* to "open" -- list order
+// and default selection are independent (see the useState below).
+type StatusFilter = "open" | "all" | TenderStatus;
+const STATUS_FILTERS: [StatusFilter, string][] = [
+  ["all", "All"],
+  ["open", "Open"],
+  ["draft", "Draft"],
+  ["pending_approval", "Pending Approval"],
+  ["scheduled", "Scheduled"],
+  ["published", "Published"],
+  ["withdrawn", "Withdrawn"],
+  ["no_award", "No Award"],
+  ["awarded", "Awarded"],
+];
 
 export function TenderListPage() {
   const [allTenders, setAllTenders] = useState<Tender[]>([]);
-  const [showClosed, setShowClosed] = useState(false);
   const [page, setPage] = useState(0);
   const [error, setError] = useState("");
+  const [params, setParams] = useSearchParams();
+  // Deep-linkable (e.g. the Officer dashboard's "Draft tenders" KPI tile)
+  // via ?status=draft rather than transient component state -- a refresh
+  // or a direct link keeps whichever filter was selected instead of
+  // silently resetting to the default (2026-10-28, user-directed), same
+  // pattern as VendorTendersPage.tsx's own ?filter=.
+  const rawStatus = params.get("status");
+  const statusFilter: StatusFilter = STATUS_FILTERS.some(([v]) => v === rawStatus) ? (rawStatus as StatusFilter) : "open";
+  const setStatusFilter = (f: StatusFilter) => {
+    setPage(0);
+    setParams(f === "open" ? {} : { status: f }, { replace: true });
+  };
 
   const load = useCallback(async () => {
     try {
@@ -39,26 +69,32 @@ export function TenderListPage() {
 
   if (error && !allTenders.length) return <div className="result err">{error}</div>;
 
-  const closedCount = allTenders.filter((t) => CLOSED_TENDER_STATUSES.has(t.status)).length;
-  const filtered = showClosed ? allTenders : allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status));
+  const filtered =
+    statusFilter === "all"
+      ? allTenders
+      : statusFilter === "open"
+        ? allTenders.filter((t) => !CLOSED_TENDER_STATUSES.has(t.status))
+        : allTenders.filter((t) => t.status === statusFilter);
   const { pageItems, totalPages, page: clampedPage } = pageSlice(filtered, page);
 
   return (
     <div className="ep-pane">
       <div className="ep-pane-head">
-        <span>Tenders</span>
+        <span>
+          Tenders <span className="ep-k">({filtered.length})</span>
+        </span>
         <div className="d-flex items-center gap-14px">
-          <label className="d-flex items-center gap-6px fs-12px fw-400 tt-none ls-0 text-ink-70">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => {
-                setShowClosed(e.target.checked);
-                setPage(0);
-              }}
-            />{" "}
-            Show closed/awarded ({closedCount})
-          </label>
+          <select
+            className="input input-narrow"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          >
+            {STATUS_FILTERS.map(([value, label]) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
+            ))}
+          </select>
           <button
             className="ep-b"
             data-v="p"
@@ -82,7 +118,11 @@ export function TenderListPage() {
           {!pageItems.length ? (
             <tr>
               <td className="ep-cell text-ink-55" colSpan={7}>
-                {showClosed ? "No tenders yet." : "No open tenders. Closed/awarded tenders are hidden -- tick the box above to see them."}
+                {statusFilter === "all"
+                  ? "No tenders yet."
+                  : statusFilter === "open"
+                    ? "No open tenders. Closed/awarded tenders are hidden -- pick a different filter above to see them."
+                    : `No tenders with status "${STATUS_FILTERS.find(([v]) => v === statusFilter)?.[1]}".`}
               </td>
             </tr>
           ) : (

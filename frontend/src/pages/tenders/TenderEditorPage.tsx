@@ -584,6 +584,12 @@ export function TenderEditorPage() {
                 </span>
                 <span className="ep-switch-label">Open Tender</span>
               </label>
+              {/* Always rendered, not conditional on checked (2026-10-28,
+                  user-directed) -- a short, fixed-height line so this
+                  column isn't empty next to Rate Contract's, and so
+                  nothing shifts/wraps to a second line the moment the
+                  toggle is turned on. */}
+              <div className="hint mt-8px">Invites every Active vendor.</div>
             </div>
             <div className="minw-220px">
               <label className="ep-switch ep-check-field">
@@ -618,8 +624,11 @@ export function TenderEditorPage() {
                   user-directed) -- they're entered at L1-submission time
                   instead, on the Awards page's TenderAwardPanel.tsx, where
                   "date of awarding" is a real nearby date rather than a
-                  guess made at tender creation. */}
-              <div className="hint mt-8px">{form.is_rate_contract && "Contract start/end dates are set when this tender is submitted for L1 approval."}</div>
+                  guess made at tender creation. Kept to one short, always-
+                  rendered line (not conditional on checked) so turning the
+                  toggle on doesn't wrap to a second line and shift the row
+                  (same user-directed fix as Open Tender's line above). */}
+              <div className="hint mt-8px">Dates set at L1 approval.</div>
             </div>
           </div>
 

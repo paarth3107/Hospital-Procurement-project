@@ -7,7 +7,7 @@ import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/f
 import { FormField } from "../../components/FormField";
 import { FieldError } from "../../components/FieldError";
 import { Req } from "../../components/Req";
-import { percentRangeError } from "./tenderValidation";
+import { nonNegativeError, percentRangeError, qtyError } from "./tenderValidation";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { CatalogProduct, LineItem, TechnicalEvalMethod, TenderLineAttachmentKind } from "../../lib/types";
@@ -94,9 +94,11 @@ export const LineItemsGrid = forwardRef<
 >(function LineItemsGrid({ products, tenderId, onChange, onRequestSave }, ref) {
   const [rows, setRowsState] = useState<LineItemRow[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  // Min Rating Threshold Override's red error, keyed by row index (same
-  // convention as expandedRows above) -- FieldError's own lookup just
-  // wants string keys, so the index is stringified.
+  // Per-row, per-field red errors (2026-10-28, user-directed, extended
+  // from Min Rating Threshold Override alone to also cover Quantity and
+  // Estimated Price per Unit) -- keyed "<row index>:<field name>" so three
+  // different fields on the same row don't collide; FieldError's own
+  // lookup just wants string keys either way.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSummary, setImportSummary] = useState("");
@@ -313,12 +315,16 @@ export const LineItemsGrid = forwardRef<
   // save, via the backend's real validator. Same on-blur-error-under-the-
   // field pattern as registration/login (FieldError + tenderValidation.ts's
   // percentRangeError) -- replacing a first attempt that silently clamped
-  // the value instead of flagging it.
-  const checkRatingOverride = (i: number, raw: string) => {
-    const err = percentRangeError(raw);
-    const key = String(i);
+  // the value instead of flagging it. Extended 2026-10-28, user-directed,
+  // to Quantity and Estimated Price per Unit too -- one shared helper, one
+  // key scheme ("<row>:<field>"), three validators.
+  const checkRowField = (i: number, field: string, err: string | null) => {
+    const key = `${i}:${field}`;
     setFieldErrors((prev) => (prev[key] === (err ?? "") ? prev : { ...prev, [key]: err ?? "" }));
   };
+  const checkRatingOverride = (i: number, raw: string) => checkRowField(i, "min_rating_threshold_override", percentRangeError(raw));
+  const checkQty = (i: number, raw: string) => checkRowField(i, "qty", qtyError(raw));
+  const checkPrice = (i: number, raw: string) => checkRowField(i, "estimated_price", nonNegativeError(raw));
 
   const onEvalMethodChange = (i: number, value: string) =>
     updateRow(i, (r) => {
@@ -615,27 +621,37 @@ export const LineItemsGrid = forwardRef<
                         </td>
                         <td className="ep-cell">
                           <input
-                            className="input"
+                            className={`input${fieldErrors[`${i}:qty`] ? " invalid" : ""}`}
                             type="number"
                             step="any"
                             min={0}
                             data-row={i}
                             data-col={1}
                             value={row.qty ?? ""}
-                            onChange={(e) => onNumericInput(i, "qty", e.target.value)}
+                            onChange={(e) => {
+                              onNumericInput(i, "qty", e.target.value);
+                              if (fieldErrors[`${i}:qty`]) checkQty(i, e.target.value);
+                            }}
+                            onBlur={(e) => checkQty(i, e.target.value)}
                           />
+                          <FieldError errors={fieldErrors} name={`${i}:qty`} />
                         </td>
                         <td className="ep-cell">
                           <input
-                            className="input"
+                            className={`input${fieldErrors[`${i}:estimated_price`] ? " invalid" : ""}`}
                             type="number"
                             step="any"
                             min={0}
                             data-row={i}
                             data-col={2}
                             value={row.estimated_price ?? ""}
-                            onChange={(e) => onNumericInput(i, "estimated_price", e.target.value)}
+                            onChange={(e) => {
+                              onNumericInput(i, "estimated_price", e.target.value);
+                              if (fieldErrors[`${i}:estimated_price`]) checkPrice(i, e.target.value);
+                            }}
+                            onBlur={(e) => checkPrice(i, e.target.value)}
                           />
+                          <FieldError errors={fieldErrors} name={`${i}:estimated_price`} />
                         </td>
                         <td className="ep-cell">
                           <select
@@ -708,7 +724,7 @@ export const LineItemsGrid = forwardRef<
                                   <div className="ep-field">
                                     <div className="ep-k">Min Rating Threshold Override</div>
                                     <input
-                                      className={`input${fieldErrors[String(i)] ? " invalid" : ""}`}
+                                      className={`input${fieldErrors[`${i}:min_rating_threshold_override`] ? " invalid" : ""}`}
                                       type="number"
                                       step={0.1}
                                       min={0}
@@ -716,12 +732,12 @@ export const LineItemsGrid = forwardRef<
                                       value={row.min_rating_threshold_override ?? ""}
                                       onChange={(e) => {
                                         onNumericInput(i, "min_rating_threshold_override", e.target.value);
-                                        if (fieldErrors[String(i)]) checkRatingOverride(i, e.target.value);
+                                        if (fieldErrors[`${i}:min_rating_threshold_override`]) checkRatingOverride(i, e.target.value);
                                       }}
                                       onBlur={(e) => checkRatingOverride(i, e.target.value)}
                                       placeholder="tender default"
                                     />
-                                    <FieldError errors={fieldErrors} name={String(i)} />
+                                    <FieldError errors={fieldErrors} name={`${i}:min_rating_threshold_override`} />
                                   </div>
                                 </div>
                               </div>
