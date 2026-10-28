@@ -5,6 +5,7 @@
 // state.js directly, so this bundle has zero dependency on the old frontend's
 // internals -- just a shared contract (the key name) on the same origin.
 import { beginFetch, endFetch } from "./loadingStore";
+import { clearAuthState } from "./authStore";
 
 export const API_BASE = "/api/v1";
 
@@ -37,6 +38,17 @@ export class ApiError extends Error {
 function authHeaders(extra?: HeadersInit): HeadersInit {
   const token = sessionStorage.getItem("token");
   return { ...(extra || {}), ...(token ? { Authorization: "Bearer " + token } : {}) };
+}
+
+// A vendor blacklisted while logged in gets a 403 "barred" from every vendor
+// endpoint (security.get_current_vendor) -- end the session and send them to
+// the vendor login. Only fires when a token is held, so the login call's own
+// "barred" 403 is left for the login page to display.
+function handleBarredVendor(status: number, detail: unknown) {
+  if (status !== 403 || typeof detail !== "string" || !detail.includes("barred")) return;
+  if (!sessionStorage.getItem("token")) return;
+  clearAuthState();
+  window.location.assign("/vendor-login");
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -76,6 +88,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
         throw new ApiError("Something went wrong on our end. Please try again in a moment.", res.status);
       }
       const detail = (body as { detail?: unknown } | null)?.detail;
+      handleBarredVendor(res.status, detail);
       const message = detail ?? res.statusText;
       throw new ApiError(typeof message === "string" ? message : JSON.stringify(message), res.status);
     }
@@ -123,6 +136,7 @@ export function uploadWithProgress<T>(path: string, formData: FormData, onProgre
         resolve(body as T);
       } else {
         const detail = (body as { detail?: unknown } | null)?.detail;
+        handleBarredVendor(xhr.status, detail);
         const message = detail ?? xhr.statusText ?? `Upload failed (${xhr.status})`;
         reject(new ApiError(typeof message === "string" ? message : JSON.stringify(message), xhr.status));
       }

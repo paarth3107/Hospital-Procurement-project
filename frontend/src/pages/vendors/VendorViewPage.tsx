@@ -153,7 +153,7 @@ export function VendorViewPage() {
       } else if (kind === "reinstate-blacklisted") {
         const reason = await reasonAsync({
           title: "Reinstate vendor",
-          message: `${vendor.legal_name} is currently blacklisted. This is recorded in the status history.`,
+          message: `${vendor.legal_name} is currently blacklisted. This is recorded in the status history. If its mandatory documents aren't all verified, it moves to Info Requested so it can log in and upload them; otherwise it becomes Active.`,
           placeholder: "e.g. Compliance issue resolved, GST certificate re-verified",
           confirmLabel: "Reinstate vendor",
         });

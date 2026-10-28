@@ -119,7 +119,7 @@ def _officer_stats(
     tenders = (
         db.query(Tender)
         .filter(Tender.status.in_([TenderStatus.DRAFT, TenderStatus.PENDING_APPROVAL, TenderStatus.SCHEDULED, TenderStatus.PUBLISHED]))
-        .order_by(Tender.id.desc())
+        .order_by(Tender.created_at.desc(), Tender.id.desc())
         .all()
     )
     now = datetime.now(timezone.utc)
@@ -185,7 +185,7 @@ def _approving_authority_stats(
     tenders = (
         db.query(Tender)
         .filter(Tender.status.in_([TenderStatus.PENDING_APPROVAL, TenderStatus.SCHEDULED, TenderStatus.PUBLISHED]))
-        .order_by(Tender.id.desc())
+        .order_by(Tender.created_at.desc(), Tender.id.desc())
         .all()
     )
     published = [t for t in tenders if t.status == TenderStatus.PUBLISHED]
@@ -289,7 +289,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
     pending_vendor_rows = (
         db.query(Vendor)
         .filter(Vendor.status == VendorStatus.PENDING_VERIFICATION)
-        .order_by(Vendor.expedited_review_tender_id.is_(None), Vendor.created_at)
+        .order_by(Vendor.expedited_review_tender_id.is_(None), Vendor.created_at.desc())
         .all()
     )
     vendors_pending_count = len(pending_vendor_rows)
@@ -346,7 +346,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: UserAccount = Depen
 
     # Category Manager's own queues (product decision, 2026-09-30): itemized
     # like the KYC tasks, instead of a single aggregate count each.
-    pending_mapping_rows = db.query(VendorMapping).filter(VendorMapping.state == MappingState.PENDING).order_by(VendorMapping.requested_at).all()
+    pending_mapping_rows = db.query(VendorMapping).filter(VendorMapping.state == MappingState.PENDING).order_by(VendorMapping.requested_at.desc()).all()
     pending_mappings = [
         DashboardPendingMappingOut(
             id=m.id, vendor_id=m.vendor_id, vendor_name=m.vendor.legal_name,

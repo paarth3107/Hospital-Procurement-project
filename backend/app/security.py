@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models.user_account import UserAccount
-from app.models.vendor import Vendor
+from app.models.vendor import Vendor, VendorStatus
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -114,6 +114,10 @@ def get_current_vendor(token: str = Depends(vendor_oauth2_scheme), db: Session =
     vendor = db.query(Vendor).filter(Vendor.email == email).first()
     if vendor is None:
         raise credentials_exception
+    # A JWT can't be revoked, so a vendor blacklisted mid-session is cut off
+    # here instead -- this runs on every vendor request.
+    if vendor.status == VendorStatus.BLACKLISTED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This vendor account has been barred")
     return vendor
 
 
