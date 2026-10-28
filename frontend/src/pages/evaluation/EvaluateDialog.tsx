@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { Tag } from "../../components/Tag";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { BidReview, Criterion, VendorBidRow } from "../../lib/types";
@@ -60,6 +63,7 @@ export function EvaluateDialog({
   const [comments, setComments] = useState("");
   const [commentsInvalid, setCommentsInvalid] = useState(false);
   const [justification, setJustification] = useState("");
+  const [justificationInvalid, setJustificationInvalid] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const { openPreview, modalElement } = useModal();
@@ -141,7 +145,7 @@ export function EvaluateDialog({
       return;
     }
     if (mode === "correct" && !justification.trim()) {
-      setError("A justification is required to correct a closed evaluation.");
+      setJustificationInvalid(true);
       return;
     }
     setSaving(true);
@@ -154,21 +158,25 @@ export function EvaluateDialog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decision, scores, comments, justification: justification.trim() }),
         });
-        onSaved(
-          res.escalated
-            ? `Correction for ${review.vendor_name} changes this line's outcome -- escalated to ${res.required_approver_role?.replace(/_/g, " ") ?? "Approving Authority"}.`
-            : `Correction for ${review.vendor_name} sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "Category Manager"} for approval.`
-        );
+        const message = res.escalated
+          ? `Correction for ${review.vendor_name} changes this line's outcome -- escalated to ${res.required_approver_role?.replace(/_/g, " ") ?? "Approving Authority"}.`
+          : `Correction for ${review.vendor_name} sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "Category Manager"} for approval.`;
+        toastSuccess(message);
+        onSaved(message);
       } else {
         await api(`/evaluation/bids/${review.bid_id}/evaluation`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decision, scores, comments }),
         });
-        onSaved(`Evaluation saved for ${review.vendor_name}.`);
+        const message = `Evaluation saved for ${review.vendor_name}.`;
+        toastSuccess(message);
+        onSaved(message);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = `Could not save the evaluation for ${review.vendor_name}: ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
       setSaving(false);
     }
   };
@@ -198,6 +206,7 @@ export function EvaluateDialog({
   if (!review) return null;
 
   const locked = !allOpened;
+  const disq = review.scored ? disqualify : qdDecision === "disqualified";
 
   return createPortal(
     <div className="dialog-overlay">
@@ -278,7 +287,8 @@ export function EvaluateDialog({
                     ) : (
                       <div className="ep-field" key={c.key}>
                         <div className="ep-k">
-                          {c.label} (weight {c.weight}){c.optional ? " — optional" : " *"}
+                          {c.label} (weight {c.weight})
+                          {!c.optional && <Req />}
                         </div>
                         <input
                           className="input"
@@ -319,7 +329,10 @@ export function EvaluateDialog({
               </>
             )}
             <div className="ep-field mt-8px">
-              <div className="ep-k">Comments (if any)</div>
+              <div className="ep-k">
+                {disq ? "Comments" : "Comments (if any)"}
+                {disq && <Req />}
+              </div>
               <textarea
                 className={`input w-full${commentsInvalid ? " invalid" : ""}`}
                 rows={3}
@@ -329,13 +342,29 @@ export function EvaluateDialog({
                   setComments(e.target.value);
                   setCommentsInvalid(false);
                 }}
+                onBlur={() => {
+                  if (disq && !comments.trim()) setCommentsInvalid(true);
+                }}
               />
-              {commentsInvalid && <div className="hint mt-4px text-danger-700">A reason is mandatory to disqualify a bid.</div>}
+              <FieldError errors={{ comments: commentsInvalid ? "A reason is mandatory to disqualify a bid." : "" }} name="comments" />
             </div>
             {mode === "correct" && (
               <div className="ep-field mt-8px">
-                <div className="ep-k">Justification</div>
-                <input className="input" disabled={locked} value={justification} onChange={(e) => setJustification(e.target.value)} />
+                <div className="ep-k">
+                  Justification
+                  <Req />
+                </div>
+                <input
+                  className="input"
+                  disabled={locked}
+                  value={justification}
+                  onChange={(e) => {
+                    setJustification(e.target.value);
+                    if (justificationInvalid) setJustificationInvalid(false);
+                  }}
+                  onBlur={(e) => setJustificationInvalid(!e.target.value.trim())}
+                />
+                <FieldError errors={{ justification: justificationInvalid ? "A justification is required to correct a closed evaluation." : "" }} name="justification" />
               </div>
             )}
           </div>

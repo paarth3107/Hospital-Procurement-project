@@ -1,4 +1,4 @@
-from app.services.open_links import invite_newly_active_vendor, require_open_link_tender
+from app.services.guest_invite_links import invite_newly_active_vendor, require_guest_invite_tender
 import logging
 import secrets
 from datetime import date, datetime, timedelta, timezone
@@ -220,9 +220,9 @@ async def register_vendor(request: Request, db: Session = Depends(get_db)):
         if label.strip() and not isinstance(upload, str) and upload.filename
     ]
 
-    linked_tender = require_open_link_tender((text_fields.get("open_link_token") or "").strip() or None, db)
+    linked_tender = require_guest_invite_tender((text_fields.get("guest_invite_token") or "").strip() or None, db)
     vendor = Vendor(
-        **payload.model_dump(exclude={"password", "category_declaration", "open_link_token"}),
+        **payload.model_dump(exclude={"password", "category_declaration", "guest_invite_token"}),
         status=VendorStatus.PENDING_VERIFICATION,
         hashed_password=hash_password(payload.password),
     )
@@ -267,14 +267,14 @@ def create_draft_vendor(payload: VendorCreate, db: Session = Depends(get_db)):
     no token yet. The returned `registration_token` is the only thing that
     lets this same (still-anonymous) browser prove it's the one allowed to
     attach documents to this draft or finish it -- same capability-token
-    pattern as open_links.py's open_link_token."""
+    pattern as guest_invite_links.py's guest_invite_token."""
 
     _duplicate_check(db, payload.gstin, payload.pan, payload.email, payload.phone)
 
-    linked_tender = require_open_link_tender((payload.open_link_token or "").strip() or None, db)
+    linked_tender = require_guest_invite_tender((payload.guest_invite_token or "").strip() or None, db)
     token = secrets.token_urlsafe(32)
     vendor = Vendor(
-        **payload.model_dump(exclude={"password", "category_declaration", "open_link_token"}),
+        **payload.model_dump(exclude={"password", "category_declaration", "guest_invite_token"}),
         status=VendorStatus.DRAFT,
         hashed_password=hash_password(payload.password),
         registration_token=token,

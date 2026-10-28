@@ -376,7 +376,7 @@ export interface Tender {
   min_invites: number | null;
   max_invites: number | null;
   open_tender: boolean;
-  open_link_token: string | null;
+  guest_invite_token: string | null;
   is_rate_contract: boolean;
   contract_start_date: string | null;
   contract_end_date: string | null;
@@ -477,6 +477,8 @@ export interface ReviewVendor {
   legal_name: string;
   rating_score: number;
   is_unrated: boolean;
+  source: string;
+  reason: string | null;
 }
 
 export interface ReviewLine {
@@ -685,6 +687,8 @@ export interface TenderEvalDetail {
 export interface CommercialRow {
   vendor_id: number;
   vendor_name: string;
+  invite_source: string;
+  invite_reason: string | null;
   bid_id: number;
   technical_outcome: TechnicalDecision;
   technical_score: number | null;
@@ -791,6 +795,9 @@ export interface AwardTender {
   submit_blockers: string[];
   po_files: PoFileBrief[];
   awarded_at: string | null;
+  is_rate_contract: boolean;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
 }
 
 export interface AwardTenderSummary {
@@ -811,6 +818,13 @@ export interface RecommendationSave {
   reason?: string | null;
 }
 
+// Mirrors backend/app/schemas/awards.py's L1SubmitIn -- only meaningful when
+// the tender is_rate_contract; see TenderAwardPanel.tsx.
+export interface L1SubmitIn {
+  contract_start_date?: string | null;
+  contract_end_date?: string | null;
+}
+
 export interface DecisionIn {
   decision: "approve" | "award_system_l1" | "reject";
   comments?: string | null;
@@ -818,7 +832,7 @@ export interface DecisionIn {
 }
 
 // Mirrors backend/app/schemas/vendor_portal.py's PortalLineItemOut/
-// PortalTenderOut, bid.py's MyBidOut, and open_link.py's RegisteredTenderOut.
+// PortalTenderOut, bid.py's MyBidOut, and guest_invite_link.py's RegisteredTenderOut.
 export type BidStatus = "draft" | "submitted" | "withdrawn" | "pending_late_exception";
 
 export interface PortalLineItem {

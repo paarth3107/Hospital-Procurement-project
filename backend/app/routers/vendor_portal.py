@@ -19,9 +19,9 @@ from app.security import get_current_vendor
 from app.services.audit import record
 from app.services.expiry import sweep_vendor
 from app.services.mappings import create_pending_mapping
-from app.services.open_links import facility_name, link_state
+from app.services.guest_invite_links import facility_name, link_state
 from app.services.tender_publish import sweep_scheduled_publishes
-from app.schemas.open_link import RegisteredTenderOut
+from app.schemas.guest_invite_link import RegisteredTenderOut
 
 router = APIRouter(prefix="/api/v1/vendor-portal", tags=["vendor-portal"])
 

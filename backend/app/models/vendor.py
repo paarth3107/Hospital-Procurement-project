@@ -100,10 +100,10 @@ class Vendor(Base):
     # yet), then each document uploads on its own as the user picks it, then
     # a final call flips the vendor to Pending Verification once every
     # mandatory document is present. This random, opaque token (same
-    # capability-token pattern as open_links.py's open_link_token) is the
-    # only thing that lets the still-unauthenticated browser that just
-    # created this draft prove it's the one allowed to attach documents to
-    # it or finish it -- cleared (set back to null) once registration
+    # capability-token pattern as guest_invite_links.py's guest_invite_token)
+    # is the only thing that lets the still-unauthenticated browser that
+    # just created this draft prove it's the one allowed to attach documents
+    # to it or finish it -- cleared (set back to null) once registration
     # completes, so it can't be replayed afterward.
     registration_token = Column(String(64), nullable=True)
 

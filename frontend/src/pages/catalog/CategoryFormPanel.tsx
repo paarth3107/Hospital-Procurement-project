@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import type { Category, ProcurementType } from "../../lib/types";
 import { useModal } from "../../components/useModal";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import { RequiredDocsPicker, type RequiredDocsPickerHandle } from "../../components/RequiredDocsPicker";
 
 // Ported 1:1 from frontend/js/pages/catalog/categoryForm.js's openCategoryForm().
@@ -29,6 +32,8 @@ export function CategoryFormPanel({
   const [requiredDocs, setRequiredDocs] = useState<string[]>(category?.required_documents ?? []);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<RequiredDocsPickerHandle>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const { chooseAsync, modalElement } = useModal();
@@ -37,8 +42,19 @@ export function CategoryFormPanel({
     panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  const checkName = (v: string) => {
+    const err = v.trim() ? "" : "Category name is required.";
+    setNameError(err);
+    return err;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkName(name)) {
+      nameRef.current?.focus();
+      nameRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
     setSaving(true);
     setError("");
     const payload: Record<string, unknown> = {
@@ -78,22 +94,36 @@ export function CategoryFormPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      toastSuccess(`${category ? "Updated" : "Added"} category "${payload.name}".`);
       onSaved(`${category ? "Updated" : "Added"} category ${payload.name}.`);
     } catch (err) {
-      setError("Could not save: " + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not save category "${payload.name}": ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
       setSaving(false);
     }
   };
 
   return (
     <div ref={panelRef}>
-      <form className="catalog-form ep-form gap-16px" onSubmit={submit}>
+      <form className="catalog-form ep-form gap-16px" noValidate onSubmit={submit}>
         <div className="fs-18px fw-800">{category ? "Edit" : "New"} category</div>
         <div className="ep-pane ep-pane-pad">
           <div className="ep-form-grid grid-cols-1fr-1fr-1fr">
             <div className="ep-field">
-              <div className="ep-k">Name</div>
-              <input className="input" required value={name} onChange={(e) => setName(e.target.value)} />
+              <div className="ep-k">
+                Name
+                <Req />
+              </div>
+              <input
+                className="input"
+                required
+                ref={nameRef}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={(e) => checkName(e.target.value)}
+              />
+              <FieldError errors={{ name: nameError }} name="name" />
             </div>
             <div className="ep-field">
               <div className="ep-k">Procurement type</div>

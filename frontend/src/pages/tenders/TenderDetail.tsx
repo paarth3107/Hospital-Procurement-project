@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
 import { useModal } from "../../components/useModal";
 import { StateTag, Tag } from "../../components/Tag";
+import { GuestInviteLinkBox } from "./GuestInviteLinkBox";
 import type { ApprovalRound, CatalogProduct, ExcludedVendor, LineItem, LineItemEligibility, TenderStatus, VendorLookup } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderDetail.js. Shown below the
@@ -34,6 +35,7 @@ export function TenderDetail({
       <PublishStatusTable tenderId={tenderId} tenderStatus={tenderStatus} isSystemAdmin={isSystemAdmin} onResult={onResult} />
       <DueDateExtensionPanel tenderId={tenderId} tenderStatus={tenderStatus} onResult={onResult} refreshToken={refreshToken} />
       <EligibilityPreview tenderId={tenderId} tenderStatus={tenderStatus} minInvites={minInvites} onResult={onResult} refreshToken={refreshToken} />
+      <OtherVendorsPanel tenderId={tenderId} tenderStatus={tenderStatus} onResult={onResult} refreshToken={refreshToken} />
       <RoundsTable tenderId={tenderId} />
     </div>
   );
@@ -293,7 +295,6 @@ function EligibilityPreview({
 }) {
   const [preview, setPreview] = useState<LineItemEligibility[] | null>(null);
   const [activeVendors, setActiveVendors] = useState<VendorLookup[]>([]);
-  const [pendingVendors, setPendingVendors] = useState<VendorLookup[]>([]);
   const [openTender, setOpenTender] = useState(false);
   const { alertAsync, modalElement } = useModal();
 
@@ -307,10 +308,6 @@ function EligibilityPreview({
       setOpenTender(tender.open_tender);
       setPreview(prev);
       setActiveVendors(vendors.filter((v) => v.status === "active"));
-      // A vendor stuck in the registration queue can't be manually invited
-      // (that's Active-only, spec §6.6) -- this is the pool Expedited
-      // Registration Review (below) can flag instead, spec §6.7/§12.3.
-      setPendingVendors(vendors.filter((v) => v.status === "pending_verification" || v.status === "info_requested"));
     } catch (err) {
       onResult("Could not load eligibility preview: " + (err instanceof Error ? err.message : String(err)), false);
     }
@@ -347,12 +344,6 @@ function EligibilityPreview({
   };
 
   const canEdit = tenderStatus === "draft" && !openTender;
-  // Expedited review needs no draft/open-tender restriction -- unlike a
-  // manual invite (which pre-populates an invite list that only matters
-  // pre-publish), the urgency this flags is usually strongest once the
-  // tender's Published and its deadline is close. The backend's own guard
-  // (CLOSED_TENDER_STATUSES) is what actually blocks a closed tender.
-  const tenderClosed = tenderStatus === "withdrawn" || tenderStatus === "no_award" || tenderStatus === "awarded";
 
   if (!preview) return null;
 
@@ -376,11 +367,71 @@ function EligibilityPreview({
             onAlert={alertAsync}
           />
         ))}
-        {!tenderClosed && pendingVendors.length > 0 && (
-          <ExpediteReviewRow tenderId={tenderId} pendingVendors={pendingVendors} onResult={onResult} />
-        )}
       </div>
       {modalElement}
+    </div>
+  );
+}
+
+// Everything that reaches this tender's vendor list from outside the
+// normal eligibility rules AND outside Manual Invite (2026-10-28,
+// user-directed): Expedited Registration Review first (an override --
+// flags an urgent not-yet-Active vendor, spec §6.7/§12.3), then Guest
+// Invite second (the registration link for brand-new vendors). Combined
+// into one "Other Vendors" card, placed above Approval Rounds. Each half
+// fetches its own slice of the tender/vendor-lookup data, same
+// self-contained-panel pattern every other piece of this file already
+// uses, rather than threading more props down from TenderEditorPage.
+function OtherVendorsPanel({
+  tenderId,
+  tenderStatus,
+  onResult,
+  refreshToken,
+}: {
+  tenderId: number;
+  tenderStatus: TenderStatus;
+  onResult: (message: string, ok: boolean) => void;
+  refreshToken: number;
+}) {
+  const [pendingVendors, setPendingVendors] = useState<VendorLookup[]>([]);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [t, vendors] = await Promise.all([
+        api<{ guest_invite_token: string | null }>(`/tenders/${tenderId}`),
+        api<VendorLookup[]>("/vendors/lookup"),
+      ]);
+      setGuestToken(t.guest_invite_token);
+      // A vendor stuck in the registration queue can't be manually invited
+      // (that's Active-only, spec §6.6) -- this is the pool Expedited
+      // Registration Review below can flag instead, spec §6.7/§12.3.
+      setPendingVendors(vendors.filter((v) => v.status === "pending_verification" || v.status === "info_requested"));
+    } catch {
+      // Not critical -- the panel below just won't show current state.
+    }
+  }, [tenderId]);
+
+  useEffect(() => {
+    load();
+  }, [load, refreshToken]);
+
+  // Expedited review needs no draft/open-tender restriction -- unlike a
+  // manual invite (which pre-populates an invite list that only matters
+  // pre-publish), the urgency this flags is usually strongest once the
+  // tender's Published and its deadline is close. The backend's own guard
+  // (CLOSED_TENDER_STATUSES) is what actually blocks a closed tender.
+  const tenderClosed = tenderStatus === "withdrawn" || tenderStatus === "no_award" || tenderStatus === "awarded";
+
+  return (
+    <div className="ep-pane">
+      <div className="ep-pane-head">
+        <span>Other Vendors</span>
+      </div>
+      <div className="ep-pane-pad d-flex flex-col gap-18px">
+        {!tenderClosed && pendingVendors.length > 0 && <ExpediteReviewRow tenderId={tenderId} pendingVendors={pendingVendors} onResult={onResult} />}
+        <GuestInviteLinkBox tenderId={tenderId} token={guestToken} onChange={setGuestToken} />
+      </div>
     </div>
   );
 }

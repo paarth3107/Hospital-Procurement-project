@@ -43,7 +43,7 @@ from app.services.audit import changed, record, snapshot
 from app.services.approval_matrix import MAX_ROUNDS_BEFORE_ESCALATION, can_approve_tier, escalate, resolve_required_tier
 from app.services.eligibility import resolve_eligible_vendors
 from app.services.notifier import notify_vendor
-from app.services.open_links import facility_name, link_state, new_token
+from app.services.guest_invite_links import facility_name, link_state, new_token
 from app.services.ratings import rating_score_detail
 from app.services.tender_publish import notify_due_date_extended, notify_invited_vendors, sweep_scheduled_publishes
 
@@ -97,7 +97,7 @@ def create_tender(
     _validate_facility(payload.facility_id, db)
     tender = Tender(**payload.model_dump(exclude={"line_items"}), created_by_id=user.id)
     if tender.open_tender:
-        tender.open_link_token = new_token()
+        tender.guest_invite_token = new_token()
     db.add(tender)
     db.flush()
     _set_line_items(tender, payload.line_items, db)
@@ -265,10 +265,14 @@ def update_draft_tender(
     was_open = tender.open_tender
     for field, value in payload.model_dump(exclude={"line_items"}).items():
         setattr(tender, field, value)
-    if tender.open_tender and not was_open:
-        tender.open_link_token = new_token()
-    if not tender.open_tender:
-        tender.open_link_token = None
+    # Guest Invite no longer depends on Open Tender (2026-10-28,
+    # user-directed, "unhook that") -- turning Open Tender on still
+    # generates a token as a convenience if one doesn't already exist, but
+    # turning it off no longer wipes out an existing Guest Invite link (it
+    # used to, unconditionally, even one generated independently via
+    # GuestInviteLinkBox's own "New Link" button).
+    if tender.open_tender and not was_open and not tender.guest_invite_token:
+        tender.guest_invite_token = new_token()
     _set_line_items(tender, payload.line_items, db)
     before, after = changed(old, snapshot(tender, header_keys))
     if old_lines != len(payload.line_items):
@@ -696,36 +700,43 @@ def _line_of(tender: Tender, line_item_id: int) -> TenderLineItem:
     return line
 
 
-@router.post("/{tender_id}/open-link/regenerate", response_model=TenderOut)
-def regenerate_open_link(
+@router.post("/{tender_id}/guest-invite-link/regenerate", response_model=TenderOut)
+def regenerate_guest_invite_link(
     tender_id: int,
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
-    """A new link; the old one stops working at once."""
+    """A new link; the old one stops working at once. No longer requires
+    Open Tender to already be on (2026-10-28, user-directed, "unhook
+    that") -- Guest Invite works as its own thing now. Still flips
+    open_tender on behind the scenes if it wasn't already, since
+    guest_invite_links.py's tender_for_token() still requires it for a
+    visiting vendor to actually use the link, and that part was explicitly
+    left alone ("I believe it gets marked as an open tender for other
+    reasons so let that be") -- just no longer gated the other way around."""
 
     tender = _load_tender(tender_id, db)
-    if not tender.open_tender:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only an Open Tender has a registration link")
-    tender.open_link_token = new_token()
-    record(db, "tender.open_link_regenerated", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id)
+    tender.open_tender = True
+    tender.guest_invite_token = new_token()
+    record(db, "tender.guest_invite_link_regenerated", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id)
     db.commit()
     db.refresh(tender)
     return tender
 
 
-@router.delete("/{tender_id}/open-link", response_model=TenderOut)
-def disable_open_link(
+@router.delete("/{tender_id}/guest-invite-link", response_model=TenderOut)
+def disable_guest_invite_link(
     tender_id: int,
     db: Session = Depends(get_db),
     user: UserAccount = Depends(require_role(*TENDER_AUTHORS)),
 ):
-    """Turns the registration link off. The tender stays an Open Tender; only
-    the link goes. Regenerating brings a link back."""
+    """Turns the Guest Invite link off. Open Tender's own blast-invite of
+    already-Active vendors is unaffected either way; only the link goes.
+    Regenerating brings a link back."""
 
     tender = _load_tender(tender_id, db)
-    tender.open_link_token = None
-    record(db, "tender.open_link_disabled", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id)
+    tender.guest_invite_token = None
+    record(db, "tender.guest_invite_link_disabled", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id)
     db.commit()
     db.refresh(tender)
     return tender
@@ -961,8 +972,12 @@ def submit_for_approval(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Publish Date must be in the future")
         if tender.bid_due_date <= tender.publish_date:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be after the Publish Date")
-    if tender.is_rate_contract and (not tender.contract_start_date or not tender.contract_end_date):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract start and end dates must be set before submission")
+    # Contract start/end dates are NOT required here anymore (2026-10-28,
+    # user-directed): a rate contract's dates only become meaningful once
+    # there's an actual award to date against, which is still evaluation
+    # rounds away at this point. They're set at L1-submission time instead
+    # (awards.py's submit_for_l1_approval) -- see this file's own comment
+    # in Tender's is_rate_contract block for the full reasoning.
     if tender.is_rate_contract and not tender.rate_contract_document_content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The Rate Contract agreement document must be uploaded before submission")
     if not tender.terms_document_content:
@@ -984,6 +999,15 @@ def submit_for_approval(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Line item '{li.product.name}' (QCBS) needs both a technical weight and a price weight before submission",
+            )
+        # Real bug, found 2026-10-28 (user-reported): each weight was only
+        # ever checked individually (>0) -- nothing anywhere, frontend or
+        # backend, actually required them to add up to 100, so a QCBS line
+        # could be submitted (and scored) with e.g. technical=70/price=70.
+        if li.technical_eval_method == TechnicalEvalMethod.QCBS and abs((li.technical_weight or 0) + (li.price_weight or 0) - 100) > 0.01:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Line item '{li.product.name}' (QCBS): technical weight + price weight must add up to 100",
             )
 
     # Spec §6.3.5/§6.4/§6.4.1: "a Service line cannot be submitted for approval

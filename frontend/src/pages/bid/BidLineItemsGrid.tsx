@@ -5,6 +5,7 @@ import { vendorCatalogSpec } from "../../lib/attrSummary";
 import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues } from "../../lib/formFields";
 import { FormField } from "../../components/FormField";
+import { Req } from "../../components/Req";
 import { Tag, StateTag } from "../../components/Tag";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
@@ -21,6 +22,28 @@ import { buildTemplateCsv, downloadTextFile, importCsvRows } from "./bidLineItem
 // attachments behind a per-row "Details" expansion. Unlike the tender
 // grid, a vendor can't add or remove rows: the line set is fixed by which
 // lines they were invited to bid on.
+
+// Mandatory (2nd element true) matches COMMON_REQUIRED exactly
+// (backend/app/services/bids.py) -- Unit Price/GST %/Lead/Validity are
+// required on every line; Other Duties/Payment Terms stay optional.
+// "Lead (d)"/"Validity (d)" renamed to their full names (2026-10-28,
+// user-directed: too cryptic as bare abbreviations) -- same wording
+// COMMON_REQUIRED's own human labels already use.
+const COLUMNS: [string, boolean][] = [
+  ["#", false],
+  ["Product", false],
+  ["Qty", false],
+  ["Status", false],
+  ["Unit Price (₹)", true],
+  ["GST %", true],
+  ["Other Duties", false],
+  ["Lead Time (days)", true],
+  ["Quote Validity (days)", true],
+  ["Payment Terms", false],
+  ["Landed Total", false],
+  ["", false],
+];
+
 export interface GateInfo {
   title: string;
   body: string;
@@ -217,9 +240,21 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
   }));
 
   // ---- Attachments ----
+  // Persists the row's current (possibly unsaved) field values, then
+  // returns the bid's id. Real bug, found 2026-10-28 (user-reported): this
+  // used to skip the save step entirely whenever a bid_id already existed
+  // ("nothing to ensure, it's already saved") -- but both upload/remove
+  // below always re-fetch the line's BidForm afterward and overwrite the
+  // WHOLE row with it (applyForm), which silently wiped out anything typed
+  // into Comments, Technical Compliance/deviations, Payment Terms, or any
+  // other field since the last actual save, the moment a SECOND attachment
+  // was uploaded (or any one removed) -- the very first upload happened to
+  // look fine only because ensureBidSaved still ran that one time (no
+  // bid_id existed yet). Now it always saves first, so the fields the
+  // re-fetch is about to apply are the SAME ones that were just sent, not
+  // stale server-side data.
   const ensureBidSaved = async (i: number): Promise<number> => {
     const row = rows[i];
-    if (row.bid_id != null) return row.bid_id;
     const body = { ...buildBidPayload(row), submit: false };
     const form = await api<BidForm>(`/vendor-portal/bids/line/${row.line_item_id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     return new Promise((resolve, reject) => {
@@ -254,7 +289,7 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
       setBusyAttachment(`${i}:${kind}`);
       setAttachmentProgress(0);
       try {
-        const id = rows[i].bid_id ?? (await ensureBidSaved(i));
+        const id = await ensureBidSaved(i);
         const fd = new FormData();
         fd.append("kind", kind);
         fd.append("file", file);
@@ -272,7 +307,8 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
 
   const removeAttachment = async (i: number, attachmentId: number) => {
     try {
-      await api(`/vendor-portal/bids/${rows[i].bid_id}/attachments/${attachmentId}`, { method: "DELETE" });
+      const id = await ensureBidSaved(i); // same clobber risk as uploadAttachment -- see its comment above
+      await api(`/vendor-portal/bids/${id}/attachments/${attachmentId}`, { method: "DELETE" });
       const form = await api<BidForm>(`/vendor-portal/bids/line/${rows[i].line_item_id}`);
       updateRow(i, (r) => applyForm(r, form));
     } catch (err) {
@@ -338,9 +374,10 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
         <table className="ep-table li-grid">
           <thead>
             <tr>
-              {["#", "Product", "Qty", "Status", "Unit Price (₹)", "GST %", "Other Duties", "Lead (d)", "Validity (d)", "Payment Terms", "Landed Total", ""].map((h) => (
+              {COLUMNS.map(([h, req]) => (
                 <th className="ep-th" key={h}>
                   {h}
+                  {req && <Req />}
                 </th>
               ))}
             </tr>
@@ -474,13 +511,14 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
                           <div className="ep-field mt-14px">
                             <label className="ep-check">
                               <input type="checkbox" disabled={disabled} checked={row.compliant_full} onChange={(e) => setCompliantFull(i, e.target.checked)} /> Meets the specification
-                              fully — no deviations{row.requirements.compliance_required ? " *" : ""}
+                              fully — no deviations{row.requirements.compliance_required && <Req />}
                             </label>
                           </div>
                           {!row.compliant_full && (
                             <div className="ep-field">
                               <div className="ep-k">
-                                What is not compliant / deviations from the specification{row.requirements.required_fields.includes("technical_compliance") ? " *" : ""}
+                                What is not compliant / deviations from the specification
+                                {row.requirements.required_fields.includes("technical_compliance") && <Req />}
                               </div>
                               <textarea
                                 className="input w-full resize-y"

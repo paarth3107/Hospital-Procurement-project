@@ -1,5 +1,5 @@
 import { inr } from "../../lib/format";
-import { Tag, type Tone } from "../../components/Tag";
+import { InviteSourceTag, Tag, type Tone } from "../../components/Tag";
 import type { AllocationOut, AwardLine, CommercialRow } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/awards/awardHelpers.js -- shared bits
@@ -73,6 +73,9 @@ export function StatementTable({ line }: { line: AwardLine }) {
               <td className="ep-cell">
                 <div className="fw-600">{r.vendor_name}</div>
                 <div className="ep-sub">rating {r.rating}</div>
+                <div className="mt-3px">
+                  <InviteSourceTag source={r.invite_source} reason={r.invite_reason} />
+                </div>
               </td>
               <td className="ep-cell fs-12-5px">
                 {off ? r.technical_reason || "" : r.technical_score != null ? `${r.technical_score} / 100${r.t_rank ? ` · T${r.t_rank}` : ""}` : "qualified"}

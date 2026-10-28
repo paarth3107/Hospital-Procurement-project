@@ -15,9 +15,11 @@ export const BID_DETAIL_FIELDS_BY_TYPE: Record<ProcurementType, FieldDef[]> = {
     { name: "training_included", label: "User / biomedical training included", kind: "bool" },
     { name: "bidding_as_distributor", label: "Bidding as a distributor (manufacturer authorization letter required)", kind: "bool" },
   ],
-  service: [
-    { name: "sow_response", label: "Proposed scope of work / method statement", kind: "textarea" },
-    { name: "manpower_plan", label: "Manpower deployment plan", kind: "textarea" },
-    { name: "sla_commitment", label: "SLA commitment", kind: "textarea" },
-  ],
+  // sow_response/manpower_plan removed (2026-10-28, user-directed: "if the
+  // SOW is in a document why do we need a separate SOW statement?") --
+  // both duplicated a mandatory document-upload slot that already exists
+  // for the same thing (BidAttachmentKind.SOW_METHOD/MANPOWER_PLAN,
+  // services/bids.py). sla_commitment stays -- there's no matching
+  // attachment kind for it, this textarea is its only real home.
+  service: [{ name: "sla_commitment", label: "SLA commitment", kind: "textarea" }],
 };

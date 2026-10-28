@@ -189,7 +189,13 @@ body:not(:has(#sidebar:not([hidden]))) .ep-content:has(#view-register:not([hidde
    -- vertical placement of each is handled separately below, since
    centering the whole stack as one block (tried first) put the card below
    true centre, pushed down by the branding+tabs' own height above it. */
-body:not(:has(#sidebar:not([hidden]))) .ep-content:has(.auth-view.maxw-460px) { display: flex; align-items: center; padding-top: 68px; }
+/* padding-top bumped 68px -> 158px (2026-10-28): the Staff/Vendor AuthTabs
+   toggle that used to sit under the branding (~65px incl. its own margins)
+   plus the gap it created in .auth-topblock's flex column (26px) is gone
+   now that staff/vendor login are two separate pages with no shared toggle
+   -- without replacing that ~90px, the branding block (first/only child,
+   pinned right at this padding) sat visibly higher than before. */
+body:not(:has(#sidebar:not([hidden]))) .ep-content:has(.auth-view.maxw-460px) { display: flex; align-items: center; padding-top: 158px; }
 /* Needs its own width back (still capped at 460px by .maxw-460px), or
    align-items: center above would shrink-wrap it to its narrowest child
    instead of filling the card width every child was already designed for. */
@@ -444,6 +450,20 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
 .result.ok { background: var(--success-bg); color: var(--success-text); }
 .result.err { background: var(--danger-08); color: var(--danger-700); }
 .result:empty { display: none; }
+/* App-wide toast stack (2026-10-27, user-directed) -- fixed top-right,
+   stacked, floats over everything (including an open dialog, z-index 1000)
+   without ever blocking a click: the strip itself can be interacted with
+   (dismiss button), but nothing behind it is covered since it's sized to
+   its own content, not a full-width/height overlay. */
+.ep-toast-stack { position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 32px)); }
+.ep-toast { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius); box-shadow: var(--dialog-shadow); font-size: 13.5px; line-height: 1.45; animation: ep-toast-in .2s ease; }
+.ep-toast-success { background: var(--toast-success-bg); color: var(--success-text); }
+.ep-toast-error { background: var(--toast-error-bg); color: var(--danger-700); }
+.ep-toast-icon { flex: none; margin-top: 1px; }
+.ep-toast-message { flex: 1; min-width: 0; white-space: pre-wrap; }
+.ep-toast-close { flex: none; background: none; border: 0; cursor: pointer; color: inherit; opacity: .65; font-size: 13px; line-height: 1; padding: 2px; }
+.ep-toast-close:hover { opacity: 1; }
+@keyframes ep-toast-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
 .hint { color: var(--ink-60); font-size: 14px; line-height: 1.6; margin: 0; }
 
 /* forms */
@@ -585,16 +605,6 @@ button.ep-kpi:hover { box-shadow: 0 6px 28px 0 rgba(var(--ink-rgb), .12); }
    plain .link-btn above), underlines and darkens further on hover. */
 .link-btn-accent { color: var(--primary); text-decoration: none; }
 .link-btn-accent:hover { color: var(--primary-dark); text-decoration: underline; }
-
-/* Staff/Vendor login switch -- a sliding pill behind two equal-width tabs.
-   The indicator (not the text) is what moves; the active tab's text just
-   gets the theme colour and a heavier weight so it "pops" against the
-   other, plain-grey one. */
-.auth-tabs { position: relative; display: flex; background: var(--ink-06); border-radius: 10px; padding: 4px; margin: 18px 0 4px; }
-.auth-tabs-indicator { position: absolute; top: 4px; left: 4px; bottom: 4px; width: calc(50% - 4px); background: var(--surface); border-radius: 8px; box-shadow: 0 1px 4px var(--ink-12); transition: transform .25s ease; }
-.auth-tabs-indicator.is-vendor { transform: translateX(100%); }
-.auth-tab { position: relative; z-index: 1; flex: 1; background: none; border: 0; padding: 9px 0; font-size: 14px; font-weight: 600; color: var(--ink-55); cursor: pointer; border-radius: 8px; transition: color .2s ease; }
-.auth-tab.active { color: var(--primary); font-weight: 800; }
 
 .ep-menu-btn { display: none; }
 @media (max-width: 900px) {

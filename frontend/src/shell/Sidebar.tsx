@@ -24,7 +24,7 @@ import { identityFor } from "./identity";
 // view still resolves to its own list tab generically, without a growing
 // per-view special case for every such route.
 function currentView(pathname: string): string {
-  return pathname.replace(/^\//, "").split("/")[0] || "login";
+  return pathname.replace(/^\//, "").split("/")[0] || "staff-login";
 }
 
 // Sub-screens that highlight a DIFFERENT tab than their own first path
@@ -55,7 +55,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
 
   const goHome = () => {
     if (!auth.token) {
-      navigate("/login");
+      navigate("/staff-login");
       return;
     }
     navigate(auth.actorType === "vendor" ? "/vendor-dashboard" : "/" + (DEFAULT_VIEW_BY_ROLE[auth.user?.role ?? ""] || "dashboard"));

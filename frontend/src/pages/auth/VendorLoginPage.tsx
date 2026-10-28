@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { switchView, setAuthState, setPendingRegistrationResume, setPendingForgotEmail } from "../../lib/bridge";
-import { OpenLinkNote } from "./OpenLinkNote";
+import { GuestInviteNote } from "./GuestInviteNote";
 import { PasswordField } from "../../components/PasswordField";
 import { FieldError } from "../../components/FieldError";
+import { Req } from "../../components/Req";
 import { LOGIN_FIELD_VALIDATORS } from "./loginValidation";
 import type { VendorDetail } from "../../lib/types";
 
@@ -81,7 +82,7 @@ export function VendorLoginPage() {
       setAuthState({ token: access_token, actorType: "vendor", vendor });
 
       // Done its job once they're logged in -- same cleanup as a completed registration.
-      sessionStorage.removeItem("openLinkToken");
+      sessionStorage.removeItem("guestInviteToken");
 
       setResult({ message: `Logged in as ${vendor.legal_name}`, ok: true });
       // AppShell reads the vendor's name/status straight from the auth
@@ -98,10 +99,13 @@ export function VendorLoginPage() {
   return (
     <>
       <div className="fs-24px fw-800 mt-14px">Vendor login</div>
-      <OpenLinkNote />
+      <GuestInviteNote />
       <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
         <div className="ep-field">
-          <div className="ep-k">Email</div>
+          <div className="ep-k">
+            Email
+            <Req />
+          </div>
           <input
             ref={emailRef}
             className={`input${fieldErrors.email ? " invalid" : ""}`}
@@ -118,7 +122,10 @@ export function VendorLoginPage() {
           <FieldError errors={fieldErrors} name="email" />
         </div>
         <div className="ep-field">
-          <div className="ep-k">Password</div>
+          <div className="ep-k">
+            Password
+            <Req />
+          </div>
           <PasswordField
             ref={passwordRef}
             className={fieldErrors.password ? "input invalid" : "input"}

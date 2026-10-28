@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { switchView, takePendingForgotEmail } from "../../lib/bridge";
 import { FieldError } from "../../components/FieldError";
+import { Req } from "../../components/Req";
 import { FIELD_VALIDATORS } from "./registerValidation";
 
 // Same card structure as VendorLoginPage.tsx/StaffLoginPage.tsx (heading +
@@ -12,7 +13,7 @@ import { FIELD_VALIDATORS } from "./registerValidation";
 // two flows are otherwise identical.
 export function ForgotPasswordPage({ actorType }: { actorType: "vendor" | "staff" }) {
   const apiPath = actorType === "staff" ? "/auth/forgot-password" : "/vendor-auth/forgot-password";
-  const loginView = actorType === "staff" ? "login" : "vendor-login";
+  const loginView = actorType === "staff" ? "staff-login" : "vendor-login";
   // If the email was already typed on the login page before clicking
   // "Forgot password?", carry it over rather than asking again --
   // takePendingForgotEmail() returns null (leaving this blank) on a direct
@@ -72,7 +73,10 @@ export function ForgotPasswordPage({ actorType }: { actorType: "vendor" | "staff
         <form className="ep-pane ep-pane-pad ep-form" noValidate onSubmit={submit}>
           <p className="hint">Enter your registered email and we'll send you a link to reset your password.</p>
           <div className="ep-field">
-            <div className="ep-k">Email</div>
+            <div className="ep-k">
+              Email
+              <Req />
+            </div>
             <input
               ref={emailRef}
               className={`input${fieldErrors.email ? " invalid" : ""}`}

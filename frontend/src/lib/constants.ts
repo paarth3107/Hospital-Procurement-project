@@ -117,7 +117,11 @@ export const NAV_TOP: NavItem[] = [
 ];
 export const NAV_VENDOR_TOP: NavItem[] = [
   { view: "vendor-dashboard", label: "Dashboard", icon: "home", badge: "vendor-dashboard" },
-  { view: "vendor-tenders", label: "Tenders", icon: "file-text" },
+  // "Tenders" split into its two tables as separate tabs (2026-10-28,
+  // user-directed) -- they used to be one page (VendorTendersPage.tsx,
+  // deleted) with both tables stacked on it.
+  { view: "vendor-invitations", label: "Invitations", icon: "file-text" },
+  { view: "vendor-bids", label: "Your Bids", icon: "check-square" },
   { view: "vendor-ratings", label: "Ratings", icon: "star" },
   { view: "vendor-profile", label: "Company Profile", icon: "user" },
   { view: "vendor-categories", label: "Category Declaration", icon: "tag", badge: "vendor-categories" },
@@ -208,7 +212,8 @@ export const PAGE_TITLES: Record<string, [string, string]> = {
   pofiles: ["", "PO Data Files For The ERP"],
   decisions: ["", "Decisions"],
   "vendor-dashboard": ["", "Dashboard"],
-  "vendor-tenders": ["", "Tenders"],
+  "vendor-invitations": ["", "Tender Invitations"],
+  "vendor-bids": ["", "Your Bids"],
   "vendor-ratings": ["", "Ratings"],
   "vendor-profile": ["", "Company Profile & Documents"],
   "vendor-categories": ["", "Category Declaration"],

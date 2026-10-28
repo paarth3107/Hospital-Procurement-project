@@ -1,5 +1,6 @@
 import type { FieldDef } from "../../lib/formFields";
 import type { ProcurementType } from "../../lib/types";
+import { nonNegativeError } from "./tenderValidation";
 
 // Ported 1:1 from frontend/js/pages/tenders/lineDetailFields.js -- spec
 // §6.3.1-6.3.3 type-specific tender line-item fields, mirroring the catalog
@@ -10,11 +11,24 @@ import type { ProcurementType } from "../../lib/types";
 // One generic "anything else" box, identical across all three types.
 const COMMENTS_FIELD: FieldDef = { name: "comments", label: "Comments (optional)", kind: "textarea" };
 
+// A delivery/installation date already in the past makes no sense for a
+// tender that hasn't even been bid on yet (2026-10-28, user-directed) --
+// optional either way (backend/app/schemas/line_details.py's delivery_date
+// is nullable, spec never makes it mandatory), only checked when filled in.
+const notInThePast = (value: string): string | null => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null; // the date picker already keeps malformed text out
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today ? "Can't be in the past." : null;
+};
+
 // hsn_sac_code and alternate_brand_allowed are deliberately NOT here -- both
 // are fixed catalog classification facts (tax code; generic-substitution
 // policy for this item), not things that vary per tender.
 const ITEM_LINE_FIELDS: FieldDef[] = [
-  { name: "delivery_date", label: "Required delivery date", kind: "date" },
+  { name: "delivery_date", label: "Required delivery date", kind: "date", validate: notInThePast },
   { name: "delivery_location", label: "Required delivery location", kind: "text" },
   COMMENTS_FIELD,
 ];
@@ -27,7 +41,7 @@ const ITEM_LINE_FIELDS: FieldDef[] = [
 const ASSET_LINE_FIELDS: FieldDef[] = [
   { name: "exchange_buyback", label: "Old asset exchange / buy-back", kind: "bool" },
   { name: "exchange_asset_reference", label: "Reference asset ID being exchanged", kind: "text", showWhen: { exchange_buyback: "true" } },
-  { name: "delivery_date", label: "Required delivery / installation date", kind: "date" },
+  { name: "delivery_date", label: "Required delivery / installation date", kind: "date", validate: notInThePast },
   { name: "delivery_location", label: "Required delivery / installation location", kind: "text" },
   COMMENTS_FIELD,
 ];
@@ -40,7 +54,10 @@ const ASSET_LINE_FIELDS: FieldDef[] = [
 // is enforced as a catalog-completeness check at submission, not asked
 // again here.
 const SERVICE_LINE_FIELDS: FieldDef[] = [
-  { name: "tenure_months", label: "Service tenure/duration (months) — catalog default shown, override if this engagement differs", kind: "number" },
+  // Rejects a negative value (2026-10-28, user-directed, "service tenure
+  // allows negative months") -- blank still fine, the catalog default
+  // shown alongside is only an override, not a mandatory re-entry.
+  { name: "tenure_months", label: "Service tenure/duration (months) — catalog default shown, override if this engagement differs", kind: "number", validate: nonNegativeError },
   { name: "service_locations", label: "Service location(s)", kind: "list" },
   COMMENTS_FIELD,
 ];

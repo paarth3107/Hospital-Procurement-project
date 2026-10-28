@@ -27,7 +27,7 @@ import type { DashboardOfficer, DashboardOfficerTender, DashboardStats } from ".
 // their progress is tracked), Ready to recommend -> L1 award.
 function kpiCells(o: DashboardOfficer): KpiCell[] {
   return [
-    ["Draft tenders", o.draft_count, "", "tenders", "file-text", "primary"],
+    ["Draft tenders", o.draft_count, "", "tenders?status=draft", "file-text", "primary"],
     ["Pending approval", o.pending_approval_count, "", "evaluation", "clock", "warning"],
     ["Live tenders", o.live_count, "", "evaluation", "activity", "success"],
     ["Ready to recommend", o.ready_to_recommend_lines, "", "awards", "award", "info"],

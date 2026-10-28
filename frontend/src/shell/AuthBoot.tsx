@@ -8,7 +8,7 @@ import type { CurrentUser, VendorDetail } from "../lib/types";
 // start null again, so this re-fetches the full record once on boot,
 // same as main.js always did, instead of trusting a stale/decoded token.
 // An expired or otherwise invalid token clears the session the same way
-// main.js's catch block did -- ProtectedLayout then redirects to /login on
+// main.js's catch block did -- ProtectedLayout then redirects to /staff-login on
 // its own once `token` goes null, no navigation needed from here.
 //
 // Real bug, found 2026-10-15, user-reported: this used to clear the

@@ -1,11 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { refreshChrome } from "../../lib/chromeStore";
-import { fmtDateTime, inr } from "../../lib/format";
+import { fmtDate, fmtDateTime, inr } from "../../lib/format";
 import { Tag, StateTag } from "../../components/Tag";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
 import { useModal } from "../../components/useModal";
 import type { AwardTender } from "../../lib/types";
 import { AwardLineCard } from "./AwardLineCard";
+
+const CLOSED_STATUSES = new Set(["awarded", "no_award"]);
+// Today, local time, as "YYYY-MM-DD" -- matches a <input type="date">
+// value and the ISO date string the backend's `date` columns use, without
+// going through a UTC-shifting Date/toISOString round-trip that can land
+// on the wrong day near midnight.
+function todayInputValue(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Required-together, end-after-start (2026-10-28, user-directed: "Rate
+// Contract Start Date and End Date" needed the same on-blur-error pattern
+// every other field in the app already has -- this used to only check at
+// submit time, with no inline feedback). Start is pre-filled with today by
+// the effect below, but the date picker lets it be cleared, so it still
+// needs its own required check, not just "assume it's always set".
+function checkContractStart(start: string): string | null {
+  return start ? null : "Contract start date is required.";
+}
+function checkContractEnd(end: string, start: string): string | null {
+  if (!end) return "Contract end date is required.";
+  if (start && end <= start) return "Must be after the start date.";
+  return null;
+}
 
 // Ported 1:1 from frontend/js/pages/awards/tenderAward.js's
 // renderTenderAward() -- one tender's award screen: every line with its
@@ -19,6 +46,27 @@ export function TenderAwardPanel({ tenderId, onBack }: { tenderId: number; onBac
   const [flash, setFlash] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { confirmAsync, modalElement } = useModal();
+  // Rate Contract dates (2026-10-28, user-directed): entered right here,
+  // at L1-submission time, instead of at tender-draft time -- Start
+  // defaults to today (the closest real proxy for "date of awarding"
+  // available before the Approving Authority actually decides), End is
+  // always the Officer's to pick. Initialized once per tender (keyed off
+  // tenderId, not every reload) so an unrelated line recommendation save
+  // mid-edit doesn't stomp on what's been typed here but not submitted yet.
+  const [contractStart, setContractStart] = useState("");
+  const [contractEnd, setContractEnd] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLInputElement>(null);
+
+  const checkStart = (value: string) => {
+    const err = checkContractStart(value);
+    setFieldErrors((prev) => (prev.contract_start_date === (err ?? "") ? prev : { ...prev, contract_start_date: err ?? "" }));
+  };
+  const checkEnd = (value: string, start: string) => {
+    const err = checkContractEnd(value, start);
+    setFieldErrors((prev) => (prev.contract_end_date === (err ?? "") ? prev : { ...prev, contract_end_date: err ?? "" }));
+  };
 
   const load = useCallback(async () => {
     try {
@@ -31,7 +79,17 @@ export function TenderAwardPanel({ tenderId, onBack }: { tenderId: number; onBac
 
   useEffect(() => {
     load();
-  }, [load]);
+    setContractStart("");
+    setContractEnd("");
+    setFieldErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenderId]);
+
+  useEffect(() => {
+    if (!t?.is_rate_contract || CLOSED_STATUSES.has(t.status)) return;
+    setContractStart((v) => v || t.contract_start_date || todayInputValue());
+    setContractEnd((v) => v || t.contract_end_date || "");
+  }, [t]);
 
   const onChanged = (message: string) => {
     setFlash(message);
@@ -44,11 +102,25 @@ export function TenderAwardPanel({ tenderId, onBack }: { tenderId: number; onBac
   };
 
   const submit = async () => {
+    if (t?.is_rate_contract) {
+      const startErr = checkContractStart(contractStart);
+      const endErr = checkContractEnd(contractEnd, contractStart);
+      if (startErr || endErr) {
+        setFieldErrors({ contract_start_date: startErr ?? "", contract_end_date: endErr ?? "" });
+        (startErr ? startRef : endRef).current?.focus();
+        return;
+      }
+    }
     const ok = await confirmAsync("Submit every line's recommendation to the Approving Authority for L1 approval?", { title: "Submit For L1 Approval", confirmLabel: "Submit" });
     if (!ok) return;
     setSubmitting(true);
+    setError("");
     try {
-      await api(`/awards/tenders/${tenderId}/submit`, { method: "POST" });
+      await api(`/awards/tenders/${tenderId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(t?.is_rate_contract ? { contract_start_date: contractStart, contract_end_date: contractEnd } : {}),
+      });
       setFlash("Submitted for L1 approval.");
       load();
       refreshChrome();
@@ -93,6 +165,58 @@ export function TenderAwardPanel({ tenderId, onBack }: { tenderId: number; onBac
           </div>
         )}
       </div>
+
+      {t.is_rate_contract && (
+        <div className="ep-pane ep-pane-pad">
+          <div className="ep-k">Rate Contract Period</div>
+          {CLOSED_STATUSES.has(t.status) ? (
+            <div className="mt-6px fs-13-5px">
+              {t.contract_start_date ? fmtDate(t.contract_start_date) : "—"} – {t.contract_end_date ? fmtDate(t.contract_end_date) : "—"}
+            </div>
+          ) : (
+            <>
+              <div className="d-flex gap-10px mt-8px">
+                <div>
+                  <div className="ep-k">
+                    Start Date <Req />
+                  </div>
+                  <input
+                    ref={startRef}
+                    className={`input input-narrow-date${fieldErrors.contract_start_date ? " invalid" : ""}`}
+                    type="date"
+                    value={contractStart}
+                    onChange={(e) => {
+                      setContractStart(e.target.value);
+                      if (fieldErrors.contract_start_date) checkStart(e.target.value);
+                      if (fieldErrors.contract_end_date) checkEnd(contractEnd, e.target.value);
+                    }}
+                    onBlur={(e) => checkStart(e.target.value)}
+                  />
+                  <FieldError errors={fieldErrors} name="contract_start_date" />
+                </div>
+                <div>
+                  <div className="ep-k">
+                    End Date <Req />
+                  </div>
+                  <input
+                    ref={endRef}
+                    className={`input input-narrow-date${fieldErrors.contract_end_date ? " invalid" : ""}`}
+                    type="date"
+                    value={contractEnd}
+                    onChange={(e) => {
+                      setContractEnd(e.target.value);
+                      if (fieldErrors.contract_end_date) checkEnd(e.target.value, contractStart);
+                    }}
+                    onBlur={(e) => checkEnd(e.target.value, contractStart)}
+                  />
+                  <FieldError errors={fieldErrors} name="contract_end_date" />
+                </div>
+              </div>
+              <div className="hint mt-6px">Start date defaults to today and end date is yours to set -- both stay editable right up until this tender is submitted for L1 approval.</div>
+            </>
+          )}
+        </div>
+      )}
 
       {t.status === "awarded" && t.po_files.length > 0 ? (
         <div className="ep-pane">

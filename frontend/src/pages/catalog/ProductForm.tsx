@@ -5,10 +5,14 @@ import type { CatalogProduct, Category, ProcurementType, SubCategory } from "../
 import { Tag } from "../../components/Tag";
 import { Icon } from "../../lib/icons";
 import { FormField } from "../../components/FormField";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import { useModal } from "../../components/useModal";
 import { initialFieldValues, readFieldValues, type FieldDef } from "../../lib/formFields";
 import { CoreDetailsSection, type CoreDetailsHandle } from "./CoreDetailsSection";
 import { ITEM_FIELDS, ASSET_FIELDS, SERVICE_FIELDS } from "./catalogFieldDefs";
+import { PRODUCT_FIELD_VALIDATORS } from "./productValidation";
 
 const TYPE_OPTS: [ProcurementType, string][] = [
   ["item", "Item"],
@@ -61,8 +65,36 @@ export function ProductForm({
   const [typeRaw, setTypeRaw] = useState<Record<string, string>>(() => initialFieldValues(typeFields, product?.type_specific_attrs));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const coreRef = useRef<CoreDetailsHandle>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const { promptAsync, alertAsync, modalElement } = useModal();
+
+  // Shared by the delegated onBlur below and validateForm()'s final sweep,
+  // same pattern as registerValidation.ts's checkField.
+  function checkField(fieldName: string, value: string) {
+    const validator = PRODUCT_FIELD_VALIDATORS[fieldName];
+    if (!validator) return null;
+    const err = validator(value);
+    setFieldErrors((prev) => (prev[fieldName] === (err ?? "") ? prev : { ...prev, [fieldName]: err ?? "" }));
+    return err;
+  }
+
+  const onFormBlur = (e: React.FocusEvent<HTMLFormElement>) => {
+    const t = e.target as unknown as HTMLInputElement | HTMLSelectElement;
+    if (t.name) checkField(t.name, t.value);
+  };
+
+  function validateForm(): boolean {
+    const found: { el: HTMLElement | null } = { el: null };
+    formRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[name]").forEach((el) => {
+      const err = checkField(el.name, el.value);
+      if (err && !found.el) found.el = el;
+    });
+    found.el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    found.el?.focus();
+    return !found.el;
+  }
 
   const typeCategories = categories.filter((c) => c.procurement_type === procurementType);
   const subCategoryOptions = localSubCategories.filter((s) => s.category_id === categoryId);
@@ -100,6 +132,7 @@ export function ProductForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     setSaving(true);
     setError("");
     const payload = {
@@ -118,9 +151,12 @@ export function ProductForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      toastSuccess(`${product ? "Updated" : "Added"} ${payload.name}.`);
       onSaved(`${product ? "Updated" : "Added"} ${payload.name}.`);
     } catch (err) {
-      setError("Could not save: " + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not save ${payload.name || "this entry"}: ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
       setSaving(false);
     }
   };
@@ -135,7 +171,7 @@ export function ProductForm({
   );
 
   return (
-    <form className="catalog-form ep-form gap-16px" onSubmit={submit}>
+    <form className="catalog-form ep-form gap-16px" noValidate onSubmit={submit} onBlur={onFormBlur} ref={formRef}>
       <div className="d-flex justify-end gap-8px">
         <button type="button" className="ep-b" onClick={onCancel}>
           Discard
@@ -150,12 +186,20 @@ export function ProductForm({
             "Item Information",
             <div className="ep-form-grid grid-cols-1fr-1fr-1fr">
               <div className="ep-field">
-                <div className="ep-k">Code / SKU</div>
-                <input className="input" required value={code} onChange={(e) => setCode(e.target.value)} />
+                <div className="ep-k">
+                  Code / SKU
+                  <Req />
+                </div>
+                <input className="input" name="code" required value={code} onChange={(e) => setCode(e.target.value)} />
+                <FieldError errors={fieldErrors} name="code" />
               </div>
               <div className="ep-field col-span-2">
-                <div className="ep-k">Name</div>
-                <input className="input" required value={name} onChange={(e) => setName(e.target.value)} />
+                <div className="ep-k">
+                  Name
+                  <Req />
+                </div>
+                <input className="input" name="name" required value={name} onChange={(e) => setName(e.target.value)} />
+                <FieldError errors={fieldErrors} name="name" />
               </div>
               <div className="ep-field col-span-3">
                 <div className="ep-k">Description / specification</div>
@@ -202,14 +246,19 @@ export function ProductForm({
             "Organize",
             <div className="d-flex flex-col gap-14px">
               <div className="ep-field">
-                <div className="ep-k">Category</div>
+                <div className="ep-k">
+                  Category
+                  <Req />
+                </div>
                 <select
                   className="input"
+                  name="category_id"
                   required
                   value={categoryId}
                   onChange={(e) => {
                     setCategoryId(Number(e.target.value));
                     setSubCategoryId("");
+                    checkField("category_id", e.target.value);
                   }}
                 >
                   <option value="">— select a category —</option>
@@ -219,6 +268,7 @@ export function ProductForm({
                     </option>
                   ))}
                 </select>
+                <FieldError errors={fieldErrors} name="category_id" />
               </div>
               <div className="ep-field">
                 <div className="ep-k">Sub-category (optional)</div>

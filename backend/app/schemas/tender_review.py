@@ -13,6 +13,18 @@ class ReviewVendorOut(BaseModel):
     legal_name: str
     rating_score: float
     is_unrated: bool = False
+    # How this vendor got onto the line's persisted invite list -- "system"
+    # (eligibility rules) or "open" (Open Tender's blanket Active-vendor
+    # invite) both read as "Eligible" to the approver (user-directed,
+    # 2026-10-28: neither singles anyone out); "manual" reads as "Invited"
+    # (with `reason`); "guest" (a brand-new vendor who registered through
+    # this tender's Guest Invite link) reads as "Guest". Mirrors
+    # EligibleVendorOut's own source/reason, which the eligibility-preview
+    # screen already had -- this was the one place that didn't (see
+    # CLAUDE.md GAPS.md §2: ApprovalReviewPanel.tsx's vendorBasis() already
+    # had a dead branch waiting on this).
+    source: str = "system"
+    reason: str | None = None
 
 
 class ReviewLineOut(BaseModel):

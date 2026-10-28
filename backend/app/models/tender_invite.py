@@ -8,13 +8,24 @@ from app.database import Base, UTCDateTime
 
 class TenderInvite(Base):
     """Spec §6.5 — the resolved per-line-item invite list. `source` is "system"
-    (the eligibility rules), "open" (Open Tender: every Active vendor) or
-    "manual" (an officer's §6.6 manual add outside the rules, with a
-    `reason` -- renamed 2026-10-21 from "guest"/"guest invite", which was a
-    mislabel for a different, unimplemented spec §6.7 feature; see
-    CLAUDE.md). Every row is an Active vendor (CLAUDE.md PROJECT OVERRIDE).
-    Recalculation rewrites system and open rows and keeps manual rows while
-    their vendor stays Active."""
+    (the eligibility rules), "open" (Open Tender: every already-Active
+    vendor, blanket-invited with no mapping/rating filter), "manual" (an
+    officer's §6.6 manual add outside the rules, with a `reason` -- renamed
+    2026-10-21 from "guest"/"guest invite", which was a mislabel for a
+    different, unimplemented spec §6.7 feature; see CLAUDE.md), or "guest"
+    (2026-10-28, user-directed: a brand-new vendor who registered through
+    this tender's Guest Invite link (still gated behind open_tender, no
+    separate flag) -- see services/guest_invite_links.py's
+    invite_newly_active_vendor -- and only appears
+    here, like every other row, once they've cleared the normal Active
+    approval queue; "guest" is a distinct, newly-reused value, not the same
+    thing the pre-2026-10-21 "guest" value above ever meant). Every row is
+    an Active vendor (CLAUDE.md PROJECT OVERRIDE). Recalculation rewrites
+    system and open rows and keeps manual rows while their vendor stays
+    Active; a guest row is never touched by recalculation in practice
+    either, since it can only be created once the tender is already
+    Published, past the point recalculation ever runs again (tenders.py's
+    _resolve_line/_persist_invites, both Draft/pre-approval only)."""
 
     __tablename__ = "tender_invites"
     __table_args__ = (UniqueConstraint("tender_line_item_id", "vendor_id", name="uq_invite_line_vendor"),)

@@ -114,13 +114,13 @@ export function downloadTextFile(filename: string, text: string, mime = "text/cs
   URL.revokeObjectURL(url);
 }
 
-function coerceDetailField(f: FieldDef, raw: string, errors: string[], rowNumber: number): unknown {
+function coerceDetailField(f: FieldDef, raw: string, errors: string[], label: string): unknown {
   const v = raw.trim();
   if (v === "") return undefined;
   if (f.kind === "number") {
     const n = Number(v);
     if (Number.isNaN(n)) {
-      errors.push(`Row ${rowNumber}: "${f.label}" must be a number`);
+      errors.push(`${label}: "${f.label}" must be a number`);
       return undefined;
     }
     return n;
@@ -134,14 +134,14 @@ function coerceDetailField(f: FieldDef, raw: string, errors: string[], rowNumber
   if (f.kind === "select") {
     const known = (f.options ?? []).map(([val]) => val);
     if (!known.includes(v)) {
-      errors.push(`Row ${rowNumber}: "${f.label}" must be one of ${known.join(", ")}`);
+      errors.push(`${label}: "${f.label}" must be one of ${known.join(", ")}`);
       return undefined;
     }
     return v;
   }
   if (f.kind === "date") {
     if (Number.isNaN(Date.parse(v))) {
-      errors.push(`Row ${rowNumber}: "${f.label}" must be a valid date (YYYY-MM-DD)`);
+      errors.push(`${label}: "${f.label}" must be a valid date (YYYY-MM-DD)`);
       return undefined;
     }
     return v;
@@ -149,22 +149,53 @@ function coerceDetailField(f: FieldDef, raw: string, errors: string[], rowNumber
   return v; // text / textarea
 }
 
-// Parses the whole file against the loaded catalog. Returns validated rows
-// ready to append to the grid (blankRow-shaped) plus a per-row-number error
-// list for anything that couldn't be resolved -- callers append the good
-// rows immediately and show the rest for the user to fix and re-upload
-// (partial import).
-export function importCsvRows(text: string, products: CatalogProduct[]): { rows: LineItemRow[]; errors: string[] } {
+// A row whose product is already on the tender (either already on the
+// grid, or added/updated by an earlier row in this same file) is an UPDATE,
+// not a new line -- see importCsvRows below for the full rule.
+export interface CsvUpdatePatch {
+  product_master_id: number;
+  patch: Partial<LineItemRow>;
+}
+
+// Parses the whole file against the loaded catalog and against whatever's
+// already on the grid (existingRows). Returns brand-new rows ready to
+// append, patches to merge onto existing rows, and a per-row-number error
+// list for anything that couldn't be resolved -- callers append the new
+// rows, apply the patches, and show the rest for the user to fix and
+// re-upload (partial import).
+//
+// User-directed, 2026-10-28: re-uploading a file to correct/adjust a few
+// lines should UPDATE those lines, not duplicate them -- a cell with a new
+// value changes that field; a cell left BLANK leaves whatever's already on
+// the line alone (does not clear it); a cell with a value that's invalid
+// or out of range fails the WHOLE row (all-or-nothing -- nothing from that
+// row is applied, not even its other, otherwise-valid fields), same as a
+// brand-new row's formatting errors already worked. The only field that's
+// still unconditionally required is product_code (it's how a row says
+// which line it means); qty is only required for a brand-new line -- an
+// update can leave it blank to mean "unchanged".
+export function importCsvRows(
+  text: string,
+  products: CatalogProduct[],
+  existingRows: LineItemRow[] = [],
+): { newRows: LineItemRow[]; updates: CsvUpdatePatch[]; errors: string[] } {
   const byCode = new Map(products.map((p) => [p.code.trim().toLowerCase(), p]));
   const table = parseCsvText(text);
-  if (!table.length) return { rows: [], errors: ["The file is empty."] };
+  if (!table.length) return { newRows: [], updates: [], errors: ["The file is empty."] };
 
   const header = table[0].map((h) => h.trim());
   const colIndex = new Map(header.map((h, i) => [h, i]));
   const missingCols = CORE_COLUMNS.filter((c) => !colIndex.has(c));
-  if (missingCols.length) return { rows: [], errors: [`Missing required column(s): ${missingCols.join(", ")}`] };
+  if (missingCols.length) return { newRows: [], updates: [], errors: [`Missing required column(s): ${missingCols.join(", ")}`] };
 
-  const rows: LineItemRow[] = [];
+  // Everything already accounted for, by product -- starts as what's
+  // already on the grid, and grows as earlier rows in this same file are
+  // accepted, so a second row for a product this file just added is
+  // itself treated as an update to THAT row, not a second duplicate.
+  const known = new Map<number, LineItemRow>(existingRows.filter((r) => r.product_master_id != null).map((r) => [r.product_master_id as number, r]));
+
+  const newRows: LineItemRow[] = [];
+  const updates: CsvUpdatePatch[] = [];
   const errors: string[] = [];
   for (let r = 1; r < table.length; r++) {
     const cells = table[r];
@@ -175,69 +206,105 @@ export function importCsvRows(text: string, products: CatalogProduct[]): { rows:
 
     const code = get("product_code").trim();
     const product = code ? byCode.get(code.toLowerCase()) : null;
-    if (!code) rowErrors.push(`Row ${rowNumber}: product_code is required`);
-    else if (!product) rowErrors.push(`Row ${rowNumber}: unknown product code "${code}"`);
+    // Identifies the row in error messages -- the product code itself
+    // (whatever was typed, whether or not it resolved), not the CSV row
+    // number: matching a row number back to the actual spreadsheet is
+    // extra work and easy to miscount once header/blank rows are in the
+    // mix, where the code is already right there on screen (user-directed,
+    // 2026-10-28). Only an entirely blank product_code has nothing to show
+    // in its place, so that one still falls back to the row number.
+    const label = code ? `Product "${code}"` : `Row ${rowNumber}`;
+    if (!code) rowErrors.push(`${label}: product_code is required`);
+    else if (!product) rowErrors.push(`${label}: unknown product code`);
 
-    const qty = Number(get("qty"));
-    if (!get("qty").trim() || Number.isNaN(qty) || qty <= 0) rowErrors.push(`Row ${rowNumber}: qty must be a number greater than 0`);
+    const existing = product ? known.get(product.id) : undefined;
+    const isUpdate = !!existing;
+
+    const qtyRaw = get("qty").trim();
+    let qty: number | null = isUpdate ? existing!.qty : null;
+    if (qtyRaw !== "") {
+      const n = Number(qtyRaw);
+      if (Number.isNaN(n) || n <= 0) rowErrors.push(`${label}: qty must be a number greater than 0`);
+      else qty = n;
+    } else if (!isUpdate) {
+      rowErrors.push(`${label}: qty must be a number greater than 0`);
+    }
 
     const estimatedPriceRaw = get("estimated_price").trim();
-    let estimatedPrice: number | null = null;
+    let estimatedPrice: number | null = isUpdate ? existing!.estimated_price : null;
     if (estimatedPriceRaw !== "") {
-      estimatedPrice = Number(estimatedPriceRaw);
-      if (Number.isNaN(estimatedPrice) || estimatedPrice < 0) rowErrors.push(`Row ${rowNumber}: estimated_price must be a non-negative number`);
+      const n = Number(estimatedPriceRaw);
+      if (Number.isNaN(n) || n < 0) rowErrors.push(`${label}: estimated_price must be a non-negative number`);
+      else estimatedPrice = n;
     }
 
     const evalRaw = get("technical_eval_method").trim();
-    let evalMethod: TechnicalEvalMethod | null = null;
+    let evalMethod: TechnicalEvalMethod | null = isUpdate ? existing!.technical_eval_method : null;
     if (evalRaw !== "") {
-      if (!EVAL_METHODS.includes(evalRaw as TechnicalEvalMethod)) rowErrors.push(`Row ${rowNumber}: technical_eval_method must be one of ${EVAL_METHODS.join(", ")}`);
+      if (!EVAL_METHODS.includes(evalRaw as TechnicalEvalMethod)) rowErrors.push(`${label}: technical_eval_method must be one of ${EVAL_METHODS.join(", ")}`);
       else evalMethod = evalRaw as TechnicalEvalMethod;
     }
 
     const techWeightRaw = get("technical_weight").trim();
     const priceWeightRaw = get("price_weight").trim();
-    const technicalWeight = techWeightRaw === "" ? null : Number(techWeightRaw);
-    const priceWeight = priceWeightRaw === "" ? null : Number(priceWeightRaw);
+    let technicalWeight = isUpdate ? existing!.technical_weight : null;
+    let priceWeight = isUpdate ? existing!.price_weight : null;
+    if (techWeightRaw !== "") technicalWeight = Number(techWeightRaw);
+    if (priceWeightRaw !== "") priceWeight = Number(priceWeightRaw);
+    // Checked against the EFFECTIVE (merged) method/weights, same as
+    // firstRowProblem()'s submit-time check -- correct whether the qcbs-ness
+    // or the weights came from this row or were already on the line.
     if (evalMethod === "qcbs" && (!(technicalWeight! > 0) || !(priceWeight! > 0))) {
-      rowErrors.push(`Row ${rowNumber}: technical_weight and price_weight are both required (and > 0) for QCBS`);
+      rowErrors.push(`${label}: technical_weight and price_weight are both required (and > 0) for QCBS`);
     }
 
     const minRatingRaw = get("min_rating_threshold_override").trim();
-    let minRating: number | null = null;
+    let minRating: number | null = isUpdate ? existing!.min_rating_threshold_override : null;
     if (minRatingRaw !== "") {
-      minRating = Number(minRatingRaw);
-      if (Number.isNaN(minRating) || minRating < 0 || minRating > 100) rowErrors.push(`Row ${rowNumber}: min_rating_threshold_override must be between 0 and 100`);
+      const n = Number(minRatingRaw);
+      if (Number.isNaN(n) || n < 0 || n > 100) rowErrors.push(`${label}: min_rating_threshold_override must be between 0 and 100`);
+      else minRating = n;
     }
 
-    const lineDetails: Record<string, unknown> = {};
+    // A blank cell here reads as false via parseBool already -- fine for a
+    // brand-new row (that's the real default), wrong for an update (would
+    // silently turn Split-Award back off); only overwrite when the cell
+    // actually has something in it.
+    const splitRaw = get("split_award_allowed").trim();
+    const splitAward = splitRaw === "" ? (isUpdate ? !!existing!.split_award_allowed : false) : parseBool(splitRaw);
+
+    // Merged onto the existing line's details (blank cell = leave whatever
+    // key's already there), not wholesale-replaced.
+    const lineDetails: Record<string, unknown> = isUpdate ? { ...(existing!.line_details || {}) } : {};
     if (product) {
       for (const f of LINE_DETAIL_FIELDS_BY_TYPE[product.procurement_type] || []) {
         const raw = get(f.name);
-        if (raw === undefined) continue;
-        const value = coerceDetailField(f, raw, rowErrors, rowNumber);
+        if (raw === undefined || raw.trim() === "") continue;
+        const value = coerceDetailField(f, raw, rowErrors, label);
         if (value !== undefined) lineDetails[f.name] = value;
       }
     }
 
     if (rowErrors.length) {
+      // All-or-nothing: an invalid/out-of-range value anywhere in the row
+      // means nothing from it is applied, not even its other fields --
+      // same guarantee a brand-new row's formatting errors already had.
       errors.push(...rowErrors);
       continue;
     }
 
-    rows.push({
-      ...blankRow(),
-      product_master_id: product!.id,
-      product_code_input: product!.code,
-      qty,
-      estimated_price: estimatedPrice,
-      technical_eval_method: evalMethod,
-      technical_weight: technicalWeight,
-      price_weight: priceWeight,
-      split_award_allowed: parseBool(get("split_award_allowed")),
-      min_rating_threshold_override: minRating,
-      line_details: lineDetails,
-    });
+    const fields = {
+      qty, estimated_price: estimatedPrice, technical_eval_method: evalMethod, technical_weight: technicalWeight,
+      price_weight: priceWeight, split_award_allowed: splitAward, min_rating_threshold_override: minRating, line_details: lineDetails,
+    };
+    if (isUpdate) {
+      updates.push({ product_master_id: product!.id, patch: fields });
+      known.set(product!.id, { ...existing!, ...fields }); // a later row for the same product in this file merges against this one, not the original
+    } else {
+      const row: LineItemRow = { ...blankRow(), product_master_id: product!.id, product_code_input: product!.code, ...fields };
+      newRows.push(row);
+      known.set(product!.id, row);
+    }
   }
-  return { rows, errors };
+  return { newRows, updates, errors };
 }

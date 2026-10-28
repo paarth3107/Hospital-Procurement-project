@@ -40,6 +40,12 @@
   --success: #28c76f;
   --success-text: #1e9e57;
   --success-bg: rgba(40,199,111,.14);
+  /* Toasts float over whatever's on the page, not an opaque card like the
+     chips/tags/banners --success-bg/--danger-08 above were made for -- a
+     translucent background there lets the page show through and looks
+     wrong (user-reported, 2026-10-28). Solid, theme-matched colours instead. */
+  --toast-success-bg: #e3f8ec;
+  --toast-error-bg: #fdecec;
 
   --tag-neutral-bg: rgba(var(--ink-rgb), .08);
   --tag-neutral-text: rgba(var(--ink-rgb), .75);
@@ -88,6 +94,8 @@
   --danger-100: rgba(var(--danger-rgb), .18);
   --danger-08: rgba(var(--danger-rgb), .16);
   --success-text: #28c76f;
+  --toast-success-bg: #1f3d2e;
+  --toast-error-bg: #44272a;
   --tag-neutral-bg: rgba(var(--ink-rgb), .12);
   --tag-neutral-text: rgba(var(--ink-rgb), .8);
   --card-shadow: 0 4px 24px 0 rgba(0,0,0,.3);

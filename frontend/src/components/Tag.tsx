@@ -28,6 +28,28 @@ export function TypeTag({ type }: { type: string }) {
   return <Tag text={type} tone={(type as Tone) || ""} />;
 }
 
+// How a vendor got onto a line's invite list -- shared by the E-Tender
+// Approval review and the L1 Award screen (2026-10-28, user-directed).
+// "system" (the eligibility rules) and "open" (Open Tender's blanket
+// Active-vendor invite) both read as "Eligible": neither singles anyone
+// out, they're just two different ways the system decided who's in.
+// "manual" (an officer's §6.6 manual add) reads as "Invited", with its
+// reason shown underneath. "guest" (a brand-new vendor who registered
+// through this tender's Guest Invite link, then cleared the normal Active
+// approval queue same as anyone else) reads as "Guest".
+export function InviteSourceTag({ source, reason }: { source: string; reason?: string | null }) {
+  if (source === "manual") {
+    return (
+      <>
+        <Tag text="Invited" tone="esc" />
+        {reason && <div className="ep-sub mt-3px">{reason}</div>}
+      </>
+    );
+  }
+  if (source === "guest") return <Tag text="Guest" tone="att" />;
+  return <Tag text="Eligible" tone="pos" />;
+}
+
 // "Expired" / "Expiring <date>" tag for a document with a valid-till date,
 // null if neither applies (ported from kit.js's expiryTag()).
 export function ExpiryTag({ expiryState, validTill }: { expiryState: string; validTill: string | null }) {

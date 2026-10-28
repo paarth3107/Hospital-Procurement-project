@@ -8,12 +8,13 @@ import { useAuthState } from "../../lib/authStore";
 import { StateTag } from "../../components/Tag";
 import { Req } from "../../components/Req";
 import { FieldError } from "../../components/FieldError";
-import { percentRangeError } from "./tenderValidation";
+import { clampDigits, percentRangeError } from "./tenderValidation";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
 import { mapApiLineItems } from "./lineItemRow";
 import { SingleDocumentField } from "./SingleDocumentField";
-import { OpenTenderLinkBox } from "./OpenTenderLinkBox";
+import { copyGuestInviteLink } from "./GuestInviteLinkBox";
 import { TenderDetail } from "./TenderDetail";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderForm.js -- the tender
@@ -40,9 +41,12 @@ interface FormState {
   min_invites: string;
   max_invites: string;
   open_tender: boolean;
+  // Rate Contract dates are no longer entered on this page (2026-10-28,
+  // user-directed) -- they're set at L1-submission time instead
+  // (TenderAwardPanel.tsx), where "date of awarding" is a real, nearby
+  // date instead of a guess made at tender creation. Only the flag + the
+  // signed agreement document still live here.
   is_rate_contract: boolean;
-  contract_start_date: string;
-  contract_end_date: string;
   bid_due_date: string;
   publish_date: string;
 }
@@ -53,13 +57,16 @@ const BLANK_FORM: FormState = {
   description: "",
   tender_type: "rfq",
   department: "",
-  min_rating_threshold: "0",
+  // Blank, not "0" (2026-10-28, user-directed) -- a literal "0" sitting in
+  // the field meant clicking in to type a real value had to clear it
+  // first. Blank still means 0 either way (buildPayload below), so this
+  // changes nothing about what actually gets saved, only the keystroke --
+  // the "0" shows as the input's placeholder hint instead (JSX below).
+  min_rating_threshold: "",
   min_invites: "",
   max_invites: "",
   open_tender: false,
   is_rate_contract: false,
-  contract_start_date: "",
-  contract_end_date: "",
   bid_due_date: "",
   publish_date: "",
 };
@@ -86,12 +93,6 @@ export function TenderEditorPage() {
   // closing and reopening the tender did (that remounts TenderDetail fresh).
   // Bumped on every successful save and passed down so its effect re-runs.
   const [refreshToken, setRefreshToken] = useState(0);
-  // User-directed (2026-10-16): the "Required before submission." note next
-  // to an empty mandatory document shouldn't sit there from the moment the
-  // page loads like a standing validation error -- only once the user has
-  // actually tried to move the tender forward (Save as Draft or Send for
-  // Approval) and it's still missing.
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
   // as DashboardPage -- the role is already in the shared auth store.
   const currentUser = useAuthState().user;
@@ -167,13 +168,14 @@ export function TenderEditorPage() {
       description: t.description || "",
       tender_type: t.tender_type,
       department: t.department || "",
-      min_rating_threshold: String(t.min_rating_threshold),
+      // A stored 0 is treated the same as "never set" here (consistent with
+      // buildPayload's own blank-means-0) -- shows as the placeholder hint
+      // instead of a literal "0" sitting in the field either way.
+      min_rating_threshold: t.min_rating_threshold ? String(t.min_rating_threshold) : "",
       min_invites: t.min_invites != null ? String(t.min_invites) : "",
       max_invites: t.max_invites != null ? String(t.max_invites) : "",
       open_tender: t.open_tender,
       is_rate_contract: t.is_rate_contract,
-      contract_start_date: t.contract_start_date || "",
-      contract_end_date: t.contract_end_date || "",
       bid_due_date: t.bid_due_date ? toLocalInputValue(t.bid_due_date) : "",
       publish_date: t.publish_date ? toLocalInputValue(t.publish_date) : "",
     });
@@ -200,9 +202,6 @@ export function TenderEditorPage() {
       max_invites: f.max_invites ? Number(f.max_invites) : null,
       open_tender: f.open_tender,
       is_rate_contract: f.is_rate_contract,
-      // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
-      contract_start_date: f.is_rate_contract ? f.contract_start_date || null : null,
-      contract_end_date: f.is_rate_contract ? f.contract_end_date || null : null,
       publish_date: f.publish_date ? new Date(f.publish_date).toISOString() : null,
       bid_due_date: f.bid_due_date ? new Date(f.bid_due_date).toISOString() : null,
       line_items: gridRef.current?.rowsForPayload() ?? [],
@@ -225,7 +224,12 @@ export function TenderEditorPage() {
     setTender(saved);
     const items = await api<LineItem[]>(`/tenders/${saved.id}/line-items`);
     gridRef.current?.applySavedLineItems(items);
-    if (!opts.silent) setResult({ message: `Tender #${saved.id} saved as draft.`, ok: true });
+    // The inline "saved as draft" banner used to sit here indefinitely --
+    // nothing on this page ever cleared a success result, so it stayed on
+    // screen through every later edit until something else happened to
+    // overwrite it. The toast (auto-dismisses on its own) replaces it
+    // entirely now instead of duplicating the same message in two places.
+    if (!opts.silent) toastSuccess(`"${saved.title || `Tender #${saved.id}`}" saved as draft.`);
     setRefreshToken((v) => v + 1);
     // The very first save of a brand-new tender gets it a real id -- move
     // the URL to /tender-edit/:id (without a remount: `replace` swaps the
@@ -266,8 +270,6 @@ export function TenderEditorPage() {
       if (new Date(form.publish_date) <= new Date()) return "Publish Date must be in the future.";
       if (new Date(form.bid_due_date) <= new Date(form.publish_date)) return "Bid Due Date must be after the Publish Date.";
     }
-    if (form.is_rate_contract && (!form.contract_start_date || !form.contract_end_date))
-      return "A rate contract needs both a contract start and end date before it can be submitted for approval.";
     if (form.is_rate_contract && !hasRateContractDocument) return "Upload the Rate Contract agreement before submitting for approval.";
     if (!hasTermsDocument) return "Upload the Terms & Conditions document before submitting for approval.";
     // rowsForPayload() already leaves out untouched blank rows (the default
@@ -278,17 +280,17 @@ export function TenderEditorPage() {
   }
 
   const handleSaveClick = async () => {
-    setAttemptedSubmit(true);
     setResult(null);
     try {
       await saveDraft();
     } catch (err) {
-      setResult({ message: "Could not save tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      const message = "Could not save tender: " + (err instanceof Error ? err.message : String(err));
+      setResult({ message, ok: false });
+      toastError(message);
     }
   };
 
   const handleSubmitClick = async () => {
-    setAttemptedSubmit(true);
     if (currentStatus !== "draft") return;
     const problem = gridRef.current?.firstRowProblem() || submitProblem();
     if (problem) {
@@ -301,16 +303,21 @@ export function TenderEditorPage() {
         await api(`/tenders/${saved.id}/submit-for-approval`, { method: "POST" });
       } catch (err) {
         // The draft is saved; only the submit step failed.
-        setResult({ message: `Saved as draft, but could not submit for approval: ${err instanceof Error ? err.message : String(err)}`, ok: false });
+        const message = `Saved as draft, but could not submit "${saved.title || `Tender #${saved.id}`}" for approval: ${err instanceof Error ? err.message : String(err)}`;
+        setResult({ message, ok: false });
+        toastError(message);
         setTender(await api<Tender>(`/tenders/${saved.id}`));
         return;
       }
       const held = await heldLineNames(saved.id);
       const heldNote = held.length ? ` Note: no eligible vendor yet for ${held.join(", ")} — that line will be held back while the rest go live.` : "";
       setResult({ message: `Tender #${saved.id} submitted for E-Tender Approval.${heldNote}`, ok: true });
+      toastSuccess(`"${saved.title || `Tender #${saved.id}`}" submitted for E-Tender Approval.`);
       switchView("tenders");
     } catch (err) {
-      setResult({ message: "Could not save tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      const message = "Could not save tender: " + (err instanceof Error ? err.message : String(err));
+      setResult({ message, ok: false });
+      toastError(message);
     }
   };
 
@@ -323,9 +330,12 @@ export function TenderEditorPage() {
     try {
       const t = await api<Tender>(`/tenders/${tender.id}/withdraw-to-draft`, { method: "POST" });
       setResult({ message: `Tender #${t.id} reverted to Draft.`, ok: true });
+      toastSuccess(`"${t.title || `Tender #${t.id}`}" reverted to Draft.`);
       await openTender(t, products);
     } catch (err) {
-      setResult({ message: "Could not revert to Draft: " + (err instanceof Error ? err.message : String(err)), ok: false });
+      const message = "Could not revert to Draft: " + (err instanceof Error ? err.message : String(err));
+      setResult({ message, ok: false });
+      toastError(message);
     }
   };
 
@@ -346,8 +356,6 @@ export function TenderEditorPage() {
     if (!form.facility_id) problem = ["Facility missing", "Select a facility before sending it for approval."];
     else if (!form.title.trim()) problem = ["Title missing", "Give the tender a title before sending it for approval."];
     else if (!form.bid_due_date) problem = ["Bid due date missing", "A bid due date is required before the tender can be sent for approval."];
-    else if (form.is_rate_contract && (!form.contract_start_date || !form.contract_end_date))
-      problem = ["Contract dates missing", "A rate contract needs both a contract start and end date before it can be sent for approval."];
     else if (form.is_rate_contract && !hasRateContractDocument) problem = ["Rate contract agreement missing", "Upload the Rate Contract agreement before sending it for approval."];
     else if (!hasTermsDocument) problem = ["Terms & conditions missing", "Upload the Terms & Conditions document before sending it for approval."];
     else if (savableCount === 0) problem = ["No line items", "Add at least one line item."];
@@ -495,10 +503,12 @@ export function TenderEditorPage() {
                   step="0.1"
                   min={0}
                   max={100}
+                  placeholder="0"
                   value={form.min_rating_threshold}
                   onChange={(e) => {
-                    setField("min_rating_threshold", e.target.value);
-                    if (fieldErrors.min_rating_threshold) checkPercentField("min_rating_threshold", e.target.value);
+                    const v = clampDigits(e.target.value);
+                    setField("min_rating_threshold", v);
+                    if (fieldErrors.min_rating_threshold) checkPercentField("min_rating_threshold", v);
                   }}
                   onBlur={(e) => checkPercentField("min_rating_threshold", e.target.value)}
                 />
@@ -521,8 +531,9 @@ export function TenderEditorPage() {
                   disabled={form.open_tender}
                   value={form.min_invites}
                   onChange={(e) => {
-                    setField("min_invites", e.target.value);
-                    if (fieldErrors.min_invites) checkPercentField("min_invites", e.target.value);
+                    const v = clampDigits(e.target.value);
+                    setField("min_invites", v);
+                    if (fieldErrors.min_invites) checkPercentField("min_invites", v);
                   }}
                   onBlur={(e) => checkPercentField("min_invites", e.target.value)}
                 />
@@ -538,8 +549,9 @@ export function TenderEditorPage() {
                   disabled={form.open_tender}
                   value={form.max_invites}
                   onChange={(e) => {
-                    setField("max_invites", e.target.value);
-                    if (fieldErrors.max_invites) checkPercentField("max_invites", e.target.value);
+                    const v = clampDigits(e.target.value);
+                    setField("max_invites", v);
+                    if (fieldErrors.max_invites) checkPercentField("max_invites", v);
                   }}
                   onBlur={(e) => checkPercentField("max_invites", e.target.value)}
                 />
@@ -554,12 +566,25 @@ export function TenderEditorPage() {
                   onChange={async (e) => {
                     const checked = e.target.checked;
                     setField("open_tender", checked);
-                    // Turning it on needs a real tender id for the link
-                    // box below to do anything -- silently save instead
-                    // of leaving it inert until a manual Save as Draft.
+                    // Guest Invite is its own, independent thing now
+                    // (2026-10-28, user-directed, "unhook that") -- this
+                    // checkbox no longer enables/disables it. As a
+                    // convenience, it now does what the Guest Invite box's
+                    // own "New Link" then "Copy Link" buttons do, in one
+                    // go (user-directed, same day: "when i click open
+                    // tender it clicks new link and then also copy link") --
+                    // always a FRESH link (same /guest-invite-link/
+                    // regenerate endpoint "New Link" calls, not just reuse
+                    // whatever token happened to already exist), then
+                    // copyGuestInviteLink(), the same shared copy+toast flow
+                    // Guest Invite's own "Copy Link" button uses.
                     if (checked) {
                       try {
-                        await saveDraft({ silent: true, overrides: { open_tender: true } });
+                        const saved = await saveDraft({ silent: true, overrides: { open_tender: true } });
+                        const regenerated = await api<Tender>(`/tenders/${saved.id}/guest-invite-link/regenerate`, { method: "POST" });
+                        setTender(regenerated);
+                        setRefreshToken((v) => v + 1); // so TenderDetail.tsx's "Other Vendors" card shows this same fresh token, not a stale one
+                        await copyGuestInviteLink(regenerated.guest_invite_token);
                       } catch (err) {
                         setResult({ message: "Could not turn on Open Tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
                       }
@@ -571,9 +596,12 @@ export function TenderEditorPage() {
                 </span>
                 <span className="ep-switch-label">Open Tender</span>
               </label>
-              <div className="mt-10px">
-                <OpenTenderLinkBox tender={tender} enabled={form.open_tender} onChange={setTender} />
-              </div>
+              {/* Always rendered, not conditional on checked (2026-10-28,
+                  user-directed) -- a short, fixed-height line so this
+                  column isn't empty next to Rate Contract's, and so
+                  nothing shifts/wraps to a second line the moment the
+                  toggle is turned on. */}
+              <div className="hint mt-8px">Invites every Active vendor.</div>
             </div>
             <div className="minw-220px">
               <label className="ep-switch ep-check-field">
@@ -604,32 +632,15 @@ export function TenderEditorPage() {
                 </span>
                 <span className="ep-switch-label">Rate Contract</span>
               </label>
-              <div className="d-flex gap-10px mt-10px">
-                <div>
-                  <div className="ep-k">
-                    Start Date <Req />
-                  </div>
-                  <input
-                    className="input input-narrow-date"
-                    type="date"
-                    disabled={!form.is_rate_contract}
-                    value={form.contract_start_date}
-                    onChange={(e) => setField("contract_start_date", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <div className="ep-k">
-                    End Date <Req />
-                  </div>
-                  <input
-                    className="input input-narrow-date"
-                    type="date"
-                    disabled={!form.is_rate_contract}
-                    value={form.contract_end_date}
-                    onChange={(e) => setField("contract_end_date", e.target.value)}
-                  />
-                </div>
-              </div>
+              {/* Start/End date fields removed from here (2026-10-28,
+                  user-directed) -- they're entered at L1-submission time
+                  instead, on the Awards page's TenderAwardPanel.tsx, where
+                  "date of awarding" is a real nearby date rather than a
+                  guess made at tender creation. Kept to one short, always-
+                  rendered line (not conditional on checked) so turning the
+                  toggle on doesn't wrap to a second line and shift the row
+                  (same user-directed fix as Open Tender's line above). */}
+              <div className="hint mt-8px">Dates set at L1 approval.</div>
             </div>
           </div>
 
@@ -653,9 +664,7 @@ export function TenderEditorPage() {
                 endpoint="terms-document"
                 fieldPrefix="terms_document"
                 label="Terms & Conditions Document"
-                requiredLabel="Required before submission."
                 onChange={setTender}
-                showRequiredIfMissing={attemptedSubmit}
               />
             </div>
             <div className="ep-field col-span-2">
@@ -668,10 +677,8 @@ export function TenderEditorPage() {
                 endpoint="rate-contract-document"
                 fieldPrefix="rate_contract_document"
                 label="Rate Contract Agreement"
-                requiredLabel="Required before submission."
                 onChange={setTender}
                 disabled={!form.is_rate_contract}
-                showRequiredIfMissing={attemptedSubmit}
               />
             </div>
           </div>

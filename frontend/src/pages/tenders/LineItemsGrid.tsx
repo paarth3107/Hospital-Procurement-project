@@ -7,7 +7,7 @@ import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/f
 import { FormField } from "../../components/FormField";
 import { FieldError } from "../../components/FieldError";
 import { Req } from "../../components/Req";
-import { percentRangeError } from "./tenderValidation";
+import { clampDigits, nonNegativeError, percentRangeError, qcbsWeightError, qtyError } from "./tenderValidation";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { CatalogProduct, LineItem, TechnicalEvalMethod, TenderLineAttachmentKind } from "../../lib/types";
@@ -94,11 +94,14 @@ export const LineItemsGrid = forwardRef<
 >(function LineItemsGrid({ products, tenderId, onChange, onRequestSave }, ref) {
   const [rows, setRowsState] = useState<LineItemRow[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  // Min Rating Threshold Override's red error, keyed by row index (same
-  // convention as expandedRows above) -- FieldError's own lookup just
-  // wants string keys, so the index is stringified.
+  // Per-row, per-field red errors (2026-10-28, user-directed, extended
+  // from Min Rating Threshold Override alone to also cover Quantity and
+  // Estimated Price per Unit) -- keyed "<row index>:<field name>" so three
+  // different fields on the same row don't collide; FieldError's own
+  // lookup just wants string keys either way.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importSummary, setImportSummary] = useState("");
   // "<row index>:<kind>" currently mid-upload, if any -- see AttachmentsPanel.tsx's own comment.
   const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
   const [attachmentProgress, setAttachmentProgress] = useState(0);
@@ -220,6 +223,12 @@ export const LineItemsGrid = forwardRef<
         if (li.technical_eval_method === "qcbs" && (!(li.technical_weight! > 0) || !(li.price_weight! > 0))) {
           return `Row ${n}: QCBS needs both a technical weight and a price weight, greater than zero.`;
         }
+        // Real bug, found 2026-10-28 (user-reported): each weight was only
+        // ever checked individually -- nothing required them to add up to
+        // 100 (same gap fixed server-side in tenders.py's submit_for_approval).
+        if (li.technical_eval_method === "qcbs" && Math.abs((li.technical_weight ?? 0) + (li.price_weight ?? 0) - 100) > 0.01) {
+          return `Row ${n}: QCBS's technical weight + price weight must add up to 100.`;
+        }
       }
       return null;
     },
@@ -312,11 +321,25 @@ export const LineItemsGrid = forwardRef<
   // save, via the backend's real validator. Same on-blur-error-under-the-
   // field pattern as registration/login (FieldError + tenderValidation.ts's
   // percentRangeError) -- replacing a first attempt that silently clamped
-  // the value instead of flagging it.
-  const checkRatingOverride = (i: number, raw: string) => {
-    const err = percentRangeError(raw);
-    const key = String(i);
+  // the value instead of flagging it. Extended 2026-10-28, user-directed,
+  // to Quantity and Estimated Price per Unit too -- one shared helper, one
+  // key scheme ("<row>:<field>"), three validators.
+  const checkRowField = (i: number, field: string, err: string | null) => {
+    const key = `${i}:${field}`;
     setFieldErrors((prev) => (prev[key] === (err ?? "") ? prev : { ...prev, [key]: err ?? "" }));
+  };
+  const checkRatingOverride = (i: number, raw: string) => checkRowField(i, "min_rating_threshold_override", percentRangeError(raw));
+  const checkQty = (i: number, raw: string) => checkRowField(i, "qty", qtyError(raw));
+  const checkPrice = (i: number, raw: string) => checkRowField(i, "estimated_price", nonNegativeError(raw));
+  const checkTechnicalWeight = (i: number, raw: string) => checkRowField(i, "technical_weight", qcbsWeightError(raw));
+  const checkPriceWeight = (i: number, raw: string) => checkRowField(i, "price_weight", qcbsWeightError(raw));
+  // Checked on blur of EITHER weight field (2026-10-28, user-directed: "i
+  // need that on the blur itself not during submit") -- reads the OTHER
+  // field's current value straight off the row, not just the one just
+  // blurred, so leaving either field flags the pair together.
+  const checkWeightsTotal = (i: number, technicalRaw: string, priceRaw: string) => {
+    const total = Number(technicalRaw || 0) + Number(priceRaw || 0);
+    checkRowField(i, "qcbs_weights", Math.abs(total - 100) < 0.01 ? null : "Technical Weight + Price Weight must add up to 100.");
   };
 
   const onEvalMethodChange = (i: number, value: string) =>
@@ -491,20 +514,42 @@ export const LineItemsGrid = forwardRef<
 
   const onCsvFileChosen = async (file: File) => {
     const text = await file.text();
-    const { rows: imported, errors } = importCsvRows(text, products);
-    if (imported.length) {
+    // Real bug, found 2026-10-28 (user-reported): re-uploading a corrected
+    // file after a partial import (some rows rejected for bad formatting)
+    // added the already-imported rows a SECOND time, since nothing checked
+    // a parsed row's product against what's already on the grid -- only
+    // firstRowProblem() caught that, and only at Submit time, by which
+    // point the duplicate was already sitting in the grid.
+    //
+    // User-directed fix, same day: rather than just reject a row for a
+    // product that's already on the tender, treat it as an UPDATE to that
+    // line -- importCsvRows() now does this merge itself (see its own
+    // comment): a cell with a new value changes that field, a blank cell
+    // leaves the existing value alone, and a row with any invalid/
+    // out-of-range value applies nothing from that row at all.
+    const existing = rows.filter((r) => !isRowBlank(r));
+    const { newRows, updates, errors } = importCsvRows(text, products, existing);
+    const withDefaultEval = newRows.map((row) => {
+      if (!row.technical_eval_method) {
+        const p = products.find((x) => x.id === row.product_master_id);
+        if (p) row.technical_eval_method = DEFAULT_EVAL_METHOD[p.procurement_type];
+      }
+      return row;
+    });
+    if (updates.length || withDefaultEval.length) {
       setRows([
-        ...rows,
-        ...imported.map((row) => {
-          if (!row.technical_eval_method) {
-            const p = products.find((x) => x.id === row.product_master_id);
-            if (p) row.technical_eval_method = DEFAULT_EVAL_METHOD[p.procurement_type];
-          }
-          return row;
+        ...rows.map((r) => {
+          const u = r.product_master_id != null ? updates.find((x) => x.product_master_id === r.product_master_id) : undefined;
+          return u ? { ...r, ...u.patch } : r;
         }),
+        ...withDefaultEval,
       ]);
     }
     setImportErrors(errors);
+    const parts: string[] = [];
+    if (withDefaultEval.length) parts.push(`${withDefaultEval.length} new line(s) added`);
+    if (updates.length) parts.push(`${updates.length} existing line(s) updated`);
+    setImportSummary(parts.join(", "));
   };
 
   // ---- Render ----
@@ -592,27 +637,37 @@ export const LineItemsGrid = forwardRef<
                         </td>
                         <td className="ep-cell">
                           <input
-                            className="input"
+                            className={`input${fieldErrors[`${i}:qty`] ? " invalid" : ""}`}
                             type="number"
                             step="any"
                             min={0}
                             data-row={i}
                             data-col={1}
                             value={row.qty ?? ""}
-                            onChange={(e) => onNumericInput(i, "qty", e.target.value)}
+                            onChange={(e) => {
+                              onNumericInput(i, "qty", e.target.value);
+                              if (fieldErrors[`${i}:qty`]) checkQty(i, e.target.value);
+                            }}
+                            onBlur={(e) => checkQty(i, e.target.value)}
                           />
+                          <FieldError errors={fieldErrors} name={`${i}:qty`} />
                         </td>
                         <td className="ep-cell">
                           <input
-                            className="input"
+                            className={`input${fieldErrors[`${i}:estimated_price`] ? " invalid" : ""}`}
                             type="number"
                             step="any"
                             min={0}
                             data-row={i}
                             data-col={2}
                             value={row.estimated_price ?? ""}
-                            onChange={(e) => onNumericInput(i, "estimated_price", e.target.value)}
+                            onChange={(e) => {
+                              onNumericInput(i, "estimated_price", e.target.value);
+                              if (fieldErrors[`${i}:estimated_price`]) checkPrice(i, e.target.value);
+                            }}
+                            onBlur={(e) => checkPrice(i, e.target.value)}
                           />
+                          <FieldError errors={fieldErrors} name={`${i}:estimated_price`} />
                         </td>
                         <td className="ep-cell">
                           <select
@@ -657,13 +712,23 @@ export const LineItemsGrid = forwardRef<
                                         <Req />
                                       </div>
                                       <input
-                                        className="input"
+                                        className={`input${fieldErrors[`${i}:technical_weight`] || fieldErrors[`${i}:qcbs_weights`] ? " invalid" : ""}`}
                                         type="number"
                                         step={1}
                                         min={0}
                                         value={row.technical_weight ?? ""}
-                                        onChange={(e) => onNumericInput(i, "technical_weight", e.target.value)}
+                                        onChange={(e) => {
+                                          const v = clampDigits(e.target.value);
+                                          onNumericInput(i, "technical_weight", v);
+                                          if (fieldErrors[`${i}:technical_weight`]) checkTechnicalWeight(i, v);
+                                          if (fieldErrors[`${i}:qcbs_weights`]) checkWeightsTotal(i, v, String(row.price_weight ?? ""));
+                                        }}
+                                        onBlur={(e) => {
+                                          checkTechnicalWeight(i, e.target.value);
+                                          checkWeightsTotal(i, e.target.value, String(row.price_weight ?? ""));
+                                        }}
                                       />
+                                      <FieldError errors={fieldErrors} name={`${i}:technical_weight`} />
                                     </div>
                                   )}
                                   {qcbs && (
@@ -673,32 +738,58 @@ export const LineItemsGrid = forwardRef<
                                         <Req />
                                       </div>
                                       <input
-                                        className="input"
+                                        className={`input${fieldErrors[`${i}:price_weight`] || fieldErrors[`${i}:qcbs_weights`] ? " invalid" : ""}`}
                                         type="number"
                                         step={1}
                                         min={0}
                                         value={row.price_weight ?? ""}
-                                        onChange={(e) => onNumericInput(i, "price_weight", e.target.value)}
+                                        onChange={(e) => {
+                                          const v = clampDigits(e.target.value);
+                                          onNumericInput(i, "price_weight", v);
+                                          if (fieldErrors[`${i}:price_weight`]) checkPriceWeight(i, v);
+                                          if (fieldErrors[`${i}:qcbs_weights`]) checkWeightsTotal(i, String(row.technical_weight ?? ""), v);
+                                        }}
+                                        onBlur={(e) => {
+                                          checkPriceWeight(i, e.target.value);
+                                          checkWeightsTotal(i, String(row.technical_weight ?? ""), e.target.value);
+                                        }}
                                       />
+                                      <FieldError errors={fieldErrors} name={`${i}:price_weight`} />
+                                    </div>
+                                  )}
+                                  {qcbs && (
+                                    <div className="ep-field">
+                                      <div className="ep-k">Weights Total</div>
+                                      {/* Live running total always shown; the red error itself only
+                                          appears once either weight field has been blurred (2026-10-28,
+                                          user-directed: "i need that on the blur itself not during
+                                          submit") -- checkWeightsTotal() above, not just firstRowProblem()'s
+                                          submit-time gate or the backend's own matching check
+                                          (tenders.py's submit_for_approval). */}
+                                      <div className={`fs-13px fw-700 mt-6px${fieldErrors[`${i}:qcbs_weights`] ? " text-danger-700" : ""}`}>
+                                        {(row.technical_weight ?? 0) + (row.price_weight ?? 0)}%
+                                      </div>
+                                      <FieldError errors={fieldErrors} name={`${i}:qcbs_weights`} />
                                     </div>
                                   )}
                                   <div className="ep-field">
                                     <div className="ep-k">Min Rating Threshold Override</div>
                                     <input
-                                      className={`input${fieldErrors[String(i)] ? " invalid" : ""}`}
+                                      className={`input${fieldErrors[`${i}:min_rating_threshold_override`] ? " invalid" : ""}`}
                                       type="number"
                                       step={0.1}
                                       min={0}
                                       max={100}
                                       value={row.min_rating_threshold_override ?? ""}
                                       onChange={(e) => {
-                                        onNumericInput(i, "min_rating_threshold_override", e.target.value);
-                                        if (fieldErrors[String(i)]) checkRatingOverride(i, e.target.value);
+                                        const v = clampDigits(e.target.value);
+                                        onNumericInput(i, "min_rating_threshold_override", v);
+                                        if (fieldErrors[`${i}:min_rating_threshold_override`]) checkRatingOverride(i, v);
                                       }}
                                       onBlur={(e) => checkRatingOverride(i, e.target.value)}
                                       placeholder="tender default"
                                     />
-                                    <FieldError errors={fieldErrors} name={String(i)} />
+                                    <FieldError errors={fieldErrors} name={`${i}:min_rating_threshold_override`} />
                                   </div>
                                 </div>
                               </div>
@@ -762,15 +853,17 @@ export const LineItemsGrid = forwardRef<
             }}
           />
         </div>
+        {importSummary && !importErrors.length && <div className="result ok mt-10px">{importSummary}.</div>}
         {importErrors.length > 0 && (
           <div className="result err mt-10px">
+            {importSummary && <div className="fw-700 mb-6px">{importSummary}.</div>}
             <div className="fw-700 mb-6px">{importErrors.length} row(s) need fixing before they can be added:</div>
             <ul className="margin-0 pl-18px">
               {importErrors.map((e, idx) => (
                 <li key={idx}>{e}</li>
               ))}
             </ul>
-            <div className="hint mt-6px">Fix these rows in your file and upload just them again — rows already added don't need to be re-uploaded.</div>
+            <div className="hint mt-6px">Fix these rows in your file and upload just them again — rows already added or updated don't need to be re-uploaded.</div>
           </div>
         )}
       </div>

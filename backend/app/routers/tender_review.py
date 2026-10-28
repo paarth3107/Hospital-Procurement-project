@@ -48,7 +48,10 @@ def approval_review(tender_id: int, db: Session = Depends(get_db), user: UserAcc
                 price_weight=li.price_weight, min_rating_applied=minimum, line_details=li.line_details or {}, catalog_attrs=p.type_specific_attrs or {},
                 required_documents=[requirement_label(e) for e in required_document_types(p, p.category_ref)],
                 eligible_vendors=[
-                    ReviewVendorOut(vendor_id=inv.vendor_id, legal_name=inv.vendor.legal_name, rating_score=inv.rating_at_resolution, is_unrated=inv.is_unrated_at_resolution)
+                    ReviewVendorOut(
+                        vendor_id=inv.vendor_id, legal_name=inv.vendor.legal_name, rating_score=inv.rating_at_resolution,
+                        is_unrated=inv.is_unrated_at_resolution, source=inv.source, reason=inv.reason,
+                    )
                     for inv in invited
                 ],
                 held_back=not invited,

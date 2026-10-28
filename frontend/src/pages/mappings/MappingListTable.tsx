@@ -96,8 +96,8 @@ export function MappingListTable({
                   <td className="ep-cell text-right nowrap">
                     {m.state === "pending" && (
                       <div className="d-flex items-center gap-10px justify-end">
-                        <IconActionButton icon="check" label="Approve" tone="success" size={24} onClick={() => actions.approve(m.id)} />
-                        <IconActionButton icon="x" label="Reject" tone="danger" size={24} onClick={() => actions.reject(m.id)} />
+                        <IconActionButton icon="check" label="Approve" tone="success" size={24} onClick={() => actions.approve(m.id, vendor, label)} />
+                        <IconActionButton icon="x" label="Reject" tone="danger" size={24} onClick={() => actions.reject(m.id, vendor, label)} />
                       </div>
                     )}
                     {m.state === "approved" && vendor && (

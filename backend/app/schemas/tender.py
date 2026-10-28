@@ -54,10 +54,19 @@ class LineItemCreate(BaseModel):
             raise ValueError("Min Rating must be between 0 and 100")
         return v
 
-    # Note: QCBS's Technical/Price Weight requirement (spec §9.4) is NOT
+    # QCBS's Technical/Price Weight *requirement* (spec §9.4) is NOT
     # enforced here -- a draft line may have QCBS chosen with weights not
-    # filled in yet. Enforced at submit-for-approval instead (tenders.py),
-    # same split as qty above.
+    # filled in yet (None is fine), enforced at submit-for-approval instead
+    # (tenders.py), same split as qty above. A genuinely negative/zero
+    # value typed in, though, is rejected right here (2026-10-28,
+    # user-directed: "negative is accepted" was a real bug) -- same
+    # "None is a draft, <=0 never is" rule qty_positive already applies.
+    @field_validator("technical_weight", "price_weight")
+    @classmethod
+    def weight_positive(cls, v: float | None) -> float | None:
+        if v is not None and v <= 0:
+            raise ValueError("Weight must be greater than zero")
+        return v
 
     @model_validator(mode="after")
     def clean_line_details(self):
@@ -147,7 +156,7 @@ class TenderOut(BaseModel):
     min_invites: int | None
     max_invites: int | None
     open_tender: bool
-    open_link_token: str | None = None  # staff only: the Open Tender registration link
+    guest_invite_token: str | None = None  # staff only: the Guest Invite registration link
     is_rate_contract: bool
     contract_start_date: date | None
     contract_end_date: date | None
@@ -203,7 +212,7 @@ class EligibleVendorOut(BaseModel):
     legal_name: str
     rating_score: float
     is_unrated: bool = False
-    source: str = "system"  # system | open | manual
+    source: str = "system"  # system | open | manual | guest
     reason: str | None = None  # manual invites only
 
 

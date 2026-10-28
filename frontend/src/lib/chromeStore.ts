@@ -127,6 +127,30 @@ export function applyDashboardStats(s: DashboardStatsForChrome) {
   notify();
 }
 
+// Vendor-side equivalent of applyDashboardStats above (2026-10-28,
+// user-reported: "vendor dashboard making too many repeated requests") --
+// the exact same duplicate-fetch bug applyDashboardStats was built to fix
+// for the staff Dashboard (see its own comment), just never finished for
+// VendorDashboardPage.tsx: AppShell's mount effect below only ever skipped
+// refreshChrome() for `/dashboard`, never `/vendor-dashboard`, so a vendor
+// landing there fired /vendor-portal/tenders and /vendor-portal/documents/
+// requirements TWICE at once -- once here, once from the dashboard's own
+// page-content fetch. VendorDashboardPage now calls this directly with
+// data it already fetched instead.
+interface VendorPortalStatsForChrome {
+  requirements: { summary: string }[];
+  notifications: VendorNotificationForChrome[];
+  tenders: VendorPortalTenderForChrome[];
+}
+export function applyVendorPortalStats(s: VendorPortalStatsForChrome) {
+  state = {
+    ...state,
+    badgeVendorCategories: s.requirements.filter((r) => r.summary === "documents_needed").length,
+    badgeVendorDashboard: s.notifications.filter((n) => !n.read).length + closingSoonTenders(s.tenders).length,
+  };
+  notify();
+}
+
 export function resetChromeState() {
   state = EMPTY;
   notify();

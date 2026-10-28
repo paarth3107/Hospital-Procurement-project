@@ -10,14 +10,17 @@ import { fmtDateTime } from "../../lib/format";
 // Every other ported page already fetches its own data on mount rather
 // than depending on a vanilla-side fetch+DOM-write; this is the same thing.
 // Shown on both the vendor login screen and the registration screen
-// (2026-10-07: login comes first now).
+// (2026-10-07: login comes first now). Renamed from OpenLinkNote
+// (2026-10-28, user-directed, alongside the rest of the Guest Invite
+// rename): sessionStorage key, API path and query param all moved from
+// open*/openLink* to guest*/guestInvite*.
 const LEAD: Record<string, string> = {
   unpublished: "is not published yet. You'll see it listed once it's published.",
   open: "is open for bids. You'll see it listed as soon as your registration is approved, and you can bid while bidding is open.",
   closed: "has closed for bidding, so registering through this link can't be completed.",
 };
 
-interface OpenLinkInfo {
+interface GuestInviteInfo {
   title: string;
   facility_name: string | null;
   department: string | null;
@@ -25,18 +28,18 @@ interface OpenLinkInfo {
   state: "unpublished" | "open" | "closed";
 }
 
-export function OpenLinkNote() {
-  const token = sessionStorage.getItem("openLinkToken");
-  const [info, setInfo] = useState<OpenLinkInfo | null>(null);
+export function GuestInviteNote() {
+  const token = sessionStorage.getItem("guestInviteToken");
+  const [info, setInfo] = useState<GuestInviteInfo | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!token) return;
     (async () => {
       try {
-        setInfo(await api<OpenLinkInfo>(`/open-links/${token}`));
+        setInfo(await api<GuestInviteInfo>(`/guest-invite-links/${token}`));
       } catch (err) {
-        sessionStorage.removeItem("openLinkToken");
+        sessionStorage.removeItem("guestInviteToken");
         setError(err instanceof Error ? err.message : String(err));
       }
     })();

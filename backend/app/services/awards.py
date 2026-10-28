@@ -10,7 +10,7 @@ as the next round; repeated rejections escalate the required tier).
 When every line is decided the tender is Awarded, PO data files are generated
 and vendors are notified."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -202,13 +202,32 @@ def award_value(rnd: AwardRound) -> float:
     return total
 
 
-def submit_for_approval(db: Session, tender: Tender, user: UserAccount) -> tuple[int, float, list[AwardRound]]:
+def submit_for_approval(
+    db: Session, tender: Tender, user: UserAccount, contract_start_date: date | None = None, contract_end_date: date | None = None,
+) -> tuple[int, float, list[AwardRound]]:
     """Officer submits the tender's line recommendations for L1 approval. Every
     published line needs a recommendation (or an approved decision from an
     earlier round); the required tier comes from the total award value, one
-    tier higher when any line has been rejected repeatedly (spec 7.3 point 5)."""
+    tier higher when any line has been rejected repeatedly (spec 7.3 point 5).
+
+    Rate Contract dates (2026-10-28, user-directed) are set here, not at
+    tender-draft time -- see models/tender.py's is_rate_contract comment for
+    the full reasoning. Start defaults to today (the closest real proxy for
+    "date of awarding" available before the Approving Authority actually
+    decides) unless the Officer already picked a different one; end is
+    always theirs to set, and stays required together with a real start,
+    end-after-start, same "rules" as before, just enforced here instead."""
     if tender.status in (TenderStatus.AWARDED, TenderStatus.NO_AWARD):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This tender is already awarded")
+    now = datetime.now(timezone.utc)
+    if tender.is_rate_contract:
+        tender.contract_start_date = contract_start_date or tender.contract_start_date or now.date()
+        if contract_end_date:
+            tender.contract_end_date = contract_end_date
+        if not tender.contract_end_date:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A rate contract needs a contract end date before it can be submitted for L1 approval")
+        if tender.contract_end_date <= tender.contract_start_date:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract end date must be after the start date")
     lines = published_lines(tender)
     drafts, missing = [], []
     for li in lines:
@@ -229,7 +248,6 @@ def submit_for_approval(db: Session, tender: Tender, user: UserAccount) -> tuple
     tier = resolve_required_tier(total, tender.facility_id, db).tier
     if any(consecutive_rejections(db, li) >= MAX_ROUNDS_BEFORE_ESCALATION for li, _ in drafts):
         tier = escalate(tier)
-    now = datetime.now(timezone.utc)
     for _, r in drafts:
         r.status, r.submitted_at, r.required_tier, r.award_value = PENDING, now, tier, award_value(r)
     db.flush()

@@ -7,6 +7,7 @@ import { useModal } from "../../components/useModal";
 import { Tag } from "../../components/Tag";
 import { Pagination, pageSlice } from "../../components/Pagination";
 import { OVERRIDE_TYPE_LABELS } from "../../lib/constants";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import type { OverrideOut } from "../../lib/types";
 
 // Spec §12 -- the generic "pending overrides needing MY decision" inbox
@@ -85,8 +86,11 @@ export function DecisionsPage() {
       }
       await load();
       refreshChrome();
+      toastSuccess(`${label} ${approve ? "approved" : "declined"}${o.entity_label ? ` — ${o.entity_label}` : ""}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = `Could not ${approve ? "approve" : "decline"} the ${label}: ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
     }
   };
 

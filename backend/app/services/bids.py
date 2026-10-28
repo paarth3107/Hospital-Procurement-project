@@ -74,7 +74,14 @@ def requirements(line: TenderLineItem, bid: Bid | None) -> RequirementsOut:
             (BidAttachmentKind.OTHER, False),
         ]
     else:  # service
-        required["details.sow_response"] = "Proposed SOW / method statement"
+        # No required["details.sow_response"] here (removed 2026-10-28,
+        # user-directed: "if the SOW is in a document why do we need a
+        # separate SOW statement?") -- the SOW_METHOD attachment slot right
+        # below is already mandatory and covers the same thing; requiring
+        # both a free-text restatement AND the document was pure
+        # duplication. Same reasoning removed the (never-required anyway)
+        # details.manpower_plan free-text field entirely on the frontend --
+        # MANPOWER_PLAN below is its one real home.
         slots = [
             (BidAttachmentKind.SOW_METHOD, True),
             (BidAttachmentKind.MANPOWER_PLAN, manpower_applicable(line)),

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Tag } from "../../components/Tag";
 import type { AwardLine, DecisionIn } from "../../lib/types";
+import { Req } from "../../components/Req";
+import { FieldError } from "../../components/FieldError";
 import { Allocations } from "./awardHelpers";
 
 // Ported 1:1 from frontend/js/pages/awards/decisionForm.js -- the Approving
@@ -91,7 +93,10 @@ export function DecisionForm({ line, onSave, saving, error }: { line: AwardLine;
         <span>Reject — return to the Officer</span>
       </label>
       <div className="ep-field mt-10px">
-        <div className="ep-k">Comments (if any)</div>
+        <div className="ep-k">
+          {decision === "reject" ? "Comments" : "Comments (if any)"}
+          {decision === "reject" && <Req />}
+        </div>
         <textarea
           className={`input w-full${commentsInvalid ? " invalid" : ""}`}
           rows={2}
@@ -100,8 +105,11 @@ export function DecisionForm({ line, onSave, saving, error }: { line: AwardLine;
             setComments(e.target.value);
             setCommentsInvalid(false);
           }}
+          onBlur={() => {
+            if (decision === "reject" && !comments.trim()) setCommentsInvalid(true);
+          }}
         />
-        {commentsInvalid && <div className="hint text-danger-700 mt-4px">A reason is mandatory to reject.</div>}
+        <FieldError errors={{ comments: commentsInvalid ? "A reason is mandatory to reject." : "" }} name="comments" />
       </div>
       {error && <div className="result err">{error}</div>}
       <div className="d-flex justify-end mt-8px">

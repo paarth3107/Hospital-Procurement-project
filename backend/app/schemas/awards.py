@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, field_validator
 
@@ -20,6 +20,17 @@ class RecommendationSave(BaseModel):
     bid_id: int | None = None
     allocations: list[AllocationIn] | None = None
     reason: str | None = None
+
+
+class L1SubmitIn(BaseModel):
+    """Body of POST /tenders/{id}/submit. Both fields only matter when the
+    tender is_rate_contract -- see services/awards.py's submit_for_approval
+    for the defaulting/validation (start defaults to today if left out; end
+    is always required, enforced there, not here, since whether it's needed
+    at all depends on the tender's own is_rate_contract flag)."""
+
+    contract_start_date: date | None = None
+    contract_end_date: date | None = None
 
 
 class DecisionIn(BaseModel):
@@ -106,6 +117,9 @@ class AwardTenderOut(BaseModel):
     submit_blockers: list[str]
     po_files: list[PoFileBrief]
     awarded_at: datetime | None
+    is_rate_contract: bool
+    contract_start_date: date | None
+    contract_end_date: date | None
 
 
 class AwardTenderSummary(BaseModel):

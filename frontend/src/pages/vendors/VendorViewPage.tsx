@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { useAuthState } from "../../lib/authStore";
+import { docLabel } from "../../lib/constants";
+import { toastError, toastSuccess } from "../../lib/toastStore";
 import type { ItemRequirement, VendorDetail, VendorDocument, VendorStatusHistoryEntry } from "../../lib/types";
 import { refreshChrome, switchView } from "../../lib/bridge";
 import { useModal } from "../../components/useModal";
@@ -22,6 +24,8 @@ import { DecisionBar, type Decision } from "./DecisionBar";
 // blank. useParams() reads it from the URL itself, which a refresh keeps.
 
 const post = (path: string, body?: unknown) => api(path, body !== undefined ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { method: "POST" });
+
+const docDisplayLabel = (d: VendorDocument) => (d.doc_type === "other" ? d.custom_label : docLabel(d.doc_type));
 
 export function VendorViewPage() {
   const { id } = useParams();
@@ -85,6 +89,7 @@ export function VendorViewPage() {
   };
 
   const handleVerify = async (docId: number) => {
+    const label = docDisplayLabel(docs.find((d) => d.id === docId)!);
     try {
       await post(`/vendors/${vendorId}/documents/${docId}/verify`);
       // Update local state immediately rather than waiting on load()'s
@@ -97,12 +102,16 @@ export function VendorViewPage() {
       // reviewed_at, etc. this optimistic patch doesn't know about).
       setDocs((prev) => prev.map((d) => (d.id === docId ? { ...d, status: "verified", rejection_reason: null } : d)));
       load();
+      toastSuccess(`"${label}" verified.`);
     } catch (err) {
-      setError("Could not update document: " + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not update "${label}": ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
     }
   };
 
   const handleReject = async (docId: number) => {
+    const label = docDisplayLabel(docs.find((d) => d.id === docId)!);
     const reason = await reasonAsync({
       title: "Reject document",
       placeholder: "e.g. Certificate has expired",
@@ -115,9 +124,24 @@ export function VendorViewPage() {
       await post(`/vendors/${vendorId}/documents/${docId}/reject`, { reason });
       setDocs((prev) => prev.map((d) => (d.id === docId ? { ...d, status: "rejected", rejection_reason: reason } : d)));
       load();
+      toastSuccess(`"${label}" rejected.`);
     } catch (err) {
-      setError("Could not update document: " + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not update "${label}": ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
     }
+  };
+
+  // Names the vendor + what happened, matching every other action's toast
+  // in the app (2026-10-27, user-directed).
+  const DECISION_PAST_TENSE: Record<Decision, string> = {
+    approve: "approved and activated",
+    reject: "rejected",
+    info: "sent a request for more information",
+    suspend: "suspended",
+    blacklist: "blacklisted",
+    reinstate: "reinstated",
+    "reinstate-blacklisted": "reinstated",
   };
 
   const decide = async (kind: Decision) => {
@@ -180,8 +204,11 @@ export function VendorViewPage() {
       }
       await load(); // this vendor's own data changed -- refresh it in place rather than leaving
       refreshChrome();
+      toastSuccess(`${vendor.legal_name} ${DECISION_PAST_TENSE[kind]}.`);
     } catch (err) {
-      setError("Could not complete that: " + (err instanceof Error ? err.message : String(err)));
+      const message = `Could not update ${vendor.legal_name}: ` + (err instanceof Error ? err.message : String(err));
+      setError(message);
+      toastError(message);
     }
   };
 
