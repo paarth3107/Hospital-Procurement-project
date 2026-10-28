@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { isFieldHidden, type FieldDef } from "../lib/formFields";
+import { Req } from "./Req";
 
 // Ported from frontend/js/pages/catalog/formKit.js's fieldHtml()/
 // wireConditionalFields(). `raw` is the whole sibling field-value map (not
@@ -65,7 +66,12 @@ export function FormField({
 
   return (
     <div className="ep-field kit-field">
-      {field.label && <div className="ep-k">{field.label}</div>}
+      {field.label && (
+        <div className="ep-k">
+          {field.label}
+          {field.required && <Req />}
+        </div>
+      )}
       {input}
       {error && <div className="field-error">{error}</div>}
     </div>

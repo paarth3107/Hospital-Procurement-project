@@ -1000,6 +1000,15 @@ def submit_for_approval(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Line item '{li.product.name}' (QCBS) needs both a technical weight and a price weight before submission",
             )
+        # Real bug, found 2026-10-28 (user-reported): each weight was only
+        # ever checked individually (>0) -- nothing anywhere, frontend or
+        # backend, actually required them to add up to 100, so a QCBS line
+        # could be submitted (and scored) with e.g. technical=70/price=70.
+        if li.technical_eval_method == TechnicalEvalMethod.QCBS and abs((li.technical_weight or 0) + (li.price_weight or 0) - 100) > 0.01:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Line item '{li.product.name}' (QCBS): technical weight + price weight must add up to 100",
+            )
 
     # Spec §6.3.5/§6.4/§6.4.1: "a Service line cannot be submitted for approval
     # without a Scope of Work" -- an attached SOW_DOCUMENT on that specific

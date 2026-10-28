@@ -97,7 +97,9 @@ export const lineTotal = (row: BidRow): number => {
 
 export function bidDetailFields(row: BidRow): FieldDef[] {
   const need = (name: string) => row.requirements.required_fields.includes(`details.${name}`);
-  return (BID_DETAIL_FIELDS_BY_TYPE[row.procurement_type] || []).map((f) => ({ ...f, label: f.label + (need(f.name) ? " *" : "") }));
+  // The standard red Req asterisk (2026-10-28, user-directed), not a
+  // literal " *" baked into the label string -- see FormField.tsx.
+  return (BID_DETAIL_FIELDS_BY_TYPE[row.procurement_type] || []).map((f) => ({ ...f, required: need(f.name) }));
 }
 
 const EVAL_METHOD_LABEL: Record<string, string> = { qualify_disqualify: "Qualify/Disqualify", scored: "Scored technical ranking" };

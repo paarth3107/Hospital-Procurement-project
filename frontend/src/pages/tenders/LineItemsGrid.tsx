@@ -7,7 +7,7 @@ import { coerceFieldValue, initialFieldValues, type FieldDef } from "../../lib/f
 import { FormField } from "../../components/FormField";
 import { FieldError } from "../../components/FieldError";
 import { Req } from "../../components/Req";
-import { nonNegativeError, percentRangeError, qtyError } from "./tenderValidation";
+import { clampDigits, nonNegativeError, percentRangeError, qcbsWeightError, qtyError } from "./tenderValidation";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { CatalogProduct, LineItem, TechnicalEvalMethod, TenderLineAttachmentKind } from "../../lib/types";
@@ -223,6 +223,12 @@ export const LineItemsGrid = forwardRef<
         if (li.technical_eval_method === "qcbs" && (!(li.technical_weight! > 0) || !(li.price_weight! > 0))) {
           return `Row ${n}: QCBS needs both a technical weight and a price weight, greater than zero.`;
         }
+        // Real bug, found 2026-10-28 (user-reported): each weight was only
+        // ever checked individually -- nothing required them to add up to
+        // 100 (same gap fixed server-side in tenders.py's submit_for_approval).
+        if (li.technical_eval_method === "qcbs" && Math.abs((li.technical_weight ?? 0) + (li.price_weight ?? 0) - 100) > 0.01) {
+          return `Row ${n}: QCBS's technical weight + price weight must add up to 100.`;
+        }
       }
       return null;
     },
@@ -325,6 +331,16 @@ export const LineItemsGrid = forwardRef<
   const checkRatingOverride = (i: number, raw: string) => checkRowField(i, "min_rating_threshold_override", percentRangeError(raw));
   const checkQty = (i: number, raw: string) => checkRowField(i, "qty", qtyError(raw));
   const checkPrice = (i: number, raw: string) => checkRowField(i, "estimated_price", nonNegativeError(raw));
+  const checkTechnicalWeight = (i: number, raw: string) => checkRowField(i, "technical_weight", qcbsWeightError(raw));
+  const checkPriceWeight = (i: number, raw: string) => checkRowField(i, "price_weight", qcbsWeightError(raw));
+  // Checked on blur of EITHER weight field (2026-10-28, user-directed: "i
+  // need that on the blur itself not during submit") -- reads the OTHER
+  // field's current value straight off the row, not just the one just
+  // blurred, so leaving either field flags the pair together.
+  const checkWeightsTotal = (i: number, technicalRaw: string, priceRaw: string) => {
+    const total = Number(technicalRaw || 0) + Number(priceRaw || 0);
+    checkRowField(i, "qcbs_weights", Math.abs(total - 100) < 0.01 ? null : "Technical Weight + Price Weight must add up to 100.");
+  };
 
   const onEvalMethodChange = (i: number, value: string) =>
     updateRow(i, (r) => {
@@ -696,13 +712,23 @@ export const LineItemsGrid = forwardRef<
                                         <Req />
                                       </div>
                                       <input
-                                        className="input"
+                                        className={`input${fieldErrors[`${i}:technical_weight`] || fieldErrors[`${i}:qcbs_weights`] ? " invalid" : ""}`}
                                         type="number"
                                         step={1}
                                         min={0}
                                         value={row.technical_weight ?? ""}
-                                        onChange={(e) => onNumericInput(i, "technical_weight", e.target.value)}
+                                        onChange={(e) => {
+                                          const v = clampDigits(e.target.value);
+                                          onNumericInput(i, "technical_weight", v);
+                                          if (fieldErrors[`${i}:technical_weight`]) checkTechnicalWeight(i, v);
+                                          if (fieldErrors[`${i}:qcbs_weights`]) checkWeightsTotal(i, v, String(row.price_weight ?? ""));
+                                        }}
+                                        onBlur={(e) => {
+                                          checkTechnicalWeight(i, e.target.value);
+                                          checkWeightsTotal(i, e.target.value, String(row.price_weight ?? ""));
+                                        }}
                                       />
+                                      <FieldError errors={fieldErrors} name={`${i}:technical_weight`} />
                                     </div>
                                   )}
                                   {qcbs && (
@@ -712,13 +738,38 @@ export const LineItemsGrid = forwardRef<
                                         <Req />
                                       </div>
                                       <input
-                                        className="input"
+                                        className={`input${fieldErrors[`${i}:price_weight`] || fieldErrors[`${i}:qcbs_weights`] ? " invalid" : ""}`}
                                         type="number"
                                         step={1}
                                         min={0}
                                         value={row.price_weight ?? ""}
-                                        onChange={(e) => onNumericInput(i, "price_weight", e.target.value)}
+                                        onChange={(e) => {
+                                          const v = clampDigits(e.target.value);
+                                          onNumericInput(i, "price_weight", v);
+                                          if (fieldErrors[`${i}:price_weight`]) checkPriceWeight(i, v);
+                                          if (fieldErrors[`${i}:qcbs_weights`]) checkWeightsTotal(i, String(row.technical_weight ?? ""), v);
+                                        }}
+                                        onBlur={(e) => {
+                                          checkPriceWeight(i, e.target.value);
+                                          checkWeightsTotal(i, String(row.technical_weight ?? ""), e.target.value);
+                                        }}
                                       />
+                                      <FieldError errors={fieldErrors} name={`${i}:price_weight`} />
+                                    </div>
+                                  )}
+                                  {qcbs && (
+                                    <div className="ep-field">
+                                      <div className="ep-k">Weights Total</div>
+                                      {/* Live running total always shown; the red error itself only
+                                          appears once either weight field has been blurred (2026-10-28,
+                                          user-directed: "i need that on the blur itself not during
+                                          submit") -- checkWeightsTotal() above, not just firstRowProblem()'s
+                                          submit-time gate or the backend's own matching check
+                                          (tenders.py's submit_for_approval). */}
+                                      <div className={`fs-13px fw-700 mt-6px${fieldErrors[`${i}:qcbs_weights`] ? " text-danger-700" : ""}`}>
+                                        {(row.technical_weight ?? 0) + (row.price_weight ?? 0)}%
+                                      </div>
+                                      <FieldError errors={fieldErrors} name={`${i}:qcbs_weights`} />
                                     </div>
                                   )}
                                   <div className="ep-field">
@@ -731,8 +782,9 @@ export const LineItemsGrid = forwardRef<
                                       max={100}
                                       value={row.min_rating_threshold_override ?? ""}
                                       onChange={(e) => {
-                                        onNumericInput(i, "min_rating_threshold_override", e.target.value);
-                                        if (fieldErrors[`${i}:min_rating_threshold_override`]) checkRatingOverride(i, e.target.value);
+                                        const v = clampDigits(e.target.value);
+                                        onNumericInput(i, "min_rating_threshold_override", v);
+                                        if (fieldErrors[`${i}:min_rating_threshold_override`]) checkRatingOverride(i, v);
                                       }}
                                       onBlur={(e) => checkRatingOverride(i, e.target.value)}
                                       placeholder="tender default"

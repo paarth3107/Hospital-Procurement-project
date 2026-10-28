@@ -1,5 +1,6 @@
 import type { FieldDef } from "../../lib/formFields";
 import type { ProcurementType } from "../../lib/types";
+import { nonNegativeError } from "./tenderValidation";
 
 // Ported 1:1 from frontend/js/pages/tenders/lineDetailFields.js -- spec
 // §6.3.1-6.3.3 type-specific tender line-item fields, mirroring the catalog
@@ -53,7 +54,10 @@ const ASSET_LINE_FIELDS: FieldDef[] = [
 // is enforced as a catalog-completeness check at submission, not asked
 // again here.
 const SERVICE_LINE_FIELDS: FieldDef[] = [
-  { name: "tenure_months", label: "Service tenure/duration (months) — catalog default shown, override if this engagement differs", kind: "number" },
+  // Rejects a negative value (2026-10-28, user-directed, "service tenure
+  // allows negative months") -- blank still fine, the catalog default
+  // shown alongside is only an override, not a mandatory re-entry.
+  { name: "tenure_months", label: "Service tenure/duration (months) — catalog default shown, override if this engagement differs", kind: "number", validate: nonNegativeError },
   { name: "service_locations", label: "Service location(s)", kind: "list" },
   COMMENTS_FIELD,
 ];

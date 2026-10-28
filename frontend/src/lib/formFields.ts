@@ -18,6 +18,11 @@ export interface FieldDef {
   // for a blank/valid value, or an error string to show under the field
   // (FormField.tsx). Not every FieldDef needs one; most don't.
   validate?: (value: string) => string | null;
+  // Shows the standard red Req asterisk next to the label (2026-10-28,
+  // user-directed) -- replaces bidRow.ts's old literal `label + " *"`
+  // string-concatenation, the inconsistent-marker pattern flagged earlier
+  // this session on other forms.
+  required?: boolean;
 }
 
 // Raw field state is always a plain string per field (same as a vanilla

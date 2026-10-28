@@ -25,7 +25,7 @@ Service Terms" field -- keeping one key name means both types populate it."""
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.models.product_master import ProcurementType
 
@@ -73,6 +73,15 @@ class ServiceLineDetails(_LineDetails):
     # check (see tenders.py's submit-for-approval), not a line-item field.
     tenure_months: float | None = None  # catalog's default_tenure_months is a default, not authoritative -- a specific engagement's term legitimately varies
     service_locations: list[str] | None = None
+
+    @field_validator("tenure_months")
+    @classmethod
+    def tenure_not_negative(cls, v: float | None) -> float | None:
+        # Real bug, found 2026-10-28 (user-reported): nothing anywhere
+        # (frontend or backend) stopped a negative tenure from being saved.
+        if v is not None and v < 0:
+            raise ValueError("Service tenure/duration can't be negative")
+        return v
 
 
 LINE_DETAILS_BY_TYPE: dict[ProcurementType, type[_LineDetails]] = {

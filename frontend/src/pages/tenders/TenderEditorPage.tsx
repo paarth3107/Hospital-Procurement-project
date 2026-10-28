@@ -8,7 +8,7 @@ import { useAuthState } from "../../lib/authStore";
 import { StateTag } from "../../components/Tag";
 import { Req } from "../../components/Req";
 import { FieldError } from "../../components/FieldError";
-import { percentRangeError } from "./tenderValidation";
+import { clampDigits, percentRangeError } from "./tenderValidation";
 import { toastError, toastSuccess } from "../../lib/toastStore";
 import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, TenderStatus, TenderType } from "../../lib/types";
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
@@ -57,7 +57,12 @@ const BLANK_FORM: FormState = {
   description: "",
   tender_type: "rfq",
   department: "",
-  min_rating_threshold: "0",
+  // Blank, not "0" (2026-10-28, user-directed) -- a literal "0" sitting in
+  // the field meant clicking in to type a real value had to clear it
+  // first. Blank still means 0 either way (buildPayload below), so this
+  // changes nothing about what actually gets saved, only the keystroke --
+  // the "0" shows as the input's placeholder hint instead (JSX below).
+  min_rating_threshold: "",
   min_invites: "",
   max_invites: "",
   open_tender: false,
@@ -163,7 +168,10 @@ export function TenderEditorPage() {
       description: t.description || "",
       tender_type: t.tender_type,
       department: t.department || "",
-      min_rating_threshold: String(t.min_rating_threshold),
+      // A stored 0 is treated the same as "never set" here (consistent with
+      // buildPayload's own blank-means-0) -- shows as the placeholder hint
+      // instead of a literal "0" sitting in the field either way.
+      min_rating_threshold: t.min_rating_threshold ? String(t.min_rating_threshold) : "",
       min_invites: t.min_invites != null ? String(t.min_invites) : "",
       max_invites: t.max_invites != null ? String(t.max_invites) : "",
       open_tender: t.open_tender,
@@ -495,10 +503,12 @@ export function TenderEditorPage() {
                   step="0.1"
                   min={0}
                   max={100}
+                  placeholder="0"
                   value={form.min_rating_threshold}
                   onChange={(e) => {
-                    setField("min_rating_threshold", e.target.value);
-                    if (fieldErrors.min_rating_threshold) checkPercentField("min_rating_threshold", e.target.value);
+                    const v = clampDigits(e.target.value);
+                    setField("min_rating_threshold", v);
+                    if (fieldErrors.min_rating_threshold) checkPercentField("min_rating_threshold", v);
                   }}
                   onBlur={(e) => checkPercentField("min_rating_threshold", e.target.value)}
                 />
@@ -521,8 +531,9 @@ export function TenderEditorPage() {
                   disabled={form.open_tender}
                   value={form.min_invites}
                   onChange={(e) => {
-                    setField("min_invites", e.target.value);
-                    if (fieldErrors.min_invites) checkPercentField("min_invites", e.target.value);
+                    const v = clampDigits(e.target.value);
+                    setField("min_invites", v);
+                    if (fieldErrors.min_invites) checkPercentField("min_invites", v);
                   }}
                   onBlur={(e) => checkPercentField("min_invites", e.target.value)}
                 />
@@ -538,8 +549,9 @@ export function TenderEditorPage() {
                   disabled={form.open_tender}
                   value={form.max_invites}
                   onChange={(e) => {
-                    setField("max_invites", e.target.value);
-                    if (fieldErrors.max_invites) checkPercentField("max_invites", e.target.value);
+                    const v = clampDigits(e.target.value);
+                    setField("max_invites", v);
+                    if (fieldErrors.max_invites) checkPercentField("max_invites", v);
                   }}
                   onBlur={(e) => checkPercentField("max_invites", e.target.value)}
                 />
