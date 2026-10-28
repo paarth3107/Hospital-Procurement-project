@@ -63,6 +63,26 @@ function authHeaders(extra?: HeadersInit): HeadersInit {
   return { ...(extra || {}), ...(token ? { Authorization: "Bearer " + token } : {}) };
 }
 
+// Ends the session with a real top-level page load at the given hash route
+// -- not React Router's <Navigate>, and NOT a same-document hash-only
+// `location.assign("/#/x")` either. Real bug, found 2026-10-28, user-
+// reported (second pass): a hash-only change doesn't tear down the page --
+// the whole React tree (including whatever protected route the vendor was
+// on, e.g. ProtectedLayout) is still mounted and reacting to the
+// clearAuthState() call made just before this. ProtectedLayout's own
+// `!auth.token` check -- now true -- fires its own effect-driven
+// `<Navigate to="/staff-login">` (its hardcoded fallback, a leftover from
+// before the login pages were split), and depending on exactly how that
+// races against the hashchange event, it can overwrite the hash this
+// function just set, landing back on /staff-login instead. Changing a
+// non-fragment part of the URL (a throwaway cache-busting query param)
+// forces a genuine full navigation instead: the whole page -- and every
+// mounted component, ProtectedLayout included -- gets torn down and
+// reloaded fresh at the target hash, so there's nothing left to race.
+function hardRedirectTo(hashPath: string) {
+  window.location.href = `/?r=${Date.now()}#${hashPath}`;
+}
+
 // A vendor blacklisted while logged in gets a 403 "barred" from every vendor
 // endpoint (security.get_current_vendor) -- end the session and send them to
 // the vendor login. Only fires when a token is held, so the login call's own
@@ -71,7 +91,7 @@ function handleBarredVendor(status: number, detail: unknown) {
   if (status !== 403 || typeof detail !== "string" || !detail.includes("barred")) return;
   if (!sessionStorage.getItem("token")) return;
   clearAuthState();
-  window.location.assign("/vendor-login");
+  hardRedirectTo("/vendor-login");
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -120,11 +140,26 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       // own onAuthFailure already acts on, just centralized here (2026-10-27)
       // so every api() caller gets the same clean message and the same
       // redirect-to-login, not just the one effect that happened to check
-      // for it on page load. Clearing the token is enough to trigger
-      // ProtectedLayout's own redirect -- no navigation call needed here.
+      // for it on page load.
       if (hadToken && (res.status === 401 || res.status === 403)) {
+        // Real bug, found 2026-10-28, user-reported: this used to just clear
+        // the token and let ProtectedLayout's own `!auth.token` redirect
+        // handle it -- but clearAuthState() wipes `actorType` from
+        // sessionStorage too, and ProtectedLayout's fallback for "no token"
+        // is hardcoded to /staff-login, since before the login-page split
+        // there was only ever one login screen to send anyone back to. A
+        // vendor (blacklisted mid-session -- the "barred" 403 from
+        // security.get_current_vendor -- or any other session-ending
+        // 401/403) was landing on a login page meant for staff, where their
+        // vendor credentials don't work at all. Reading actorType HERE,
+        // before clearAuthState() erases it, is the only chance to still
+        // know which login screen this session actually belongs to.
+        const wasVendor = sessionStorage.getItem("actorType") === "vendor";
+        const detail = (body as { detail?: unknown } | null)?.detail;
+        const barred = typeof detail === "string" && detail.includes("barred");
         clearAuthState();
-        throw new ApiError("Your session has expired. Please log in again.", res.status);
+        if (wasVendor) hardRedirectTo("/vendor-login");
+        throw new ApiError(barred ? "This vendor account has been barred." : "Your session has expired. Please log in again.", res.status);
       }
       const detail = (body as { detail?: unknown } | null)?.detail;
       handleBarredVendor(res.status, detail);

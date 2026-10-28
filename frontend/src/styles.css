@@ -208,15 +208,46 @@ body:not(:has(#sidebar:not([hidden]))) .ep-content:has(.auth-view.maxw-460px) { 
 /* The card (heading + form + result + register link): centered on the
    *viewport* directly, not relative to whatever's above it, so its own
    position never shifts with the topblock's height. Fixed, not absolute --
-   this page never scrolls, so there's no ancestor height to wire up for an
-   absolute position to resolve against.
+   the PAGE itself never scrolls (there's no ancestor height to wire up for
+   an absolute position to resolve against), though the card can scroll
+   within its own box now on a short viewport -- see the max-height/overflow
+   rule right below.
    top is a fixed point, not `50%` + translateY(-50%) -- that centered the
    box on ITS OWN height, so Vendor login (taller: has the "New vendor?"
    line Staff login doesn't) sat visibly higher than Staff login, centered
    around a different midpoint. A fixed top anchors both at the exact same
    start position regardless of content height -- Vendor's extra line now
    just extends the box downward instead of shifting the whole thing up. */
-.auth-card-center { position: fixed; top: 28vh; left: 50%; width: 100%; max-width: 460px; transform: translateX(-50%); padding: 0 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px; }
+/* max-height + overflow-y is the safety net the fixed positioning above never
+   had (found 2026-10-28, responsive pass): on a short viewport -- a smaller
+   monitor, a laptop screen, or just a browser window that isn't maximized --
+   `top: 28vh` plus the card's own content height can add up to more than
+   100vh, and a `position: fixed` element doesn't make the PAGE scrollable the
+   way normal content does -- whatever's past the bottom edge was simply
+   unreachable, not just visually tight. This lets the card scroll within
+   itself once it genuinely doesn't fit, instead of clipping the submit
+   button/register link off-screen with no way to get to them. */
+.auth-card-center { position: fixed; top: 28vh; left: 50%; width: 100%; max-width: 460px; max-height: calc(100vh - 32px); overflow-y: auto; transform: translateX(-50%); padding: 0 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px; }
+/* Below that, tighten the fixed 28vh/158px top offsets too, so a short
+   screen doesn't even need the scroll fallback above for the common case --
+   these numbers both came from "sit a bit below centre on a normal desktop
+   monitor"; a short viewport doesn't have 28vh (and then some) of headroom
+   to spare before the card's own height starts competing with it. 760px
+   covers common laptop/smaller-monitor heights (1366x768, 1280x720, etc.)
+   with some margin for browser chrome eating into the real viewport. */
+@media (max-height: 760px) {
+  body:not(:has(#sidebar:not([hidden]))) .ep-content:has(.auth-view.maxw-460px) { padding-top: 24px; }
+  /* Real bug, found 2026-10-28 (user-reported, reproduced on a real 1366x768
+     screen): this used to be top:20px, which put the card's OWN heading
+     ("Staff login"/"Vendor login" -- plain text, no background yet at that
+     point in the layout) almost exactly on top of the branding block's
+     "MedSource" above it (padding-top: 24px, ~80px tall), since both are
+     just text with nothing opaque behind either one yet -- it read as
+     doubled/ghosted text, not a clipping problem. 140px clears the
+     branding block's title+subtitle with a real gap below it, still well
+     under the default 28vh (e.g. ~300px on a 1080px-tall screen). */
+  .auth-card-center { top: 140px; }
+}
 /* Vuexy-style (2026-10-07): the page keeps a comfortable fixed width and
    recenters in whatever room the sidebar leaves, rather than every card and
    grid column stretching to fill the extra space when it collapses. Only
