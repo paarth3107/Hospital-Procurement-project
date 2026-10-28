@@ -10,7 +10,7 @@
 // recolouring in design-system.css.
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ApexCharts: new (el: HTMLElement, options: unknown) => { render(): void; updateOptions(options: unknown, redrawPaths: boolean, animate: boolean): void };
+  const ApexCharts: new (el: HTMLElement, options: unknown) => { render(): void; destroy(): void; updateOptions(options: unknown, redrawPaths: boolean, animate: boolean): void };
 }
 
 interface ChartRegistryEntry {
@@ -70,6 +70,16 @@ function mount(el: HTMLElement, build: () => unknown) {
   chart.render();
   mounted.push({ el, chart: chart as unknown as ChartRegistryEntry["chart"], build });
   return chart;
+}
+
+// Tears a chart down and drops it from the registry. Callers that mount from a
+// React effect must call this in cleanup, or ApexCharts appends a second
+// canvas to the same element (StrictMode double-invoke, data refetch).
+export function destroyChart(chart: ReturnType<typeof mount>) {
+  if (!chart) return;
+  const i = mounted.findIndex((m) => m.chart === (chart as unknown as ChartRegistryEntry["chart"]));
+  if (i >= 0) mounted.splice(i, 1);
+  chart.destroy();
 }
 
 export interface DonutOptions {
