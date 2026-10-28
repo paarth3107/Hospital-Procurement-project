@@ -89,9 +89,21 @@ class Tender(Base):
     open_link_token = Column(String(255), unique=True, nullable=True)
     # Rate Contract (2026-10-07): the vendor who wins a line commits to supply at
     # that price for this window, and the hospital buys against it for that long
-    # -- a flag, not a tender type, same reasoning as open_tender above. Both
-    # dates are required before submission (tenders.py), same split as
-    # facility_id/title: a Draft tolerates them unset.
+    # -- a flag, not a tender type, same reasoning as open_tender above.
+    # Dates moved to L1-submission time (2026-10-28, user-directed, reversing
+    # the original "both required before submit-for-approval" rule): at
+    # Draft/submit-for-approval time there's no award yet to date a contract
+    # against, so requiring real dates there just meant picking an arbitrary
+    # placeholder months before the actual vendor/price is even known.
+    # Instead, contract_start_date defaults to the day the Procurement
+    # Officer submits the tender for L1 approval (awards.py's
+    # submit_for_l1_approval -- the closest real-world proxy for "date of
+    # awarding" available at a point still ahead of the Approving
+    # Authority's actual decision) and contract_end_date is theirs to pick;
+    # both stay editable right up to that submission, giving a far more
+    # accurate date than one guessed at tender creation. Still required
+    # together, and end-after-start, right there instead of at the old
+    # checkpoint.
     is_rate_contract = Column(Boolean, nullable=False, default=False, server_default=false())
     contract_start_date = Column(Date, nullable=True)
     contract_end_date = Column(Date, nullable=True)

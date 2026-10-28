@@ -791,6 +791,9 @@ export interface AwardTender {
   submit_blockers: string[];
   po_files: PoFileBrief[];
   awarded_at: string | null;
+  is_rate_contract: boolean;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
 }
 
 export interface AwardTenderSummary {
@@ -809,6 +812,13 @@ export interface RecommendationSave {
   bid_id?: number | null;
   allocations?: { bid_id: number; share_pct: number }[] | null;
   reason?: string | null;
+}
+
+// Mirrors backend/app/schemas/awards.py's L1SubmitIn -- only meaningful when
+// the tender is_rate_contract; see TenderAwardPanel.tsx.
+export interface L1SubmitIn {
+  contract_start_date?: string | null;
+  contract_end_date?: string | null;
 }
 
 export interface DecisionIn {

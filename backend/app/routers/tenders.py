@@ -961,8 +961,12 @@ def submit_for_approval(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Publish Date must be in the future")
         if tender.bid_due_date <= tender.publish_date:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bid Due Date must be after the Publish Date")
-    if tender.is_rate_contract and (not tender.contract_start_date or not tender.contract_end_date):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract start and end dates must be set before submission")
+    # Contract start/end dates are NOT required here anymore (2026-10-28,
+    # user-directed): a rate contract's dates only become meaningful once
+    # there's an actual award to date against, which is still evaluation
+    # rounds away at this point. They're set at L1-submission time instead
+    # (awards.py's submit_for_l1_approval) -- see this file's own comment
+    # in Tender's is_rate_contract block for the full reasoning.
     if tender.is_rate_contract and not tender.rate_contract_document_content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The Rate Contract agreement document must be uploaded before submission")
     if not tender.terms_document_content:

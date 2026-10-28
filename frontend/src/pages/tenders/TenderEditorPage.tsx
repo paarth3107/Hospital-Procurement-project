@@ -41,9 +41,12 @@ interface FormState {
   min_invites: string;
   max_invites: string;
   open_tender: boolean;
+  // Rate Contract dates are no longer entered on this page (2026-10-28,
+  // user-directed) -- they're set at L1-submission time instead
+  // (TenderAwardPanel.tsx), where "date of awarding" is a real, nearby
+  // date instead of a guess made at tender creation. Only the flag + the
+  // signed agreement document still live here.
   is_rate_contract: boolean;
-  contract_start_date: string;
-  contract_end_date: string;
   bid_due_date: string;
   publish_date: string;
 }
@@ -59,8 +62,6 @@ const BLANK_FORM: FormState = {
   max_invites: "",
   open_tender: false,
   is_rate_contract: false,
-  contract_start_date: "",
-  contract_end_date: "",
   bid_due_date: "",
   publish_date: "",
 };
@@ -173,8 +174,6 @@ export function TenderEditorPage() {
       max_invites: t.max_invites != null ? String(t.max_invites) : "",
       open_tender: t.open_tender,
       is_rate_contract: t.is_rate_contract,
-      contract_start_date: t.contract_start_date || "",
-      contract_end_date: t.contract_end_date || "",
       bid_due_date: t.bid_due_date ? toLocalInputValue(t.bid_due_date) : "",
       publish_date: t.publish_date ? toLocalInputValue(t.publish_date) : "",
     });
@@ -201,9 +200,6 @@ export function TenderEditorPage() {
       max_invites: f.max_invites ? Number(f.max_invites) : null,
       open_tender: f.open_tender,
       is_rate_contract: f.is_rate_contract,
-      // Cleared whenever the flag is off, same as open_link_token server-side when open_tender is off.
-      contract_start_date: f.is_rate_contract ? f.contract_start_date || null : null,
-      contract_end_date: f.is_rate_contract ? f.contract_end_date || null : null,
       publish_date: f.publish_date ? new Date(f.publish_date).toISOString() : null,
       bid_due_date: f.bid_due_date ? new Date(f.bid_due_date).toISOString() : null,
       line_items: gridRef.current?.rowsForPayload() ?? [],
@@ -270,8 +266,6 @@ export function TenderEditorPage() {
       if (new Date(form.publish_date) <= new Date()) return "Publish Date must be in the future.";
       if (new Date(form.bid_due_date) <= new Date(form.publish_date)) return "Bid Due Date must be after the Publish Date.";
     }
-    if (form.is_rate_contract && (!form.contract_start_date || !form.contract_end_date))
-      return "A rate contract needs both a contract start and end date before it can be submitted for approval.";
     if (form.is_rate_contract && !hasRateContractDocument) return "Upload the Rate Contract agreement before submitting for approval.";
     if (!hasTermsDocument) return "Upload the Terms & Conditions document before submitting for approval.";
     // rowsForPayload() already leaves out untouched blank rows (the default
@@ -360,8 +354,6 @@ export function TenderEditorPage() {
     if (!form.facility_id) problem = ["Facility missing", "Select a facility before sending it for approval."];
     else if (!form.title.trim()) problem = ["Title missing", "Give the tender a title before sending it for approval."];
     else if (!form.bid_due_date) problem = ["Bid due date missing", "A bid due date is required before the tender can be sent for approval."];
-    else if (form.is_rate_contract && (!form.contract_start_date || !form.contract_end_date))
-      problem = ["Contract dates missing", "A rate contract needs both a contract start and end date before it can be sent for approval."];
     else if (form.is_rate_contract && !hasRateContractDocument) problem = ["Rate contract agreement missing", "Upload the Rate Contract agreement before sending it for approval."];
     else if (!hasTermsDocument) problem = ["Terms & conditions missing", "Upload the Terms & Conditions document before sending it for approval."];
     else if (savableCount === 0) problem = ["No line items", "Add at least one line item."];
@@ -618,32 +610,12 @@ export function TenderEditorPage() {
                 </span>
                 <span className="ep-switch-label">Rate Contract</span>
               </label>
-              <div className="d-flex gap-10px mt-10px">
-                <div>
-                  <div className="ep-k">
-                    Start Date <Req />
-                  </div>
-                  <input
-                    className="input input-narrow-date"
-                    type="date"
-                    disabled={!form.is_rate_contract}
-                    value={form.contract_start_date}
-                    onChange={(e) => setField("contract_start_date", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <div className="ep-k">
-                    End Date <Req />
-                  </div>
-                  <input
-                    className="input input-narrow-date"
-                    type="date"
-                    disabled={!form.is_rate_contract}
-                    value={form.contract_end_date}
-                    onChange={(e) => setField("contract_end_date", e.target.value)}
-                  />
-                </div>
-              </div>
+              {/* Start/End date fields removed from here (2026-10-28,
+                  user-directed) -- they're entered at L1-submission time
+                  instead, on the Awards page's TenderAwardPanel.tsx, where
+                  "date of awarding" is a real nearby date rather than a
+                  guess made at tender creation. */}
+              <div className="hint mt-8px">{form.is_rate_contract && "Contract start/end dates are set when this tender is submitted for L1 approval."}</div>
             </div>
           </div>
 

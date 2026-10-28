@@ -8,7 +8,7 @@ from app.models.tender import Tender, TenderStatus
 from app.models.tender_line_item import TenderLineItem
 from app.models.user_account import Role, UserAccount
 from app.schemas.awards import (
-    AllocationOut, AwardLineOut, AwardTenderOut, AwardTenderSummary, DecisionIn, PoFileBrief, RecommendationSave, RoundOut,
+    AllocationOut, AwardLineOut, AwardTenderOut, AwardTenderSummary, DecisionIn, L1SubmitIn, PoFileBrief, RecommendationSave, RoundOut,
 )
 from app.security import get_current_user, require_role
 from app.services import awards as rules
@@ -112,6 +112,7 @@ def _tender_out(db: Session, tender: Tender, user: UserAccount) -> AwardTenderOu
         can_submit=user.role in RECOMMENDERS and not blockers, submit_blockers=to_do if user.role in RECOMMENDERS else [],
         po_files=[PoFileBrief(id=f.id, batch_id=f.batch_id, vendor_name=f.vendor.legal_name, version=f.version, status=f.status) for f in files],
         awarded_at=tender.awarded_at,
+        is_rate_contract=tender.is_rate_contract, contract_start_date=tender.contract_start_date, contract_end_date=tender.contract_end_date,
     )
 
 
@@ -161,9 +162,9 @@ def save_recommendation(line_id: int, payload: RecommendationSave, db: Session =
 
 
 @router.post("/tenders/{tender_id}/submit", response_model=AwardTenderOut)
-def submit_for_l1_approval(tender_id: int, db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*RECOMMENDERS))):
+def submit_for_l1_approval(tender_id: int, payload: L1SubmitIn = L1SubmitIn(), db: Session = Depends(get_db), user: UserAccount = Depends(require_role(*RECOMMENDERS))):
     tender = _tender(db, tender_id)
-    rules.submit_for_approval(db, tender, user)
+    rules.submit_for_approval(db, tender, user, payload.contract_start_date, payload.contract_end_date)
     db.commit()
     return _tender_out(db, tender, user)
 
