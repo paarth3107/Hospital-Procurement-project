@@ -88,12 +88,6 @@ export function TenderEditorPage() {
   // closing and reopening the tender did (that remounts TenderDetail fresh).
   // Bumped on every successful save and passed down so its effect re-runs.
   const [refreshToken, setRefreshToken] = useState(0);
-  // User-directed (2026-10-16): the "Required before submission." note next
-  // to an empty mandatory document shouldn't sit there from the moment the
-  // page loads like a standing validation error -- only once the user has
-  // actually tried to move the tender forward (Save as Draft or Send for
-  // Approval) and it's still missing.
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   // Real bug, found 2026-10-15: own redundant /auth/me fetch, same pattern
   // as DashboardPage -- the role is already in the shared auth store.
   const currentUser = useAuthState().user;
@@ -222,10 +216,12 @@ export function TenderEditorPage() {
     setTender(saved);
     const items = await api<LineItem[]>(`/tenders/${saved.id}/line-items`);
     gridRef.current?.applySavedLineItems(items);
-    if (!opts.silent) {
-      setResult({ message: `Tender #${saved.id} saved as draft.`, ok: true });
-      toastSuccess(`"${saved.title || `Tender #${saved.id}`}" saved as draft.`);
-    }
+    // The inline "saved as draft" banner used to sit here indefinitely --
+    // nothing on this page ever cleared a success result, so it stayed on
+    // screen through every later edit until something else happened to
+    // overwrite it. The toast (auto-dismisses on its own) replaces it
+    // entirely now instead of duplicating the same message in two places.
+    if (!opts.silent) toastSuccess(`"${saved.title || `Tender #${saved.id}`}" saved as draft.`);
     setRefreshToken((v) => v + 1);
     // The very first save of a brand-new tender gets it a real id -- move
     // the URL to /tender-edit/:id (without a remount: `replace` swaps the
@@ -276,7 +272,6 @@ export function TenderEditorPage() {
   }
 
   const handleSaveClick = async () => {
-    setAttemptedSubmit(true);
     setResult(null);
     try {
       await saveDraft();
@@ -288,7 +283,6 @@ export function TenderEditorPage() {
   };
 
   const handleSubmitClick = async () => {
-    setAttemptedSubmit(true);
     if (currentStatus !== "draft") return;
     const problem = gridRef.current?.firstRowProblem() || submitProblem();
     if (problem) {
@@ -639,9 +633,7 @@ export function TenderEditorPage() {
                 endpoint="terms-document"
                 fieldPrefix="terms_document"
                 label="Terms & Conditions Document"
-                requiredLabel="Required before submission."
                 onChange={setTender}
-                showRequiredIfMissing={attemptedSubmit}
               />
             </div>
             <div className="ep-field col-span-2">
@@ -654,10 +646,8 @@ export function TenderEditorPage() {
                 endpoint="rate-contract-document"
                 fieldPrefix="rate_contract_document"
                 label="Rate Contract Agreement"
-                requiredLabel="Required before submission."
                 onChange={setTender}
                 disabled={!form.is_rate_contract}
-                showRequiredIfMissing={attemptedSubmit}
               />
             </div>
           </div>

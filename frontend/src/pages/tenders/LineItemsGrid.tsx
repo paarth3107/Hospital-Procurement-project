@@ -99,6 +99,7 @@ export const LineItemsGrid = forwardRef<
   // wants string keys, so the index is stringified.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importSummary, setImportSummary] = useState("");
   // "<row index>:<kind>" currently mid-upload, if any -- see AttachmentsPanel.tsx's own comment.
   const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
   const [attachmentProgress, setAttachmentProgress] = useState(0);
@@ -491,20 +492,42 @@ export const LineItemsGrid = forwardRef<
 
   const onCsvFileChosen = async (file: File) => {
     const text = await file.text();
-    const { rows: imported, errors } = importCsvRows(text, products);
-    if (imported.length) {
+    // Real bug, found 2026-10-28 (user-reported): re-uploading a corrected
+    // file after a partial import (some rows rejected for bad formatting)
+    // added the already-imported rows a SECOND time, since nothing checked
+    // a parsed row's product against what's already on the grid -- only
+    // firstRowProblem() caught that, and only at Submit time, by which
+    // point the duplicate was already sitting in the grid.
+    //
+    // User-directed fix, same day: rather than just reject a row for a
+    // product that's already on the tender, treat it as an UPDATE to that
+    // line -- importCsvRows() now does this merge itself (see its own
+    // comment): a cell with a new value changes that field, a blank cell
+    // leaves the existing value alone, and a row with any invalid/
+    // out-of-range value applies nothing from that row at all.
+    const existing = rows.filter((r) => !isRowBlank(r));
+    const { newRows, updates, errors } = importCsvRows(text, products, existing);
+    const withDefaultEval = newRows.map((row) => {
+      if (!row.technical_eval_method) {
+        const p = products.find((x) => x.id === row.product_master_id);
+        if (p) row.technical_eval_method = DEFAULT_EVAL_METHOD[p.procurement_type];
+      }
+      return row;
+    });
+    if (updates.length || withDefaultEval.length) {
       setRows([
-        ...rows,
-        ...imported.map((row) => {
-          if (!row.technical_eval_method) {
-            const p = products.find((x) => x.id === row.product_master_id);
-            if (p) row.technical_eval_method = DEFAULT_EVAL_METHOD[p.procurement_type];
-          }
-          return row;
+        ...rows.map((r) => {
+          const u = r.product_master_id != null ? updates.find((x) => x.product_master_id === r.product_master_id) : undefined;
+          return u ? { ...r, ...u.patch } : r;
         }),
+        ...withDefaultEval,
       ]);
     }
     setImportErrors(errors);
+    const parts: string[] = [];
+    if (withDefaultEval.length) parts.push(`${withDefaultEval.length} new line(s) added`);
+    if (updates.length) parts.push(`${updates.length} existing line(s) updated`);
+    setImportSummary(parts.join(", "));
   };
 
   // ---- Render ----
@@ -762,15 +785,17 @@ export const LineItemsGrid = forwardRef<
             }}
           />
         </div>
+        {importSummary && !importErrors.length && <div className="result ok mt-10px">{importSummary}.</div>}
         {importErrors.length > 0 && (
           <div className="result err mt-10px">
+            {importSummary && <div className="fw-700 mb-6px">{importSummary}.</div>}
             <div className="fw-700 mb-6px">{importErrors.length} row(s) need fixing before they can be added:</div>
             <ul className="margin-0 pl-18px">
               {importErrors.map((e, idx) => (
                 <li key={idx}>{e}</li>
               ))}
             </ul>
-            <div className="hint mt-6px">Fix these rows in your file and upload just them again — rows already added don't need to be re-uploaded.</div>
+            <div className="hint mt-6px">Fix these rows in your file and upload just them again — rows already added or updated don't need to be re-uploaded.</div>
           </div>
         )}
       </div>
