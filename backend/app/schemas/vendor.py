@@ -85,11 +85,11 @@ class VendorCreate(BaseModel):
     # before this; no email/SMS adapter exists to deliver a temp password
     # later, so "choose your own now" is the only path that doesn't need one).
     password: str
-    # Carries an Open Tender self-registration link's token through to
-    # require_open_link_tender() (not a Vendor column -- excluded from
+    # Carries a Guest Invite link's token through to
+    # require_guest_invite_tender() (not a Vendor column -- excluded from
     # model_dump() wherever this schema builds a Vendor row). Optional: most
     # registrations don't arrive via such a link.
-    open_link_token: str | None = None
+    guest_invite_token: str | None = None
 
     @field_validator("gstin")
     @classmethod

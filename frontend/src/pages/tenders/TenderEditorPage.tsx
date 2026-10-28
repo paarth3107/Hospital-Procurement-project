@@ -14,7 +14,7 @@ import type { CatalogProduct, Facility, LineItem, LineItemEligibility, Tender, T
 import { LineItemsGrid, type LineItemsGridHandle } from "./LineItemsGrid";
 import { mapApiLineItems } from "./lineItemRow";
 import { SingleDocumentField } from "./SingleDocumentField";
-import { OpenTenderLinkBox } from "./OpenTenderLinkBox";
+import { copyGuestInviteLink } from "./GuestInviteLinkBox";
 import { TenderDetail } from "./TenderDetail";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderForm.js -- the tender
@@ -554,12 +554,25 @@ export function TenderEditorPage() {
                   onChange={async (e) => {
                     const checked = e.target.checked;
                     setField("open_tender", checked);
-                    // Turning it on needs a real tender id for the link
-                    // box below to do anything -- silently save instead
-                    // of leaving it inert until a manual Save as Draft.
+                    // Guest Invite is its own, independent thing now
+                    // (2026-10-28, user-directed, "unhook that") -- this
+                    // checkbox no longer enables/disables it. As a
+                    // convenience, it now does what the Guest Invite box's
+                    // own "New Link" then "Copy Link" buttons do, in one
+                    // go (user-directed, same day: "when i click open
+                    // tender it clicks new link and then also copy link") --
+                    // always a FRESH link (same /guest-invite-link/
+                    // regenerate endpoint "New Link" calls, not just reuse
+                    // whatever token happened to already exist), then
+                    // copyGuestInviteLink(), the same shared copy+toast flow
+                    // Guest Invite's own "Copy Link" button uses.
                     if (checked) {
                       try {
-                        await saveDraft({ silent: true, overrides: { open_tender: true } });
+                        const saved = await saveDraft({ silent: true, overrides: { open_tender: true } });
+                        const regenerated = await api<Tender>(`/tenders/${saved.id}/guest-invite-link/regenerate`, { method: "POST" });
+                        setTender(regenerated);
+                        setRefreshToken((v) => v + 1); // so TenderDetail.tsx's "Other Vendors" card shows this same fresh token, not a stale one
+                        await copyGuestInviteLink(regenerated.guest_invite_token);
                       } catch (err) {
                         setResult({ message: "Could not turn on Open Tender: " + (err instanceof Error ? err.message : String(err)), ok: false });
                       }
@@ -571,9 +584,6 @@ export function TenderEditorPage() {
                 </span>
                 <span className="ep-switch-label">Open Tender</span>
               </label>
-              <div className="mt-10px">
-                <OpenTenderLinkBox tender={tender} enabled={form.open_tender} onChange={setTender} />
-              </div>
             </div>
             <div className="minw-220px">
               <label className="ep-switch ep-check-field">

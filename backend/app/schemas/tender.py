@@ -147,7 +147,7 @@ class TenderOut(BaseModel):
     min_invites: int | None
     max_invites: int | None
     open_tender: bool
-    open_link_token: str | None = None  # staff only: the Open Tender registration link
+    guest_invite_token: str | None = None  # staff only: the Guest Invite registration link
     is_rate_contract: bool
     contract_start_date: date | None
     contract_end_date: date | None
@@ -203,7 +203,7 @@ class EligibleVendorOut(BaseModel):
     legal_name: str
     rating_score: float
     is_unrated: bool = False
-    source: str = "system"  # system | open | manual
+    source: str = "system"  # system | open | manual | guest
     reason: str | None = None  # manual invites only
 
 

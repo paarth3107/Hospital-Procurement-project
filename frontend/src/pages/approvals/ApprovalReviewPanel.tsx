@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { api, API_BASE, apiHeaders } from "../../lib/api";
 import { fmtDate, fmtDateTime, inr } from "../../lib/format";
-import { Tag, TypeTag } from "../../components/Tag";
+import { InviteSourceTag, Tag, TypeTag } from "../../components/Tag";
 import { FieldError } from "../../components/FieldError";
 import { toastError, toastSuccess } from "../../lib/toastStore";
 import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
-import type { ReviewLine, ReviewVendor, Tender, TenderReview } from "../../lib/types";
+import type { ReviewLine, Tender, TenderReview } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/approvals/reviewPanel.js -- the
 // approver's review of one tender, before publishing it (spec 7.2): header
@@ -72,17 +72,6 @@ function evalMethodLabel(l: ReviewLine): string {
   return `QCBS — technical ${l.technical_weight ?? "?"} / price ${l.price_weight ?? "?"}`;
 }
 
-function vendorBasis(v: ReviewVendor): string {
-  // ReviewVendorOut carries no source/reason (unlike the eligibility-preview
-  // endpoint's EligibleVendorOut) -- ported faithfully from vanilla's own
-  // basis(), which always falls through to "Eligibility rules" here, same
-  // as the page actually behaves today.
-  const withSource = v as ReviewVendor & { source?: string; reason?: string };
-  if (withSource.source === "manual") return `Manually invited: ${withSource.reason || ""}`;
-  if (withSource.source === "open") return "Open tender";
-  return "Eligibility rules";
-}
-
 function LineCard({ l }: { l: ReviewLine }) {
   return (
     <div className="padding-12px-0 border-top-1px-solid-ink-20">
@@ -126,7 +115,9 @@ function LineCard({ l }: { l: ReviewLine }) {
                 <tr key={v.vendor_id}>
                   <td className="ep-cell">{v.legal_name}</td>
                   <td className="ep-cell">{v.is_unrated ? "Unrated" : v.rating_score}</td>
-                  <td className="ep-cell">{vendorBasis(v)}</td>
+                  <td className="ep-cell">
+                    <InviteSourceTag source={v.source} reason={v.reason} />
+                  </td>
                 </tr>
               ))}
             </tbody>

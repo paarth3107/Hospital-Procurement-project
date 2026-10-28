@@ -4,7 +4,7 @@ import { api, uploadWithProgress } from "../../lib/api";
 import { switchView, takePendingRegistrationResume } from "../../lib/bridge";
 import { CITIES_BY_STATE, INDIAN_STATES, OTHER_CITY, VENDOR_DOC_TYPES } from "../../lib/constants";
 import type { AuthLayoutContext } from "../../shell/AuthLayout";
-import { OpenLinkNote } from "./OpenLinkNote";
+import { GuestInviteNote } from "./GuestInviteNote";
 import { PasswordField } from "../../components/PasswordField";
 import { Req } from "../../components/Req";
 import { StateTag } from "../../components/Tag";
@@ -373,7 +373,7 @@ export function RegisterPage() {
           first.el?.scrollIntoView({ block: "center", behavior: "smooth" });
           return;
         }
-        const openLinkToken = sessionStorage.getItem("openLinkToken");
+        const guestInviteToken = sessionStorage.getItem("guestInviteToken");
         draft = await api("/vendors/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -402,7 +402,7 @@ export function RegisterPage() {
             escalation_contact_phone: step1Value("escalation_contact_phone"),
             escalation_contact_email: step1Value("escalation_contact_email") || null,
             password: step1Value("password"),
-            open_link_token: openLinkToken || null,
+            guest_invite_token: guestInviteToken || null,
           }),
         });
       }
@@ -562,7 +562,7 @@ export function RegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ registration_token: registrationToken }),
       });
-      sessionStorage.removeItem("openLinkToken");
+      sessionStorage.removeItem("guestInviteToken");
       setCompletedVendorId(vendorId);
     } catch (err) {
       setResult({ message: "Could not complete registration: " + (err instanceof Error ? err.message : String(err)), ok: false });
@@ -610,7 +610,7 @@ export function RegisterPage() {
       <div>
         <div className="fs-24px fw-800">Vendor Registration</div>
       </div>
-      <OpenLinkNote />
+      <GuestInviteNote />
       <div className="ep-seg self-start">
         <button type="button" className={step === 1 ? "on pe-none" : "pe-none"}>
           1. Basic info

@@ -197,6 +197,12 @@ class CommercialRowOut(BaseModel):
 
     vendor_id: int
     vendor_name: str
+    # How this vendor got onto the line's invite list in the first place --
+    # same meaning as ReviewVendorOut/EligibleVendorOut's own source/reason
+    # (2026-10-28, user-directed), shown on the L1 Award screen the same
+    # way the E-Tender Approval screen shows it.
+    invite_source: str = "system"
+    invite_reason: str | None = None
     bid_id: int
     technical_outcome: TechnicalDecision
     technical_score: float | None

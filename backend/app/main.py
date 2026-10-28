@@ -19,11 +19,11 @@ from app.routers import (
     dashboard,
     evaluation,
     facilities,
+    guest_invite_links,
     health,
     mappings,
     overrides,
     products,
-    open_links,
     po_files,
     ratings,
     search,
@@ -167,7 +167,7 @@ app.include_router(facilities.router)
 app.include_router(categories.router)
 app.include_router(subcategories.router)
 app.include_router(search.router)
-app.include_router(open_links.router)
+app.include_router(guest_invite_links.router)
 app.include_router(products.router)
 app.include_router(mappings.router)
 app.include_router(ratings.router)

@@ -85,8 +85,19 @@ class Tender(Base):
     # Open Tender (2026-10-06): every Active vendor is invited, with no mapping or
     # rating filter and no cap. Activation status is still required.
     open_tender = Column(Boolean, nullable=False, default=False, server_default=false())
-    # The link a new vendor registers through to bid on this Open Tender (2026-10-06).
-    open_link_token = Column(String(255), unique=True, nullable=True)
+    # The Guest Invite link a new, not-yet-registered vendor registers
+    # through to bid on this tender (2026-10-06; column renamed from
+    # open_link_token 2026-10-28, user-directed). Fully unhooked from the
+    # open_tender flag the same day (user-directed, "unhook that it's no
+    # longer a dependency") -- GuestInviteLinkBox.tsx's own buttons no
+    # longer depend on it, and routers/tenders.py no longer wipes this
+    # token out just because open_tender gets turned off. One remaining
+    # one-way link, left alone deliberately ("it gets marked as an open
+    # tender for other reasons so let that be"): generating/regenerating a
+    # token still flips open_tender on if it wasn't already, since
+    # services/guest_invite_links.py's tender_for_token() still requires it
+    # for a visiting vendor to actually use the link.
+    guest_invite_token = Column(String(255), unique=True, nullable=True)
     # Rate Contract (2026-10-07): the vendor who wins a line commits to supply at
     # that price for this window, and the hospital buys against it for that long
     # -- a flag, not a tender type, same reasoning as open_tender above.

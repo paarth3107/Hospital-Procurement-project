@@ -102,9 +102,15 @@ def statement_out(line: TenderLineItem, db: Session):
     method, rows = build_statement(line, db)
     product = line.product
     est = line.estimated_price
+    # Keyed by vendor, not bid -- the invite is the line's own record of
+    # how this vendor got here at all, independent of which bid they later
+    # submitted (2026-10-28, user-directed: same source/reason shown on the
+    # E-Tender Approval screen, shown here too for the L1 Award screen).
+    invite_by_vendor = {inv.vendor_id: inv for inv in line.invites}
     out = []
     for r in rows:
         b = r.bid
+        invite = invite_by_vendor.get(b.vendor_id)
         qualified = r.rank is not None
         flags = []
         variance = None
@@ -121,7 +127,9 @@ def statement_out(line: TenderLineItem, db: Session):
         landed = r.landed
         out.append(
             CommercialRowOut(
-                vendor_id=b.vendor_id, vendor_name=b.vendor.legal_name, bid_id=b.id, technical_outcome=r.result.outcome,
+                vendor_id=b.vendor_id, vendor_name=b.vendor.legal_name,
+                invite_source=invite.source if invite else "system", invite_reason=invite.reason if invite else None,
+                bid_id=b.id, technical_outcome=r.result.outcome,
                 technical_score=r.result.consolidated_score, t_rank=r.result.t_rank, technical_reason=r.result.reason, rating=r.rating,
                 rank=r.rank, rank_label=(f"{'C' if method == 'QCBS' else 'L'}{r.rank}" if qualified else None), recommended=r.rank == 1,
                 unit_price=b.unit_price if qualified else None, gst_percent=b.gst_percent if qualified else None,
