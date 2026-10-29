@@ -249,6 +249,10 @@ export interface StaffNotification {
   kind: string;
   title: string;
   body: string;
+  // Added 2026-10-29 (tender_approved/tender_rejected) -- lets the bell
+  // dropdown click through to the specific record instead of just dismissing.
+  entity_type: string | null;
+  entity_id: number | null;
   created_at: string;
   read: boolean;
 }

@@ -9,7 +9,7 @@ import { VendorBasePanel } from "./VendorBasePanel";
 import { OfficerDashboard } from "./OfficerDashboard";
 import { CategoryManagerDashboard } from "./CategoryManagerDashboard";
 import { ApprovingAuthorityDashboard } from "./ApprovingAuthorityDashboard";
-import type { CurrentUser, DashboardStats } from "../../lib/types";
+import type { CurrentUser, DashboardStats, StaffNotification } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/dashboardPage.js -- staff dashboard: the
 // prototype's command-centre layout, fed by GET /dashboard/stats (real
@@ -76,12 +76,12 @@ export function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const s = await api<DashboardStats>("/dashboard/stats");
+        const [s, notes] = await Promise.all([api<DashboardStats>("/dashboard/stats"), api<StaffNotification[]>("/staff-notifications")]);
         setStats(s);
         // Feeds AppShell's sidebar badges/topbar counts from the same
         // fetch instead of letting its own refreshChrome() request the
         // identical /dashboard/stats a second time right alongside this one.
-        applyDashboardStats(s);
+        applyDashboardStats(s, notes);
       } catch (err) {
         setError("Could not load dashboard: " + (err instanceof Error ? err.message : String(err)));
       }

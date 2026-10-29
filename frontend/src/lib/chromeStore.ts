@@ -98,9 +98,7 @@ export async function refreshChrome() {
   }
   try {
     const [s, notes] = await Promise.all([api<DashboardStatsForChrome>("/dashboard/stats"), api<StaffNotificationForChrome[]>("/staff-notifications")]);
-    applyDashboardStats(s);
-    state = { ...state, badgeStaffNotifications: notes.filter((n) => !n.read).length };
-    notify();
+    applyDashboardStats(s, notes);
   } catch {
     // chrome is decorative; a failed refresh must never block the screen
   }
@@ -113,7 +111,19 @@ export async function refreshChrome() {
 // actual content, same endpoint, same moment). DashboardPage now calls
 // this directly with the stats it already has instead of letting
 // AppShell's effect fetch the identical thing again for that one route.
-export function applyDashboardStats(s: DashboardStatsForChrome) {
+//
+// `staffNotes` added 2026-10-29 (user-reported: "no red badge on the
+// notification bell when a new notification is there"). Real bug: this
+// never set badgeStaffNotifications at all -- only refreshChrome()'s own
+// separate /staff-notifications fetch did, and AppShell's mount effect
+// (the only thing that ever calls refreshChrome()) skips itself entirely
+// on /dashboard, every staff role's default landing page, relying on THIS
+// function instead. Landing there first (the common case) meant the badge
+// just silently never got set for the whole session, however many
+// notifications piled up. DashboardPage now fetches /staff-notifications
+// alongside /dashboard/stats and passes both here, same shape
+// applyVendorPortalStats already takes on the vendor side.
+export function applyDashboardStats(s: DashboardStatsForChrome, staffNotes: StaffNotificationForChrome[]) {
   state = {
     ...state,
     badgeQueue: s.vendors_pending_count + s.docs_to_verify.length,
@@ -121,6 +131,7 @@ export function applyDashboardStats(s: DashboardStatsForChrome) {
     badgeApprovals: s.pending_approval_count,
     badgeDecisions: s.pending_decisions.length,
     badgeMappings: s.mappings_pending_count,
+    badgeStaffNotifications: staffNotes.filter((n) => !n.read).length,
     openTendersCount: s.open_tenders_count,
     nextBidClose: s.next_bid_close,
   };

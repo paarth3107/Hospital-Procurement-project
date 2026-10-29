@@ -9,6 +9,7 @@ from app.models.bid import Bid, BidStatus
 from app.models.facility import Facility
 from app.models.override import OverrideRequest, OverrideStatus, OverrideType
 from app.models.product_master import ProcurementType, ProductMaster
+from app.models.staff_notification import StaffNotification
 from app.models.tender import Tender, TenderStatus
 from app.models.tender_approval_round import RoundDecision, TenderApprovalRound
 from app.models.tender_invite import TenderInvite
@@ -74,6 +75,19 @@ HEADER_KEYS = ("title", "department", "facility_id", "status", "bid_due_date", "
 
 def _audit_label(tender: Tender) -> str:
     return f"#{tender.id} {tender.title}"
+
+
+def _notify_round_submitter(db: Session, tender: Tender, round_: TenderApprovalRound, kind: str, title: str, body: str) -> None:
+    """Tells the Procurement Officer who submitted this round what happened
+    to it (2026-10-29, user-directed: "no notification shown to procurement
+    officer after the tender is rejected by the approving authority" --
+    extended the same day to approval too). `submitted_by_id` is nullable
+    (an older round, or one with no recorded submitter) -- nothing to
+    notify in that case, not an error."""
+
+    if not round_.submitted_by_id:
+        return
+    db.add(StaffNotification(user_id=round_.submitted_by_id, kind=kind, title=title, body=body, entity_type="tender", entity_id=tender.id))
 
 
 def _validate_facility(facility_id: int | None, db: Session) -> None:
@@ -1168,6 +1182,11 @@ def approve_tender(
     if not scheduled:
         db.flush()  # push li.published above -- notify_invited_vendors queries it back (session has autoflush=False)
         notify_invited_vendors(db, tender)
+    approve_body = (
+        f"Approved and scheduled to publish on {tender.publish_date.strftime('%d %b %Y')}." if scheduled
+        else "Approved and published -- vendors have been notified."
+    )
+    _notify_round_submitter(db, tender, round_, "tender_approved", f"Tender approved: {tender.title}", approve_body)
     db.commit()
     db.refresh(tender)
     return tender
@@ -1198,6 +1217,7 @@ def reject_tender(
         before={"status": TenderStatus.PENDING_APPROVAL}, after={"status": TenderStatus.DRAFT}, reason=payload.comments,
         meta={"round_number": round_.round_number, "required_tier": round_.required_tier, "consecutive_rejections": tender.consecutive_rejections},
     )
+    _notify_round_submitter(db, tender, round_, "tender_rejected", f"Tender rejected: {tender.title}", payload.comments)
     db.commit()
     db.refresh(tender)
     return tender

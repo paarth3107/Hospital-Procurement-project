@@ -14,14 +14,24 @@ class StaffNotification(Base):
     services/overrides.py's approve_override()/reject_override() write
     these, not any per-router code, so every override type gets this for
     free. Deliberately terse (kind/title/body, no `data` JSON blob like the
-    vendor model has) -- "small, precise, just informatory", not a feed."""
+    vendor model has) -- "small, precise, just informatory", not a feed.
+
+    `entity_type`/`entity_id` added 2026-10-29 (user-directed: tell the
+    Procurement Officer who submitted a tender round when it's approved or
+    rejected) -- the click-through needs to land on that specific tender,
+    not just "somewhere". Generic (not `tender_id`) and nullable, same
+    (entity_type, entity_id) shape services/audit.py's AuditLog already
+    uses, rather than a one-off column -- a future notification kind that
+    points at some other record reuses this instead of adding its own."""
 
     __tablename__ = "staff_notifications"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False, index=True)
-    kind = Column(String(255), nullable=False)  # override_approved | override_rejected
+    kind = Column(String(255), nullable=False)  # override_approved | override_rejected | tender_approved | tender_rejected
     title = Column(String(255), nullable=False)
     body = Column(Text, nullable=False)
+    entity_type = Column(String(50), nullable=True)
+    entity_id = Column(Integer, nullable=True)
     created_at = Column(UTCDateTime(), default=lambda: datetime.now(timezone.utc))
     read_at = Column(UTCDateTime(), nullable=True)

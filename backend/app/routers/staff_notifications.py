@@ -17,7 +17,11 @@ router = APIRouter(prefix="/api/v1/staff-notifications", tags=["staff-notificati
 
 
 def _out(n: StaffNotification) -> StaffNotificationOut:
-    return StaffNotificationOut(id=n.id, kind=n.kind, title=n.title, body=n.body, created_at=n.created_at, read=n.read_at is not None)
+    return StaffNotificationOut(
+        id=n.id, kind=n.kind, title=n.title, body=n.body,
+        entity_type=n.entity_type, entity_id=n.entity_id,
+        created_at=n.created_at, read=n.read_at is not None,
+    )
 
 
 @router.get("", response_model=list[StaffNotificationOut])

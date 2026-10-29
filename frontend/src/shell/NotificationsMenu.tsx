@@ -41,6 +41,22 @@ const STAFF_ROWS: { badge: keyof ChromeState; label: string; view: string }[] = 
 const STAFF_NOTIFICATION_TONE: Record<string, "pos" | "neg"> = {
   override_approved: "pos",
   override_rejected: "neg",
+  tender_approved: "pos",
+  tender_rejected: "neg",
+};
+const STAFF_NOTIFICATION_LABEL: Record<string, string> = {
+  override_approved: "Approved",
+  override_rejected: "Declined",
+  tender_approved: "Approved",
+  tender_rejected: "Rejected",
+};
+// Where a notification's (entity_type, entity_id) sends a click -- same
+// generic pair services/audit.py's AuditLog already keys by, reused here
+// (2026-10-29) so the bell can route to the actual record instead of just
+// dismissing. Grows one line per entity_type as new notification kinds
+// start carrying one.
+const ENTITY_ROUTE: Record<string, (id: number) => string> = {
+  tender: (id) => `/tender-edit/${id}`,
 };
 
 export function NotificationsMenu({ onClose }: { onClose: () => void }) {
@@ -145,11 +161,18 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
       {unreadStaffNotes.length > 0 && (
         <>
           <div className="ep-dropdown-head">Notifications</div>
-          {unreadStaffNotes.map((n) => (
-            <div className="ep-notif-item" key={n.id}>
+          {unreadStaffNotes.map((n) => {
+            const route = n.entity_type && n.entity_id != null ? ENTITY_ROUTE[n.entity_type]?.(n.entity_id) : undefined;
+            return (
+            <div
+              className="ep-notif-item"
+              key={n.id}
+              style={route ? { cursor: "pointer" } : undefined}
+              onClick={route ? () => { onClose(); navigate(route); } : undefined}
+            >
               <div className="d-flex justify-between items-start gap-8px">
                 <div className="d-flex items-center gap-8px flex-wrap">
-                  <Tag text={n.kind === "override_approved" ? "Approved" : n.kind === "override_rejected" ? "Declined" : n.kind} tone={STAFF_NOTIFICATION_TONE[n.kind] ?? ""} />
+                  <Tag text={STAFF_NOTIFICATION_LABEL[n.kind] ?? n.kind} tone={STAFF_NOTIFICATION_TONE[n.kind] ?? ""} />
                   <span className="fw-700 fs-13px">{n.title}</span>
                 </div>
                 <button type="button" className="ep-notif-dismiss" title="Dismiss" aria-label="Dismiss" onClick={(e) => { e.stopPropagation(); dismissStaff(n.id); }}>
@@ -158,7 +181,8 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
               </div>
               <div className="ep-sub mt-4px fs-12-5px">{n.body}</div>
             </div>
-          ))}
+            );
+          })}
         </>
       )}
       {rows.length > 0 && (

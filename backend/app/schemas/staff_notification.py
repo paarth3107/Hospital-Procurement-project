@@ -11,5 +11,7 @@ class StaffNotificationOut(BaseModel):
     kind: str
     title: str
     body: str
+    entity_type: str | None = None
+    entity_id: int | None = None
     created_at: datetime
     read: bool
