@@ -127,7 +127,7 @@ export function VendorListPage() {
                   </td>
                   <td className="ep-cell fs-12-5px">{fmtDate(v.created_at)}</td>
                   <td className="ep-cell text-right">
-                    <IconActionButton icon="eye" label="View" size={24} onClick={() => openVendor(v.id)} />
+                    <IconActionButton icon="settings" label="View" size={24} onClick={() => openVendor(v.id)} />
                   </td>
                 </tr>
               ))
