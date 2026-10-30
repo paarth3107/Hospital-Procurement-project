@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useImperativeHandle, useState } from "react";
+import { forwardRef, Fragment, useEffect, useImperativeHandle, useState } from "react";
 import { api, API_BASE, apiHeaders, uploadWithProgress } from "../../lib/api";
 import { inr } from "../../lib/format";
 import { vendorCatalogSpec } from "../../lib/attrSummary";
@@ -86,11 +86,29 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
   const [attachmentProgress, setAttachmentProgress] = useState(0);
   const { confirmAsync, openPreview, modalElement } = useModal();
 
-  const setRows = (next: BidRow[]) => {
-    setRowsState(next);
-    onChange();
-  };
+  const setRows = (next: BidRow[]) => setRowsState(next);
   const updateRow = (i: number, fn: (row: BidRow) => BidRow) => setRows(rows.map((r, idx) => (idx === i ? fn(r) : r)));
+
+  // Real bug, found 2026-10-30, user-reported: "even after submitting the
+  // submit button stays enabled." onChange() used to fire synchronously
+  // inside setRows() above, in the SAME render pass that just called
+  // setRowsState -- but BidPage.tsx reads gridRef.current.gateInfo()
+  // directly in ITS OWN render body, and useImperativeHandle only refreshes
+  // gridRef.current as a layout effect, which runs AFTER every component in
+  // this commit has already rendered. So the synchronous onChange() woke
+  // BidPage up one render too early: it re-rendered and read gateInfo()
+  // off the STILL-STALE previous handle (pre-submit rows), got a stale
+  // "not submitted yet" gate, and nothing ever told it to look again --
+  // onChange() only fires once per actual change, not once per render.
+  // Moving the notification into an effect keyed on `rows` means it fires
+  // AFTER this component's own commit (useImperativeHandle's layout effect
+  // included, since layout effects run before passive effects), so by the
+  // time BidPage re-renders in response, gridRef.current is already the
+  // fresh handle.
+  useEffect(() => {
+    onChange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
 
   // Reads the Details expansion's fields back into the row -- there's no
   // DOM to flush in React (every field is already a controlled input
@@ -122,6 +140,23 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
         return {
           title: "Not ready to submit",
           body: `${unresolved.length} line(s) still need an answer — fill them in or mark them Skip: ${unresolved.map((r) => r.product_name).join(", ")}`,
+          submitDisabled: true,
+          isSubmitted,
+          hasRows: true,
+        };
+      }
+      // Real bug, found 2026-10-30, user-reported: every line resolved
+      // (including "resolved by Skip") used to read as "Ready to submit"
+      // outright -- on a tender with one line, skipping it left the gate
+      // claiming the bid was ready while submitBid's own candidate filter
+      // (`!locked && !skipped && status !== "submitted"`) had nothing left
+      // to actually submit, so clicking Submit just failed with "Nothing to
+      // submit." instead. Same candidate filter, checked here first.
+      const submittable = rows.filter((r) => !r.locked && !r.skipped && r.status !== "submitted");
+      if (!submittable.length) {
+        return {
+          title: "Nothing to submit",
+          body: "Every line was skipped (or is locked). Bid on at least 1 line to submit.",
           submitDisabled: true,
           isSubmitted,
           hasRows: true,
