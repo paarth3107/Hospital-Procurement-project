@@ -114,7 +114,7 @@ export function RequestPanel({
         <span className="ep-sub">{countLabel}</span>
       </div>
       <div className="vc-request-list">
-        <table className="ep-table">
+        <table className={`ep-table vc-request-table ${tab === "items" ? "vc-request-table-items" : "vc-request-table-categories"}`}>
           <thead>
             <tr>
               {tab === "items" ? (

@@ -437,6 +437,26 @@ button.ep-tag { border: 0; font-family: inherit; }
    it, collapsed by default. */
 .vc-request-list { max-height: 460px; overflow: auto; border: 1px solid var(--ink-18); border-radius: var(--radius); }
 .vc-request-list .ep-th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+/* Category Declaration's request table (2026-10-30, user-reported): no
+   fixed layout meant the browser re-sized every column from whatever rows
+   happened to be visible -- a collapsed group only has its own summary row
+   (colSpan across the whole table, nothing to size individual columns
+   from), so expanding one, collapsing it, or a search changing which rows
+   render all visibly shifted the ITEM/SKU/TYPE/MIN RATING headers. Two
+   width sets, not one: the Items tab has 5 columns (checkbox, Name, SKU,
+   Type, Min rating), Categories has 4 (checkbox, Category, Type, Min
+   rating) -- same component, same .ep-table, switched by tab. */
+.vc-request-table { table-layout: fixed; }
+.vc-request-table .ep-cell { overflow-wrap: break-word; }
+.vc-request-table-items th:nth-child(1) { width: 5%; }
+.vc-request-table-items th:nth-child(2) { width: 50%; }
+.vc-request-table-items th:nth-child(3) { width: 15%; }
+.vc-request-table-items th:nth-child(4) { width: 15%; }
+.vc-request-table-items th:nth-child(5) { width: 15%; }
+.vc-request-table-categories th:nth-child(1) { width: 5%; }
+.vc-request-table-categories th:nth-child(2) { width: 55%; }
+.vc-request-table-categories th:nth-child(3) { width: 20%; }
+.vc-request-table-categories th:nth-child(4) { width: 20%; }
 .vc-col-check { width: 1%; white-space: nowrap; padding-left: 16px !important; padding-right: 8px !important; }
 .vc-col-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 .vc-col-check input[type="checkbox"]:disabled { cursor: not-allowed; }
