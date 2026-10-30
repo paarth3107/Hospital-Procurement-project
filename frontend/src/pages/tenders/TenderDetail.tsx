@@ -10,6 +10,11 @@ import type { ApprovalRound, CatalogProduct, ExcludedVendor, LineItem, LineItemE
 // header form for a saved tender: which lines are live vs held back, a
 // preview of who the system would currently invite per line, and the
 // approval rounds.
+
+// EligibilityLine's default chip count before "+N more" (2026-10-30,
+// user-directed) -- an Open Tender line has no cap on how many vendors
+// resolve eligible, unlike the normal ranked pool.
+const VISIBLE_VENDOR_COUNT = 3;
 export function TenderDetail({
   tenderId,
   tenderStatus,
@@ -551,6 +556,11 @@ function EligibilityLine({
   const [removeReason, setRemoveReason] = useState("");
   const [manualVendorId, setManualVendorId] = useState("");
   const [manualJustification, setManualJustification] = useState("");
+  // Open Tender blanket-invites every Active vendor with no count cap
+  // (2026-10-30, user-directed) -- a popular line can render dozens of
+  // chips with nothing to scroll past. Collapsed to the first few by
+  // default with a "+N more" toggle.
+  const [showAllVendors, setShowAllVendors] = useState(false);
 
   const none = p.eligible_vendors.length === 0;
   const short = !none && !!minInvites && p.eligible_vendors.length < minInvites;
@@ -642,7 +652,7 @@ function EligibilityLine({
       ) : (
         <>
           <div className="d-flex flex-wrap gap-6px mt-6px">
-            {p.eligible_vendors.map((v) => {
+            {(showAllVendors ? p.eligible_vendors : p.eligible_vendors.slice(0, VISIBLE_VENDOR_COUNT)).map((v) => {
               const label = `${v.legal_name} · ${v.is_unrated ? "Unrated" : v.rating_score.toFixed(0)}`;
               return canEdit ? (
                 <button
@@ -659,6 +669,16 @@ function EligibilityLine({
                 </span>
               );
             })}
+            {!showAllVendors && p.eligible_vendors.length > VISIBLE_VENDOR_COUNT && (
+              <button type="button" className="ep-tag" onClick={() => setShowAllVendors(true)}>
+                +{p.eligible_vendors.length - VISIBLE_VENDOR_COUNT} more
+              </button>
+            )}
+            {showAllVendors && p.eligible_vendors.length > VISIBLE_VENDOR_COUNT && (
+              <button type="button" className="ep-tag" onClick={() => setShowAllVendors(false)}>
+                Show less
+              </button>
+            )}
           </div>
           {short && <div className="fs-12px text-warning mt-5px">Below the configured minimum of {minInvites} vendor(s).</div>}
         </>

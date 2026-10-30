@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadMappingData, withPatchedMapping, type MappingData } from "../../lib/mappingData";
 import type { CatalogProduct, VendorMapping } from "../../lib/types";
+import { Pagination, pageSlice } from "../../components/Pagination";
 import { MappingDetailDialog } from "./MappingDetailDialog";
 import { useMappingActions } from "./useMappingActions";
 
@@ -52,6 +53,10 @@ export function MappingMatrixPage() {
   const [selCategoryId, setSelCategoryId] = useState<number | null>(null);
   const [selSubCategoryId, setSelSubCategoryId] = useState<number | null>(null);
   const [dialogTarget, setDialogTarget] = useState<DialogTarget | null>(null);
+  // A category can have "100s of items" (2026-10-30, user-directed --
+  // this list has no cap today). Same shared Pagination/pageSlice as every
+  // other real list in the app.
+  const [page, setPage] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -93,6 +98,7 @@ export function MappingMatrixPage() {
   const categoryState = categoryMapping?.state ?? "none";
   const items: CatalogProduct[] = category ? (subCategoryId ? data.products.filter((p) => p.sub_category_id === subCategoryId) : data.products.filter((p) => p.category_id === category.id)) : [];
   const itemSectionLabel = subCategoryId ? data.subCategoryById.get(subCategoryId)?.name ?? "" : category ? `All — ${category.name}` : "";
+  const { pageItems, totalPages, page: clampedPage } = pageSlice(items, page);
 
   return (
     <div className="d-flex flex-col gap-16px">
@@ -104,7 +110,14 @@ export function MappingMatrixPage() {
             <div className="padding-14px-16px d-flex gap-14px flex-wrap items-center border-bottom-1px-solid-ink-18">
               <label className="ep-k">
                 Vendor{" "}
-                <select className="input w-auto minw-220px" value={vendorId ?? ""} onChange={(e) => setSelVendorId(Number(e.target.value))}>
+                <select
+                  className="input w-auto minw-220px"
+                  value={vendorId ?? ""}
+                  onChange={(e) => {
+                    setSelVendorId(Number(e.target.value));
+                    setPage(0);
+                  }}
+                >
                   {data.vendors.map((v) => (
                     <option value={v.id} key={v.id}>
                       {v.legal_name}
@@ -121,6 +134,7 @@ export function MappingMatrixPage() {
                     setSelType(e.target.value);
                     setSelCategoryId(null);
                     setSelSubCategoryId(null);
+                    setPage(0);
                   }}
                 >
                   {types.map((t) => (
@@ -138,6 +152,7 @@ export function MappingMatrixPage() {
                   onChange={(e) => {
                     setSelCategoryId(Number(e.target.value));
                     setSelSubCategoryId(null);
+                    setPage(0);
                   }}
                 >
                   {categoriesOfType.map((c) => (
@@ -153,7 +168,10 @@ export function MappingMatrixPage() {
                   className="input w-auto minw-220px"
                   disabled={!subCategoriesOfCategory.length}
                   value={subCategoryId ?? ""}
-                  onChange={(e) => setSelSubCategoryId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => {
+                    setSelSubCategoryId(e.target.value ? Number(e.target.value) : null);
+                    setPage(0);
+                  }}
                 >
                   <option value="">All</option>
                   {subCategoriesOfCategory.map((s) => (
@@ -195,7 +213,7 @@ export function MappingMatrixPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {items.map((p) => {
+                        {pageItems.map((p) => {
                           const m = data.itemMappingOf(vendor.id, p.id);
                           const { state, viaCategory } = effectiveItemState(m, categoryState, p, vendor.id, data);
                           return (
@@ -220,6 +238,7 @@ export function MappingMatrixPage() {
                   ) : (
                     <div className="hint">No items here yet.</div>
                   )}
+                  <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
                 </div>
                 <div className="d-flex gap-22px flex-wrap padding-10px-16px fs-11-5px text-ink-62 border-top-1px-solid-ink-18">
                   <span>✓ mapped and approved</span>
