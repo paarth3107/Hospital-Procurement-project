@@ -70,7 +70,7 @@ export const ROLE_TABS: Record<string, string[]> = {
   // Procurement Officer. Mapping and Ratings stay with Category Manager.
   procurement_officer: ["dashboard", "tenders", "tender-edit", "evaluation", "awards", "pofiles"],
   category_manager: ["dashboard", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "evaluation", "decisions"],
-  approving_authority: ["dashboard", "approvals", "awards", "decisions"],
+  approving_authority: ["dashboard", "tenders", "approvals", "awards", "decisions"],
   system_admin: ["dashboard", "queue", ...CATALOG_VIEWS, ...MAPPING_VIEWS, "ratings", "tenders", "tender-edit", "evaluation", "awards", "pofiles", "approvals", "staff", "audit", "decisions"],
 };
 

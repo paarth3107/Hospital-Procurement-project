@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
 import { switchView } from "../../lib/bridge";
+import { useAuthState } from "../../lib/authStore";
 import { Tag, StateTag } from "../../components/Tag";
 import { IconActionButton } from "../../components/IconActionButton";
 import { Pagination, pageSlice } from "../../components/Pagination";
@@ -47,11 +48,25 @@ export function TenderListPage() {
   // or a direct link keeps whichever filter was selected instead of
   // silently resetting to the default (2026-10-28, user-directed), same
   // pattern as VendorInvitationsPage.tsx's own ?filter=.
+  //
+  // Approving Authority just got this tab at all (2026-10-30, user-directed:
+  // "give him access to tender list and by default put up approved status"
+  // -- an approved tender is one that's cleared E-Tender Approval, i.e.
+  // Published; there's no separate "approved" TenderStatus). Every other
+  // role still defaults to "open", unchanged.
+  const role = useAuthState().user?.role;
+  const defaultStatus: StatusFilter = role === "approving_authority" ? "published" : "open";
   const rawStatus = params.get("status");
-  const statusFilter: StatusFilter = STATUS_FILTERS.some(([v]) => v === rawStatus) ? (rawStatus as StatusFilter) : "open";
+  const statusFilter: StatusFilter = STATUS_FILTERS.some(([v]) => v === rawStatus) ? (rawStatus as StatusFilter) : defaultStatus;
   const setStatusFilter = (f: StatusFilter) => {
     setPage(0);
-    setParams(f === "open" ? {} : { status: f }, { replace: true });
+    // Real bug caught while adding the role-aware default above: this used
+    // to always omit the param for literal "open", regardless of what this
+    // role's actual default is -- an Approving Authority (default
+    // "published") picking "Open" from the dropdown would clear the param,
+    // and the very next render's fallback-to-default would silently flip
+    // their selection straight back to "published".
+    setParams(f === defaultStatus ? {} : { status: f }, { replace: true });
   };
 
   const load = useCallback(async () => {
