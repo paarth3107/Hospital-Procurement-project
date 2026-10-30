@@ -38,6 +38,21 @@ def resolve_required_tier(total_value: float, facility_id: int, db: Session) -> 
         if total_value >= band.min_value and (band.max_value is None or total_value < band.max_value):
             return ResolvedTier(tier=band.tier, label=band.label)
 
+    # No estimated prices entered on any line yet (routers/tenders.py's
+    # _total_estimated_value() treats a blank estimated_price as 0) is "we
+    # don't know the value yet," not a genuine value this system can't
+    # route -- a missing/misconfigured tier-1 band shouldn't block
+    # submission over it (2026-10-30, user-directed). Defaults to tier 1
+    # (the lowest), using a real configured tier-1 band's label when one
+    # exists. Deliberately scoped to total_value <= 0 only: a genuine
+    # nonzero value landing in an actual gap between configured bands still
+    # raises below, same as always -- this must never quietly extend to
+    # "any unmatched value defaults to the lowest tier," which would just
+    # recreate the same under-tiering risk for a real priced tender.
+    if total_value <= 0:
+        tier1 = next((b for b in candidates if b.tier == 1), None)
+        return ResolvedTier(tier=1, label=tier1.label if tier1 else "Tier 1")
+
     raise ValueError(f"No approval band configured covers value {total_value} for facility {facility_id}")
 
 
