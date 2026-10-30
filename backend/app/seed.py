@@ -211,8 +211,18 @@ DEFAULT_OVERRIDE_CONFIGS = [
         "escalation_threshold": 15.0,  # score-point range the adjustment must not exceed
     },
     {
+        # self_attested added 2026-10-30 (user-reported: System Admin
+        # couldn't add a vendor without waiting on Category Manager, despite
+        # being a universal decider everywhere else) -- this type's only two
+        # possible initiators are TENDER_AUTHORS (Procurement Officer,
+        # System Admin; routers/tenders.py's request_manual_invite). Category
+        # Manager can never actually BE the initiator (no tender-authoring
+        # access), so turning this on only ever changes behavior for a
+        # System-Admin-initiated request -- a Procurement-Officer-initiated
+        # one still matches none of create_override()'s auto-approve
+        # conditions and goes to Pending Approval exactly as before.
         "override_type": OverrideType.INVITE_LIST_MANUAL_ADD,
-        "default_approver_role": Role.CATEGORY_MANAGER,
+        "default_approver_role": Role.CATEGORY_MANAGER, "self_attested": True,
         "escalate_to_role": Role.APPROVING_AUTHORITY, "escalate_to_min_tier": 2,
         "escalation_threshold": 200_000.0,  # cumulative override value on the tender
     },

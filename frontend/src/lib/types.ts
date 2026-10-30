@@ -263,13 +263,23 @@ export interface StaffNotification {
 export interface OverrideOut {
   id: number;
   override_type: string;
+  entity_type: string;
   entity_id: number | null;
   entity_label: string | null;
   initiator_role: string;
   justification: string;
+  // Added for TenderDetail.tsx's manual-invite-requests list (2026-10-30,
+  // user-reported: "I can't see who was added" -- a manual invite only
+  // ever appeared once approved, with no trace of pending/rejected
+  // requests anywhere). proposed_change carries vendor_id/vendor_name for
+  // INVITE_LIST_MANUAL_ADD specifically -- other override types' shape
+  // isn't modeled here since nothing else reads this field yet.
+  proposed_change: { vendor_id?: number; vendor_name?: string } | null;
   status: string;
   required_approver_role: string | null;
   required_approver_min_tier: number | null;
+  decided_at: string | null;
+  decision_reason: string | null;
   created_at: string;
 }
 

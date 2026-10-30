@@ -838,15 +838,19 @@ def request_manual_invite(
         proposed_change={"tender_id": tender.id, "line_item_id": line.id, "vendor_id": vendor.id, "vendor_name": vendor.legal_name, "line_value": line_value},
         trigger_value=cumulative,
     )
+    if override.status == OverrideStatus.APPROVED:  # self-attested (2026-10-30) -- apply right now
+        _apply_manual_invite(db, override, user)
     db.commit()
     db.refresh(override)
     return {"override_id": override.id, "status": override.status, "required_approver_role": override.required_approver_role}
 
 
-@router.post("/manual-invite-requests/{override_id}/approve", response_model=TenderInviteOut)
-def approve_manual_invite(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
-    override = _get_manual_invite_request(db, override_id)
-    overrides.approve_override(db, override, user, payload.reason)
+def _apply_manual_invite(db: Session, override: OverrideRequest, actor: UserAccount) -> TenderInvite:
+    """Shared by the approve endpoint and a self-attested request's own
+    inline apply (2026-10-30, same split as _apply_due_date_extension above):
+    an Approved override alone never touches the target record (spec
+    §12.1/§12.2) -- this is the one place that actually creates the
+    TenderInvite, whichever path got the override to Approved."""
 
     pc = override.proposed_change
     line = db.get(TenderLineItem, pc["line_item_id"])
@@ -870,10 +874,19 @@ def approve_manual_invite(override_id: int, payload: OverrideDecision, db: Sessi
     db.add(invite)
     tender = line.tender
     record(
-        db, "tender.manual_invite_added", "tender", tender.id, actor=user, entity_label=_audit_label(tender), facility_id=tender.facility_id,
+        db, "tender.manual_invite_added", "tender", tender.id, actor=actor, entity_label=_audit_label(tender), facility_id=tender.facility_id,
         after={"line_item_id": line.id, "vendor_id": vendor.id, "vendor": vendor.legal_name}, reason=override.justification,
         meta={"override_id": override.id},
     )
+    db.flush()
+    return invite
+
+
+@router.post("/manual-invite-requests/{override_id}/approve", response_model=TenderInviteOut)
+def approve_manual_invite(override_id: int, payload: OverrideDecision, db: Session = Depends(get_db), user: UserAccount = Depends(get_current_user)):
+    override = _get_manual_invite_request(db, override_id)
+    overrides.approve_override(db, override, user, payload.reason)
+    invite = _apply_manual_invite(db, override, user)
     db.commit()
     db.refresh(invite)
     return invite

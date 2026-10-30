@@ -4,7 +4,7 @@ import { fmtDateTime } from "../../lib/format";
 import { useModal } from "../../components/useModal";
 import { StateTag, Tag } from "../../components/Tag";
 import { GuestInviteLinkBox } from "./GuestInviteLinkBox";
-import type { ApprovalRound, CatalogProduct, ExcludedVendor, LineItem, LineItemEligibility, TenderStatus, VendorLookup } from "../../lib/types";
+import type { ApprovalRound, CatalogProduct, ExcludedVendor, LineItem, LineItemEligibility, OverrideOut, TenderStatus, VendorLookup } from "../../lib/types";
 
 // Ported 1:1 from frontend/js/pages/tenders/tenderDetail.js. Shown below the
 // header form for a saved tender: which lines are live vs held back, a
@@ -296,18 +296,32 @@ function EligibilityPreview({
   const [preview, setPreview] = useState<LineItemEligibility[] | null>(null);
   const [activeVendors, setActiveVendors] = useState<VendorLookup[]>([]);
   const [openTender, setOpenTender] = useState(false);
+  // Every manual-invite request made for this tender's lines, pending or
+  // decided (2026-10-30, user-reported: "I can't see who was added" -- a
+  // request was only ever visible once approved, as a plain chip among
+  // eligible_vendors indistinguishable from a system-resolved one; a
+  // pending or rejected request left no trace on screen at all).
+  const [manualRequestsByLine, setManualRequestsByLine] = useState<Map<number, OverrideOut[]>>(new Map());
   const { alertAsync, modalElement } = useModal();
 
   const load = useCallback(async () => {
     try {
-      const [tender, prev, vendors] = await Promise.all([
+      const [tender, prev, vendors, overridesList] = await Promise.all([
         api<{ status: string; open_tender: boolean }>(`/tenders/${tenderId}`),
         api<LineItemEligibility[]>(`/tenders/${tenderId}/eligibility-preview`),
         api<VendorLookup[]>("/vendors/lookup"),
+        api<OverrideOut[]>("/overrides?override_type=invite_list_manual_add"),
       ]);
       setOpenTender(tender.open_tender);
       setPreview(prev);
       setActiveVendors(vendors.filter((v) => v.status === "active"));
+      const byLine = new Map<number, OverrideOut[]>();
+      const lineIds = new Set(prev.map((p) => p.line_item_id));
+      for (const o of overridesList) {
+        if (o.entity_type !== "tender_line_item" || o.entity_id == null || !lineIds.has(o.entity_id)) continue;
+        byLine.set(o.entity_id, [...(byLine.get(o.entity_id) ?? []), o]);
+      }
+      setManualRequestsByLine(byLine);
     } catch (err) {
       onResult("Could not load eligibility preview: " + (err instanceof Error ? err.message : String(err)), false);
     }
@@ -363,7 +377,9 @@ function EligibilityPreview({
             minInvites={minInvites}
             canEdit={canEdit}
             activeVendors={activeVendors}
+            manualRequests={manualRequestsByLine.get(p.line_item_id) ?? []}
             onVendorsRemoved={onVendorsRemoved}
+            onManualInviteRequested={load}
             onAlert={alertAsync}
           />
         ))}
@@ -511,7 +527,9 @@ function EligibilityLine({
   minInvites,
   canEdit,
   activeVendors,
+  manualRequests,
   onVendorsRemoved,
+  onManualInviteRequested,
   onAlert,
 }: {
   p: LineItemEligibility;
@@ -519,7 +537,14 @@ function EligibilityLine({
   minInvites: number | null;
   canEdit: boolean;
   activeVendors: VendorLookup[];
+  // Every manual-invite request made for THIS line, pending or decided --
+  // user-reported 2026-10-30: "I can't see who was added." An approved one
+  // already shows as a plain chip above (merged into p.eligible_vendors by
+  // the backend), but this is the only place a pending or rejected request
+  // is visible at all.
+  manualRequests: OverrideOut[];
   onVendorsRemoved: (lineItemId: number, removed: ExcludedVendor[]) => void;
+  onManualInviteRequested: () => void;
   onAlert: (message: string, title?: string) => Promise<void>;
 }) {
   const [marked, setMarked] = useState<Set<number>>(new Set());
@@ -587,9 +612,20 @@ function EligibilityLine({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vendor_id: vendorId, justification: manualJustification.trim() }),
       });
-      await onAlert(`Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`, "Manual invite requested");
+      // Real bug, found 2026-10-30, user-reported: this always said "Sent
+      // to category manager" even when self_attested (System Admin, since
+      // 2026-10-30) auto-approved the request on the spot -- nothing was
+      // ever actually sent to anyone in that case, the vendor's already
+      // invited. Branch on the status the backend actually returned.
+      await onAlert(
+        res.status === "approved"
+          ? "The vendor is invited."
+          : `Sent to ${res.required_approver_role?.replace(/_/g, " ") ?? "the approver"} for a decision.`,
+        "Manual invite requested"
+      );
       setManualVendorId("");
       setManualJustification("");
+      onManualInviteRequested(); // so this request shows up in the list below right away
     } catch (err) {
       await onAlert(err instanceof Error ? err.message : String(err));
     }
@@ -645,6 +681,24 @@ function EligibilityLine({
           Removed: {r.legal_name}. {r.reason}
         </div>
       ))}
+      {/* Every manual-invite request made for this line, pending or decided
+          (2026-10-30, user-reported: "I can't see who was added") -- an
+          Approved one is also already showing as a plain chip above (merged
+          into p.eligible_vendors), but this is the only trace of a Pending
+          or Rejected one anywhere on screen. */}
+      {manualRequests.length > 0 && (
+        <div className="mt-8px">
+          <div className="fs-12px fw-700 text-ink-65">Previously invited vendors</div>
+          {manualRequests.map((o) => (
+            <div className="d-flex items-center gap-8px flex-wrap mt-4px" key={o.id}>
+              <StateTag state={o.status} />
+              <span className="fs-12-5px fw-600">{o.proposed_change?.vendor_name ?? "Vendor"}</span>
+              <span className="ep-sub">— {o.justification}</span>
+              {o.status === "rejected" && o.decision_reason && <span className="ep-sub text-danger-700">({o.decision_reason})</span>}
+            </div>
+          ))}
+        </div>
+      )}
       {canEdit && candidates.length > 0 && (
         <div className="invite-row d-flex gap-8px items-center flex-wrap mt-10px">
           <select className="input" value={manualVendorId} onChange={(e) => setManualVendorId(e.target.value)}>
