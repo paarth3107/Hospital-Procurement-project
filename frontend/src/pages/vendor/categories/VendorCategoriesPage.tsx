@@ -2,11 +2,44 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../lib/api";
 import { refreshChrome } from "../../../lib/bridge";
 import { docKey } from "../../../lib/constants";
+import { toastError } from "../../../lib/toastStore";
 import type { Category, CatalogProduct, ItemRequirement, VendorDetail, VendorDocument, VendorMapping } from "../../../lib/types";
 import { ItemRequirementsPanel } from "./ItemRequirementsPanel";
 import { RequestPanel } from "./RequestPanel";
 import { uploadRequirementDoc } from "./uploadRequirementDoc";
 import type { RequestCtx } from "./types";
+
+// A rejected/suspended mapping's reason is shown inline on its chip (below)
+// for as long as the vendor stays on this page, but 2026-10-30 (user-
+// directed) also wants an immediate toast -- "the notification as a toast".
+// Keyed by `${mapping.id}:${version}` in sessionStorage so it fires once
+// per actual decision, not once per page visit: `version` (VendorMapping's
+// own column) changes on every state change, so a later rejection of the
+// same mapping still gets its own fresh toast even though the id repeats.
+const TOASTED_KEY = "vendorMappingReasonsToasted";
+function alreadyToasted(key: string): boolean {
+  try {
+    return JSON.parse(sessionStorage.getItem(TOASTED_KEY) || "[]").includes(key);
+  } catch {
+    return false;
+  }
+}
+function markToasted(key: string): void {
+  try {
+    const seen: string[] = JSON.parse(sessionStorage.getItem(TOASTED_KEY) || "[]");
+    sessionStorage.setItem(TOASTED_KEY, JSON.stringify([...seen, key]));
+  } catch {
+    // sessionStorage unavailable -- the toast still fires, it just might repeat next visit
+  }
+}
+
+// Brief and concise (2026-10-30, user-directed) -- a staff-entered reason
+// can run long; neither a toast nor an inline chip is the place for the
+// full text. Truncated here only, never where the full reason is actually
+// read (the chip's own `title` tooltip still carries it in full).
+function brief(text: string, maxLen: number): string {
+  return text.length > maxLen ? text.slice(0, maxLen - 1).trimEnd() + "…" : text;
+}
 
 // Ported 1:1 from frontend/js/pages/vendorCategories/vendorCategoriesPage.js
 // -- its own tab: chips showing each category/item the vendor has
@@ -48,6 +81,18 @@ export function VendorCategoriesPage() {
       setDocs(d);
       setRequirements(reqs);
       setError("");
+
+      const catNameNow = new Map(c.map((cat) => [cat.id, cat.name]));
+      const prodNameNow = new Map(p.map((prod) => [prod.id, prod.name]));
+      for (const mapping of m) {
+        if (mapping.state !== "rejected" && mapping.state !== "suspended") continue;
+        if (!mapping.latest_reason) continue;
+        const key = `${mapping.id}:${mapping.version}`;
+        if (alreadyToasted(key)) continue;
+        const label = mapping.category_id != null ? catNameNow.get(mapping.category_id) : prodNameNow.get(mapping.product_master_id!);
+        toastError(`${label ?? "Category request"} ${mapping.state}: ${brief(mapping.latest_reason, 60)}`);
+        markToasted(key);
+      }
     } catch (err) {
       setError("Could not load categories: " + (err instanceof Error ? err.message : String(err)));
     }
@@ -95,7 +140,7 @@ export function VendorCategoriesPage() {
   const chips = mappings
     .map((m) => {
       const label = m.category_id != null ? catName.get(m.category_id) : prodName.get(m.product_master_id!);
-      return label ? { label, state: m.state } : null;
+      return label ? { label, state: m.state, reason: m.latest_reason } : null;
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
 
@@ -108,9 +153,11 @@ export function VendorCategoriesPage() {
           {chips.length ? (
             chips.map((c, i) => {
               const [cls, word] = CHIP[c.state] ?? ["", c.state];
+              const showReason = (c.state === "rejected" || c.state === "suspended") && c.reason;
               return (
-                <span className={`vc-chip ${cls}`} key={i}>
+                <span className={`vc-chip ${cls}`} key={i} title={showReason ? c.reason! : undefined}>
                   {c.label} — {word}
+                  {showReason && <span className="hint"> — {brief(c.reason!, 40)}</span>}
                 </span>
               );
             })
