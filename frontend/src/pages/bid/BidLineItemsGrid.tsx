@@ -4,6 +4,7 @@ import { inr } from "../../lib/format";
 import { vendorCatalogSpec } from "../../lib/attrSummary";
 import { fileTypeError } from "../../lib/fileValidation";
 import { coerceFieldValue, initialFieldValues } from "../../lib/formFields";
+import { FieldError } from "../../components/FieldError";
 import { FormField } from "../../components/FormField";
 import { Req } from "../../components/Req";
 import { Tag, StateTag } from "../../components/Tag";
@@ -11,6 +12,13 @@ import { useModal } from "../../components/useModal";
 import { canPreviewInApp } from "../../components/DocumentPreviewModal";
 import type { BidForm, BidRequirements } from "../../lib/types";
 import { KIND_LABELS } from "../tenders/AttachmentsPanel";
+// Same validation standard as the tender-creation grid (2026-10-30,
+// user-directed: "check if we recently fixed similar fields anywhere else
+// and use that as a standard") -- these commercial fields had the exact
+// same negative-value gap LineItemsGrid.tsx's Quantity/Estimated Price/QCBS
+// weights had before, so this reuses the same module rather than a second,
+// drifting copy of the same rules.
+import { clampDigits, nonNegativeError, percentRangeError, positiveError } from "../tenders/tenderValidation";
 import { BidAttachmentsPanel } from "./BidAttachmentsPanel";
 import { applyForm, bidDetailFields, buildBidPayload, evalSummary, fieldsDisabled, lineDetailsSummary, lineTotal, rowFromForm, rowResolved, type BidRow } from "./bidRow";
 import { buildTemplateCsv, downloadTextFile, importCsvRows } from "./bidLineItemsCsv";
@@ -84,7 +92,22 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
   // "<row index>:<kind>" currently mid-upload, if any -- see BidAttachmentsPanel.tsx's own comment.
   const [busyAttachment, setBusyAttachment] = useState<string | null>(null);
   const [attachmentProgress, setAttachmentProgress] = useState(0);
+  // Same "<row>:<field>" key scheme as LineItemsGrid.tsx's fieldErrors
+  // (2026-10-30, user-directed standard-reuse for Unit Price/GST/Other
+  // Duties/Lead Time/Validity -- these accepted negative values with no
+  // inline feedback before, same gap that grid had for Quantity/Price).
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { confirmAsync, openPreview, modalElement } = useModal();
+
+  const checkRowField = (i: number, field: string, err: string | null) => {
+    const key = `${i}:${field}`;
+    setFieldErrors((prev) => (prev[key] === (err ?? "") ? prev : { ...prev, [key]: err ?? "" }));
+  };
+  const checkUnitPrice = (i: number, raw: string) => checkRowField(i, "unit_price", positiveError(raw));
+  const checkGst = (i: number, raw: string) => checkRowField(i, "gst_percent", percentRangeError(raw));
+  const checkOtherDuties = (i: number, raw: string) => checkRowField(i, "other_duties", nonNegativeError(raw));
+  const checkLeadTime = (i: number, raw: string) => checkRowField(i, "delivery_lead_days", nonNegativeError(raw));
+  const checkValidity = (i: number, raw: string) => checkRowField(i, "quote_validity_days", positiveError(raw));
 
   const setRows = (next: BidRow[]) => setRowsState(next);
   const updateRow = (i: number, fn: (row: BidRow) => BidRow) => setRows(rows.map((r, idx) => (idx === i ? fn(r) : r)));
@@ -446,35 +469,85 @@ export const BidLineItemsGrid = forwardRef<BidLineItemsGridHandle, { tenderId: n
                       </td>
                       <td className="ep-cell">{row.skipped ? <Tag text="Skipped" /> : row.status ? <StateTag state={row.status} /> : <Tag text="Not started" tone="att" />}</td>
                       <td className="ep-cell">
-                        <input className="input" type="number" step="any" min={0} disabled={disabled} value={row.unit_price ?? ""} onChange={(e) => onNumericInput(i, "unit_price", e.target.value)} />
-                      </td>
-                      <td className="ep-cell">
-                        <input className="input" type="number" step="any" min={0} disabled={disabled} value={row.gst_percent ?? ""} onChange={(e) => onNumericInput(i, "gst_percent", e.target.value)} />
-                      </td>
-                      <td className="ep-cell">
-                        <input className="input" type="number" step="any" min={0} disabled={disabled} value={row.other_duties ?? ""} onChange={(e) => onNumericInput(i, "other_duties", e.target.value)} />
+                        <input
+                          className={`input${fieldErrors[`${i}:unit_price`] ? " invalid" : ""}`}
+                          type="number"
+                          step="any"
+                          min={0}
+                          disabled={disabled}
+                          value={row.unit_price ?? ""}
+                          onChange={(e) => {
+                            onNumericInput(i, "unit_price", e.target.value);
+                            if (fieldErrors[`${i}:unit_price`]) checkUnitPrice(i, e.target.value);
+                          }}
+                          onBlur={(e) => checkUnitPrice(i, e.target.value)}
+                        />
+                        <FieldError errors={fieldErrors} name={`${i}:unit_price`} />
                       </td>
                       <td className="ep-cell">
                         <input
-                          className="input"
+                          className={`input${fieldErrors[`${i}:gst_percent`] ? " invalid" : ""}`}
+                          type="number"
+                          step="any"
+                          min={0}
+                          disabled={disabled}
+                          value={row.gst_percent ?? ""}
+                          onChange={(e) => {
+                            const v = clampDigits(e.target.value);
+                            onNumericInput(i, "gst_percent", v);
+                            if (fieldErrors[`${i}:gst_percent`]) checkGst(i, v);
+                          }}
+                          onBlur={(e) => checkGst(i, e.target.value)}
+                        />
+                        <FieldError errors={fieldErrors} name={`${i}:gst_percent`} />
+                      </td>
+                      <td className="ep-cell">
+                        <input
+                          className={`input${fieldErrors[`${i}:other_duties`] ? " invalid" : ""}`}
+                          type="number"
+                          step="any"
+                          min={0}
+                          disabled={disabled}
+                          value={row.other_duties ?? ""}
+                          onChange={(e) => {
+                            onNumericInput(i, "other_duties", e.target.value);
+                            if (fieldErrors[`${i}:other_duties`]) checkOtherDuties(i, e.target.value);
+                          }}
+                          onBlur={(e) => checkOtherDuties(i, e.target.value)}
+                        />
+                        <FieldError errors={fieldErrors} name={`${i}:other_duties`} />
+                      </td>
+                      <td className="ep-cell">
+                        <input
+                          className={`input${fieldErrors[`${i}:delivery_lead_days`] ? " invalid" : ""}`}
                           type="number"
                           step="any"
                           min={0}
                           disabled={disabled}
                           value={row.delivery_lead_days ?? ""}
-                          onChange={(e) => onNumericInput(i, "delivery_lead_days", e.target.value)}
+                          onChange={(e) => {
+                            onNumericInput(i, "delivery_lead_days", e.target.value);
+                            if (fieldErrors[`${i}:delivery_lead_days`]) checkLeadTime(i, e.target.value);
+                          }}
+                          onBlur={(e) => checkLeadTime(i, e.target.value)}
                         />
+                        <FieldError errors={fieldErrors} name={`${i}:delivery_lead_days`} />
                       </td>
                       <td className="ep-cell">
                         <input
-                          className="input"
+                          className={`input${fieldErrors[`${i}:quote_validity_days`] ? " invalid" : ""}`}
                           type="number"
                           step="any"
                           min={0}
                           disabled={disabled}
                           value={row.quote_validity_days ?? ""}
-                          onChange={(e) => onNumericInput(i, "quote_validity_days", e.target.value)}
+                          onChange={(e) => {
+                            onNumericInput(i, "quote_validity_days", e.target.value);
+                            if (fieldErrors[`${i}:quote_validity_days`]) checkValidity(i, e.target.value);
+                          }}
+                          onBlur={(e) => checkValidity(i, e.target.value)}
                         />
+                        <FieldError errors={fieldErrors} name={`${i}:quote_validity_days`} />
                       </td>
                       <td className="ep-cell">
                         <input className="input" type="text" disabled={disabled} value={row.payment_terms || ""} onChange={(e) => onTextInput(i, "payment_terms", e.target.value)} />

@@ -37,7 +37,7 @@ export function DocsPane({
       <div className="ep-pane-head">
         <span>KYC &amp; Statutory Documents</span>
       </div>
-      <table className="ep-table">
+      <table className="ep-table kyc-docs-table">
         <thead>
           <tr>
             {["Document", "File", "Uploaded", "Valid till", "Verification", ""].map((h) => (
@@ -126,14 +126,16 @@ export function DocsPane({
                   )}
                 </td>
                 <td className="ep-cell text-center">
-                  {d.status !== "verified" && d.status !== "rejected" && (
-                    <button className="ep-b" data-v="p" disabled={!viewed} onClick={() => onVerify(d.id)}>
-                      Verify
+                  <div className="d-flex items-center justify-center gap-6px flex-wrap">
+                    {d.status !== "verified" && d.status !== "rejected" && (
+                      <button className="ep-b" data-v="p" disabled={!viewed} onClick={() => onVerify(d.id)}>
+                        Verify
+                      </button>
+                    )}
+                    <button className="ep-b" disabled={!viewed || d.status === "rejected"} onClick={() => onReject(d.id)}>
+                      Reject
                     </button>
-                  )}{" "}
-                  <button className="ep-b" disabled={!viewed || d.status === "rejected"} onClick={() => onReject(d.id)}>
-                    Reject
-                  </button>
+                  </div>
                   {!viewed && <div className="ep-sub">View before deciding</div>}
                 </td>
               </tr>

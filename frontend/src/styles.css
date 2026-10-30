@@ -308,6 +308,22 @@ body:has(#sidebar:not([hidden])) .ep-content:has(#view-audit:not([hidden])) { ma
    "Deactivate" text buttons did -- shrunk from 17%, handed to the Product
    column above instead of leaving it stretched empty. */
 .catalog-product-table th:nth-child(7) { width: 7%; }
+/* KYC & Statutory Documents (2026-10-30, user-reported): without a fixed
+   layout, the browser auto-sizes every column from its content on every
+   row -- a document label, or a long rejection reason inside Verification
+   (already clipped to maxw-140px for display, but the auto-layout
+   algorithm still used its underlying content to size the column), pushed
+   the Document/Verification columns wide and squeezed Uploaded/Valid till
+   down to where their dates wrapped onto two lines. Same fixed-percentage
+   approach as .catalog-product-table above, scoped to this one table. */
+.kyc-docs-table { table-layout: fixed; }
+.kyc-docs-table .ep-cell { overflow-wrap: break-word; }
+.kyc-docs-table th:nth-child(1) { width: 20%; } /* Document */
+.kyc-docs-table th:nth-child(2) { width: 22%; } /* File */
+.kyc-docs-table th:nth-child(3) { width: 11%; } /* Uploaded */
+.kyc-docs-table th:nth-child(4) { width: 15%; } /* Valid till */
+.kyc-docs-table th:nth-child(5) { width: 16%; } /* Verification */
+.kyc-docs-table th:nth-child(6) { width: 16%; } /* Verify/Reject */
 .ep-table tbody tr:hover .ep-cell { background: var(--ink-03); }
 .ep-table tr:last-child .ep-cell { border-bottom: 0; }
 

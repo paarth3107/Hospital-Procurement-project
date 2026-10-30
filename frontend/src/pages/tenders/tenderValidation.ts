@@ -17,6 +17,14 @@ export function percentRangeError(value: string): string | null {
 // own submit-time gate is what actually requires qty > 0), same
 // "blank isn't this validator's job" rule as percentRangeError.
 export function qtyError(value: string): string | null {
+  return positiveError(value);
+}
+
+// Same "> 0" rule as qtyError, under a name that reads right for a non-qty
+// field (2026-10-30, user-directed: bid preparation's Unit Price/Quote
+// Validity need this exact rule -- "Must be greater than 0" doesn't read
+// oddly here the way importing "qtyError" for a price field would).
+export function positiveError(value: string): string | null {
   if (value.trim() === "") return null;
   const n = Number(value);
   if (Number.isNaN(n)) return null;
